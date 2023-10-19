@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="m.cmp.appManager.repository.SampleMapper">
+
+    <!--
+    ** [SAMPLE] **
+
+    <select id="selectSample" parameterType="String" resultType="SampleDTO">
+        SELECT * FROM sample WHERE sampleyName = #{sampleyName}
+    </select>
+
+    <insert id="createSample" parameterType="SampleDTO">
+        INSERT INTO sample
+        (sampleName, createAt)
+        VALUES(#{sampleName}, #{createAt})
+    </insert>
+
+    <update id="updateSample" parameterType="SampleDTO">
+        UPDATE sample
+        SET sampleName = #{sampleName}
+        WHERE id = #{id};
+    </update>
+
+    <delete id="deleteSample" parameterType="Integer">
+        delete from sample where id = #{id};
+    </delete>
+    -->
+</mapper>

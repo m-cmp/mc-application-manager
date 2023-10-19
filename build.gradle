@@ -1,0 +1,41 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '2.7.8'
+    id 'io.spring.dependency-management' version '1.0.15.RELEASE'
+}
+
+group = 'm.cmp'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+    mavenCentral()
+}
+dependencies {
+//    spring actuator
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+//    spring web mvc
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+//    Jeager lib
+    implementation 'io.opentracing.contrib:opentracing-spring-jaeger-web-starter:3.3.1'
+    implementation 'io.opentracing.contrib:opentracing-spring-cloud-starter:0.5.9'
+
+//    spring docs swagger3.0
+    implementation 'org.springdoc:springdoc-openapi-ui:1.6.14'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:2.3.0'
+implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4:1.16'
+runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+
+    
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+
+}
+
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
