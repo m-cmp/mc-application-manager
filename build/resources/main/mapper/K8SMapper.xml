@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="m.cmp.appManager.k8s.mapper.K8SMapper">
+
+    <sql id="sqlSelectK8S">
+		SELECT 
+			  k8s_id
+  			, k8s_name
+  			, provider_cd
+		    , k8s_desc
+		    , content
+		    , argocd_url
+		    , argocd_username
+		    , argocd_password
+		    , argocd_token
+		    , reg_id
+		    , reg_name
+		    , reg_date
+		    , mod_id
+		    , mod_name
+		    , mod_date
+        FROM  k8s
+	</sql>
+
+    <select id="selectK8SCount" resultType="Map" parameterType="Map">
+		/*K8SMapper.selectK8SCount*/
+		SELECT 
+		     c.provider_cd  as providerCd
+		    ,IF(k.cnt IS NULL, 0, k.cnt) AS cnt
+		FROM
+		    (
+		    SELECT common_cd AS provider_cd
+		      FROM common_code pc
+		     WHERE  common_group_cd = 'PROVIDER'
+		    ) c
+		    LEFT OUTER JOIN 
+		    (
+		        SELECT provider_cd, count(*) AS cnt
+		        FROM   k8s cks
+		        GROUP BY provider_cd
+		    ) k ON c.provider_cd = k.provider_cd
+		<where>
+			<if test='providerCd != null and providerCd != ""'>
+				AND c.provider_cd = #{providerCd}
+			</if>
+		</where>
+		ORDER BY c.provider_cd 
+
+    </select>
+    
+    <select id="selectK8SList" resultType="K8SConfig" parameterType="Map">
+		/* K8SMapper.selectK8SList */
+		SELECT 
+			  k8s_id
+  			, k8s_name
+  			, provider_cd
+		    , k8s_desc
+		    , argocd_url
+		    , argocd_username
+		    , reg_id
+		    , reg_name
+		    , reg_date
+		    , mod_id
+		    , mod_name
+		    , mod_date
+        FROM  k8s
+		<where>
+			<if test='providerCd != null and providerCd != ""'>
+				AND provider_cd = #{providerCd}
+			</if>
+		</where>
+    </select>
+
+    <select id="selectK8S" resultType="K8SConfig" parameterType="int">
+		/*K8SMapper.selectK8S*/
+		<include refid="sqlSelectK8S" />
+		WHERE  k8s_id = #{k8sId}
+    </select>
+
+    <insert id="insertK8S" useGeneratedKeys="true" keyProperty="k8sId" parameterType="K8SConfig">
+		INSERT INTO k8s ( 
+			  k8s_name
+		    , provider_cd			 
+		    , k8s_desc
+		    , content
+		    , argocd_url
+		    , argocd_username
+		    , argocd_password
+		    , argocd_token
+		    , reg_id
+		    , reg_name
+		    , reg_date
+		    , mod_id
+		    , mod_name
+		    , mod_date)
+		VALUES(
+			  #{k8sName}
+			, #{providerCd}	
+			, #{k8sDesc}
+			, #{content}
+			, #{argocdUrl}
+			, #{argocdUsername}
+			, #{argocdPassword}
+			, #{argocdToken}
+			, #{regId}
+			, #{regName}
+			, now()
+			, #{regId}
+			, #{regName}
+			, now()
+		) 
+    </insert>
+
+	<update id="updateK8S" parameterType="K8SConfig">
+		UPDATE k8s
+		SET
+			k8s_name = #{k8sName}
+			, k8s_desc = #{k8sDesc}
+			, content = #{content}
+			, argocd_url = #{argocdUrl}
+			, argocd_username = #{argocdUsername}
+			, argocd_password = #{argocdPassword}
+			, argocd_token = #{argocdToken}
+			, mod_id = #{modId}
+			, mod_name = #{modName}
+			, mod_date = now()
+		WHERE k8s_id = #{k8sId}
+	</update>
+	
+    <delete id="deleteK8S" parameterType="int">
+        DELETE FROM k8s WHERE k8s_id = #{k8sId}
+    </delete>
+
+    <select id="isNameDuplicate" resultType="int" parameterType="String">
+        SELECT count(*) as cnt
+		FROM k8s
+		WHERE k8s_name = #{k8sName}
+    </select>
+
+    <select id="selectArgoCd" resultType="ArgoCdConfig" parameterType="int">
+		SELECT 
+		      argocd_url
+		    , argocd_username
+		    , argocd_password
+		    , argocd_token
+        FROM  k8s
+       WHERE  k8s_id = #{k8sId}
+    </select>
+
+</mapper>

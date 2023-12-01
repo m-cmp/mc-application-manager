@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="m.cmp.appManager.catalog.mapper.CatalogDeployMapper">
+    <sql id="selectCatalogDeployQuery_SELECT">
+        SELECT  cat.catalog_deploy_id
+               ,cat.k8s_id
+               ,k8s.k8s_name
+               ,k8s.provider_cd
+               ,cat.nexus_id
+               ,cat.catalog_name
+               ,cat.catalog_version
+               ,cat.deploy_name
+               ,cat.catalog_type_cd
+               ,cat.catalog_deploy_yaml
+               ,cat.reg_id
+               ,cat.reg_name
+               ,cat.reg_date
+               ,cat.mod_id
+               ,cat.mod_name
+               ,cat.mod_date    
+    </sql>
+    
+    <sql id="selectCatalogDeployQuery_FROM">
+          FROM catalog_deploy cat
+         INNER JOIN k8s k8s 
+            ON cat.k8s_id = k8s.k8s_id 
+    </sql>
+    
+    <select id="selectCatalogDeployList" parameterType="CatalogDeploy" resultType="CatalogDeploy">
+        /* CatalogDeployMapper.selectCatalogDeployList */
+        <include refid="selectCatalogDeployQuery_SELECT"/>
+               ,COUNT(*) OVER () AS totalCount
+        <include refid="selectCatalogDeployQuery_FROM"/>
+        <where>
+            <if test="catalogName != null">
+           AND cat.catalog_name = #{catalogName}
+            </if>
+        </where>
+         ORDER BY cat.reg_date DESC
+    </select>
+    
+    <select id="selectCatalogDeploy" parameterType="int" resultType="CatalogDeploy">
+        /* CatalogDeployMapper.selectCatalogDeploy */
+        <include refid="selectCatalogDeployQuery_SELECT"/>
+        <include refid="selectCatalogDeployQuery_FROM"/>
+         WHERE cat.catalog_deploy_id = #{catalogDeployId}
+    </select>
+    
+    <select id="isCatalogDeployNameDuplicated" parameterType="Map" resultType="boolean">
+        /* CatalogDeployMapper.isCatalogDeployNameDuplicated */
+        SELECT (CASE WHEN COUNT(*) > 0 THEN true ELSE false END) AS duplicated
+          FROM catalog_deploy
+         WHERE k8s_id      = #{k8sId}
+           AND deploy_name = #{deployName}
+    </select>
+    
+    <select id="selectCatalogDeployByCatalogName" parameterType="CatalogDeploy" resultType="CatalogDeploy">
+        /* CatalogDeployMapper.selectCatalogDeployByCatalogName */
+        <include refid="selectCatalogDeployQuery_SELECT"/>
+        <include refid="selectCatalogDeployQuery_FROM"/>
+         WHERE cat.catalog_name    = #{catalogName}
+        <if test="catalogVersion != null">
+           AND cat.catalog_version = #{catalogVersion}
+        </if>
+        <if test="catalogDeployId != null">
+           AND cat.catalog_deploy_id != #{catalogDeployId}
+        </if>
+    </select>
+    
+    <insert id="insertCatalogDeploy" parameterType="CatalogDeploy" useGeneratedKeys="true" keyColumn="catalog_deploy_id" keyProperty="catalogDeployId">
+        /* CatalogDeployMapper.insertCatalogDeploy */
+        INSERT INTO catalog_deploy (
+                 k8s_id
+                ,nexus_id
+                ,catalog_name
+                ,catalog_version
+                ,deploy_name
+                ,catalog_type_cd
+                ,catalog_deploy_yaml
+                ,reg_id
+                ,reg_name
+                ,reg_date
+        ) VALUES (
+                 #{k8sId}
+                ,#{nexusId}
+                ,#{catalogName}
+                ,#{catalogVersion}
+                ,#{deployName}
+                ,#{catalogTypeCd}
+                ,#{catalogDeployYaml}
+                ,#{regId}
+                ,#{regName}
+                ,NOW()
+        )
+    </insert>
+    
+    <update id="updateCatalogDeploy" parameterType="CatalogDeploy">
+        /* CatalogDeployMapper.updateCatalogDeploy */
+        UPDATE catalog_deploy
+           SET  mod_id              = #{modId}
+               ,mod_name            = #{modName}
+               ,mod_date            = NOW()
+               ,catalog_deploy_yaml = #{catalogDeployYaml}
+         WHERE catalog_deploy_id    = #{catalogDeployId}
+    </update>
+    
+    <delete id="deleteCatalogDeploy" parameterType="int">
+        /* CatalogDeployMapper.deleteCatalogDeploy */
+        DELETE FROM catalog_deploy
+         WHERE catalog_deploy_id = #{catalogDeployId}
+    </delete>
+    
+    <select id="selectCatalogDeployHistoryList" parameterType="int" resultType="CatalogDeployHistory">
+        /* CatalogDeployMapper.selectCatalogDeployHistoryList */
+        SELECT  catalog_deploy_history_id
+               ,catalog_deploy_id
+               ,catalog_deploy_yaml
+               ,deploy_result
+               ,deploy_desc
+               ,deploy_user_id
+               ,deploy_user_name
+               ,deploy_date
+               ,ROW_NUMBER() OVER(ORDER BY catalog_deploy_history_id) AS rownum
+          FROM catalog_deploy_history
+         WHERE catalog_deploy_id = #{catalogDeployId}
+         ORDER BY catalog_deploy_history_id DESC
+    </select>
+    
+    <insert id="insertCatalogDeployHistory" parameterType="CatalogDeployHistory" useGeneratedKeys="true" keyColumn="catalog_deploy_history_id" keyProperty="catalogDeployHistoryId">
+        /* CatalogDeployMapper.insertCatalogDeployHistory */
+        INSERT INTO catalog_deploy_history ( 
+                 catalog_deploy_id
+                ,catalog_deploy_yaml
+                ,deploy_user_id
+                ,deploy_user_name
+                ,deploy_date
+        ) VALUES (
+                 #{catalogDeployId}
+                ,#{catalogDeployYaml}
+                ,#{deployUserId}
+                ,#{deployUserName}
+                ,NOW()
+        )
+    </insert>
+    
+    <update id="updateCatalogDeployHistory" parameterType="CatalogDeployHistory">
+        /* CatalogDeployMapper.updateCatalogDeployHistory */
+        UPDATE catalog_deploy_history
+           SET  deploy_result = #{deployResult}
+               ,deploy_desc   = #{deployDesc}
+         WHERE catalog_deploy_history_id = #{catalogDeployHistoryId}
+    </update>
+    
+    <delete id="deleteCatalogDeployHistory" parameterType="int">
+        /* CatalogDeployMapper.deleteCatalogDeployHistory */
+        DELETE FROM catalog_deploy_history
+         WHERE catalog_deploy_id = #{catalogDeployId}
+    </delete>
+</mapper>

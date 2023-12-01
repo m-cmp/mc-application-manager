@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="m.cmp.appManager.oss.mapper.OssMapper">
+
+	<sql id="sqlSelectOss">
+		SELECT
+		    oss_id
+		    , oss_cd
+		    , oss_name
+		    , oss_desc
+		    , oss_url
+		    , oss_username
+		    , oss_password
+		    , oss_token
+		    , reg_id
+		    , reg_name
+		    , reg_date
+		    , mod_id
+		    , mod_name
+		    , mod_date
+		FROM oss
+	</sql>
+
+    <select id="selectOssList" resultType="Oss" parameterType="Map">
+		/* OssMapper.selectOssList */
+    	<include refid="sqlSelectOss" />
+		<where>
+			<if test='ossCd != null and ossCd != ""'>
+				AND (oss_cd = #{ossCd}
+				 OR oss_cd IN (SELECT common_cd FROM common_code WHERE common_group_cd = 'OSS' AND code_desc = #{ossCd}))
+			</if>
+		</where>
+    </select>
+
+    <select id="selectOss" resultType="Oss" parameterType="int">
+		/* OssMapper.selectOss */
+    	<include refid="sqlSelectOss" /> 
+		WHERE oss_id = #{ossId}
+    </select>
+    
+	<select id="isOssInfoDuplicated" parameterType="Oss" resultType="boolean">
+		/* OssMapper.isOssInfoDuplicated */
+        SELECT (CASE WHEN COUNT(*) > 0 THEN true ELSE false END) AS duplicated
+          FROM oss
+         WHERE oss_name   = #{ossName}
+           AND SUBSTRING_INDEX(SUBSTRING_INDEX(oss_url, '/', 3), '//', -1) = SUBSTRING_INDEX(SUBSTRING_INDEX(#{ossUrl}, '/', 3), '//', -1)
+           AND oss_username = #{ossUsername}
+	</select>
+
+	<insert id="insertOss" useGeneratedKeys="true" keyProperty="ossId" parameterType="Oss">
+		/* OssMapper.insertOss */
+		INSERT INTO oss (
+		      oss_cd
+		    , oss_name
+		    , oss_desc
+		    , oss_url
+		    , oss_username
+		    , oss_password
+		    , oss_token
+		    , reg_id
+		    , reg_name
+		    , reg_date
+		) VALUES (
+		      #{ossCd}
+			, #{ossName}
+			, #{ossDesc}
+			, #{ossUrl}
+			, #{ossUsername}
+			, #{ossPassword}
+			, #{ossToken}
+			, #{regId}
+			, #{regName}
+			, now()
+		)
+	</insert>
+
+	<update id="updateOss" parameterType="Oss">
+		/* OssMapper.updateOss */
+		UPDATE oss
+		SET
+		      oss_name = #{ossName}
+		    , oss_desc = #{ossDesc}
+		    , oss_url = #{ossUrl}
+		    , oss_username = #{ossUsername}
+		    , oss_password = #{ossPassword}
+		    , oss_token = #{ossToken}
+		    , mod_id = #{modId}
+		    , mod_name = #{modName}
+		    , mod_date = now()
+		WHERE
+		    oss_id = #{ossId}
+	</update>
+
+	<delete id="deleteOss" parameterType="int">
+		/* OssMapper.deleteOss */
+		DELETE FROM oss WHERE oss_id = #{ossId}
+	</delete>    
+</mapper>    

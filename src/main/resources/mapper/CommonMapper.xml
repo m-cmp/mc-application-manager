@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="m.cmp.appManager.common.mapper.CommonMapper">
+
+	<select id="selectCommonCodeList" parameterType="String" resultType="CommonCode">
+		/* CommonMapper.selectCommonCodeList */
+		SELECT
+		    common_group_cd
+		    , common_cd
+		    , code_order
+		    , code_name
+		    , code_desc
+		    , protected_yn
+		FROM common_code
+		WHERE common_group_cd = #{commonGroupCd}
+		ORDER BY code_order
+	</select>
+	
+	<select id="selectCommonCode" parameterType="Map" resultType="CommonCode">
+		/* CommonMapper.selectCommonCode */
+		SELECT  common_group_cd
+		       ,common_cd
+		       ,code_order
+		       ,code_name
+		       ,code_desc
+		       ,protected_yn
+		  FROM common_code
+		 WHERE common_group_cd = #{commonGroupCd}
+		   AND common_cd       = #{commonCd}  
+	</select>
+	
+	<insert id="insertCommonCode" parameterType="CommonCode">
+		/* CommonMapper.insertCommonCode */
+		INSERT INTO common_code (
+				 common_group_cd
+				,common_cd
+				,code_order
+				,code_name
+				,code_desc
+		        ,protected_yn
+				,reg_id
+				,reg_name
+				,reg_date
+		) 
+		SELECT  common_group_cd
+		       ,#{commonCd}  
+		       ,(MAX(code_order) + 1)
+		       ,#{codeName}  
+		       ,#{codeDesc}
+		       ,#{protectedYn}
+			   ,#{regId}
+			   ,#{regName}
+			   ,NOW()
+		  FROM common_code
+		 WHERE common_group_cd = #{commonGroupCd}
+		 GROUP BY common_group_cd
+	</insert>
+	
+	<insert id="deleteCommonCode" parameterType="Map">
+		/* CommonMapper.deleteCommonCode */
+		DELETE FROM common_code
+		 WHERE common_group_cd = #{commonGroupCd}
+		   AND common_cd       = #{commonCd}  
+		   AND protected_yn    = 'N'
+	</insert>
+</mapper>
