@@ -17,8 +17,12 @@ dependencies {
 //    spring web mvc
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    implementation 'io.github.cdancy:jenkins-rest:1.0.1:all'
+
 //    spring docs swagger3.0
-    implementation 'org.springdoc:springdoc-openapi-ui:1.6.14'
+    implementation 'org.springdoc:springdoc-openapi-ui:1.6.9'
 
     // lombok
 	compileOnly 'org.projectlombok:lombok'
@@ -43,7 +47,10 @@ dependencies {
     implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4:1.16'
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
 
-    
+    implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.45.1.0'
+
+    implementation platform("org.springframework.cloud:spring-cloud-dependencies:2021.0.5")
+    implementation "org.springframework.cloud:spring-cloud-starter-openfeign"
 
 }
 

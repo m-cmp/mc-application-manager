@@ -19,10 +19,10 @@ spring:
   #     max-lifetime: 250 
   datasource:
     hikari:
-      username: root
-      password: roqkftpsxj12#$
-      driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
-      jdbc-url:  jdbc:mariadb://10.10.30.28:13306/m-cmp?characterEncoding=UTF-8&serverTimezone=UTC&autoReconnect=true&useSSL=false
+      username: ${DB_ID:root}
+      password: ${DB_PW:roqkftpsxj12#$}
+      driver-class-name: ${DB_DRIVER:org.sqlite.JDBC} #net.sf.log4jdbc.sql.jdbcapi.DriverSpy
+      jdbc-url:  ${DB:sqlite:m-cmp.db}
       idle-timeout: 250
       max-lifetime: 250
 
@@ -55,4 +55,8 @@ aes:
   key: fb1755281b0ca6184a0ee644e6477ee7
 
 
-
+gitlab:
+  deploy:
+    yaml:
+      path: m-cmp/k8s
+      filename: deploy.yaml

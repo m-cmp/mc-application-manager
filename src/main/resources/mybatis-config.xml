@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<configuration>
+    <settings>
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+        <setting name="callSettersOnNulls" value="true"/>
+        <setting name="jdbcTypeForNull" value="NULL"/>
+    </settings>
+
+	<typeAliases>
+		<typeAlias alias="CommonCode" type="m.cmp.appManager.common.model.CommonCode"/>
+		<!-- typeAliases 를 package로 등록할 경우 해당 패키지 이하의 클래스가 등록된다-->
+		<package name="m.cmp.appManager.argocd.model"/>
+		<package name="m.cmp.appManager.catalog.model"/>
+		<package name="m.cmp.appManager.deploy.model"/>
+		<package name="m.cmp.appManager.jenkins.pipeline.model"/>
+		<package name="m.cmp.appManager.k8s.model"/>
+		<package name="m.cmp.appManager.oss.model"/>
+		<package name="m.cmp.appManager.workflow.model"/>
+    </typeAliases>
+</configuration>
