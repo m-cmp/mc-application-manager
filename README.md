@@ -8,7 +8,9 @@ A sub-system of [M-CMP platform](https://github.com/m-cmp/docs/tree/main) to dep
 
 M-CMP의 mc-application-manager 서브시스템이 제공하는 기능은 다음과 같다.
 
+- 애플리케이션 카탈로그 등록 및 내/외부 환경에서의 키워드검색
 - 멀티 클라우드 인프라에 애플리케이션 배포 기능
+- workflow-manager를 연동한 배포 외 기타 기능
 
 
 ## 목차
@@ -28,14 +30,8 @@ M-CMP의 mc-application-manager 서브시스템이 제공하는 기능은 다음
 - Linux OS (Ubuntu 22.04 LTS)
 - Java (Openjdk 11)
 - Gradle (v7.6)
-- MariaDB (v10.11.5)
-- Jenkins (v2.424)
 - docker (v24.0.2)
-- Helm (v3.12.3)
-- git (v2.34.1)
-- gitlab (v16.1)
 - nexus (v3.61.0)
-- argoCd (v2.4.11)
 ---
 
 ---
@@ -58,12 +54,11 @@ M-CMP의 mc-application-manager 서브시스템이 제공하는 기능은 다음
 ### (1) 방화벽 TCP 포트 허용 설정
 
 - 80, 443
-- 3306 (MariaDB)
-- 9800 (Jenkins)
+- 3306 (MariaDB) -> H2로 전환
 - 18084 (application)
 - 18082 (GitLab)
 - 8081 (Nexus)
-- 30816 (ArgoCD)
+- 30816 (ArgoCD) -> 대체 준비
 
 ### (2) 소스 다운로드
 
@@ -93,8 +88,9 @@ M-CMP의 mc-application-manager 서브시스템이 제공하는 기능은 다음
 
   ```
 - 배포될 클라우드 인프라에 Kubernetes 환경 필요. ( Kubernetes 환경이 구축되어 있어야 도구를 설치 할 수 있음. )
+- 0.2.0이후 업데이트에서는 컨테이너를 활용한 기타 방법 활용
 
-- Helm 설치
+- Helm 설치 -> 추후 컨테이너를 활용하는 방향으로 미설치로 전환 예정
   ```bash
   	curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
 	chmod 700 get_helm.sh
@@ -122,18 +118,6 @@ M-CMP의 mc-application-manager 서브시스템이 제공하는 기능은 다음
       --nexus.nexusPort 8081
   ```
 
-- ArgoCD 설치
-   ```bash
-	helm repo add argo https://argoproj.github.io/argo-helm
-  	helm repo update
-  	helm install argocd argo/argo-cd \
-	  --create-namespace \
-	  --namespace argocd \
-	  --global.image.tag=2.4.11 \
-  	  --set server.service.type=NodePort \
-  	  --set server.service.nodePortHttp=30816
-   ```
-
 
 ### (4) 빌드 및 실행
 
@@ -156,12 +140,8 @@ M-CMP의 mc-application-manager 서브시스템이 제공하는 기능은 다음
 
 - Swagger 접속
   - http://Public_IP주소:18085/swagger-ui/index.html
-- Jenkins 접속
-  - http://Public_IP주소:9800
 - GitLab 접속
   - http://Public_IP주소:18082
-- argoCd 접속
-  - http://Public_IP주소:30816
 - nexus 접속
   - http://Public_IP주소:8081
   
