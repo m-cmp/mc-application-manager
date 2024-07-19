@@ -1,7 +1,7 @@
 server:
   port: 18084
 config:
-  config-string: workflow,manager,m-cmp
+  config-string: application,manager,m-cmp
 spring:
   mvc:
     pathmatch:
@@ -24,6 +24,7 @@ spring:
         web-allow-others: true # 원격연결(배포 후 외부에서) 허용
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
+    #defer-datasopurce-initalization: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
@@ -41,7 +42,10 @@ spring:
   #          import_files_sql_extractor: org.hibernate.tool.hbm2ddl.MultipleLinesSqlCommandExtractor # 멀티 라인 입력 가능하도록
   #        connection:
   #          charSet: UTF-8 # 인코딩 설정
-
+  sql:
+    init:
+      #data-locations: classpath:init.sql
+      #schema-locations: classpath:ddl.sql
 
   servlet:
     multipart:

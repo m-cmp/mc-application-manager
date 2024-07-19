@@ -1,2 +1,2 @@
-rootProject.name = "workflow_manager"
+rootProject.name = "application_manager"
 

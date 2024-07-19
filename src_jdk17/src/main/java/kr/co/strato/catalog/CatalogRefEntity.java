@@ -22,7 +22,7 @@ public class CatalogRefEntity {
     private Integer catalogId;
 
     @Column(columnDefinition="INT DEFAULT 0 NOT NULL", name="REF_IDX")
-    private String refIdx;
+    private Integer refIdx;
 
     @Column(columnDefinition="VARCHAR(200) DEFAULT '' NOT NULL", name="REF_VALUE")
     private String refUrl;
@@ -35,5 +35,15 @@ public class CatalogRefEntity {
 
     @Column(columnDefinition="VARCHAR(10) DEFAULT ''", name="REF_TYPE")
     private String refType;
+
+/*
+    INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
+    VALUES
+        ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'https://tomcat.apache.org/', '', 'HOMEPAGE'),
+        ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'https://redis.io/', '', 'HOMEPAGE'),
+        ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'https://nginx.org/en/', '', 'HOMEPAGE')
+
+*/
+
 
 }
