@@ -12,6 +12,8 @@ v0.2.0(2024.08)
 - 애플리케이션 카탈로그 등록 및 내/외부(artifactHub, dockerHub등) 환경에서의 키워드검색
 - workflow-manager를 연동한 멀티 클라우드 인프라에 애플리케이션 배포 기능(to VM)
 - workflow-manager를 연동한 배포 외 기타 기능
+
+
 v.0.3.0(2024.10)
 - workflow-manager를 연동한 멀티 클라우드 인프라에 애플리케이션 배포 기능(to k8s)
 - k8s에 배포 시 필요한 일부 yaml generate 기능(deployment, service, pod, configmap 등)
