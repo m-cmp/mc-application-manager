@@ -1,3 +1,3 @@
-FROM docker.io/library/openjdk:11-jdk-slim
-ENV TZ=Asia/Seoul
-ENTRYPOINT ["java", "-jar", "appManager-v0.0.1.jar"]
+FROM openjdk:17-slim
+COPY ./build/libs/am.jar am.jar
+ENTRYPOINT ["java", "-jar","am.jar"]
