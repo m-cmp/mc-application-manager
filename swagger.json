@@ -43,10 +43,6 @@
             "description": "Swagger Welcome Web Mvc"
         },
         {
-            "name": "basic-error-controller",
-            "description": "Basic Error Controller"
-        },
-        {
             "name": "yaml-generate-controller",
             "description": "Yaml Generate Controller"
         },
