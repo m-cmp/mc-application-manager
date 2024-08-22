@@ -22,7 +22,7 @@ v.0.3.0(2024.10)
 
 ## 목차
 
-1. [mc-application-manager 실행 및 개발 환경]
+1. [mc-application-manager 실행 및 개발 환경] 
 2. [mc-application-manager실행 방법]
 3. [mc-application-manager 소스 빌드 및 실행 방법 상세]
 4. [mc-application-manager 기여 방법]
