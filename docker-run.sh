@@ -1,5 +1,7 @@
 #!/bin/sh
 
+#test
+
 nowdate=$(date '+%Y%m%d%H%M%S')
 
 echo $nowdate
