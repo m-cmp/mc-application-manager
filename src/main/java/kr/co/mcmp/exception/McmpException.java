@@ -1,6 +1,6 @@
 package kr.co.mcmp.exception;
 
-import kr.co.mcmp.api.response.ResponseCode;
+import kr.co.mcmp.response.ResponseCode;
 import lombok.Getter;
 
 @Getter

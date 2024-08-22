@@ -18,11 +18,12 @@ v.0.3.0(2024.10)
 - workflow-manager를 연동한 멀티 클라우드 인프라에 애플리케이션 배포 기능(to k8s)
 - k8s에 배포 시 필요한 일부 yaml generate 기능(deployment, service, pod, configmap 등)
 - repository 관련 제어(nexus 등)
+- 기타
 
 
 ## 목차
 
-1. [mc-application-manager 실행 및 개발 환경]
+1. [mc-application-manager 실행 및 개발 환경] 
 2. [mc-application-manager실행 방법]
 3. [mc-application-manager 소스 빌드 및 실행 방법 상세]
 4. [mc-application-manager 기여 방법]
