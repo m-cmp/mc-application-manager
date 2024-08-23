@@ -2,6 +2,7 @@ package kr.co.mcmp.manifest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import kr.co.mcmp.manifest.k8s.K8SDeployDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,25 +22,25 @@ public class YamlGenerateController {
 
     @Operation(summary = "yaml generate for pod")
     @PostMapping("/pod")
-    public String generatePodYaml(){
+    public String generatePodYaml(K8SDeployDTO k8sDto){
         return null;
     }
 
     @Operation(summary = "yaml generate for deployment")
     @PostMapping("/deployment")
-    public String generateDeploymentYaml(){
+    public String generateDeploymentYaml(K8SDeployDTO k8sDto){
         return null;
     }
 
     @Operation(summary = "yaml generate for service")
     @PostMapping("/service")
-    public String generateServiceYaml(){
+    public String generateServiceYaml(K8SDeployDTO k8sDto){
         return null;
     }
 
     @Operation(summary = "yaml generate for configmap")
     @PostMapping("/configmap")
-    public String generateConfigmapYaml(){
+    public String generateConfigmapYaml(K8SDeployDTO k8sDto){
         return null;
     }
 

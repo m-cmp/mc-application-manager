@@ -1,0 +1,85 @@
+# temp docker-compose
+networks:
+  internal_network:
+    internal: true
+  external_network:
+    driver: bridge
+
+  # jenkins - for workflow manager
+  jenkins:
+    image: jenkins/jenkins:jdk17
+    container_name: jenkins
+    platform: linux/amd64
+    networks:
+      - internal_network
+      - external_network
+    ports:
+      - target: 8080
+        published: 9800
+        protocol: tcp
+    volumes:
+      - ~/:/var/jenkins_home # -v $HOME/mcmp/oss/jenkins:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker # -v $(which docker):/usr/bin/docker
+    environment:
+      - PROJECT=mcmp
+    healthcheck: # for application-manager
+      test: [ "CMD", "curl", "-f", "http://localhost:1024/catalog/software" ]
+      interval: 1m
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # sonatype nexus - for application manager
+  sonatype-nexus:
+    image: sonatype/nexus3:latest
+    container_name: nexus-repository
+    platform: linux/amd64
+    networks:
+      - internal_network
+      - external_network
+    ports:
+      - target: 8081
+        published: 8081
+        protocol: tcp
+      - target: 5000 # container-repository
+        published: 5000
+        protocol: tcp
+    volumes:
+      - ~/:/nexus-data/blobs/
+    environment:
+      - PROJECT=mcmp
+    healthcheck: # for application-manager
+      test: [ "CMD", "curl", "-f", "http://localhost:1024/catalog/software" ]
+      interval: 1m
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # application-manager
+  mc-application-manager:
+    image: pbccc/devops:0.2.5
+    container_name: cb-mapui
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    networks:
+      - external_network
+      - external_network
+    ports:
+      - target: 18084
+        published: 18084
+        protocol: tcp
+    volumes:
+    - ~/:/nexus-data/blobs/
+    environment:
+      - DDL_AUTO=create-drop
+      - DB_USER=application
+      - DB_PASS=application!23
+      - SQL_DATA_INIT=always
+    healthcheck: # for cb-application-manager
+      test: ["CMD", "nc", "-vz", "localhost", "1324"]
+      interval: 1m
+      timeout: 5s
+      retries: 3
+      start_period: 10s

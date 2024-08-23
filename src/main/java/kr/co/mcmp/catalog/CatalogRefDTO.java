@@ -9,7 +9,7 @@ public class CatalogRefDTO {
 
     private Integer catalogRefIdx;
     private Integer catalogIdx;
-    private Integer refernectIdx;
+    private Integer referncetIdx;
     private String referenceValue; // ref url, ref value, etc...
     private String referenceDescription;
     private String referenceType; // homepage, manifest, workflow, image, etc...
@@ -17,7 +17,7 @@ public class CatalogRefDTO {
     public CatalogRefDTO(CatalogRefEntity crEntity){
         this.catalogRefIdx = crEntity.getId();
         this.catalogIdx = crEntity.getCatalogId();
-        this.refernectIdx = crEntity.getRefIdx();
+        this.referncetIdx = crEntity.getRefIdx();
         this.referenceValue = crEntity.getRefValue();
         this.referenceDescription = crEntity.getRefDesc();
         this.referenceType = crEntity.getRefType();

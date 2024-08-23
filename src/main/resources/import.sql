@@ -24,24 +24,67 @@ VALUES
 
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'https://tomcat.apache.org/', '', 'HOMEPAGE');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'https://tomcat.apache.org/', '', 'HOMEPAGE'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'apache', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'oss', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'server', '', 'TAG');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'https://redis.io/', '', 'HOMEPAGE');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'https://redis.io/', '', 'HOMEPAGE'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'NoSQL', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'oss', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'inMemoryDB', '', 'TAG');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'https://nginx.org/en/', '', 'HOMEPAGE');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'https://nginx.org/en/', '', 'HOMEPAGE'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'apache', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'oss', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'proxy', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'web', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'frontend', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'server', '', 'TAG');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'https://httpd.apache.org/', '', 'HOMEPAGE');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'https://httpd.apache.org/', '', 'HOMEPAGE'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'web', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'oss', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'frontend', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'webserver', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'httpd', '', 'TAG');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'https://www.sonatype.com/products/sonatype-nexus-repository', '', 'HOMEPAGE');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'https://www.sonatype.com/products/sonatype-nexus-repository', '', 'HOMEPAGE'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'repository', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'oss', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'license', '', 'TAG');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'https://mariadb.org/', '', 'HOMEPAGE');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'https://mariadb.org/', '', 'HOMEPAGE'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'RDBMS', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'oss', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'database', '', 'TAG');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'https://grafana.com/', '', 'HOMEPAGE');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'https://grafana.com/', '', 'HOMEPAGE'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'view', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'observer', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'oss', '', 'TAG');
 
+
+
+-- Insert into oss_type
+INSERT INTO oss_type (oss_type_idx, oss_type_name, oss_type_desc)
+VALUES
+    (1, 'NEXUS', 'init');
+INSERT INTO oss_type (oss_type_idx, oss_type_name, oss_type_desc)
+VALUES
+    (2, 'WORKFLOWMANAGER', 'init');
+
+-- Insert into oss
+INSERT INTO oss (oss_idx, oss_type_idx, oss_name, oss_desc, oss_url, oss_username, oss_password)
+VALUES
+    (1, 1, 'Sample NEXUS', 'Sample Description', 'http://sample.com', 'root', null);
+INSERT INTO oss (oss_idx, oss_type_idx, oss_name, oss_desc, oss_url, oss_username, oss_password)
+VALUES
+    (2, 2, 'Sample WorkflowManager', 'Sample Description', 'http://sample.com', null, null);
 

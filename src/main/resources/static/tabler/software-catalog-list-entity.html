@@ -7,7 +7,7 @@
         <div class="col-auto">
             <img src="{{iconUrl}}" class="rounded" alt="Górą ty" width="40" height="40">
         </div>
-        <div class="col" onclick="$('.sc-catalog-detail').hide();$('#{{detailId}}').is(':hidden')?$('#{{detailId}}').show():$('#{{detailId}}').hide();">
+        <div class="col" onclick="$('#{{index}}').is(':hidden')?$('#{{index}}').show():$('#{{index}}').hide(); setSoftwareCatalogRefrence('{{index}}');">
             {{title}}
             <div class="text-muted">
                 {{summary}}
@@ -36,7 +36,7 @@
 
         </div>
 
-        <div id="{{detailId}}" class="accordion-collapse collapse show sc-catalog-detail" style="display:none;">
+        <div id="{{index}}" class="accordion-collapse collapse show sc-catalog-detail" style="display:none;">
             <div class="accordion-body pt-0">
 
                 <!--a href="{{referenceUrl}}">{{referenceUrl}}</a>
@@ -44,20 +44,19 @@
                 {{description}}
                 <div>
                     <br />
+
                     <strong>연동 workflow</strong>
-                    <ul id="{{detailId}}-workflow-ul">
-                        {{workflowList}}
+                    <ul id="{{index}}-workflow-ul">
                         <!--li>{{workflowTitle}}
                             <svg xmlns="http://www.w3.org/2000/svg" class="icon ms-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 17l6 -6l4 4l8 -8"></path><path d="M14 7l7 0l0 7"></path></svg>
                         </li-->
                     </ul>
                     <br />
-                    <strong>관련 데이터</strong>
-                    <ul id="{{detailId}}-workflow-ul">
-                        <li>관련 데이터가 없습니다.</li>
-                        <!--li>{{workflowTitle}}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="icon ms-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 17l6 -6l4 4l8 -8"></path><path d="M14 7l7 0l0 7"></path></svg>
-                        </li-->
+                    <strong>관련 정보</strong>
+                    <ul id="{{index}}-entity-ul">
+                    </ul>
+                    <strong>TAGS</strong>
+                    <ul id="{{index}}-tag-ul">
                     </ul>
                 </div>
 

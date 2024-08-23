@@ -27,24 +27,22 @@ public class ExternalRepoController {
     @Operation(summary = "dockerHub catalog 조회(image 조회)")
     @GetMapping("/dockerhub/{keyword}")
     public ResponseWrapper<DockerHubCatalog> getDockerHubList(@PathVariable String keyword){
-//        logger.info("testString: {}", keyword);
-//        if(keyword != null) {
-//            return new ResponseWrapper<>(outSvc.searchDockerHubCatalog(keyword));
-//        }else{
-//            return null;
-//        }
-        return null;
+        logger.info("testString: {}", keyword);
+        if(keyword != null) {
+            return new ResponseWrapper<>(outSvc.searchDockerHubCatalog(keyword));
+        }else{
+            return null;
+        }
     }
 
     @Operation(summary = "artifactHub package 목록 조회(helm 조회)")
     @GetMapping("/artifacthub/{keyword}")
     public ResponseWrapper<ArtifactHubPackage> getArtifactHubList(@PathVariable String keyword){
-//        if(keyword != null) {
-//            return new ResponseWrapper<>(outSvc.searchArtifactHubPackage(keyword));
-//        }else{
-//            return null;
-//        }
-        return null;
+        if(keyword != null) {
+            return new ResponseWrapper<>(outSvc.searchArtifactHubPackage(keyword));
+        }else{
+            return null;
+        }
     }
 
 

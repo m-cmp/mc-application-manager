@@ -6,8 +6,9 @@ import kr.co.mcmp.oss.entity.Oss;
 import kr.co.mcmp.oss.nexus.service.NexusService;
 import kr.co.mcmp.oss.repository.OssRepository;
 import kr.co.mcmp.oss.repository.OssTypeRepository;
-import kr.co.mcmp.util.AES256Util;
-import kr.co.mcmp.util.Base64Util;
+import kr.co.mcmp.util.AES256Utils;
+
+import kr.co.mcmp.util.Base64Utils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
@@ -175,6 +176,21 @@ public class OssServiceImpl implements OssService {
 		return OssDto.withDetailDecryptPassword(oss, encodingBase64String(decryptAesString(oss.getOssPassword())));
 	}
 
+	public OssDto detailOssByOssName(String ossName) {
+		Oss oss = ossRepository.findByOssName(ossName);
+		String pwd = oss.getOssPassword();
+		String decodePwd = Base64Utils.base64Decoding(pwd);
+		return OssDto.builder()
+				.ossIdx(oss.getOssIdx())
+				.ossTypeIdx(oss.getOssType().getOssTypeIdx())
+				.ossName(oss.getOssName())
+				.ossDesc(oss.getOssDesc())
+				.ossUrl(oss.getOssUrl())
+				.ossUsername(oss.getOssUsername())
+				.ossPassword(decodePwd)
+				.build();
+	}
+
 //	/**
 //	 * OSS 정보 상세 조회
 //	 * @param ossCd
@@ -204,7 +220,7 @@ public class OssServiceImpl implements OssService {
 	 */
 	public String encryptBase64String(String str) {
 		if ( StringUtils.isNotBlank(str) ) {
-			return Base64Util.base64Encoding(AES256Util.decryptOssPassword(str));
+			return Base64Utils.base64Encoding(AES256Utils.encrypt(str));
 		}
 		else {
 			return null;
@@ -218,7 +234,7 @@ public class OssServiceImpl implements OssService {
 	 */
 	public String encryptAesString(String str) {
 		if ( StringUtils.isNotBlank(str) ) {
-			return AES256Util.encryptOssPassword(Base64Util.base64Decoding(str));
+			return AES256Utils.encrypt(Base64Utils.base64Decoding(str));
 		}
 		else {
 			return null;
@@ -231,7 +247,7 @@ public class OssServiceImpl implements OssService {
 	 */
 	public String encodingBase64String(String str) {
 		if ( StringUtils.isNotBlank(str) ) {
-			return Base64Util.base64Encoding(str);
+			return Base64Utils.base64Encoding(str);
 		}
 		else {
 			return null;
@@ -246,7 +262,7 @@ public class OssServiceImpl implements OssService {
 	public String decryptAesString(String encryptedStr) {
 		if (StringUtils.isNotBlank(encryptedStr)) {
 			// AES256으로 암호화된 문자열을 복호화
-			String decrypted = AES256Util.decryptOssPassword(encryptedStr);
+			String decrypted = AES256Utils.decrypt(encryptedStr);
 			// 복호화된 문자열을 Base64로 인코딩
 			return decrypted;
 		} else {

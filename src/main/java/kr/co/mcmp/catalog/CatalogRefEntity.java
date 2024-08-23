@@ -39,7 +39,7 @@ public class CatalogRefEntity {
 
     public CatalogRefEntity(CatalogRefDTO crDto){
         this.catalogId = crDto.getCatalogIdx();
-        this.refIdx = crDto.getRefernectIdx();
+        this.refIdx = crDto.getReferncetIdx();
         this.refValue = crDto.getReferenceValue();
         this.refDesc = crDto.getReferenceDescription();
         this.refType = crDto.getReferenceType();

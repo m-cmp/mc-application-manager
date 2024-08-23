@@ -1,12 +1,16 @@
 package kr.co.mcmp.oss.dto;
 
 import kr.co.mcmp.oss.entity.OssType;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 
 @Getter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OssTypeDto {
 
     private Long ossTypeIdx;

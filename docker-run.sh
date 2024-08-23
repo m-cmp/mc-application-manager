@@ -1,7 +1,5 @@
 #!/bin/sh
 
-#test
-
 nowdate=$(date '+%Y%m%d%H%M%S')
 
 echo $nowdate
@@ -46,3 +44,5 @@ docker run -d -p 18084:18084 \
 
 echo "docker build image delete"
 docker rmi -f $APP_NAME
+
+   
