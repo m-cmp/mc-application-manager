@@ -59,3 +59,6 @@ spring:
       max-request-size: 500MB
 object:
   object-mapper-pretty-print: true
+
+aes:
+  key: fb1755281b0ca6184a0ee644e6477ee7

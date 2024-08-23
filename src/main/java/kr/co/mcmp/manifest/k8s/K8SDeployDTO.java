@@ -5,12 +5,20 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-public class K8SDeployDTO extends K8SDeployBaseDTO implements Serializable {
+public class K8SDeployDTO extends DeployDTO implements Serializable {
 
 	private static final long serialVersionUID = 5433248174008755823L;
 
 	@NotNull
 	private String namespace = "default";
+
+	private String image;
+	public String getImage() {
+		return image;
+	}
+	public void setImage(String image) {
+		this.image = image;
+	}
 
 	@NotNull
 	private String controller;

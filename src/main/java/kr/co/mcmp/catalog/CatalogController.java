@@ -20,26 +20,25 @@ public class CatalogController {
     @Autowired
     CatalogService catalogService;
 
-    @ApiOperation(value="software catalog list(all)", notes="software catalog 리스트 불러오기")
-    @Operation(summary = "get software catalog list")
-    @GetMapping("/")
-    public List<CatalogDTO> getCatalogList(){
-        return catalogService.getCatalogList();
-    }
-
 //    @ApiOperation(value="software catalog list(all)", notes="software catalog 리스트 불러오기")
 //    @Operation(summary = "get software catalog list")
 //    @GetMapping("/")
-//    public List<CatalogDTO> getCatalogList(@RequestParam String title){
-//        return catalogService.getCatalogList(title);
+//    public List<CatalogDTO> getCatalogList(){
+//        return catalogService.getCatalogList();
 //    }
 
-//    @Operation(summary = "search software catalog")
-//    @ApiOperation(value="software catalog list(keyword search)", notes="software catalog 검색")
-//    @GetMapping("/list/{keyword}")
-//    public List<CatalogDTO> getCatalogList(@PathVariable(required = false) String keyword){
-//        return catalogService.getCatalogListSearch(keyword);
-//    }
+    @ApiOperation(value="software catalog list(all)", notes="software catalog 리스트 불러오기")
+    @Operation(summary = "get software catalog list")
+    @GetMapping("/")
+    public List<CatalogDTO> getCatalogList(@RequestParam String title){
+        if(title != null && title.trim().equals("")){
+            System.out.println("==================================non title search");
+            return catalogService.getCatalogList();
+        }else {
+            System.out.println("==================================" + title);
+            return catalogService.getCatalogListSearch(title);
+        }
+    }
 
     @Operation(summary = "software catalogd detail(and reference)")
     @ApiOperation(value="software catalog detail", notes="software catalog 내용 확인(연결된 정보들까지)")

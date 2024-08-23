@@ -1,30 +1,24 @@
 package kr.co.mcmp.manifest;
 
-//import io.kubernetes.client.common.KubernetesObject;
-//import io.kubernetes.client.custom.IntOrString;
-//import io.kubernetes.client.custom.Quantity;
-//import io.kubernetes.client.openapi.models.*;
-//import io.kubernetes.client.util.Yaml;
-//import kr.co.mcmp.devops.dto.k8s.*;
-//import kr.co.mcmp.devops.model.httpproxy.*;
-//import kr.co.mcmp.devops.model.rollout.BlueGreen;
-//import kr.co.mcmp.devops.model.rollout.Canary;
-//import kr.co.mcmp.devops.model.rollout.Pause;
-//import kr.co.mcmp.devops.model.rollout.Rollout;
-//import kr.co.mcmp.devops.model.rollout.RolloutSpec;
-//import kr.co.mcmp.devops.model.rollout.RolloutStrategy;
-//
-//import org.apache.commons.lang.StringUtils;
-//
-//import java.util.ArrayList;
-//import java.util.HashMap;
-//import java.util.List;
-//import java.util.Map;
+import io.kubernetes.client.common.KubernetesObject;
+import io.kubernetes.client.custom.IntOrString;
+import io.kubernetes.client.custom.Quantity;
+import io.kubernetes.client.openapi.models.*;
+import io.kubernetes.client.util.Yaml;
+import kr.co.mcmp.manifest.k8s.*;
 
-//@Component
+import org.apache.commons.lang3.StringUtils; // lang -> lang3
+//import org.springframework.util.StringUtils;
+
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Component
 public class K8SDeployYamlGenerator {
-/*
-	private static Logger logger = LoggerFactory.getLogger(K8SDeployYamlGenerator.class);
 
 	public String generateDeployYaml(K8SDeployDTO deploy) {
 
@@ -57,13 +51,8 @@ public class K8SDeployYamlGenerator {
 		case CronJob:
 			appendYaml(buffer, getCronJob(deploy));
 			break;
-		case Rollout:
-			Rollout rollout = getRollout(deploy);
-			appendYaml(buffer, rollout);
-			if (BlueGreen.name.equals(deploy.getStrategyType())) {
-				appendYaml(buffer, getPreviewService(deploy));
-			}
-			appendYaml(buffer, getAutoscaler(deploy, rollout));
+		case Pod:
+			appendYaml(buffer, getPod(deploy));
 			break;
 		}
 
@@ -75,15 +64,12 @@ public class K8SDeployYamlGenerator {
 
 		// httprpoxy
 		appendYaml(buffer, getTlsSecret(deploy));
-		appendYaml(buffer, getHTTPProxy(deploy));
 
 		// ingress kbcard ingress 사용하지 않음
 		// appendYaml(buffer, getIngress(deploy));
 
 		String yaml = buffer.toString();
-		logger.info("[generateYaml]{}", yaml);
-		
-		
+
 		//default Label 삭제
 		removeDefaultLabel(deploy.getLabels());
 		
@@ -145,8 +131,7 @@ public class K8SDeployYamlGenerator {
 		deployment.setKind(deploy.getController());
 
 		// metadata
-		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(),
-				deploy.getLabels());
+		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(), deploy.getLabels());
 		deployment.setMetadata(metadata);
 
 		// spec
@@ -172,114 +157,30 @@ public class K8SDeployYamlGenerator {
 		return deployment;
 	}
 
-	// Rollout
-	private Rollout getRollout(K8SDeployDTO deploy) {
 
-		Rollout rollout = new Rollout();
-		rollout.setApiVersion(K8S.Controller.Rollout.getApiVersion());
-		rollout.setKind(deploy.getController());
+	private V1Pod getPod(K8SDeployDTO deploy) {
+
+		V1Pod pod = new V1Pod();
+		pod.setApiVersion(K8S.Controller.Pod.getApiVersion());
+		pod.setKind(deploy.getController());
 
 		// metadata
-		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(),
-				deploy.getLabels());
-		rollout.setMetadata(metadata);
+		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(), deploy.getLabels());
+		pod.setMetadata(metadata);
 
 		// spec
-		RolloutSpec rolloutSpec = new RolloutSpec();
-		rollout.setSpec(rolloutSpec);
+		V1PodSpec podSpec = new V1PodSpec();
+		V1Container container = new V1Container();
+		container.setName(deploy.getName().replace("KIND", "pod"));
+		container.setImage(deploy.getImage());
+		//pod.setSpec(podSpec);
+		podSpec.addContainersItem(container);
 
-		// spec.selector
-		V1LabelSelector labelSelector = new V1LabelSelector();
-		labelSelector.setMatchLabels(deploy.getLabels());
-		rolloutSpec.setSelector(labelSelector);
-
-		// spec.replicas
-		Integer replicas = (deploy.getReplicas() == null || deploy.getReplicas() == 0) ? 1 : deploy.getReplicas();
-		rolloutSpec.setReplicas(replicas);
-
-		// spec.strategy
-		RolloutStrategy strategy = new RolloutStrategy();
-		
-		switch(deploy.getStrategyType()) {
-		case BlueGreen.name:
-			BlueGreen blueGreen = new BlueGreen();
-			String activeServiceName = getServiceName(deploy);
-			String previewServiceName = String.format("%s-preview", activeServiceName);
-			blueGreen.setActiveService(activeServiceName);
-			blueGreen.setPreviewService(previewServiceName);
-			blueGreen.setAutoPromotionEnabled(true);
-			// blueGreen.setAutoPromotionSeconds(replicas);
-			strategy.setBlueGreen(blueGreen);
-			break;
-		case Canary.name:
-			Canary canary = getCanary(deploy, false);
-			strategy.setCanary(canary);
-			break;
-		}
-
-		rolloutSpec.setStrategy(strategy);
-
-		// template(pod)
-		rolloutSpec.setTemplate(getPodTemplateSpec(deploy));
-		return rollout;
+		return pod;
 	}
-	
-	
-	private Canary getCanary(K8SDeployDTO deploy, boolean promote) {
-		
-		Canary canary = new Canary();
-		Map<String, Object> stepMap = null;
-		
-		if (promote) {
-			
-			//canary.setMaxSurge("100%");
-			canary.setMaxUnavailable(0);
-			
-			//50%
-			stepMap = new HashMap<> (1);
-			stepMap.put("setWeight", 50);
-			canary.addStep(stepMap);
-			
-			//5sec
-			stepMap = new HashMap<> (1);
-			stepMap.put("pause", new Pause(5));
-			canary.addStep(stepMap);
-			
-			//75%
-			stepMap = new HashMap<> (1);
-			stepMap.put("setWeight", 75);
-			canary.addStep(stepMap);
-			
-			//5sec
-			stepMap = new HashMap<> (1);
-			stepMap.put("pause", new Pause(5));
-			canary.addStep(stepMap);
 
-			//100
-			stepMap = new HashMap<> (1);
-			stepMap.put("setWeight", 100);
-			canary.addStep(stepMap);
-			
-		} else {
-			
-			//canary.setMaxSurge("25%");
-			canary.setMaxUnavailable(0);
-			
-			//순서중요!! Object Model 만들어 Yaml dump시 알파벳 오더링 규칙에 따라 순서가 뒤바뀜
-			//int setWeight = Math.floorDiv(100, deploy.getReplicas());
-			stepMap = new HashMap<> (1);
-			stepMap.put("setWeight", 25);
-			canary.addStep(stepMap);
-			
-			//suspend
-			stepMap = new HashMap<> (1);
-			stepMap.put("pause", new Pause());
-			canary.addStep(stepMap);
-			
-		}
-		
-		return canary;
-	}
+
+
 
 	// DaemonSet
 	private V1DaemonSet getDaemonSet(K8SDeployDTO deploy) {
@@ -289,8 +190,7 @@ public class K8SDeployYamlGenerator {
 		daemonSet.setKind(deploy.getController());
 
 		// metadata
-		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(),
-				deploy.getLabels());
+		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(), deploy.getLabels());
 		daemonSet.setMetadata(metadata);
 
 		// spec
@@ -321,8 +221,7 @@ public class K8SDeployYamlGenerator {
 		statefulSet.setKind(deploy.getController());
 
 		// metadata
-		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(),
-				deploy.getLabels());
+		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(), deploy.getLabels());
 		statefulSet.setMetadata(metadata);
 
 		// spec
@@ -361,8 +260,7 @@ public class K8SDeployYamlGenerator {
 		cronJob.setKind(deploy.getController());
 
 		// metadata
-		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(),
-				deploy.getLabels());
+		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(), deploy.getLabels());
 		cronJob.setMetadata(metadata);
 
 		// spec
@@ -581,7 +479,7 @@ public class K8SDeployYamlGenerator {
 		// template.spec.volume
 		setHostPathVolumes(podSpec, deploy.getHostPathVolumes());
 		setPVCVolumes(podSpec, deploy.getPvcVolumes());
-		setAzureFileVolumes(podSpec, deploy.getAzureFileVolumes());
+		//setAzureFileVolumes(podSpec, deploy.getAzureFileVolumes());
 
 		// template.spec.affinity
 		switch (K8S.Controller.valueOf(deploy.getController())) {
@@ -650,26 +548,6 @@ public class K8SDeployYamlGenerator {
 			V1PersistentVolumeClaimVolumeSource persistentVolumeClaimVolumeSource = new V1PersistentVolumeClaimVolumeSource();
 			persistentVolumeClaimVolumeSource.claimName(k8sVolume.getClaimName());
 			volume.setPersistentVolumeClaim(persistentVolumeClaimVolumeSource);
-
-			podSpec.addVolumesItem(volume);
-		}
-	}
-
-	// AzureFileVolumes
-	private void setAzureFileVolumes(V1PodSpec podSpec, List<K8SVolume> volumesList) {
-
-		if (volumesList == null || volumesList.size() == 0) {
-			return;
-		}
-
-		for (K8SVolume k8sVolume : volumesList) {
-			V1Volume volume = new V1Volume();
-			volume.setName(k8sVolume.getName());
-
-			V1AzureFileVolumeSource azureFileVolumeSource = new V1AzureFileVolumeSource();
-			azureFileVolumeSource.setSecretName(k8sVolume.getSecretName());
-			azureFileVolumeSource.setShareName(k8sVolume.getShareName());
-			volume.setAzureFile(azureFileVolumeSource);
 
 			podSpec.addVolumesItem(volume);
 		}
@@ -752,8 +630,6 @@ public class K8SDeployYamlGenerator {
 		podAntiAffinity.addRequiredDuringSchedulingIgnoredDuringExecutionItem(term);
 
 		return affinity;
-
-
 	}
 
 	// ConfigMap
@@ -827,10 +703,6 @@ public class K8SDeployYamlGenerator {
 
 //		byte[] crtBuf = Base64.encodeBase64(proxyInfo.getTlsCrt().trim().getBytes());
 //		byte[] keyBuf = Base64.encodeBase64(proxyInfo.getTlsKey().trim().getBytes());
-//		logger.info("SECRET-CRT\n{}<---\n----------------------------------------------", proxyInfo.getTlsCrt());
-//		logger.info("SECRET-CRT\n{}<---\n----------------------------------------------", new String(crtBuf));
-//		logger.info("SECRET-KEY\n{}<---\n----------------------------------------------", proxyInfo.getTlsKey());
-//		logger.info("SECRET-KEY\n{}<---\n----------------------------------------------", new String(keyBuf));
 
 		deploy.getProxyInfo().setTlsSecretName(secret.getMetadata().getName());
 
@@ -964,70 +836,7 @@ public class K8SDeployYamlGenerator {
 
 	private final String KBC_HttpProxy_LoadBalancerPolicy = "Cookie";
 
-	// HttpProxy
-	private HTTPProxy getHTTPProxy(K8SDeployDTO deploy) {
 
-		K8SProxyInfo proxyInfo = deploy.getProxyInfo();
-		if (proxyInfo == null)
-			return null;
-		if (StringUtils.isBlank(proxyInfo.getDomainName()))
-			return null;
-
-		HTTPProxy httpProxy = new HTTPProxy();
-		httpProxy.setApiVersion(K8S.Kind.HTTPProxy.getApiVersion());
-		httpProxy.setKind(K8S.Kind.HTTPProxy.name());
-
-		String name = getName(K8S.Kind.HTTPProxy.getPostfix(), deploy.getName());
-		//String p = (proxyInfo.getTlsYn().equals("Y")) ? "443" : "80";
-		//name = String.format("%s-%s", name, p);
-
-		httpProxy.setMetadata(getMetadata(name, deploy.getNamespace()));
-
-		// spec
-		HTTPProxySpec spec = new HTTPProxySpec();
-		httpProxy.setSpec(spec);
-
-		// virtualhost
-		Virtualhost virtualhost = new Virtualhost();
-		spec.setVirtualhost(virtualhost);
-		// doamin
-		virtualhost.setFqdn(proxyInfo.getDomainName());
-		// tls
-		if (proxyInfo.getTlsYn().equals("Y")) {
-			Tls tls = new Tls();
-			tls.setSecretName(proxyInfo.getTlsSecretName());
-			virtualhost.setTls(tls);
-		}
-
-		List<Route> routeList = new ArrayList<Route>();
-		spec.setRoutes(routeList);
-
-		Route route = new Route();
-		routeList.add(route);
-
-		// LoadBalancerPolicy Cookie
-		LoadBalancerPolicy loadBalancerPolicy = new LoadBalancerPolicy();
-		loadBalancerPolicy.setStrategy(KBC_HttpProxy_LoadBalancerPolicy);
-		route.setLoadBalancerPolicy(loadBalancerPolicy);
-
-		List<RouteService> list = new ArrayList<RouteService>();
-		route.setServices(list);
-
-		// Service
-		List<K8SPort> portList = deploy.getPorts();
-		for (K8SPort port : portList) {
-			RouteService service = new RouteService();
-			service.setName(getServiceName(deploy));
-			service.setPort(port.getPort());
-//			if (StringUtils.isNotBlank(port.getProtocol())) {
-//				service.setProtocol(port.getProtocol());
-//			}
-
-			list.add(service);
-		}
-
-		return httpProxy;
-	}
 
 	private V2beta2HorizontalPodAutoscaler getAutoscaler(K8SDeployDTO deploy, KubernetesObject object) {
 
@@ -1139,52 +948,6 @@ public class K8SDeployYamlGenerator {
 		return pvc;
 	}
 
-	// Ingress
-	/**
-	 * private ExtensionsV1beta1Ingress getIngress(K8SDeployDTO deploy) {
-	 * 
-	 * if (deploy.getPorts() == null || deploy.getPorts().isEmpty()) { return null;
-	 * }
-	 * 
-	 * List<ExtensionsV1beta1HTTPIngressPath> paths = new ArrayList<> (); for
-	 * (K8SPort port : deploy.getPorts()) {
-	 * 
-	 * if (port.getIngressPath() == null || port.getIngressPath().isEmpty()) {
-	 * continue; }
-	 * 
-	 * //spec.rule.paths.path ExtensionsV1beta1HTTPIngressPath path = new
-	 * ExtensionsV1beta1HTTPIngressPath(); String ingressPath =
-	 * (deploy.getIngressPathRewriteYn().equals("Y")) ? String.format("%s(/|$)(.*)",
-	 * port.getIngressPath()) : port.getIngressPath(); path.setPath(ingressPath);
-	 * //spec.rule.paths.backend ExtensionsV1beta1IngressBackend backend = new
-	 * ExtensionsV1beta1IngressBackend();
-	 * backend.setServiceName(getName(K8S.Kind.Service.getPostfix(),
-	 * deploy.getName())); backend.setServicePort(new IntOrString(port.getPort()));
-	 * path.setBackend(backend);
-	 * 
-	 * paths.add(path); }
-	 * 
-	 * if (paths.size() == 0) { return null; }
-	 * 
-	 * ExtensionsV1beta1Ingress ingress = new ExtensionsV1beta1Ingress();
-	 * ingress.apiVersion(K8S.Kind.Ingress.getApiVersion());
-	 * ingress.setKind(K8S.Kind.Ingress.name());
-	 * 
-	 * //metadata V1ObjectMeta metadata = getMetadata(K8S.Kind.Ingress.getPostfix(),
-	 * deploy.getName()); metadata.setNamespace(deploy.getNamespace());
-	 * //metadata.annotation if (deploy.getIngressPathRewriteYn().equals("Y")) {
-	 * metadata.setAnnotations(K8S.getIngressRewriteAnnotaions()); }
-	 * ingress.setMetadata(metadata);
-	 * 
-	 * //spec ExtensionsV1beta1IngressSpec ingressSpec = new
-	 * ExtensionsV1beta1IngressSpec(); ingress.setSpec(ingressSpec);
-	 * 
-	 * //spec.rules List<ExtensionsV1beta1IngressRule> rules = new ArrayList<>(1);
-	 * ExtensionsV1beta1IngressRule rule = new ExtensionsV1beta1IngressRule();
-	 * rule.setHttp(new ExtensionsV1beta1HTTPIngressRuleValue());
-	 * rule.getHttp().setPaths(paths); rules.add(rule); ingressSpec.setRules(rules);
-	 * 
-	 * return ingress; }
-	 **/
+
 
 }

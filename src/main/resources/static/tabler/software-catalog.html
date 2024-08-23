@@ -22,9 +22,10 @@
     </style>
     <script>
 function searchCatalog(e){
-    console.log($('#inputCatalogSearch').val());
+    //console.log($('#inputCatalogSearch').val());
     //if(e.code == 'Enter'){
     if(e.keyCode == 13){
+        console.log($('#inputCatalogSearch').val());
         setSoftwareCatalogEntity();
         setDockerHubSearch();
         setArtifactHubSearch();
@@ -136,75 +137,81 @@ $(function() {
     setSoftwareCatalogList();
 });
 
-let listHtml;
-let listHtmlHub;
-let workflowParams;
-let refWorkflowBtns;
-const beUrl = "http://" + $(location).attr('hostname') + ":18084";
+let listHtml, listHtmlHub, workflowParams, refWorkflowBtns;
+const beUrl = "http://" + $(location).attr('hostname') + ":" + $(location).attr('port');
+let workflowUrl = ""; // oss 등록 후 받아와야됨
 
+// softwareCatalog list를 만듦
 function setSoftwareCatalogList(){
     $.ajax({ url: "software-catalog-list-entity.html", cache: false
     }).done(function( html ) {
-        listHtml = html;
+        listHtml = html; // software-catalog-list-entity.html내용을 listHtml에 넣음
         setSoftwareCatalogEntity();
     });
-    console.log(beUrl);
+
     //$.ajax({ url: beUrl + "/catalog/software/", cache: false }).done(function( json ) { console.log(json); });
 
+    // listHtmlHub변수에는 software-catalog-list-entity-hub.html내용이 담긴다. 이하 구문 동일
     $.ajax({ url: "software-catalog-list-entity-hub.html", cache: false }).done(function( html ) { listHtmlHub = html; });
     $.ajax({ url: "software-catalog-list-entity-workflow.html", cache: false }).done(function( html ) { refWorkflowBtns = html; });
     $.ajax({ url: "software-catalog-workflow-param.html", cache: false }).done(function( html ) { workflowParams = html; });
 }
 
 function setSoftwareCatalogEntity(){
-/*    $.ajax({
-        method: "GET",
-        url: "http://localhost:18083/catalog/software/",
-        dataType: "jsonp",
-        data: { }
-    }).success(function( data ) {
-        console.log("aaa");
-        //$('#sc-list-group').append(html.replace("{{iconUrl}}", "https://djeqr6to3dedg.cloudfront.net/repo-logos/library/tomcat/live/logo.png").replaceAll(/{{detailId}}/gi, "aabbcc"));
-    }).error(function( data ) {
-        console.log(data);
-    });
-*/
-//console.log(listWorkflowLi);
-
+    // progress bar 노출
     $('#sc-list-group').html('<div class="progress progress-sm"> <div class="progress-bar progress-bar-indeterminate"></div> </div>');
     let entity;
     let html = listHtml;
     $.ajax({
-        //url: "http://app.tb-cb.kro.kr:18083/catalog/software/?title=" + $('#inputCatalogSearch').val(),
-        //url: beUrl + "/catalog/software/?title=" + $('#inputCatalogSearch').val(),
-        url: beUrl + "/catalog/software/",
+        url: beUrl + "/catalog/software/?title=" + $('#inputCatalogSearch').val(),
         cache: false
     }).done(function( data ) {
-        //console.log(data.code);
-        //if(data.code == 200){
-            $('#sc-list-group').html("");
-            //var result = data.data;
-            var result = data;
-            console.log("testString ========================================================");
-            console.log(data);
-            result.forEach(function(i){
-                entity = html.replace(/{{iconUrl}}/gi, beUrl + i.catalogIcon).replace(/{{index}}/gi, i.catalogIdx).replace(/{{title}}/gi, i.catalogTitle).replace(/{{referenceUrl}}/gi, i.scReference).replace(/{{description}}/gi, brSw(i.catalogDescription)).replace(/{{summary}}/gi, i.catalogSummary).replace(/{{detailId}}/gi, "sc_" + i.catalogIdx).replace(/{{category}}/gi, i.catalogCategory);
-                let listWorkflowLi = refWorkflowBtns
-                let workflowContents = "";
-                if(i.workflows == null || i.workflows.length == 0){
-                    workflowContents += listWorkflowLi.replace(/{{workflowTitle}}/gi, "등록된 워크플로우가 없습니다.").replace('class="btn"', "");
-                }else{
-                    i.workflows.forEach(function(j){
-                        workflowContents += listWorkflowLi.replace(/{{workflowTitle}}/gi, j.workflowName).replace(/{{workflowId}}/gi, j.workflowId);
-                    });
-                }
-                entity = entity.replace(/{{workflowList}}/gi, workflowContents);
-                $('#sc-list-group').append(entity);
-            });
-        //}
+        $('#sc-list-group').html("");
+        var result = data;
+        console.log(data);
+        result.forEach(function(i){
+            entity = html.replace(/{{iconUrl}}/gi, beUrl + i.catalogIcon).replace(/{{index}}/gi, i.catalogIdx).replace(/{{title}}/gi, i.catalogTitle).replace(/{{referenceUrl}}/gi, i.scReference).replace(/{{description}}/gi, brSw(i.catalogDescription)).replace(/{{summary}}/gi, i.catalogSummary).replace(/{{category}}/gi, i.catalogCategory);
+            $('#sc-list-group').append(entity);
+        });
     });
 
 }
+
+
+function setSoftwareCatalogRefrence(catalogIdx){
+
+    $.ajax({
+        url: beUrl + "/catalog/software/" + catalogIdx,
+        cache: false
+    }).done(function( data ) {
+        var result = data.catalogRefData;
+        console.log(data);
+        let listWorkflowLi = refWorkflowBtns
+        let workflowContents = "";
+        let etcContents = "";
+        let tagContents = "";
+        result.forEach(function(i){
+            if(i.referenceType == "WORKFLOW"){
+                workflowContents += listWorkflowLi.replace(/{{workflowTitle}}/gi, i.referenceType).replace(/{{workflowId}}/gi, i.referncetIdx);
+            }else if(i.referenceType == "TAG"){
+                tagContents += tagContents == "" ? "#" + i.referenceValue : ", #" + i.referenceValue;
+            }else{
+                etcContents += listWorkflowLi.replace(/{{workflowTitle}}/gi, i.referenceType).replace(/{{workflowId}}/gi, i.referncetIdx);
+            }
+        });
+
+        workflowContents == "" ? workflowContents = listWorkflowLi.replace(/{{workflowTitle}}/gi, "등록된 워크플로우가 없습니다.").replace('class="btn"', "") : "";
+
+        $('#' + catalogIdx + '-workflow-ul').append(workflowContents);
+        $('#' + catalogIdx + '-entity-ul').append(etcContents);
+        $('#' + catalogIdx + '-tag-ul').append(tagContents);
+
+        //$("#workflowExecModalParams").html(paramHtml);
+    });
+}
+
+
+
 
 function brSw(text){
     return text.replace(/\\n/gi, "<br />");
@@ -212,8 +219,7 @@ function brSw(text){
 
 function setWorkflowParamsForm(workflowIdx){
     $.ajax({
-        //url: "http://app.tb-cb.kro.kr:18083/workflow/" + workflowIdx,
-        url: beUrl + "/workflow/" + workflowIdx,
+        url: workflowUrl + "/workflow/" + workflowIdx,
         cache: false
     }).done(function( data ) {
         //console.log("paramLength : " + data.data.pipelineParam.length);
@@ -234,6 +240,11 @@ function setWorkflowParamsForm(workflowIdx){
 }
 
 
+
+
+
+
+
 function runWorkflow(workflowIdx){
     var paramKeyArr = new Array();
     var paramValueArr = new Array();
@@ -252,10 +263,9 @@ function runWorkflow(workflowIdx){
     }
 
     $.ajax({
-        //url: "http://app.tb-cb.kro.kr:18083/workflow/run",
-        url: beUrl + "/workflow/run",
-        accept: "application/json",
-        contentType: "application/json; charset=utf-8",
+        url: workflowUrl + "/workflow/run",
+        accept: "application/json",
+        contentType: "application/json; charset=utf-8",
         type: "POST",
         dataType: "json",
         data: JSON.stringify(workflowData),
@@ -270,7 +280,7 @@ function runWorkflow(workflowIdx){
 
 
 // TODO ↓ 같은구성, 합쳐야함
-/*
+
 function setDockerHubSearch(){
     $('#resultDockerHubSearch').html('');
     $('#resultDockerHubSearch').html('<div class="progress progress-sm"> <div class="progress-bar progress-bar-indeterminate"></div> </div>');
@@ -279,7 +289,7 @@ function setDockerHubSearch(){
         let entity;
         let html = listHtmlHub;
         $.ajax({
-            url: beUrl + "/applications/search/dockerhub/catalog/" + $('#inputCatalogSearch').val(),
+            url: beUrl + "/search/dockerhub/" + $('#inputCatalogSearch').val(),
             cache: false
         }).done(function( data ) {
             console.log(data.code);
@@ -288,32 +298,40 @@ function setDockerHubSearch(){
                 var result = data.data.results;
                 //console.log(result);
                 if(result.length){
+                    // 검색결과 없음 숨김
                     $('#resultDockerHubEmpty').hide();
                     for(var i = 0; i < 3 && i < result.length; i++){
+                        // for문 돌면서 변수부분 replace해서 내용 만들고 resultDockerHubSearch 추가
                         entity = listHtmlHub.replace(/{{hubIconImg}}/gi, result[i].logo_url.large).replace(/{{hubTitle}}/gi, result[i].name).replace(/{{hubSummary}}/gi, result[i].short_description.length > 30 ? result[i].short_description.substring(0, 30) + "..." : "");
                         $('#resultDockerHubSearch').append(entity);
                     }
                 }else{
+                    // 검색결과 없음 노출
                     $('#resultDockerHubEmpty').show();
                 }
             }
         });
     }else{
+        // 검색결과 없음 노출
         $('#resultDockerHubEmpty').show();
+        $('#resultDockerHubSearch').html('');
     }
+
 }
 
 
 
 function setArtifactHubSearch(){
+    // 내용 노출부분 비움
     $('#resultArtifactHubSearch').html('');
+    // 내용 노출부분에 로딩바 ㄱㄱ로딩바
     $('#resultArtifactHubSearch').html('<div class="progress progress-sm"> <div class="progress-bar progress-bar-indeterminate"></div> </div>');
 
     if($('#inputCatalogSearch').val()){
         let entity;
         let html = listHtmlHub;
         $.ajax({
-            url: beUrl + "/applications/search/artifacthub/package/" + $('#inputCatalogSearch').val(),
+            url: beUrl + "/search/artifacthub/" + $('#inputCatalogSearch').val(),
             cache: false
         }).done(function( data ) {
             console.log(data.code);
@@ -322,22 +340,28 @@ function setArtifactHubSearch(){
                 var result = data.data.packages;
                 console.log(result);
                 if(result.length){
+                    // 검색결과가 없습니다. 숨김
                     $('#resultArtifactHubEmpty').hide();
+                    // for문 돌면서 변수부분 replace해서 내용 만들고 resultArtifactHubSearch안에 추가
                     for(var i = 0; i < 3 && i < result.length; i++){
                         entity = listHtmlHub.replace(/{{hubIconImg}}/gi, "https://artifacthub.io/static/media/placeholder_pkg_helm.png").replace(/{{hubTitle}}/gi, result[i].name).replace(/{{hubSummary}}/gi, result[i].description.length > 30 ? result[i].description.substring(0, 30) + "..." : "");
                         $('#resultArtifactHubSearch').append(entity);
                     }
                 }else{
+                    // 검색결과가 없습니다. 보여쥼
                     $('#resultArtifactHubEmpty').show();
                 }
             }
         });
     }else{
+        // 검색결과가 없습니다. 보여쥼
         $('#resultArtifactHubEmpty').show();
+        $('#resultArtifactHubSearch').html('');
     }
+
 }
 
-*/
+
 
 
     </script>

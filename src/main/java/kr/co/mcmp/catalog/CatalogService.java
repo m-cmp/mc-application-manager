@@ -29,13 +29,13 @@ public class CatalogService {
     }
 
     public List<CatalogDTO> getCatalogListSearch(String keyword){
-//        List<CatalogEntity> lcEntity = catalogRepository.findbyTitle(keyword);
-//        List<CatalogDTO> lcDto = new ArrayList<>();
-//        for(CatalogEntity ce:lcEntity){
-//            lcDto.add(new CatalogDTO(ce));
-//        }
-//        return lcDto;
-        return null;
+        List<CatalogEntity> lcEntity = catalogRepository.findByTitleLikeIgnoreCase("%" + keyword + "%");
+        System.out.println("=========================" + lcEntity.size());
+        List<CatalogDTO> lcDto = new ArrayList<>();
+        for(CatalogEntity ce:lcEntity){
+            lcDto.add(new CatalogDTO(ce));
+        }
+        return lcDto;
     }
 
     public CatalogDTO getCatalogDetail(Integer catalogIdx){
