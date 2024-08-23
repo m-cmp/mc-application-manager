@@ -67,6 +67,6 @@ public enum ResponseCode {
 			Stream.of(values()).collect(Collectors.toMap(ResponseCode::getCode, e -> e));
 
 	public static ResponseCode findByCode(int code) {
-		return Optional.ofNullable(map.get(code)).orElseThrow(() -> new McmpException(ResponseCode.UNKNOWN_ERROR));
+		return Optional.ofNullable(map.get(code)).orElseThrow(() -> new McmpException(String.valueOf(ResponseCode.UNKNOWN_ERROR)));
 	}
 }
