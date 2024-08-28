@@ -23,7 +23,7 @@ public class CommonUploadComponent {
 
     @Schema(title = "파일", required = true)
     @Valid
-    private List<FilesDto> asset;
+    private List<FilesDto> assets;
 
     @Getter
     @Builder
@@ -36,5 +36,28 @@ public class CommonUploadComponent {
 
         @Schema(title = "파일 이름", example = "test")
         private String filename;
+    }
+
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class TextComponentDto {
+
+        @Schema(title = "파일명", required = true, example = "test")
+        @NotBlank
+        private String filename;
+
+        @Schema(title = "파일 확장자", required = true, example = "txt, sh, yaml")
+        @NotBlank
+        private String extension;
+
+        @Schema(title = "파일 경로", required = true, example = "/")
+        @NotBlank
+        private String directory;
+
+        @Schema(title = "텍스트 내용", required = true, example = "test")
+        @NotBlank
+        private String text;
     }
 }
