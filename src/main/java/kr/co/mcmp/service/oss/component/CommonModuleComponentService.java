@@ -1,6 +1,7 @@
 package kr.co.mcmp.service.oss.component;
 
 import kr.co.mcmp.dto.oss.component.CommonComponent;
+import kr.co.mcmp.dto.oss.component.CommonUploadComponent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,6 +32,11 @@ public class CommonModuleComponentService {
     public void createComponent(String module, String name, String directory, List<MultipartFile> files) {
         CommonComponentService componentService = getComponentService(module);
         componentService.createComponent(name, directory, files);
+    }
+
+    public void createComponentByText(String module, String name, CommonUploadComponent.TextComponentDto textComponent) {
+        CommonComponentService componentService = getComponentService(module);
+        componentService.createComponentByText(name, textComponent);
     }
 
     private CommonComponentService getComponentService(String module) {

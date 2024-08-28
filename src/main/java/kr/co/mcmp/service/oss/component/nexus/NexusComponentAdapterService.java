@@ -31,11 +31,8 @@ public class NexusComponentAdapterService {
     }
 
     public void createComponent(String name, CommonUploadComponent uploadComponent) {
-        CommonRepository.RepositoryDto repositoryByName = nexusRepositoryAdapterService.getRepositoryByName(name);
-        String format = repositoryByName.getFormat();
-
-        MultiValueMap<String, Object> uploadComponentMap = getUploadComponentMap(uploadComponent, format);
-
+        CommonRepository.RepositoryDto repositoryDto = nexusRepositoryAdapterService.getRepositoryByName(name);
+        MultiValueMap<String, Object> uploadComponentMap = getUploadComponentMap(uploadComponent, repositoryDto.getFormat());
         componentAdapterClient.createComponent(name, uploadComponentMap);
     }
 
@@ -45,13 +42,13 @@ public class NexusComponentAdapterService {
         if ("raw".equals(format)) {
             uploadComponentMap.add(format + ".directory", uploadComponent.getDirectory());
 
-            for (int i = 0; i < uploadComponent.getAsset().size(); i ++) {
-                CommonUploadComponent.FilesDto filesDto = uploadComponent.getAsset().get(i);
+            for (int i = 0; i < uploadComponent.getAssets().size(); i ++) {
+                CommonUploadComponent.FilesDto filesDto = uploadComponent.getAssets().get(i);
                 uploadComponentMap.add(format + ".asset" + (i + 1), filesDto.getFile().getResource());
                 uploadComponentMap.add(format + ".asset" + (i + 1) + ".filename", filesDto.getFilename());
             }
         } else if ("docker".equals(format) || "helm".equals(format)) {
-            CommonUploadComponent.FilesDto filesDto = uploadComponent.getAsset().get(0);
+            CommonUploadComponent.FilesDto filesDto = uploadComponent.getAssets().get(0);
             uploadComponentMap.add(format + ".asset", filesDto.getFile().getResource());
         }
         return uploadComponentMap;

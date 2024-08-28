@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.co.mcmp.dto.oss.component.CommonComponent;
+import kr.co.mcmp.dto.oss.component.CommonUploadComponent;
 import kr.co.mcmp.response.ResponseWrapper;
 import kr.co.mcmp.service.oss.component.CommonModuleComponentService;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.validation.Valid;
 import java.util.List;
 
 @Tag(name = "CommonComponentController - 컴포넌트 API 관련")
@@ -53,10 +55,19 @@ public class CommonComponentController {
     public ResponseEntity<ResponseWrapper<String>> createComponent(
             @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
             @Parameter(description = "레포지토리 이름", required = true) @PathVariable("name") String name,
-            @RequestPart(value = "directory", required = false) String directory,
-            @RequestPart(value = "asset", required = false) List<MultipartFile> files
-    ) {
+            @RequestPart(value = "directory") String directory,
+            @RequestPart(value = "assets", required = false) List<MultipartFile> files) {
         moduleComponentService.createComponent(module, name, directory, files);
+        return ResponseEntity.ok(new ResponseWrapper<>("Component create completed"));
+    }
+
+    @Operation(summary = "컴포넌트 등록 - 텍스트")
+    @PostMapping("/{module}/create/{name}/text")
+    public ResponseEntity<ResponseWrapper<String>> createComponentByText(
+            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
+            @Parameter(description = "레포지토리 이름", required = true) @PathVariable("name") String name,
+            @RequestBody @Valid CommonUploadComponent.TextComponentDto textComponent) {
+        moduleComponentService.createComponentByText(module, name, textComponent);
         return ResponseEntity.ok(new ResponseWrapper<>("Component create completed"));
     }
 }
