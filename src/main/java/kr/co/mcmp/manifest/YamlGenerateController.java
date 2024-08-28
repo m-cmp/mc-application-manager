@@ -44,5 +44,11 @@ public class YamlGenerateController {
         return null;
     }
 
+    @Operation(summary = "yaml generate for HPA")
+    @PostMapping("/hpa")
+    public String generateHPAYaml(K8SDeployDTO k8sDto){
+        return null;
+    }
+
 
 }
