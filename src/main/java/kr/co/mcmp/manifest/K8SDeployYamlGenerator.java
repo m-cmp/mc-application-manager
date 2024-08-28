@@ -20,6 +20,58 @@ import java.util.Map;
 @Component
 public class K8SDeployYamlGenerator {
 
+	public String getPod(K8SPodDTO podDto) {
+
+		V1Pod pod = new V1Pod();
+		pod.setApiVersion(K8S.Controller.Pod.getApiVersion());
+		pod.setKind("Pod");
+
+		V1ObjectMeta metadata = new V1ObjectMeta();
+		metadata.setName(podDto.getPodName());
+		metadata.setNamespace(podDto.getNamespace());
+		metadata.setLabels(podDto.getLabels());
+		pod.setMetadata(metadata);
+
+		V1PodSpec podSpec = new V1PodSpec();
+
+		List<K8SPodDTO.Container> dtoContainers = podDto.getContainers();
+
+		// for in for 바꿔야하나 실제 시간복잡도가 높지 않아 걍 씀
+		List<V1Container> containers = new ArrayList<>();
+		for(K8SPodDTO.Container cont: dtoContainers){
+			V1Container podContainer = new V1Container();
+			podContainer.setImage(cont.getImage());
+			podContainer.setImage(cont.getName());
+			List<V1ContainerPort> podPorts = new ArrayList<>();
+			for(K8SPodDTO.Port port: cont.getPorts()) {
+				V1ContainerPort contPort = new V1ContainerPort();
+				contPort.setContainerPort(port.getContainerPort());
+				contPort.setHostPort(port.getHostPort());
+				contPort.setName(port.getName());
+				contPort.setProtocol(port.getProtocol());
+				podContainer.addPortsItem(contPort);
+			}
+			containers.add(podContainer);
+		}
+
+		podSpec.setContainers(containers);
+		podSpec.setRestartPolicy(podDto.getRestartPolicy());
+
+		pod.setSpec(podSpec);
+
+		StringBuffer buffer = new StringBuffer();
+		appendYaml(buffer, pod);
+		String yaml = buffer.toString();
+
+		return yaml;
+	}
+
+
+
+
+
+
+
 	public String generateDeployYaml(K8SDeployDTO deploy) {
 
 		StringBuffer buffer = new StringBuffer();
@@ -51,9 +103,9 @@ public class K8SDeployYamlGenerator {
 		case CronJob:
 			appendYaml(buffer, getCronJob(deploy));
 			break;
-		case Pod:
-			appendYaml(buffer, getPod(deploy));
-			break;
+//		case Pod:
+//			appendYaml(buffer, getPod(deploy));
+//			break;
 		}
 
 		// service
@@ -158,26 +210,6 @@ public class K8SDeployYamlGenerator {
 	}
 
 
-	private V1Pod getPod(K8SDeployDTO deploy) {
-
-		V1Pod pod = new V1Pod();
-		pod.setApiVersion(K8S.Controller.Pod.getApiVersion());
-		pod.setKind(deploy.getController());
-
-		// metadata
-		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(), deploy.getLabels());
-		pod.setMetadata(metadata);
-
-		// spec
-		V1PodSpec podSpec = new V1PodSpec();
-		V1Container container = new V1Container();
-		container.setName(deploy.getName().replace("KIND", "pod"));
-		container.setImage(deploy.getImage());
-		//pod.setSpec(podSpec);
-		podSpec.addContainersItem(container);
-
-		return pod;
-	}
 
 
 
