@@ -58,8 +58,8 @@ networks:
 
   # application-manager
   mc-application-manager:
-    image: pbccc/devops:0.2.5
-    container_name: cb-mapui
+    image: m-cmp/mc-application-manager
+    container_name: application-manager
     build:
       context: ./
       dockerfile: Dockerfile
