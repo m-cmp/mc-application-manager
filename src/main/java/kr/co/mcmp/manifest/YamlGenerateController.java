@@ -18,12 +18,12 @@ public class YamlGenerateController {
     Logger logger = LoggerFactory.getLogger(YamlGenerateController.class);
 
     @Autowired
-    YamlGenerateService yamlGenerateService;
+    YamlGenerateService yamlGenSvc;
 
     @Operation(summary = "yaml generate for pod")
     @PostMapping("/pod")
-    public String generatePodYaml(K8SDeployDTO k8sDto){
-        return null;
+    public String generatePodYaml(K8SPodDTO k8sPodDto){
+        return yamlGenSvc.generatePodYaml(k8sPodDto);
     }
 
     @Operation(summary = "yaml generate for deployment")
@@ -46,8 +46,8 @@ public class YamlGenerateController {
 
     @Operation(summary = "yaml generate for HPA")
     @PostMapping("/hpa")
-    public String generateHPAYaml(K8SDeployDTO k8sDto){
-        return null;
+    public String generateHPAYaml(K8SHPADTO hpaDto){
+        return yamlGenSvc.generateHPAYaml(hpaDto);
     }
 
 

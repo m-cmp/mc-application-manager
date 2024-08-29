@@ -15,12 +15,6 @@ public class K8SDeployService{
 	@Autowired
 	private K8SDeployYamlGenerator deployYamlGenerator;
 
-	
-	//yaml 미리보기
-	public String getK8SDeployYaml(K8SDeployDTO deploy) throws IOException {
-		String deployYaml = deployYamlGenerator.generateDeployYaml(deploy);
-		return deployYaml;
-	}
 
 
 	

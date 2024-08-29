@@ -16,19 +16,19 @@ public class YamlGenerateService {
 
 
     public String generatePodYaml(K8SPodDTO podContents){
-        return yamlGen.getPod(podContents);
+        return yamlGen.getPodYaml(podContents);
     }
 
-    public String generateDeploymentYaml(){
-        return "";
+    public String generateDeploymentYaml(K8SDeploymentDTO deploy){
+        return yamlGen.getDeploymentYaml(deploy);
     }
 
     public String generateConfigmapYaml(){
         return "";
     }
 
-    public String generateHPAYaml(){
-        return "";
+    public String generateHPAYaml(K8SHPADTO hpaDto){
+        return yamlGen.getHpaYaml(hpaDto);
     }
 
     public String generateServiceYaml(){

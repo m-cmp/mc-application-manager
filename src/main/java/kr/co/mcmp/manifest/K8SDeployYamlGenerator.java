@@ -1,5 +1,6 @@
 package kr.co.mcmp.manifest;
 
+import com.google.gson.annotations.SerializedName;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.custom.IntOrString;
 import io.kubernetes.client.custom.Quantity;
@@ -20,7 +21,7 @@ import java.util.Map;
 @Component
 public class K8SDeployYamlGenerator {
 
-	public String getPod(K8SPodDTO podDto) {
+	private V1Pod getPod(K8SPodDTO podDto) {
 
 		V1Pod pod = new V1Pod();
 		pod.setApiVersion(K8S.Controller.Pod.getApiVersion());
@@ -32,102 +33,234 @@ public class K8SDeployYamlGenerator {
 		metadata.setLabels(podDto.getLabels());
 		pod.setMetadata(metadata);
 
-		V1PodSpec podSpec = new V1PodSpec();
-
-		List<K8SPodDTO.Container> dtoContainers = podDto.getContainers();
-
-		// for in for 바꿔야하나 실제 시간복잡도가 높지 않아 걍 씀
-		List<V1Container> containers = new ArrayList<>();
-		for(K8SPodDTO.Container cont: dtoContainers){
-			V1Container podContainer = new V1Container();
-			podContainer.setImage(cont.getImage());
-			podContainer.setImage(cont.getName());
-			List<V1ContainerPort> podPorts = new ArrayList<>();
-			for(K8SPodDTO.Port port: cont.getPorts()) {
-				V1ContainerPort contPort = new V1ContainerPort();
-				contPort.setContainerPort(port.getContainerPort());
-				contPort.setHostPort(port.getHostPort());
-				contPort.setName(port.getName());
-				contPort.setProtocol(port.getProtocol());
-				podContainer.addPortsItem(contPort);
-			}
-			containers.add(podContainer);
-		}
-
-		podSpec.setContainers(containers);
-		podSpec.setRestartPolicy(podDto.getRestartPolicy());
-
+		V1PodSpec podSpec = getPodSpec(podDto);
 		pod.setSpec(podSpec);
 
+		return pod;
+	}
+
+	private V1PodSpec getPodSpec(K8SPodDTO podDto){
+		V1PodSpec podSpec = new V1PodSpec();
+		List<V1Container> containerList = podDto.getContainers();
+		podSpec.setContainers(containerList);
+		podSpec.setRestartPolicy(podDto.getRestartPolicy());
+		return podSpec;
+	}
+
+
+	public String getPodYaml(K8SPodDTO podDto) {
+		V1Pod pod = getPod(podDto);
 		StringBuffer buffer = new StringBuffer();
 		appendYaml(buffer, pod);
 		String yaml = buffer.toString();
-
 		return yaml;
 	}
 
 
+	private V1Deployment getDeployment(K8SDeploymentDTO deploy) {
+
+		V1Deployment deployment = new V1Deployment();
+		deployment.setApiVersion("apps/v1");
+		deployment.setKind("Deployment");
+
+		V1ObjectMeta metadata = new V1ObjectMeta();
+		metadata.setName(deploy.getName());
+		metadata.setNamespace(deploy.getNamespace());
+		metadata.setLabels(deploy.getLabels());
+		deployment.setMetadata(metadata);
+
+		// spec
+		V1DeploymentSpec deploymentSpec = new V1DeploymentSpec();
+		deployment.setSpec(deploymentSpec);
+
+		// spec.selector
+		V1LabelSelector labelSelector = new V1LabelSelector();
+		labelSelector.setMatchLabels(deploy.getLabels());
+		deploymentSpec.setSelector(labelSelector);
+
+		// spec.replicas
+		Integer replicas = (deploy.getReplicas() == null || deploy.getReplicas() == 0) ? 1 : deploy.getReplicas();
+		deploymentSpec.setReplicas(replicas);
+
+		// spec.strategy
+		V1DeploymentStrategy deploymentStrategy = new V1DeploymentStrategy();
+		deploymentStrategy.setType("RollingUpdate");
+		deploymentSpec.setStrategy(deploymentStrategy);
+
+		// template(pod)
+		deploymentSpec.setTemplate(getPodTemplateSpec(deploy));
+		return deployment;
+	}
 
 
+	private V1PodTemplateSpec getPodTemplateSpec(K8SDeploymentDTO deploy){
+
+		V1PodTemplateSpec podTemplateSpec = new V1PodTemplateSpec();
+		V1ObjectMeta metadata = new V1ObjectMeta();
+		metadata.setLabels(new HashMap<String, String>(deploy.getLabels()));
+		podTemplateSpec.setMetadata(metadata);
+
+		K8SPodDTO podDto = deploy.getPodDto();
+		V1PodSpec podSpec = getPodSpec(podDto);
+/*
+		// add imagepullsecrets
+		if (StringUtils.isNotEmpty(deploy.getImagePullSecret())) {
+			List<V1LocalObjectReference> imagePullSecretsList = new ArrayList<V1LocalObjectReference>(1);
+			V1LocalObjectReference v1LocalObjectReference = new V1LocalObjectReference();
+			v1LocalObjectReference.setName(deploy.getImagePullSecret());
+			imagePullSecretsList.add(v1LocalObjectReference);
+			podSpec.setImagePullSecrets(imagePullSecretsList);
+		}
+*/
+		podTemplateSpec.setSpec(podSpec);
 
 
+/*
+		// template.spec.container.envFrom.configMapRef
+		if (podDto.getConfigMapData() != null && !podDto.getConfigMapData().isEmpty()) {
+			V1ConfigMapEnvSource configMapEnvSource = new V1ConfigMapEnvSource();
+			configMapEnvSource.setName(getConfigMapName(deploy.getName()));
+			V1EnvFromSource fromSource = new V1EnvFromSource();
+			fromSource.setConfigMapRef(configMapEnvSource);
+			container.addEnvFromItem(fromSource);
+		}
 
-	public String generateDeployYaml(K8SDeployDTO deploy) {
+		if (deploy.getSecretData() != null && !deploy.getSecretData().isEmpty()) {
+			V1SecretEnvSource secretEnvSource = new V1SecretEnvSource();
+			secretEnvSource.setName(getSecretName(deploy.getName()));
+			V1EnvFromSource secretFromSource = new V1EnvFromSource();
+			secretFromSource.setSecretRef(secretEnvSource);
+			container.addEnvFromItem(secretFromSource);
+		}
+*/
 
+		// template.spec.container.volumeMounts
+		setVolumeMounts(podSpec.getContainers().get(0), deploy.getVolumes());
+
+		// template.spec.container.resources
+		//setResource(container, deploy.getResource());
+/*
+		//startup
+		V1Probe startupProbe = new V1Probe();
+		startupProbe.setInitialDelaySeconds(30);
+		startupProbe.setPeriodSeconds(10);
+		V1TCPSocketAction startupSocket = new V1TCPSocketAction();
+		startupSocket.setPort(new IntOrString(containerPort));
+		startupProbe.setTcpSocket(startupSocket);
+
+		container.setStartupProbe(startupProbe);
+
+		//readiness
+		V1Probe readinessProbe = new V1Probe();
+		readinessProbe.setInitialDelaySeconds(30);
+		readinessProbe.setPeriodSeconds(10);
+		V1TCPSocketAction readinessSocket = new V1TCPSocketAction();
+		readinessSocket.setPort(new IntOrString(containerPort));
+		readinessProbe.setTcpSocket(readinessSocket);
+
+		container.setReadinessProbe(readinessProbe);
+
+		//liveness
+		V1Probe livenessProbe = new V1Probe();
+		livenessProbe.setInitialDelaySeconds(30); livenessProbe.setPeriodSeconds(10);
+		V1TCPSocketAction livenessSocket = new V1TCPSocketAction();
+		livenessSocket.setPort(new IntOrString(containerPort));
+		livenessProbe.setTcpSocket(livenessSocket);
+
+		container.setLivenessProbe(livenessProbe);
+*/
+		// template.spec.volume
+		//setHostPathVolumes(podSpec, deploy.getHostPathVolumes());
+		//setPVCVolumes(podSpec, deploy.getPvcVolumes());
+
+		return podTemplateSpec;
+	}
+
+
+	public String getDeploymentYaml(K8SDeploymentDTO deploy){
+		V1Deployment deployment = getDeployment(deploy);
 		StringBuffer buffer = new StringBuffer();
-
-		// defaudlt Label 추가
-		Map<String, String> labels = addDefaultLabel(deploy.getLabels(), deploy.getDeployName());
-		deploy.setLabels(labels);
-		
-		//pvc 네이밍룰 적용 (kbcard 기준)
-		setVolumeName(deploy.getName(), deploy.getPvcVolumes());
-		if (deploy.getPvcVolumes() != null) {
-			for (K8SVolume volume : deploy.getPvcVolumes()) {
-				appendYaml(buffer, getPvc(deploy, volume));
-			}
-		}
-
-		switch (K8S.Controller.valueOf(deploy.getController())) {
-		case Deployment:
-			V1Deployment deployment = getDeployment(deploy);
-			appendYaml(buffer, deployment);
-			appendYaml(buffer, getAutoscaler(deploy, deployment));
-			break;
-		case DaemonSet:
-			appendYaml(buffer, getDaemonSet(deploy));
-			break;
-		case StatefulSet:
-			appendYaml(buffer, getStatefulSet(deploy));
-			break;
-		case CronJob:
-			appendYaml(buffer, getCronJob(deploy));
-			break;
-//		case Pod:
-//			appendYaml(buffer, getPod(deploy));
-//			break;
-		}
-
-		// service
-		appendYaml(buffer, getService(deploy));
-
-		appendYaml(buffer, getConfigMap(deploy));
-		appendYaml(buffer, getSecret(deploy));
-
-		// httprpoxy
-		appendYaml(buffer, getTlsSecret(deploy));
-
-		// ingress kbcard ingress 사용하지 않음
-		// appendYaml(buffer, getIngress(deploy));
-
+		appendYaml(buffer, deployment);
 		String yaml = buffer.toString();
-
-		//default Label 삭제
-		removeDefaultLabel(deploy.getLabels());
-		
 		return yaml;
-
 	}
+
+
+
+	private V1ConfigMap getConfigmap(K8SConfigmapDTO cmDto){
+		return null;
+	}
+
+	public String getConfigmapYaml(K8SConfigmapDTO cmDto){
+		return "";
+	}
+
+
+	private V1HorizontalPodAutoscaler getHpa(K8SHPADTO hpaDto){
+
+		V1HorizontalPodAutoscaler hpa = new V1HorizontalPodAutoscaler();
+
+		hpa.setApiVersion("autoscaling/v2");
+		hpa.setKind("HorizontalPodAutoscaler");
+
+		V1ObjectMeta metadata = new V1ObjectMeta();
+		metadata.setName(hpaDto.getHpaName());
+		metadata.setNamespace(hpaDto.getNamespace());
+		metadata.setLabels(hpaDto.getLabels());
+		hpa.setMetadata(metadata);
+
+		V1HorizontalPodAutoscalerSpec spec = new V1HorizontalPodAutoscalerSpec();
+
+		V1CrossVersionObjectReference ref = new V1CrossVersionObjectReference();
+		ref.setApiVersion("apps/v1");
+		ref.setKind(hpaDto.getTarget().getKind());
+		ref.setName(hpaDto.getTarget().getName());
+		spec.setScaleTargetRef(ref);
+
+		spec.setMinReplicas(hpaDto.getMinReplicas());
+		spec.setMaxReplicas(hpaDto.getMaxReplicas());
+
+		V2beta1MetricSpec metrics = new V2beta1MetricSpec();
+		metrics.setType(hpaDto.getMetric().getType()); // Resource
+		V2beta1ResourceMetricSource resource = new V2beta1ResourceMetricSource();
+		resource.setName(hpaDto.getMetric().getResourceName());
+		resource.setTargetAverageUtilization(hpaDto.getMetric().getTargetAverageUtilization());
+		//V2beta2MetricTarget target = new V2beta2MetricTarget();
+		//target.setType(hpaDto.getMetric().getTargetType());
+		//target.setAverageUtilization(hpaDto.getMetric().getTargetAverageUtilization());
+
+		metrics.setResource(resource);
+
+
+
+		return hpa;
+	}
+
+	public String getHpaYaml(K8SHPADTO hpaDto){
+		V1HorizontalPodAutoscaler hpa = getHpa(hpaDto);
+		StringBuffer buffer = new StringBuffer();
+		appendYaml(buffer, hpa);
+		String yaml = buffer.toString();
+		return yaml;
+	}
+
+
+	private V1Service getSvc(K8SServiceDTO svcDto){
+		return null;
+	}
+
+	public String getSvcYaml(K8SServiceDTO svcDto){
+		return "";
+	}
+
+
+	private V1ObjectMeta getMetadata(String name, String namespace) {
+		V1ObjectMeta metadata = new V1ObjectMeta();
+		metadata.setName(name);
+		metadata.setNamespace(namespace);
+		return metadata;
+	}
+
 
 //	public String generateTlsSecret(K8SDeployDTO deploy) {
 //		
@@ -176,38 +309,7 @@ public class K8SDeployYamlGenerator {
 	}
 
 	// Deployment
-	private V1Deployment getDeployment(K8SDeployDTO deploy) {
 
-		V1Deployment deployment = new V1Deployment();
-		deployment.setApiVersion(K8S.Controller.Deployment.getApiVersion());
-		deployment.setKind(deploy.getController());
-
-		// metadata
-		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(), deploy.getLabels());
-		deployment.setMetadata(metadata);
-
-		// spec
-		V1DeploymentSpec deploymentSpec = new V1DeploymentSpec();
-		deployment.setSpec(deploymentSpec);
-
-		// spec.selector
-		V1LabelSelector labelSelector = new V1LabelSelector();
-		labelSelector.setMatchLabels(deploy.getLabels());
-		deploymentSpec.setSelector(labelSelector);
-
-		// spec.replicas
-		Integer replicas = (deploy.getReplicas() == null || deploy.getReplicas() == 0) ? 1 : deploy.getReplicas();
-		deploymentSpec.setReplicas(replicas);
-
-		// spec.strategy
-		V1DeploymentStrategy deploymentStrategy = new V1DeploymentStrategy();
-		deploymentStrategy.setType(deploy.getStrategyType());
-		deploymentSpec.setStrategy(deploymentStrategy);
-
-		// template(pod)
-		deploymentSpec.setTemplate(getPodTemplateSpec(deploy));
-		return deployment;
-	}
 
 
 
@@ -240,7 +342,7 @@ public class K8SDeployYamlGenerator {
 		daemonSetSpec.setUpdateStrategy(updateStrategy);
 
 		// template(pod)
-		daemonSetSpec.setTemplate(getPodTemplateSpec(deploy));
+		//daemonSetSpec.setTemplate(getPodTemplateSpec(deploy));
 		return daemonSet;
 
 	}
@@ -277,7 +379,7 @@ public class K8SDeployYamlGenerator {
 		statefulSetSpec.serviceName(getServiceName(deploy));
 
 		// template(pod)
-		statefulSetSpec.template(getPodTemplateSpec(deploy));
+		//statefulSetSpec.template(getPodTemplateSpec(deploy));
 
 		// TODO volumeClaimTemplates
 
@@ -285,40 +387,7 @@ public class K8SDeployYamlGenerator {
 	}
 
 	// CronJob
-	private V1beta1CronJob getCronJob(K8SDeployDTO deploy) {
 
-		V1beta1CronJob cronJob = new V1beta1CronJob();
-		cronJob.setApiVersion(K8S.Controller.CronJob.getApiVersion());
-		cronJob.setKind(deploy.getController());
-
-		// metadata
-		V1ObjectMeta metadata = getControllerMetadata(deploy.getController(), deploy.getName(), deploy.getNamespace(), deploy.getLabels());
-		cronJob.setMetadata(metadata);
-
-		// spec
-		V1beta1CronJobSpec cronJobSpec = new V1beta1CronJobSpec();
-		cronJob.setSpec(cronJobSpec);
-
-		// spec.
-		// cronJobSpec.setConcurrencyPolicy("Forbid"); //Allow, Forbid, Replace
-		// spec.schedule
-		cronJobSpec.schedule(deploy.getSchedule());
-
-		// spec.jobTemplate
-		V1beta1JobTemplateSpec jobTemplate = new V1beta1JobTemplateSpec();
-		cronJobSpec.jobTemplate(jobTemplate);
-
-		// spec.jobTemplate.spec
-		V1JobSpec spec = new V1JobSpec();
-		jobTemplate.setSpec(spec);
-
-		// pod
-		V1PodTemplateSpec template = getPodTemplateSpec(deploy);
-		template.getSpec().setRestartPolicy("Never");
-		spec.setTemplate(template);
-
-		return cronJob;
-	}
 
 	private V1ObjectMeta getControllerMetadata(String controller, String name, String namespace,
 			Map<String, String> labels) {
@@ -337,13 +406,6 @@ public class K8SDeployYamlGenerator {
 		return metadata;
 	}
 
-	private V1ObjectMeta getMetadata(String name, String namespace) {
-
-		V1ObjectMeta metadata = new V1ObjectMeta();
-		metadata.setName(name);
-		metadata.setNamespace(namespace);
-		return metadata;
-	}
 
 	private String getName(String postfix, String name) {
 		return name.replace("KIND", postfix);
@@ -363,170 +425,8 @@ public class K8SDeployYamlGenerator {
 	
 	
 	private Map<String, String> removeDefaultLabel(Map<String, String> labels) {
-		if (labels != null) {
-			labels.remove(K8S.podAntiAffinityKey);
-		}
-		
+		if (labels != null) { labels.remove(K8S.podAntiAffinityKey); }
 		return labels;
-	}
-	
-
-	// PodTemplate
-	private V1PodTemplateSpec getPodTemplateSpec(K8SDeployDTO deploy) {
-
-		V1PodTemplateSpec podTemplateSpec = new V1PodTemplateSpec();
-		// template.metadata
-		V1ObjectMeta metadata = new V1ObjectMeta();
-		metadata.setLabels(new HashMap<String, String>(deploy.getLabels()));
-		podTemplateSpec.setMetadata(metadata);
-
-		// template.spec
-		V1PodSpec podSpec = new V1PodSpec();
-
-		// add imagepullsecrets
-		if (StringUtils.isNotEmpty(deploy.getImagePullSecret())) {
-			List<V1LocalObjectReference> imagePullSecretsList = new ArrayList<V1LocalObjectReference>(1);
-			V1LocalObjectReference v1LocalObjectReference = new V1LocalObjectReference();
-			v1LocalObjectReference.setName(deploy.getImagePullSecret());
-			imagePullSecretsList.add(v1LocalObjectReference);
-			podSpec.setImagePullSecrets(imagePullSecretsList);
-		}
-
-		podTemplateSpec.setSpec(podSpec);
-
-		// template.spec.container
-		List<V1Container> containers = new ArrayList<V1Container>(1);
-		podSpec.setContainers(containers);
-
-		V1Container container = new V1Container();
-		containers.add(container);
-
-		// template.spec.container.name
-		container.setName(getContainerName(deploy.getName()));
-		// template.spec.container.image
-		container.setImage("DEPLOY_IMAGE_NAME");
-		// template.spec.container.command
-		if (!isEmpty(deploy.getCommand())) {
-			container.setCommand(deploy.getCommand());
-		}
-		// template.spec.container.args
-		if (!isEmpty(deploy.getArgs())) {
-			container.setArgs(deploy.getArgs());
-		}
-
-		// template.spec.container.envFrom.configMapRef
-		if (deploy.getConfigMapData() != null && !deploy.getConfigMapData().isEmpty()) {
-			V1ConfigMapEnvSource configMapEnvSource = new V1ConfigMapEnvSource();
-			configMapEnvSource.setName(getConfigMapName(deploy.getName()));
-			V1EnvFromSource fromSource = new V1EnvFromSource();
-			fromSource.setConfigMapRef(configMapEnvSource);
-			container.addEnvFromItem(fromSource);
-		}
-
-		// template.spec.container.envFrom.secretRef
-		// https://kubernetes.io/ko/docs/tasks/inject-data-application/distribute-credentials-secure/#%EC%8B%9C%ED%81%AC%EB%A6%BF%EC%9D%98-%EB%AA%A8%EB%93%A0-%ED%82%A4-%EA%B0%92-%EC%8C%8D%EC%9D%84-%EC%BB%A8%ED%85%8C%EC%9D%B4%EB%84%88-%ED%99%98%EA%B2%BD-%EB%B3%80%EC%88%98%EB%A1%9C-%EA%B5%AC%EC%84%B1%ED%95%98%EA%B8%B0
-		if (deploy.getSecretData() != null && !deploy.getSecretData().isEmpty()) {
-			V1SecretEnvSource secretEnvSource = new V1SecretEnvSource();
-			secretEnvSource.setName(getSecretName(deploy.getName()));
-			V1EnvFromSource secretFromSource = new V1EnvFromSource();
-			secretFromSource.setSecretRef(secretEnvSource);
-			container.addEnvFromItem(secretFromSource);
-		}
-
-		// template.spec.container.ports
-		if (deploy.getPorts() != null && deploy.getPorts().size() > 0) {
-			List<V1ContainerPort> containerPorts = new ArrayList<V1ContainerPort>();
-
-			for (K8SPort port : deploy.getPorts()) {
-				V1ContainerPort containerPort = new V1ContainerPort();
-				containerPort.setName(port.getName());
-				containerPort.setContainerPort(port.getContainerPort());
-				containerPorts.add(containerPort);
-			}
-
-			container.setPorts(containerPorts);
-		}
-
-		// template.spec.container.volumeMounts
-		setVolumeMounts(container, deploy.getHostPathVolumes());
-		setVolumeMounts(container, deploy.getPvcVolumes());
-		setVolumeMounts(container, deploy.getAzureFileVolumes());
-
-		// template.spec.container.resources
-		setResource(container, deploy.getResource());
-
-		// template.spec.container.probe//////////////////////////////////////////////////////////
-
-		// V1HTTPGetAction httpGet = new V1HTTPGetAction();
-		// readinessProbe.setHttpGet(httpGet);
-		
-		
-		  int containerPort = deploy.getPorts().get(0).getContainerPort();
-		  
-		  //startup
-		  V1Probe startupProbe = new V1Probe();
-		  startupProbe.setInitialDelaySeconds(30);
-		  startupProbe.setPeriodSeconds(10); 
-		  V1TCPSocketAction startupSocket = new V1TCPSocketAction(); 
-		  startupSocket.setPort(new IntOrString(containerPort));
-		  startupProbe.setTcpSocket(startupSocket);
-		  
-		  container.setStartupProbe(startupProbe);
-		  
-		  //readiness 
-		  V1Probe readinessProbe = new V1Probe();
-		  readinessProbe.setInitialDelaySeconds(30);
-		  readinessProbe.setPeriodSeconds(10); 
-		  V1TCPSocketAction readinessSocket = new V1TCPSocketAction(); 
-		  readinessSocket.setPort(new IntOrString(containerPort));
-		  readinessProbe.setTcpSocket(readinessSocket);
-		  
-		  container.setReadinessProbe(readinessProbe);
-		  
-		  //liveness 
-		  V1Probe livenessProbe = new V1Probe();
-		  livenessProbe.setInitialDelaySeconds(30); livenessProbe.setPeriodSeconds(10);
-		  V1TCPSocketAction livenessSocket = new V1TCPSocketAction();
-		  livenessSocket.setPort(new IntOrString(containerPort));
-		  livenessProbe.setTcpSocket(livenessSocket);
-		  
-		  container.setLivenessProbe(livenessProbe);
-		 
-		
-		// template.spec.container.probe//////////////////////////////////////////////////////////
-
-		// TODO ConfigMap, Secret
-
-		// template.spec.hostname
-		if (!StringUtils.isEmpty(deploy.getHostname())) {
-			podSpec.setHostname(deploy.getHostname());
-		}
-
-		// template.spec.nodeSelector
-		Map<String, String> nodeSelector = getNodeSelector(deploy.getNodeSelector());
-		if (nodeSelector != null && nodeSelector.size() > 0) {
-			podSpec.setNodeSelector(nodeSelector);
-		}
-
-		// template.spec.volume
-		setHostPathVolumes(podSpec, deploy.getHostPathVolumes());
-		setPVCVolumes(podSpec, deploy.getPvcVolumes());
-		//setAzureFileVolumes(podSpec, deploy.getAzureFileVolumes());
-
-		// template.spec.affinity
-		switch (K8S.Controller.valueOf(deploy.getController())) {
-		case Deployment:
-		case StatefulSet:
-		case Rollout:
-			podSpec.setAffinity(getPodAntiAffinity(deploy));
-			break;
-		case DaemonSet:
-		case CronJob:
-			break;
-		}
-
-		return podTemplateSpec;
-
 	}
 
 	// VolumeMounts
@@ -621,24 +521,7 @@ public class K8SDeployYamlGenerator {
 
 	}
 
-	// NodeSelector
-	private Map<String, String> getNodeSelector(List<String> nodeSelectorList) {
 
-		if (isEmpty(nodeSelectorList)) {
-			return null;
-		}
-
-		Map<String, String> nodeSelectorMap = new HashMap<>();
-		for (String nodeSelector : nodeSelectorList) {
-			if (!nodeSelector.contains(":"))
-				continue;
-			String[] array = nodeSelector.split(":");
-			nodeSelectorMap.put(array[0].trim(), array[1].trim());
-		}
-
-		return nodeSelectorMap;
-
-	}
 
 	private V1Affinity getPodAntiAffinity(K8SDeployDTO deploy) {
 
@@ -675,7 +558,7 @@ public class K8SDeployYamlGenerator {
 		configMap.setApiVersion(K8S.Kind.ConfigMap.getApiVersion());
 		configMap.setKind(K8S.Kind.ConfigMap.name());
 
-		configMap.setMetadata(getMetadata(getConfigMapName(deploy.getName()), deploy.getNamespace()));
+		//configMap.setMetadata(getMetadata(getConfigMapName(deploy.getName()), deploy.getNamespace()));
 
 		configMap.setData(deploy.getConfigMapData());
 
@@ -696,7 +579,7 @@ public class K8SDeployYamlGenerator {
 		secret.setApiVersion(K8S.Kind.Secret.getApiVersion());
 		secret.setKind(K8S.Kind.Secret.name());
 
-		secret.setMetadata(getMetadata(getSecretName(deploy.getName()), deploy.getNamespace()));
+		//secret.setMetadata(getMetadata(getSecretName(deploy.getName()), deploy.getNamespace()));
 
 		for (String key : secretData.keySet()) {
 			secret.putDataItem(key, secretData.get(key).getBytes());
@@ -723,8 +606,8 @@ public class K8SDeployYamlGenerator {
 		secret.setKind(K8S.Kind.Secret.name());
 
 		// kbcard 네이밍기준 적용
-		String name = getTlsSecretName(deploy.getName());
-		secret.setMetadata(getMetadata(name, deploy.getNamespace()));
+		//String name = getTlsSecretName(deploy.getName());
+		//secret.setMetadata(getMetadata(name, deploy.getNamespace()));
 
 		secret.setType("kubernetes.io/tls");
 
@@ -742,32 +625,6 @@ public class K8SDeployYamlGenerator {
 
 
 	}
-
-
-	// kbcard 네이밍기준 적용
-	private String getContainerName(String deployName) {
-		String name = getName("pod", deployName);
-		return String.format("%s-001", name);
-	}
-
-	// kbcard 네이밍기준 적용
-	private String getSecretName(String deployName) {
-		String name = getName(K8S.Kind.Secret.getPostfix(), deployName);
-		return String.format("%s-input-001", name);
-	}
-
-	// kbcard 네이밍기준 적용
-	private String getTlsSecretName(String deployName) {
-		String name = getName(K8S.Kind.Secret.getPostfix(), deployName);
-		return String.format("%s-httptls-001", name);
-	}
-
-	// kbcard 네이밍기준 적용
-	private String getConfigMapName(String deployName) {
-		String name = getName(K8S.Kind.ConfigMap.getPostfix(), deployName);
-		return String.format("%s-input-001", name);
-	}
-
 
 	private String getServiceName(K8SDeployDTO deploy) {
 
@@ -866,9 +723,6 @@ public class K8SDeployYamlGenerator {
 
 	}
 
-	private final String KBC_HttpProxy_LoadBalancerPolicy = "Cookie";
-
-
 
 	private V2beta2HorizontalPodAutoscaler getAutoscaler(K8SDeployDTO deploy, KubernetesObject object) {
 
@@ -944,12 +798,6 @@ public class K8SDeployYamlGenerator {
 			volume.setClaimName(claimName);
 		}
 	}
-
-//	private String getPvcName(K8SDeployDTO deploy, K8SVolume volume) {
-//		String name = getName(K8S.Kind.PersistentVolumeClaim.getPostfix(), deploy.getName());
-//		name = String.format("%s-%s", name, volume.getName());
-//		return name;
-//	}
 
 	//private final String KBC_AccessMode = "ReadWriteMany";
 	//private final String KBC_StorageClassName = "tkg-storage-powerstore1000t-nas-001";
