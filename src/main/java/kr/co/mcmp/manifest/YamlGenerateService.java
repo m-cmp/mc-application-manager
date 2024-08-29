@@ -27,8 +27,8 @@ public class YamlGenerateService {
         return "";
     }
 
-    public String generateHPAYaml(){
-        return "";
+    public String generateHPAYaml(K8SHPADTO hpaDto){
+        return yamlGen.getHpaYaml(hpaDto);
     }
 
     public String generateServiceYaml(){

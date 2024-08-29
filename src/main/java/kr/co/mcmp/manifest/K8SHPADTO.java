@@ -14,7 +14,6 @@ public class K8SHPADTO {
 
     public String hpaName;
     public String namespace;
-    public List<V1Container> containers;
     public Map<String, String> labels;
 
     public TargetRef target;
