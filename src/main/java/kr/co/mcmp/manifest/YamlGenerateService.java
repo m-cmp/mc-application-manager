@@ -16,11 +16,11 @@ public class YamlGenerateService {
 
 
     public String generatePodYaml(K8SPodDTO podContents){
-        return yamlGen.getPod(podContents);
+        return yamlGen.getPodYaml(podContents);
     }
 
-    public String generateDeploymentYaml(){
-        return "";
+    public String generateDeploymentYaml(K8SDeploymentDTO deploy){
+        return yamlGen.getDeploymentYaml(deploy);
     }
 
     public String generateConfigmapYaml(){
