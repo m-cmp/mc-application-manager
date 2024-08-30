@@ -41,7 +41,24 @@ public class K8SDeployYamlGenerator {
 
 	private V1PodSpec getPodSpec(K8SPodDTO podDto){
 		V1PodSpec podSpec = new V1PodSpec();
-		List<V1Container> containerList = podDto.getContainers();
+		List<V1Container> containerList = new ArrayList<>(); //podDto.getContainers();
+		for(K8SPodDTO.Container cont: podDto.getContainers()){
+			V1Container container = new V1Container();
+			container.setName(cont.getContainerName());
+			container.setImage(cont.getContainerImage());
+			List<V1ContainerPort> portList = new ArrayList<>();
+			for(K8SPodDTO.Port pt: cont.getPorts()) {
+				V1ContainerPort port = new V1ContainerPort();
+				port.setProtocol(pt.getProtocol());
+				port.setProtocol(pt.getName());
+				port.setContainerPort(pt.getContainerPort());
+				portList.add(port);
+			}
+			//V1ResourceRequirements resourceReq = new V1ResourceRequirements();
+			//resourceReq.setLimits();
+			container.setPorts(portList);
+			containerList.add(container);
+		}
 		podSpec.setContainers(containerList);
 		podSpec.setRestartPolicy(podDto.getRestartPolicy());
 		return podSpec;
