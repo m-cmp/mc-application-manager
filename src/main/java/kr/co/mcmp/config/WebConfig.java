@@ -6,14 +6,14 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
-    registry.addViewController("/web/{spring:[a-zA-Z\\-]+}")
-        .setViewName("forward:/index.html");
-    registry.addViewController("/web/**/{spring:[a-zA-Z\\-]+}")
-        .setViewName("forward:/index.html");
-    registry.addViewController("/web/{spring:[a-zA-Z\\-]+}/**{spring:?!(\\.js|\\.css)$}")
-        .setViewName("forward:/index.html");
+        // 모든 경로를 index.html로 리다이렉트
+        registry.addViewController("/web/{spring:[\\w\\-]+}")
+                .setViewName("forward:/index.html");
+        registry.addViewController("/web/**/{spring:[\\w\\-]+}")
+                .setViewName("forward:/index.html");
+        registry.addViewController("/web/{spring:[\\w\\-]+}/**{spring:[\\w\\-]+}")
+                .setViewName("forward:/index.html");
     }
 }
