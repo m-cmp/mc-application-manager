@@ -23,7 +23,10 @@ public class YamlGenerateController {
     @Operation(summary = "yaml generate for pod")
     @PostMapping("/pod")
     public String generatePodYaml(K8SPodDTO k8sPodDto){
-        return yamlGenSvc.generatePodYaml(k8sPodDto);
+        //System.out.println("==================================" + k8sPodDto.toString());
+        System.out.println("==================================");
+        return "";
+        //return yamlGenSvc.generatePodYaml(k8sPodDto);
     }
 
     @Operation(summary = "yaml generate for deployment")
