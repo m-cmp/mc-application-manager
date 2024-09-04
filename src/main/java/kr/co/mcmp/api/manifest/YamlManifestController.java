@@ -2,9 +2,7 @@ package kr.co.mcmp.api.manifest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import kr.co.mcmp.api.manifest.k8s.K8SConfigMapDto;
-import kr.co.mcmp.api.manifest.k8s.K8SDeploymentsDto;
-import kr.co.mcmp.api.manifest.k8s.K8SServiceDto;
+import kr.co.mcmp.api.manifest.k8s.*;
 import kr.co.mcmp.response.ResponseWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -43,5 +41,21 @@ public class YamlManifestController {
             @RequestBody K8SConfigMapDto configMap) {
         manifestService.generateYamlConfigMap(configMap);
         return ResponseEntity.ok(new ResponseWrapper<>("ConfigMap Yaml Generated Successfully"));
+    }
+
+    @Operation(summary = "Pod Yaml 생성")
+    @PostMapping("/yaml/pod")
+    public ResponseEntity<ResponseWrapper<String>> generateYamlPod(
+            @RequestBody K8SPodDto pod) {
+        manifestService.generateYamlPod(pod);
+        return ResponseEntity.ok(new ResponseWrapper<>("Pod Yaml Generated Successfully"));
+    }
+
+    @Operation(summary = "Hpa Yaml 생성")
+    @PostMapping("/yaml/hpa")
+    public ResponseEntity<ResponseWrapper<String>> generateYamlHpa(
+            @RequestBody K8SHpaDto hpa) {
+        manifestService.generateYamlHpa(hpa);
+        return ResponseEntity.ok(new ResponseWrapper<>("Hpa Yaml Generated Successfully"));
     }
 }
