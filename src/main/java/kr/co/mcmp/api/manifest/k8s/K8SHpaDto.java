@@ -5,17 +5,16 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
 import java.util.Map;
 
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class K8SServiceDto {
+public class K8SHpaDto {
 
-    private final String apiVersion = "v1";
-    private final String kind = "Service";
+    private final String apiVersion = "autoscaling/v1";
+    private final String kind = "HorizontalPodAutoscaler";
     private MetadataDto metadata;
     private SpecDto spec;
 
@@ -34,19 +33,19 @@ public class K8SServiceDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class SpecDto {
-        private Map<String, Object> selector = null;
-        private List<PortsDto> ports = null;
-        private String type;
+        private ScaleTargetRefDto scaleTargetRef;
+        private Integer minReplicas;
+        private Integer maxReplicas;
+        private Integer targetCPUUtilizationPercentage;
 
         @Getter
         @Builder
         @NoArgsConstructor
         @AllArgsConstructor
-        public static class PortsDto {
-            private String protocol;
-            private Integer port;
-            private Integer targetPort;
-            private Integer nodePort;
+        public static class ScaleTargetRefDto {
+            private String apiVersion;
+            private String kind;
+            private String name;
         }
     }
 }
