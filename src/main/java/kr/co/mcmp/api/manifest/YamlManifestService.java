@@ -4,9 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import kr.co.mcmp.api.manifest.k8s.K8SConfigMapDto;
-import kr.co.mcmp.api.manifest.k8s.K8SDeploymentsDto;
-import kr.co.mcmp.api.manifest.k8s.K8SServiceDto;
+import kr.co.mcmp.api.manifest.k8s.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
@@ -31,6 +29,14 @@ public class YamlManifestService {
         return generateYaml(configMap);
     }
 
+    public String generateYamlPod(K8SPodDto pod) {
+        return generateYaml(pod);
+    }
+
+    public String generateYamlHpa(K8SHpaDto hpa) {
+        return generateYaml(hpa);
+    }
+
     private <T> String generateYaml(T dto) {
         try {
             String yamlText = mapper.writeValueAsString(dto);
@@ -41,9 +47,18 @@ public class YamlManifestService {
         }
     }
 
-    private String removeQuotesYaml(String yamlText) {
+/*    private String removeQuotesYaml(String yamlText) {
         yamlText = yamlText.replaceAll(": \"([^\"]*)\"", ": $1");
         yamlText = yamlText.replaceAll(": \"(\\d+)\"", ": $1");
         return yamlText;
-    }
+    }*/
+
+/*    private void saveYaml(String yamlText) {
+        CommonUploadComponent.TextComponentDto textComponent = CommonUploadComponent.TextComponentDto.builder()
+                .filename("test")
+                .directory("/")
+                .text(yamlText)
+                .build();
+        moduleComponentService.createComponentByText("nexus", "repo", textComponent);
+    }*/
 }

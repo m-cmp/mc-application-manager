@@ -13,8 +13,8 @@ import java.util.Map;
 @AllArgsConstructor
 public class K8SConfigMapDto {
 
-    private String apiVersion;
-    private String kind;
+    private final String apiVersion = "v1";
+    private final String kind = "ConfigMap";
     private MetadataDto metadata;
     private Map<String, String> data = null;
 
@@ -22,7 +22,7 @@ public class K8SConfigMapDto {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    private static class MetadataDto {
+    public static class MetadataDto {
         private String name;
         private String namespace;
         private Map<String, Object> labels = null;
