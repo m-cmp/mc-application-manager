@@ -20,7 +20,7 @@ import java.util.Map;
 
 @Component
 public class K8SDeployYamlGenerator {
-
+/*
 	private V1Pod getPod(K8SPodDTO podDto) {
 
 		V1Pod pod = new V1Pod();
@@ -72,6 +72,12 @@ public class K8SDeployYamlGenerator {
 		String yaml = buffer.toString();
 		return yaml;
 	}
+*/
+
+
+
+
+
 
 
 	private V1Deployment getDeployment(K8SDeploymentDTO deploy) {
@@ -118,7 +124,7 @@ public class K8SDeployYamlGenerator {
 		podTemplateSpec.setMetadata(metadata);
 
 		K8SPodDTO podDto = deploy.getPodDto();
-		V1PodSpec podSpec = getPodSpec(podDto);
+		//V1PodSpec podSpec = getPodSpec(podDto);
 /*
 		// add imagepullsecrets
 		if (StringUtils.isNotEmpty(deploy.getImagePullSecret())) {
@@ -129,7 +135,7 @@ public class K8SDeployYamlGenerator {
 			podSpec.setImagePullSecrets(imagePullSecretsList);
 		}
 */
-		podTemplateSpec.setSpec(podSpec);
+		//podTemplateSpec.setSpec(podSpec);
 
 
 /*
@@ -152,7 +158,7 @@ public class K8SDeployYamlGenerator {
 */
 
 		// template.spec.container.volumeMounts
-		setVolumeMounts(podSpec.getContainers().get(0), deploy.getVolumes());
+		//setVolumeMounts(podSpec.getContainers().get(0), deploy.getVolumes());
 
 		// template.spec.container.resources
 		//setResource(container, deploy.getResource());
@@ -262,13 +268,13 @@ public class K8SDeployYamlGenerator {
 	}
 
 
-	private V1Service getSvc(K8SServiceDTO svcDto){
-		return null;
-	}
-
-	public String getSvcYaml(K8SServiceDTO svcDto){
-		return "";
-	}
+//	private V1Service getSvc(K8SServiceDTO svcDto){
+//		return null;
+//	}
+//
+//	public String getSvcYaml(K8SServiceDTO svcDto){
+//		return "";
+//	}
 
 
 	private V1ObjectMeta getMetadata(String name, String namespace) {
