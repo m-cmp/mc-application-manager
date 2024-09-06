@@ -8,7 +8,7 @@ networks:
   # jenkins - for workflow manager
   jenkins:
     image: jenkins/jenkins:jdk17
-    container_name: jenkins
+    container_name: ape-jenkins
     platform: linux/amd64
     networks:
       - internal_network
@@ -58,11 +58,11 @@ networks:
 
   # application-manager
   mc-application-manager:
-    image: m-cmp/mc-application-manager
+    image: m-cmp/mc-application-manager:latest
     container_name: application-manager
-    build:
-      context: ./
-      dockerfile: Dockerfile
+    #build:
+      #context: ./
+      #dockerfile: Dockerfile
     networks:
       - external_network
       - external_network
@@ -76,7 +76,7 @@ networks:
       - DDL_AUTO=create-drop
       - DB_USER=application
       - DB_PASS=application!23
-      - SQL_DATA_INIT=always
+      - SQL_DATA_INIT=always # or never
     healthcheck: # for cb-application-manager
       test: ["CMD", "nc", "-vz", "localhost", "1324"]
       interval: 1m
