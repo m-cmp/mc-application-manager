@@ -26,7 +26,7 @@ public class K8SPodDto {
     public static class MetadataDto {
         private String name;
         private String namespace;
-        private Map<String, Object> labels = null;
+        private Map<String, String> labels = null;
     }
 
     @Getter
@@ -44,8 +44,18 @@ public class K8SPodDto {
         public static class ContainerDto {
             private String name;
             private String image;
+            private List<EnvDto> env = null;
             private List<PortDto> ports = null;
             private ResourceDto resources;
+
+            @Getter
+            @Builder
+            @NoArgsConstructor
+            @AllArgsConstructor
+            public static class EnvDto {
+                private String name;
+                private String value;
+            }
 
             @Getter
             @Builder
@@ -63,8 +73,8 @@ public class K8SPodDto {
             @NoArgsConstructor
             @AllArgsConstructor
             public static class ResourceDto {
-                private Map<String, Object> limits = null;
-                private Map<String, Object> requests = null;
+                private Map<String, String> limits = null;
+                private Map<String, String> requests = null;
             }
         }
     }

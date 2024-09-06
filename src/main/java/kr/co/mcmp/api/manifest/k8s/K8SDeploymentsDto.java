@@ -26,7 +26,7 @@ public class K8SDeploymentsDto {
     public static class MetadataDto {
         private String name;
         private String namespace;
-        private Map<String, Object> labels = null;
+        private Map<String, String> labels = null;
     }
 
     @Getter
@@ -43,7 +43,7 @@ public class K8SDeploymentsDto {
         @NoArgsConstructor
         @AllArgsConstructor
         public static class SelectorDto {
-            private Map<String, Object> matchLabels = null;
+            private Map<String, String> matchLabels = null;
         }
 
         @Getter
@@ -68,7 +68,17 @@ public class K8SDeploymentsDto {
                 public static class ContainerDto {
                     private String name;
                     private String image;
+                    private List<EnvDto> env = null;
                     private List<PortDto> ports = null;
+
+                    @Getter
+                    @Builder
+                    @NoArgsConstructor
+                    @AllArgsConstructor
+                    public static class EnvDto {
+                        private String name;
+                        private String value;
+                    }
 
                     @Getter
                     @Builder
