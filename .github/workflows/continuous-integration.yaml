@@ -72,6 +72,7 @@ jobs:
         IMAGE_NAME: ${{ github.event.repository.name }}
       run: docker build . --file Dockerfile --tag $IMAGE_NAME
 
-
+    - name: chk image
+      run: docker ps -a
 
         

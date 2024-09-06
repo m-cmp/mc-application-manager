@@ -8,8 +8,8 @@ on:
     branches:
       - main
       - testcicd
-    #tags:
-    #  - "v*.*.*"
+    tags:
+      - "v*.*.*"
     paths-ignore:
       - "**.md"
       - ".gitignore"
