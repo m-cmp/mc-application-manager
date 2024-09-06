@@ -25,6 +25,6 @@ public class K8SConfigMapDto {
     public static class MetadataDto {
         private String name;
         private String namespace;
-        private Map<String, Object> labels = null;
+        private Map<String, String> labels = null;
     }
 }

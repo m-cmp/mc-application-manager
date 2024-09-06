@@ -26,7 +26,7 @@ public class K8SServiceDto {
     public static class MetadataDto {
         private String name;
         private String namespace;
-        private Map<String, Object> labels = null;
+        private Map<String, String> labels = null;
     }
 
     @Getter
@@ -34,7 +34,7 @@ public class K8SServiceDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class SpecDto {
-        private Map<String, Object> selector = null;
+        private Map<String, String> selector = null;
         private List<PortsDto> ports = null;
         private String type;
 
