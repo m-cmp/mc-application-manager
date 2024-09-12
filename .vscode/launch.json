@@ -1,0 +1,32 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "ApplicationManagerApplication",
+            "request": "launch",
+            "mainClass": "kr.co.mcmp.ApplicationManagerApplication",
+            "projectName": "application_manager-mc-application-manager",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=54249 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=application_manager-mc-application-manager"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ApplicationManagerApplication<mc-application-manager>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "kr.co.mcmp.ApplicationManagerApplication",
+            "projectName": "mc-application-manager",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-DateUtil<application_manager-mc-application-manager>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "kr.co.mcmp.util.DateUtil",
+            "projectName": "application_manager-mc-application-manager",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

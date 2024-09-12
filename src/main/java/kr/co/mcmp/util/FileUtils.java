@@ -9,11 +9,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.UUID;
 import java.util.stream.Stream;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 public class FileUtils { 
 	
+	private static final String ICON_UPLOAD_DIR = "src/main/resources/static/images/";
+
 	public static String readLine(InputStream is) throws IOException {
 		StringBuffer out = new StringBuffer(); 
 		byte[] b = new byte[4096]; 
@@ -76,6 +84,36 @@ public class FileUtils {
 		return directory;
 	}
 	
+	    
+    
+
+    public static String uploadIcon(MultipartFile iconFile) throws IOException {
+		 /* 파일 확장자 검사 */
+		 String originalFilename = iconFile.getOriginalFilename();
+		 if (StringUtils.isBlank(originalFilename)) {
+			 throw new IllegalArgumentException("파일 이름이 없습니다.");
+		 }
+		 /* 파일 크기 제한 (예: 50MB) */
+		//  long maxSize = 50 * 1024 * 1024; // 50MB in bytes
+		//  if (iconFile.getSize() > maxSize) {
+		// 	 throw new IllegalArgumentException("파일 크기는 50MB를 초과할 수 없습니다.");
+		//  }
+		 String fileExtension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+		 if (!Arrays.asList(".jpg", ".jpeg", ".png", ".gif").contains(fileExtension)) {
+			 throw new IllegalArgumentException("허용되지 않는 파일 형식입니다. jpg, jpeg, png, gif만 허용됩니다.");
+		 }
+        String uniqueFilename = UUID.randomUUID().toString() + fileExtension; 
+		/* 업로드할 전체 경로 생성 */
+        Path uploadPath = Paths.get(ICON_UPLOAD_DIR).toAbsolutePath().normalize();  
+        File destFile = new File(uploadPath.toFile(), uniqueFilename);
+		/* 디렉토리가 존재하지 않으면 생성 */
+        org.apache.commons.io.FileUtils.forceMkdirParent(destFile); 
+        
+        org.apache.commons.io.FileUtils.copyInputStreamToFile(iconFile.getInputStream(), destFile); 
+        
+        // 저장된 파일의 상대 경로 반환
+        return "/images/" + uniqueFilename;
+    }
 	public static void copy(File sourceLocation, File targetLocation)	throws IOException {
 		if (sourceLocation.isDirectory()) {
 			if (!targetLocation.isDirectory()) {

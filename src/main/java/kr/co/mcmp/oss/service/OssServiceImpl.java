@@ -142,16 +142,16 @@ public class OssServiceImpl implements OssService {
 
 		if(!osstypeDto.getOssTypeName().isEmpty()) {
 			switch(osstypeDto.getOssTypeName()) {
-			case "NEXUS" :
-				if (StringUtils.isBlank(ossDto.getOssUrl()) ||
-						StringUtils.isBlank(ossDto.getOssUsername()) ) {
-					log.error("접속정보 누락");
-					return false;
-				}
+				case "NEXUS" :
+					if (StringUtils.isBlank(ossDto.getOssUrl()) ||
+							StringUtils.isBlank(ossDto.getOssUsername()) ) {
+						log.error("접속정보 누락");
+						return false;
+					}
 
-				// Front에서 Base64Encoding한 데이터를 복호화하여 AES256 암호화 함.
-				ossDto.withModifiedEncriptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
-				return nexusService.checkNexusConnection(ossDto);
+					// Front에서 Base64Encoding한 데이터를 복호화하여 AES256 암호화 함.
+					ossDto.withModifiedEncriptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
+					return nexusService.checkNexusConnection(ossDto);
 
 				default:
 					log.debug("[checkConnection] oss code >>> {}", osstypeDto.getOssTypeName());

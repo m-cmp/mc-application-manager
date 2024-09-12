@@ -99,6 +99,7 @@ dependencies {
     implementation 'io.kubernetes:client-java-api'
     implementation 'io.kubernetes:client-java-extended'
 
+    implementation 'io.github.cdancy:jenkins-rest:1.0.1:all'
 
 }
 

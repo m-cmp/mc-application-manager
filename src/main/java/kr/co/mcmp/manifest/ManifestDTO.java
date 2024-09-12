@@ -1,10 +1,11 @@
 package kr.co.mcmp.manifest;
 
-import kr.co.mcmp.catalog.CatalogRefEntity;
 import lombok.Setter;
 import lombok.Getter;
 
 import javax.persistence.Column;
+
+import kr.co.mcmp.catalog.Ref.CatalogRefEntity;
 
 @Getter
 @Setter
