@@ -10,4 +10,4 @@ echo "build mc-application-manager"
 
 
 echo "docker build"
-docker build -t mc-application-manager:v0.0.1 . 
+sudo docker build -t mc-application-manager:v0.2.1 .
