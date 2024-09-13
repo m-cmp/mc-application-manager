@@ -66,10 +66,21 @@ public class K8SDeploymentDto {
         public static class DeploymentTemplateDto {
             @Valid
             @NotNull
-            private DeploymentMetadataDto metadata;
+            private DeploymentPodMetadataDto metadata;
             @Valid
             @NotNull
             private DeploymentPodSpecDto spec;
+
+            @Getter
+            @Builder
+            @NoArgsConstructor
+            @AllArgsConstructor
+            public static class DeploymentPodMetadataDto {
+                private String name;
+                private String namespace;
+                @NotNull
+                private Map<String, String> labels;
+            }
 
             @Getter
             @Builder
