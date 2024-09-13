@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import kr.co.mcmp.api.manifest.k8s.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -14,7 +15,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class YamlManifestService {
 
-    private final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
+    private final ObjectMapper mapper = new ObjectMapper(new YAMLFactory()
+            .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER))
             .setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
     public String generateYamlDeployments(K8SDeploymentDto deployments) {
