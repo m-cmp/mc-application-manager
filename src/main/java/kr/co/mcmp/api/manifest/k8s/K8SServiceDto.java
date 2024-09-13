@@ -16,14 +16,14 @@ public class K8SServiceDto {
 
     private final String apiVersion = "v1";
     private final String kind = "Service";
-    private MetadataDto metadata;
-    private SpecDto spec;
+    private ServiceMetadataDto metadata;
+    private ServiceSpecDto spec;
 
     @Getter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class MetadataDto {
+    public static class ServiceMetadataDto {
         private String name;
         private String namespace;
         private Map<String, String> labels = null;
@@ -33,16 +33,16 @@ public class K8SServiceDto {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class SpecDto {
+    public static class ServiceSpecDto {
         private Map<String, String> selector = null;
-        private List<PortsDto> ports = null;
+        private List<ServicePortsDto> ports = null;
         private String type;
 
         @Getter
         @Builder
         @NoArgsConstructor
         @AllArgsConstructor
-        public static class PortsDto {
+        public static class ServicePortsDto {
             private String protocol;
             private Integer port;
             private Integer targetPort;

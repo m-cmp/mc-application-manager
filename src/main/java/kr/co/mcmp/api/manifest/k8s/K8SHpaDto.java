@@ -15,14 +15,14 @@ public class K8SHpaDto {
 
     private final String apiVersion = "autoscaling/v1";
     private final String kind = "HorizontalPodAutoscaler";
-    private MetadataDto metadata;
-    private SpecDto spec;
+    private HpaMetadataDto metadata;
+    private HpaSpecDto spec;
 
     @Getter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class MetadataDto {
+    public static class HpaMetadataDto {
         private String name;
         private String namespace;
         private Map<String, String> labels = null;
@@ -32,8 +32,8 @@ public class K8SHpaDto {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class SpecDto {
-        private ScaleTargetRefDto scaleTargetRef;
+    public static class HpaSpecDto {
+        private HpaScaleTargetRefDto scaleTargetRef;
         private Integer minReplicas;
         private Integer maxReplicas;
         private Integer targetCPUUtilizationPercentage;
@@ -42,7 +42,7 @@ public class K8SHpaDto {
         @Builder
         @NoArgsConstructor
         @AllArgsConstructor
-        public static class ScaleTargetRefDto {
+        public static class HpaScaleTargetRefDto {
             private String apiVersion;
             private String kind;
             private String name;
