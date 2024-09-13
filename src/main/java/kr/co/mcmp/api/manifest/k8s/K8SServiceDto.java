@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
 
@@ -16,7 +19,11 @@ public class K8SServiceDto {
 
     private final String apiVersion = "v1";
     private final String kind = "Service";
+    @Valid
+    @NotNull
     private ServiceMetadataDto metadata;
+    @Valid
+    @NotNull
     private ServiceSpecDto spec;
 
     @Getter
@@ -24,6 +31,7 @@ public class K8SServiceDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ServiceMetadataDto {
+        @NotBlank
         private String name;
         private String namespace;
         private Map<String, String> labels = null;
@@ -34,8 +42,11 @@ public class K8SServiceDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ServiceSpecDto {
-        private Map<String, String> selector = null;
-        private List<ServicePortsDto> ports = null;
+        @NotNull
+        private Map<String, String> selector;
+        @Valid
+        @NotNull
+        private List<ServicePortsDto> ports;
         private String type;
 
         @Getter
@@ -44,7 +55,9 @@ public class K8SServiceDto {
         @AllArgsConstructor
         public static class ServicePortsDto {
             private String protocol;
+            @NotNull
             private Integer port;
+            @NotNull
             private Integer targetPort;
             private Integer nodePort;
         }
