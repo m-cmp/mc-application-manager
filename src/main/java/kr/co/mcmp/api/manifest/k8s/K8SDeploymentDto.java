@@ -12,18 +12,18 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class K8SDeploymentsDto {
+public class K8SDeploymentDto {
 
     private final String apiVersion = "apps/v1";
     private final String kind = "Deployment";
-    private MetadataDto metadata;
-    private SpecDto spec;
+    private DeploymentMetadataDto metadata;
+    private DeploymentSpecDto spec;
 
     @Getter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class MetadataDto {
+    public static class DeploymentMetadataDto {
         private String name;
         private String namespace;
         private Map<String, String> labels = null;
@@ -33,16 +33,16 @@ public class K8SDeploymentsDto {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class SpecDto {
+    public static class DeploymentSpecDto {
         private Integer replicas;
-        private SelectorDto selector;
-        private TemplateDto template;
+        private DeploymentSelectorDto selector;
+        private DeploymentTemplateDto template;
 
         @Getter
         @Builder
         @NoArgsConstructor
         @AllArgsConstructor
-        public static class SelectorDto {
+        public static class DeploymentSelectorDto {
             private Map<String, String> matchLabels = null;
         }
 
@@ -50,32 +50,32 @@ public class K8SDeploymentsDto {
         @Builder
         @NoArgsConstructor
         @AllArgsConstructor
-        public static class TemplateDto {
-            private MetadataDto metadata;
-            private PodSpecDto spec;
+        public static class DeploymentTemplateDto {
+            private DeploymentMetadataDto metadata;
+            private DeploymentPodSpecDto spec;
 
             @Getter
             @Builder
             @NoArgsConstructor
             @AllArgsConstructor
-            public static class PodSpecDto {
-                private List<ContainerDto> containers = null;
+            public static class DeploymentPodSpecDto {
+                private List<DeploymentPodContainerDto> containers = null;
 
                 @Getter
                 @Builder
                 @NoArgsConstructor
                 @AllArgsConstructor
-                public static class ContainerDto {
+                public static class DeploymentPodContainerDto {
                     private String name;
                     private String image;
-                    private List<EnvDto> env = null;
-                    private List<PortDto> ports = null;
+                    private List<DeploymentPodEnvDto> env = null;
+                    private List<DeploymentPodPortDto> ports = null;
 
                     @Getter
                     @Builder
                     @NoArgsConstructor
                     @AllArgsConstructor
-                    public static class EnvDto {
+                    public static class DeploymentPodEnvDto {
                         private String name;
                         private String value;
                     }
@@ -84,7 +84,7 @@ public class K8SDeploymentsDto {
                     @Builder
                     @NoArgsConstructor
                     @AllArgsConstructor
-                    public static class PortDto {
+                    public static class DeploymentPodPortDto {
                         private Integer containerPort;
                     }
                 }
