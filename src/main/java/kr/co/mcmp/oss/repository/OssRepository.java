@@ -12,6 +12,7 @@ import java.util.List;
 public interface OssRepository extends JpaRepository<Oss, Long> {
     List<Oss> findAll();
     Oss findByOssName(String ossName);
+    Oss findByOssNameIgnoreCase(String ossName);
     @Query("SELECT o FROM Oss o WHERE o.ossType.ossTypeIdx IN :ossTypeIdxs")
     List<Oss> findByOssTypeIdxIn(@Param("ossTypeIdxs") List<Long> ossTypeIdxs);
     Boolean existsByOssNameAndOssUrlAndOssUsername(String ossName, String ossUrl, String ossUsername);

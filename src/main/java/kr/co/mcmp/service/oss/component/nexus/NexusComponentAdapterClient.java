@@ -41,7 +41,7 @@ public class NexusComponentAdapterClient {
 
     private void getOssInfo() {
         try {
-            OssDto nexus = ossService.detailOssByOssName("NEXUS");
+            OssDto nexus = ossService.detailOssByOssNameIgnoreCase("NEXUS");
             this.nexusId = nexus.getOssUsername();
             this.nexusPwd = Base64Utils.base64Decoding(nexus.getOssPassword());
             this.baseUrl = nexus.getOssUrl();
