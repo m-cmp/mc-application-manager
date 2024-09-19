@@ -27,6 +27,12 @@ public class OssTypeController {
         return new ResponseWrapper<>(ossTypeService.getAllOssTypeList());
     }
 
+    @Operation(summary = "OSS 타입 목록 조회", description = "등록된 OSS 를 제외한 oss Type 목록조회" )
+    @GetMapping("/filter/list")
+    public ResponseWrapper<List<OssTypeDto>> getOssTypeFilteredList() {
+        return new ResponseWrapper<>(ossTypeService.getOssTypeFilteredList());
+    }
+
     @Operation(summary = "OSS 타입 등록", description = "oss Type 등록")
     @PostMapping
     public ResponseWrapper<Long> registOssType(@RequestBody OssTypeDto ossTypeDto) {

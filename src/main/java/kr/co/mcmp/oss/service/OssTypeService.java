@@ -9,6 +9,7 @@ import java.util.List;
 @Service
 public interface OssTypeService {
     List<OssTypeDto> getAllOssTypeList();
+    List<OssTypeDto> getOssTypeFilteredList();
     Long registOssType(OssTypeDto ossTypeDto);
     Long updateOssType(OssTypeDto ossTypeDto);
     @Transactional
