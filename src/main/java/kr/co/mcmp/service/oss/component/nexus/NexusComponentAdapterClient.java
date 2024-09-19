@@ -9,6 +9,7 @@ import kr.co.mcmp.exception.NexusClientException;
 import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.oss.service.OssServiceImpl;
 import kr.co.mcmp.util.Base64Util;
+import kr.co.mcmp.util.Base64Utils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
@@ -25,10 +26,10 @@ import java.util.Map;
 @Service
 public class NexusComponentAdapterClient {
 
-    private static final String GET_COMP_LIST = "/v1/components";
-    private static final String GET_COMP_DETAIL = "/v1/components/{id}";
-    private static final String DELETE_COMP_DELETE = "/v1/components/{id}";
-    private static final String POST_COMP_CREATE = "/v1/components";
+    private static final String GET_COMP_LIST = "/service/rest/v1/components";
+    private static final String GET_COMP_DETAIL = "/service/rest/v1/components/{id}";
+    private static final String DELETE_COMP_DELETE = "/service/rest/v1/components/{id}";
+    private static final String POST_COMP_CREATE = "/service/rest/v1/components";
 
     private String nexusId = "";
     private String nexusPwd = "";
@@ -42,7 +43,7 @@ public class NexusComponentAdapterClient {
         try {
             OssDto nexus = ossService.detailOssByOssName("NEXUS");
             this.nexusId = nexus.getOssUsername();
-            this.nexusPwd = nexus.getOssPassword();
+            this.nexusPwd = Base64Utils.base64Decoding(nexus.getOssPassword());
             this.baseUrl = nexus.getOssUrl();
         } catch (Exception e) {
             throw new IllegalArgumentException ("DB Nexus 계정 정보가 없습니다.");
