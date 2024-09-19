@@ -1,26 +1,13 @@
 <template>
   <div class="card card-flush w-100">
-    <TableHeander 
-      :header-title="'OSS'"
-      :new-btn-title="'New OSS'"
-      :popup-flag="true"
-      :popup-target="'#ossForm'"
-      @click-new-btn="onClickNewBtn"
-    />
-    <Tabulator 
-      :columns="columns"
-      :table-data="ossList">
+    <TableHeander :header-title="'OSS'" :new-btn-title="'New OSS'" :popup-flag="true" :popup-target="'#ossForm'"
+                  @click-new-btn="onClickNewBtn" />
+    <Tabulator :columns="columns" :table-data="ossList">
     </Tabulator>
 
-    <OssForm 
-      :mode="formMode"
-      :oss-idx="selectOssIdx"
-      @get-oss-list="_getOssList"/>
+    <OssForm :mode="formMode" :oss-idx="selectOssIdx" @get-oss-list="_getOssList" />
 
-    <DeleteOss 
-      :oss-name="selectOssName"
-      :oss-idx="selectOssIdx"
-      @get-oss-list="_getOssList"/>
+    <DeleteOss :oss-name="selectOssName" :oss-idx="selectOssIdx" @get-oss-list="_getOssList" />
 
   </div>
 </template>
@@ -39,7 +26,7 @@ import DeleteOss from './components/deleteOss.vue';
 const toast = useToast()
 /**
  * @Title ossList / columns
- * @Desc 
+ * @Desc
  *    ossList : oss 목록 저장
  *    columns : 목록의 컬럼 저장
  */
@@ -63,7 +50,7 @@ const _getOssList = async () => {
   try {
     const { data } = await getOssAllList()
     ossList.value = data
-  } catch(error) {
+  } catch (error) {
     console.log(error)
     toast.error('데이터를 가져올 수 없습니다.')
   }
@@ -125,16 +112,16 @@ const editDeleteButtonFormatter = () => {
     <button
       class='btn btn-primary d-none d-sm-inline-block mr-5'
       id='edit-btn'
-      data-bs-toggle='modal' 
+      data-bs-toggle='modal'
       data-bs-target='#ossForm'>
-      수정
+      EDIT
     </button>
     <button
       class='btn btn-danger d-none d-sm-inline-block'
       id='delete-btn'
-      data-bs-toggle='modal' 
+      data-bs-toggle='modal'
       data-bs-target='#deleteOss'>
-      삭제
+      DELETE
     </button>
   </div>`;
 }

@@ -1,17 +1,17 @@
 <template>
   <div class="modal" id="ossForm" tabindex="-1">
-    <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-dialog modal-xl" role="document">
       <div class="modal-content">
 
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         <div class="modal-body text-left py-4">
           <!-- OSS Title -->
           <h3 class="mb-5">
-            OSS {{ props.mode === 'new' ? '생성' : '수정'}}
+            {{ props.mode === 'new' ? 'New' : 'Edit' }} OSS
           </h3>
 
           <div>
-          <!-- OSS 타입 -->
+            <!-- OSS 타입 -->
             <div class="mb-3">
               <!-- <div v-if="ossFormData.ossTypeIdx === 1">
                 <input class="d-lb mr-5" type="checkbox" v-model="createJenkinsJobYn">
@@ -19,10 +19,10 @@
               </div> -->
 
 
-              <label class="form-label required">OSS 타입</label>
+              <label class="form-label required">OSS Type</label>
               <div class="grid gap-0 column-gap-3">
                 <select v-model="ossFormData.ossTypeIdx" class="form-select p-2 g-col-12">
-                  <option :value="0">OSS 타입을 선택하세요.</option>
+                  <option :value="0">Select OSS Type</option>
                   <option v-for="(type, idx) in ossTypeList" :value="type.ossTypeIdx" :key="idx">
                     {{ type.ossTypeName }}
                   </option>
@@ -32,56 +32,62 @@
 
             <!-- OSS 명 -->
             <div class="row mb-3">
-              <label class="form-label required">OSS 명</label>
+              <label class="form-label required">OSS Name</label>
               <div class="grid gap-0 column-gap-3">
-                <input type="text" class="form-control p-2 g-col-11" placeholder="OSS 명을 입력하세요" v-model="ossFormData.ossName" @change="initDuplicatedCheckBtn" />
+                <input type="text" class="form-control p-2 g-col-11" placeholder="Enter the OSS Name"
+                       v-model="ossFormData.ossName" @change="initDuplicatedCheckBtn" />
               </div>
             </div>
-            
+
             <!-- OSS 설명 -->
             <div class="mb-3">
-              <label class="form-label required">OSS 설명</label>
-              <input type="text" class="form-control p-2 g-col-11" placeholder="OSS 설명을 입력하세요" v-model="ossFormData.ossDesc" />
+              <label class="form-label required">OSS Description</label>
+              <input type="text" class="form-control p-2 g-col-11" placeholder="Enter the OSS Description"
+                     v-model="ossFormData.ossDesc" />
             </div>
 
             <!-- URL -->
             <div class="mb-3">
               <label class="form-label required">URL</label>
-              <input type="text" class="form-control p-2 g-col-11" placeholder="서버 URL을 입력하세요" v-model="ossFormData.ossUrl" @focus="initConnectionCheckBtn" />
+              <input type="text" class="form-control p-2 g-col-7" placeholder="Enter the Server URL"
+                     v-model="ossFormData.ossUrl" @focus="initConnectionCheckBtn" />
             </div>
-            
+
             <div class="row">
-              
               <!-- OSS ID -->
               <div class="col">
                 <label class="form-label required">OSS ID</label>
-                <input type="text" class="form-control p-2 g-col-11" placeholder="OSS 아이디를 입력하세요" v-model="ossFormData.ossUsername" @focus="initConnectionCheckBtn"/>
+                <input type="text" class="form-control p-2 g-col-7" placeholder="Enter the OSS ID"
+                       v-model="ossFormData.ossUsername" @focus="initConnectionCheckBtn" />
               </div>
 
               <!-- OSS PW -->
               <div class="col">
                 <label class="form-label required">OSS PW</label>
-                <input type="password" class="form-control p-2 g-col-11" placeholder="OSS 비밀번호를 입력하세요" v-model="ossFormData.ossPassword" @click="removePassword" @focus="initConnectionCheckBtn"/>
+                <input type="password" class="form-control p-2 g-col-11" placeholder="Enter the OSS Password"
+                       v-model="ossFormData.ossPassword" @click="removePassword" @focus="initConnectionCheckBtn" />
               </div>
 
-              <div class="col mt-4">
-                <button v-if="!duplicatedOss" class="btn btn-primary chk" @click="onClickDuplicatOssName" style="margin: 3px;">중복 체크</button>
-                <button v-else class="btn btn-success" style="margin: 3px;">중복 체크</button>
-                <button v-if="!connectionCheckedOss" class="btn btn-primary" @click="onClickConnectionCheckOss">연결 확인</button>
-                <button v-else class="btn btn-success">연결 확인</button>
+              <div class="col mt-4 row">
+                <button v-if="!duplicatedOss" class="btn btn-primary col" @click="onClickDuplicatOssName"
+                        style="margin-right: 3px;">Duplicate Check</button>
+                <button v-else class="btn btn-success col" style="margin-right: 3px;">Duplicate Check</button>
+                <button v-if="!connectionCheckedOss" class="btn btn-primary col"
+                        @click="onClickConnectionCheckOss">Connection Check</button>
+                <button v-else class="btn btn-success col">Connection Check</button>
               </div>
             </div>
           </div>
         </div>
 
-      <div class="modal-footer">
-        <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal" @click="setInit()">
-          Cancel
-        </a>
-        <a href="#" class="btn btn-primary ms-auto" data-bs-dismiss="modal"  @click="onClickSubmit()">
-          {{props.mode === 'new' ? '생성' : '수정'}}
-        </a>
-      </div>
+        <div class="modal-footer">
+          <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal" @click="setInit()">
+            Cancel
+          </a>
+          <a href="#" class="btn btn-primary ms-auto" data-bs-dismiss="modal" @click="onClickSubmit()">
+            {{ props.mode === 'new' ? 'Regist' : 'Edit' }}
+          </a>
+        </div>
 
       </div>
     </div>
@@ -89,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Oss, OssType } from '../../type/type';
+import type { Oss, OssType } from '@/views/type/type';
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
 import { getOssTypeList, getOssTypeFilteredList, duplicateCheck, getOssDetailInfo, registOss, updateOss, ossConnectionChecked } from '@/api/oss';
@@ -110,7 +116,7 @@ const emit = defineEmits(['get-oss-list'])
 
 /**
  * @Title Life Cycle
- * @Desc ossIdx 값의 변화에 따라 데이터 set함수 호출  
+ * @Desc ossIdx 값의 변화에 따라 데이터 set함수 호출
  */
 const ossIdx = computed(() => props.ossIdx);
 watch(ossIdx, async () => {
@@ -121,25 +127,26 @@ watch(() => props.mode, async () => {
 })
 
 onMounted(async () => {
-  await setInit();
+  await _getOssTypeList('init')
+  await setInit()
 })
 
 // /**
-//  * @Title createJenkinsJobYn 
+//  * @Title createJenkinsJobYn
 //  * @Desc Jenkins Job 생성 여부
 //  */
 // const createJenkinsJobYn = ref(false as Boolean)
 
 
 /**
- * @Title formData 
+ * @Title formData
  * @Desc oss 생성 / 수정데이터
  */
 const ossFormData = ref({} as Oss)
 
 /**
  * @Title 초기화 Method
- * @Desc 
+ * @Desc
  *    1. 생성 모드일경우 / ossIdx 가 달라질경우 데이터 초기화
  *    2. 중복검사 / 연결 확인 버튼 활성화 여부 set
  *    3. 닫기 / 생성 / 수정 버튼 클릭시 데이터 초기화
@@ -168,14 +175,14 @@ const setInit = async () => {
 
 /**
  * @Title ossTypeList / _getOssTypeList
- * @Desc 
+ * @Desc
  *    ossTypeList : ossType 목록 저장
  *    _getOssTypeList : ossType 목록 API 호출
  */
 const ossTypeList = ref([] as Array<OssType>)
-const _getOssTypeList = async (mode:String) => {
+const _getOssTypeList = async (mode: String) => {
   try {
-    if (mode === 'new') {
+    if (mode === 'new' || mode === 'init') {
       const { data } = await getOssTypeFilteredList()
       ossTypeList.value = data
     }
@@ -199,7 +206,7 @@ const removePassword = () => {
 
 /**
  * @Title duplicatedOss / onClickDuplicatOssName
- * @Desc 
+ * @Desc
  *    duplicatedOss : 중복검사 여부
  *    onClickDuplicatOssName : oss명 / ossUrl / ossId 로 중복검사 API 호출
  */
@@ -221,7 +228,7 @@ const onClickDuplicatOssName = async () => {
 
 /**
  * @Title connectionCheckedOss / onClickConnectionCheckOss
- * @Desc 
+ * @Desc
  *    connectionCheckedOss : 연결확인 여부
  *    onClickConnectionCheckOss : ossUrl / ossId / ossPassword / ossType 으로 연결확인 API 호출
  */
@@ -244,7 +251,7 @@ const onClickConnectionCheckOss = async () => {
 
 /**
  * @Title initDuplicatedCheckBtn
- * @Desc 
+ * @Desc
  *    initDuplicatedCheckBtn : 연결확인 변수 false
  */
 const initDuplicatedCheckBtn = () => {
@@ -253,7 +260,7 @@ const initDuplicatedCheckBtn = () => {
 
 /**
  * @Title initConnectionCheckBtn
- * @Desc 
+ * @Desc
  *    initConnectionCheckBtn : 연결확인 변수 false
  */
 const initConnectionCheckBtn = () => {
@@ -263,21 +270,21 @@ const initConnectionCheckBtn = () => {
 
 /**
  * @Title onClickSubmit
- * @Desc 
+ * @Desc
  *     1. 생성 / 수정 버튼 클릭시 동작
- *     2. 부모로 부터 받은 mode값에 따라서 생성/수정 Callback 함수 호출후 부모에게 oss목록 api 호출  
+ *     2. 부모로 부터 받은 mode값에 따라서 생성/수정 Callback 함수 호출후 부모에게 oss목록 api 호출
  */
 const onClickSubmit = async () => {
   ossFormData.value.ossPassword = encriptPassword(ossFormData.value.ossPassword)
   if (props.mode === 'new') {
     await _registOss().then(() => {
-    emit('get-oss-list')
-  })
+      emit('get-oss-list')
+    })
   }
   else
     await _updateOss().then(() => {
-    emit('get-oss-list')
-  })
+      emit('get-oss-list')
+    })
   setInit()
 }
 
@@ -308,16 +315,16 @@ const _updateOss = async () => {
 /**
  * @Title encriptPassword
  * @param password
- * @Desc 평문으로 인자값을 받으며 Base64로 인코딩 하는 함수 
+ * @Desc 평문으로 인자값을 받으며 Base64로 인코딩 하는 함수
  */
-const encriptPassword = (password:string) => {
+const encriptPassword = (password: string) => {
   return btoa(password)
 }
 
 /**
  * @Title decriptPassword
  * @param password
- * @Desc Base64로 인자값을 받으며 평문으로 디코딩 하는 함수 
+ * @Desc Base64로 인자값을 받으며 평문으로 디코딩 하는 함수
  */
 const decriptPassword = (password: string) => {
   return atob(password)
