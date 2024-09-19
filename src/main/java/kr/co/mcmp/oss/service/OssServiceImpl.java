@@ -173,13 +173,13 @@ public class OssServiceImpl implements OssService {
 	 */
 	public OssDto detailOss(Long ossIdx) {
 		Oss oss = ossRepository.findByOssIdx(ossIdx);
-		return OssDto.withDetailDecryptPassword(oss, encodingBase64String(decryptAesString(oss.getOssPassword())));
+		return OssDto.withDetailDecryptPassword(oss, decryptAesString(oss.getOssPassword()));
 	}
 
 	public OssDto detailOssByOssName(String ossName) {
 		Oss oss = ossRepository.findByOssName(ossName);
 		String pwd = oss.getOssPassword();
-		String decodePwd = Base64Utils.base64Decoding(pwd);
+		String decodePwd = AES256Utils.decrypt(pwd);
 		return OssDto.builder()
 				.ossIdx(oss.getOssIdx())
 				.ossTypeIdx(oss.getOssType().getOssTypeIdx())
