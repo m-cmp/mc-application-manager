@@ -8,10 +8,10 @@
         <div class="modal-body text-left py-4">
           <!-- OSS Title -->
           <h3 class="mb-5">
-            OSS 삭제
+            Delete OSS
           </h3>
 
-          <h4>{{ props.ossName }}을(를) 정말 삭제하시겠습니까?</h4>
+          <h4>Are you sure you want to delete {{ props.ossName }}?</h4>
 
         </div>
 
@@ -19,8 +19,8 @@
           <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal">
             Cancel
           </a>
-          <a href="#" class="btn btn-primary ms-auto" data-bs-dismiss="modal"  @click="onClickDelete()">
-            삭제
+          <a href="#" class="btn btn-primary ms-auto" data-bs-dismiss="modal" @click="onClickDelete()">
+            Delete
           </a>
         </div>
 
