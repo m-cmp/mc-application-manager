@@ -192,6 +192,21 @@ public class OssServiceImpl implements OssService {
 				.build();
 	}
 
+	public OssDto detailOssByOssNameIgnoreCase(String ossName) {
+		Oss oss = ossRepository.findByOssNameIgnoreCase(ossName);
+		String pwd = oss.getOssPassword();
+		String decodePwd = AES256Utils.decrypt(pwd);
+		return OssDto.builder()
+				.ossIdx(oss.getOssIdx())
+				.ossTypeIdx(oss.getOssType().getOssTypeIdx())
+				.ossName(oss.getOssName())
+				.ossDesc(oss.getOssDesc())
+				.ossUrl(oss.getOssUrl())
+				.ossUsername(oss.getOssUsername())
+				.ossPassword(decodePwd)
+				.build();
+	}
+
 //	/**
 //	 * OSS 정보 상세 조회
 //	 * @param ossCd
