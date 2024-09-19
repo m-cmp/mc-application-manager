@@ -61,7 +61,7 @@ public class OssDto {
     }
 
     // 패스워드 Encript set
-    public static OssDto withModifiedEncriptPassword(OssDto ossDto, String password) {
+    public static OssDto setEncryptPassword(OssDto ossDto, String password) {
         return OssDto.builder()
                 .ossIdx(ossDto.getOssIdx())
                 .ossTypeIdx(ossDto.getOssTypeIdx())
@@ -73,14 +73,14 @@ public class OssDto {
                 .build();
     }
     // 패스워드 decrypt set
-    public static OssDto withDetailDecryptPassword(Oss oss, String password) {
+    public static OssDto setDecryptPassword(OssDto ossDto, String password) {
         return OssDto.builder()
-                .ossIdx(oss.getOssIdx())
-                .ossTypeIdx(oss.getOssType().getOssTypeIdx())
-                .ossName(oss.getOssName())
-                .ossDesc(oss.getOssDesc())
-                .ossUrl(oss.getOssUrl())
-                .ossUsername(oss.getOssUsername())
+                .ossIdx(ossDto.getOssIdx())
+                .ossTypeIdx(ossDto.getOssTypeIdx())
+                .ossName(ossDto.getOssName())
+                .ossDesc(ossDto.getOssDesc())
+                .ossUrl(ossDto.getOssUrl())
+                .ossUsername(ossDto.getOssUsername())
                 .ossPassword(password)
                 .build();
     }    // Duplicate Object set
