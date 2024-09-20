@@ -1,118 +1,433 @@
-# M-CMP mc-application-manager
+# MC-Application-Manager
 
-This repository provides a Application Manager.
+**MC-Application-Manager** is one of the components of the [M-CMP](https://github.com/m-cmp/docs/tree/main) platform. With **MC-Application-Manager**, you can deploy and manage applications on the desired infrastructure (VM/K8S) and register a separate repository for use. Additionally, for users who are not familiar with using Yaml, there is a Yaml Generator feature available.
 
-A sub-system of [M-CMP platform](https://github.com/m-cmp/docs/tree/main) to deploy and manage Multi-Cloud Infrastructures.
+## Features
 
-## Overview  
-
-M-CMP의 mc-application-manager 서브시스템이 제공하는 기능은 다음과 같다.
-
-v0.2.0(2024.08)
-- 애플리케이션 카탈로그 등록 및 내/외부(artifactHub, dockerHub등) 환경에서의 키워드검색
-- workflow-manager를 연동한 멀티 클라우드 인프라에 애플리케이션 배포 기능(to VM)
-- workflow-manager를 연동한 배포 외 기타 기능
-v.0.3.0(2024.10)
-- workflow-manager를 연동한 멀티 클라우드 인프라에 애플리케이션 배포 기능(to k8s)
-- k8s에 배포 시 필요한 일부 yaml generate 기능(deployment, service, pod, configmap 등)
-- repository 관련 제어(nexus 등)
-
-
-## 목차
-
-1. [mc-application-manager 실행 및 개발 환경]
-2. [mc-application-manager실행 방법]
-3. [mc-application-manager 소스 빌드 및 실행 방법 상세]
-4. [mc-application-manager 기여 방법]
+- Application Catalog Management
+- Repository Management
+- Yaml Generator
 
 ---
 
----
+## Table of Contents
 
-
-## mc-application-manager 실행 및 개발 환경
-
-- Linux OS
-- Java (Openjdk 11) => v0.2.0부터 17로 변경
-- Gradle (v8.0)
-- docker
-- nexus
----
+1. [System Requirements](#system-requirements)
+2. [Installation with Docker Compose](#installation-with-docker-compose)
+3. [Project Structure](#project-structure)
+4. [Run Instructions](#run-instructions)
+5. [Contributing](#contributing)
+6. [License](#license)
 
 ---
 
-## mc-application-manager 실행 방법
+## System Requirements
 
-### 소스 코드 기반 설치 및 실행
+To use **mc-application-manager**, ensure your system meets the following requirements:
 
-- 방화벽 설정
-- 소스 다운로드 (Git clone)
-- 필요 패키지/도구 설치 (Java, Gradle, Git, Docker)
-- 빌드 및 실행 (shell script)
+- **Operating System**: Linux (Ubuntu 22.04 LTS recommended)
+- **Java**: OpenJDK 17+
+- **Gradle**: v7.6+
+- **Docker**: v24.0.2+
+- **Application-Provisioning-Engine(Jenkins)**: v2.424+
+- **Git**: Latest version
+---
+
+## Installation with Docker Compose
+
+The easiest way to deploy **mc-application-manager** is via Docker Compose. Follow the steps below to get started.
+
+### Step 1: Clone the Repository
+
+First, clone the `mc-application-manager` repository to your local machine:
+
+```bash
+git clone https://github.com/m-cmp/mc-application-manager.git
+cd mc-application-manager
+```
+
+### Step 2: Configure Environment Variables
+You can customize the following environment variables in the docker-compose.yaml file:
+
+- DDL_AUTO : Database initialization # create-drop
+- DB_USER : Database user ID
+- DB_PASS : Database user password 
+- SQL_DATA_INIT : always # or never
+- Edit these environment variables according to your needs.
+
+### Step 3: Install and Run Docker Compose
+To bring up the mc-application-manager service along with its dependencies, run the following command:
+```bash
+sudo apt update
+sudo apt install -y docker-compose
+
+sudo docker-compose up -d
+```
+This command will pull the necessary Docker images, build the services, and start the containers in detached mode.
+
+### Step 4: Access the Application
+Once the services are up, you can access the following endpoints:
+- Swagger UI: `http://<Public_IP>:18084/swagger-ui/index.html`
+- Application-Provisioning-Engine(Jenkins) UI: `http://<Public_IP>:9800`
+- Repository UI : `http://<Public_IP>:8081`
+- Application Manager UI: `http://<Public_IP>:18084/web`
+  - OSS Management: `http://<Public_IP>:18084/web/oss/list`
+  - Application Catalog Management: `http://<Public_IP>:18084/web/catalog/list`
+  - Repository Management: `http://<Public_IP>:18084/web/repository/list`
+  - Yaml Generator: `http://<Public_IP>:18084/web/generate/yaml`
+
+
+### Step 5: Stop Services
+To stop the running services, use:
+```bash
+sudo docker-compose down
+```
+This will gracefully shut down the containers without removing volumes, allowing you to preserve the state of the database.
 
 ---
 
+## Project Structure
+```bash
+mc-application-manager/
+├── docker-compose.yaml       # Docker Compose file for service orchestration
+├── src/                      # Source code for the Application Manager
+├── script/                   # Helper scripts for build and execution
+├── README.md                 # Project documentation
+├── LICENSE                   # License information
+└── docs/                     # Additional documentation
+```
+
 ---
 
-## mc-application-manager 소스 빌드 및 실행 방법 상세
+## Run Instructions
 
-### (1) 방화벽 TCP 포트 허용 설정
+### Manual Build and Run
 
-- 80, 443 (webUI: 0.2.0에서는 18084 공유)
-- 18084 (application)
-- 8081 (Nexus)
-
-### (2) 소스 다운로드
-
-- Git 설치
+If you prefer to build and run the project manually, follow these steps:
+- Install Git
   ```bash
-  	sudo apt update
-  	sudo apt install -y git
+  sudo apt update
+  sudo apt install -y git
   ```
-- mc-workflow-manager 소스 다운로드
+- Download mc-application-manager Source Code
   ```bash
-  	export BASE_DIR=$HOME/app-manager
-  	mkdir -p $BASE_DIR
-  	cd $BASE_DIR
-  	git clone https://github.com/m-cmp/mc-application-manager.git
-  	export PROJECT_ROOT=$(pwd)/mc-application-manager
+  cd $HOME
+  git clone https://github.com/m-cmp/mc-application-manager.git
+  export PROJECT_ROOT=$(pwd)/mc-application-manager
   ```
 
-### (3) 필요 패키지/도구 설치
+- Install Required Packages/Tools and Set Environment Variables
+  - Install Java, Docker
+    ```bash
+    cd $PROJECT_ROOT/script
+    sudo chmod +x *.sh
+    . $PROJECT_ROOT/script/init-install.sh
+    ```
 
-- Java, Gradle, Git, Docker 설치
+  - Set Environment Variables
+    ```bash
+    cd $PROJECT_ROOT/script
+    . $PROJECT_ROOT/script/set_env.sh
+    source $HOME/.bashrc
+    ```
 
-  ```bash
-  	cd $PROJECT_ROOT/scripts
-  	sudo chmod +x *.sh
-  	. $PROJECT_ROOT/scripts/init-install.sh
-  	mkdir -p $BASE_DIR/build
-  ```
+- Build and Run
+  - Execute Shell Script
+    ```bash
+    # Run Jenkins
+    . $PROJECT_ROOT/script/run-jenkins.sh
+  
+    # Build Springboot Project
+    . $PROJECT_ROOT/script/build-mc-application.sh
+  
+    # Run Springboot Project
+    . $PROJECT_ROOT/script/run-mc-application.sh
+    ```
 
-- Nexus 설치
-- v0.2.0에서는 지원 전 이므로 추후 업데이트
+### Refer to Set Application-Provisioning-Engine(Jenkins)
+**1. Access the Jenkins container**
+```bash
+sudo docker exec -it ape-jenkins /bin/bash
+```
 
+**2. Inside the container, retrieve the initial admin password**
+```bash
+cat /var/jenkins_home/secrets/initialAdminPassword
+```
 
-### (4) 빌드 및 실행
+**3. Copy the string that appears after running the cat command.**
 
-- Shell Script 실행
+**4. Open Chrome browser and navigate to `http://<Public IP>:9800` Jenkins Unlock Page**
+![img_4.png](document/img_4.png)
+**5. Paste the copied string into the password field.**
 
-  ```bash
-  	. $PROJECT_ROOT/docker-run.sh
+**6. Click `Install suggested plugins` Button**
+![img_5.png](document/img_5.png)
+![img_6.png](document/img_6.png)
 
-  ```
+**7. Insert User Information**
+![img_1.png](document/img_1.png)
+![img_2.png](document/img_2.png)
+![img_3.png](document/img_3.png)
 
-- (임시) webUI 접속
-    - http://Public_IP주소:18084/tabler/software-catalog.html
-- Swagger 접속
-    - http://Public_IP주소:18084/swagger-ui/index.html
-- nexus 접속
-    - http://Public_IP주소:8081
+**This process will complete the initial setup of Jenkins**
+
+### Refer to Set Repository(Nexus)
+**1. Access the Nexus container**
+```bash
+sudo docker exec -it nexus-repository /bin/bash
+```
+
+**2. Inside the container, retrieve the initial admin password**
+```bash
+cat /nexus-data/admin.password
+```
+**3. Copy the string that appears after running the cat command.**
+
+**4. Open Chrome browser and navigate to `http://<Public IP>:8081` Nexus Unlock Page**
+![img.png](document/nexusMain.png)
+**5. Paste the copied string into the password field. (ID: admin)**
+
+**6. Click `Next` Button**
+![img.png](document/setup1.png)
+
+**7. Insert New Password**
+![img_1.png](document/setup2.png)
+
+**8. After selecting one, click the next button**
+![img_2.png](document/setup3.png)
+
+**9. click the finish button**
+![img_3.png](document/setup4.png)
+
+**This process will complete the initial setup of Nexus**
+---
+
+## Contributing
+
+We welcome contributions to the **mc-application-manager** project! To get involved, follow these steps:
+
+1. Fork the repository on GitHub.
+2. Create a feature branch: ```git checkout -b feature-branch```.
+3. Commit your changes: ```git commit -m "Add new feature"```.
+4. Push the branch: ```git push origin feature-branch```.
+5. Open a Pull Request.
+6. For detailed guidelines, refer to the Contributing Guide.
 
 ---
 
----
+## License
+This project is licensed under the terms of the Apache 2.0 License. See the LICENSE file for details.
 
-## How to Contribute
 
-- Issues/Discussions/Ideas: Utilize issue of mc-application-manager
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[//]: # ()
+[//]: # (## mc-application-manager 실행 및 개발 환경)
+
+[//]: # ()
+[//]: # ()
+[//]: # (---)
+
+[//]: # ()
+[//]: # (---)
+
+[//]: # ()
+[//]: # (## mc-application-manager 실행 방법)
+
+[//]: # ()
+[//]: # (### 소스 코드 기반 설치 및 실행)
+
+[//]: # ()
+[//]: # (- 방화벽 설정)
+
+[//]: # (- 소스 다운로드 &#40;Git clone&#41;)
+
+[//]: # (- 필요 패키지/도구 설치 &#40;Java, Gradle, Git, Docker&#41;)
+
+[//]: # (- 빌드 및 실행 &#40;shell script&#41;)
+
+[//]: # ()
+[//]: # (---)
+
+[//]: # ()
+[//]: # (---)
+
+[//]: # ()
+[//]: # (## mc-application-manager 소스 빌드 및 실행 방법 상세)
+
+[//]: # ()
+[//]: # (### &#40;1&#41; 방화벽 TCP 포트 허용 설정)
+
+[//]: # ()
+[//]: # (- 80, 443 &#40;webUI: 0.2.0에서는 18084 공유&#41;)
+
+[//]: # (- 18084 &#40;application&#41;)
+
+[//]: # (- 8081 &#40;Nexus&#41;)
+
+[//]: # ()
+[//]: # (### &#40;2&#41; 소스 다운로드)
+
+[//]: # ()
+[//]: # (- Git 설치)
+
+[//]: # (  ```bash)
+
+[//]: # (  	sudo apt update)
+
+[//]: # (  	sudo apt install -y git)
+
+[//]: # (  ```)
+
+[//]: # (- mc-workflow-manager 소스 다운로드)
+
+[//]: # (  ```bash)
+
+[//]: # (  	export BASE_DIR=$HOME/app-manager)
+
+[//]: # (  	mkdir -p $BASE_DIR)
+
+[//]: # (  	cd $BASE_DIR)
+
+[//]: # (  	git clone https://github.com/m-cmp/mc-application-manager.git)
+
+[//]: # (  	export PROJECT_ROOT=$&#40;pwd&#41;/mc-application-manager)
+
+[//]: # (  ```)
+
+[//]: # ()
+[//]: # (### &#40;3&#41; 필요 패키지/도구 설치)
+
+[//]: # ()
+[//]: # (- Java, Gradle, Git, Docker 설치)
+
+[//]: # ()
+[//]: # (  ```bash)
+
+[//]: # (  	cd $PROJECT_ROOT/scripts)
+
+[//]: # (  	sudo chmod +x *.sh)
+
+[//]: # (  	. $PROJECT_ROOT/scripts/init-install.sh)
+
+[//]: # (  	mkdir -p $BASE_DIR/build)
+
+[//]: # (  ```)
+
+[//]: # ()
+[//]: # (- Nexus 설치)
+
+[//]: # (- v0.2.0에서는 지원 전 이므로 추후 업데이트)
+
+[//]: # ()
+[//]: # ()
+[//]: # (### &#40;4&#41; 빌드 및 실행)
+
+[//]: # ()
+[//]: # (- Shell Script 실행)
+
+[//]: # ()
+[//]: # (  ```bash)
+
+[//]: # (  	. $PROJECT_ROOT/docker-run.sh)
+
+[//]: # ()
+[//]: # (  ```)
+
+[//]: # ()
+[//]: # (- &#40;임시&#41; webUI 접속)
+
+[//]: # (    - http://Public_IP주소:18084/tabler/software-catalog.html)
+
+[//]: # (- Swagger 접속)
+
+[//]: # (    - http://Public_IP주소:18084/swagger-ui/index.html)
+
+[//]: # (- nexus 접속)
+
+[//]: # (    - http://Public_IP주소:8081)
+
+[//]: # ()
+[//]: # (---)
+
+[//]: # ()
+[//]: # (---)
+
+[//]: # ()
+[//]: # (## How to Contribute)
+
+[//]: # ()
+[//]: # (- Issues/Discussions/Ideas: Utilize issue of mc-application-manager)
