@@ -33,7 +33,7 @@ public class K8SDeploymentDto {
     public static class DeploymentMetadataDto {
         @NotBlank
         private String name;
-        private String namespace;
+        private String namespace = "default";
         private Map<String, String> labels = null;
     }
 
@@ -87,6 +87,7 @@ public class K8SDeploymentDto {
             @NoArgsConstructor
             @AllArgsConstructor
             public static class DeploymentPodSpecDto {
+                @Valid
                 @NotNull
                 private List<DeploymentPodContainerDto> containers;
 
@@ -99,7 +100,9 @@ public class K8SDeploymentDto {
                     private String name;
                     @NotBlank
                     private String image;
+                    @Valid
                     private List<DeploymentPodEnvDto> env = null;
+                    @Valid
                     private List<DeploymentPodPortDto> ports = null;
 
                     @Getter

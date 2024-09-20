@@ -33,7 +33,7 @@ public class K8SServiceDto {
     public static class ServiceMetadataDto {
         @NotBlank
         private String name;
-        private String namespace;
+        private String namespace = "default";
         private Map<String, String> labels = null;
     }
 
