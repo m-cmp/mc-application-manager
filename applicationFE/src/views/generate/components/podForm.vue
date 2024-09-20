@@ -2,12 +2,12 @@
   <div class="tab-pane active show" id="tabs-pod">
     <!-- <h4>Pod</h4> -->
     <div class="mb-3">
-      <label class="form-label">Pod Name</label>
-      <input type="text" class="form-control w-33" name="example-text-input" v-model="podFormData.podName" placeholder="pod-01" />
+      <label class="form-label required">Pod Name</label>
+      <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.name" placeholder="pod-01" />
     </div>
     <div class="mb-3">
       <label class="form-label">Namespace</label>
-      <input type="text" class="form-control w-33" name="example-text-input" v-model="podFormData.namespace" placeholder="namespace" />
+      <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.namespace" placeholder="namespace" />
     </div>
     <div class="mb-3">
       <label class="form-label">Labels</label>
@@ -33,29 +33,7 @@
     </div>
     <div class="mb-3">
       <label class="form-label">Image</label>
-      <input type="text" class="form-control w-33" name="example-text-input" v-model="podFormData.image" placeholder="image" />
-    </div>
-    <div class="mb-3">
-      <label class="form-label">containerPort</label>
-      <div class="generate-form" v-for="(item, idx) in podContainerPort" :key="idx">
-        <input type="text" class="form-control w-33" name="example-password-input" v-model="item.portNum" placeholder="portNum" />
-        <input type="text" class="form-control w-33" name="example-password-input" v-model="item.name" placeholder="name" />
-        <div class="btn-list">
-          <button class="btn btn-primary" @click="addPort" style="text-align: center !important;">
-          <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-plus" style="margin: 0 !important;">
-            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-            <path d="M12 5l0 14" />
-            <path d="M5 12l14 0" />
-          </svg>
-        </button>
-        <button class="btn btn-primary" @click="removePort(idx)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-minus" style="margin: 0 !important;">
-            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-            <path d="M5 12l14 0" />
-          </svg>
-        </button>
-        </div>
-      </div>
+      <input type="text" class="form-control w-33" name="example-text-input" v-model="image" placeholder="image" />
     </div>
     <div class="mb-3">
       <label class="form-label">env</label>
@@ -80,27 +58,96 @@
       </div>
     </div>
     <div class="mb-3">
-      <label class="form-label">volumeMounts</label>
-      <div class="generate-form" v-for="(item, idx) in podVoumeMounts" :key="idx">
-        <input type="text" class="form-control w-33" name="example-password-input" v-model="item.mountPath" placeholder="mountPath" />
-        <input type="text" class="form-control w-33" name="example-password-input" v-model="item.name" placeholder="name" />
-        <div class="btn-list">
-          <button class="btn btn-primary" @click="addVm" style="text-align: center !important;">
+      <div class="btn-list">
+        <label class="form-label">Container</label>
+        <button class="btn btn-primary" @click="addPort" style="text-align: center !important;">
           <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-plus" style="margin: 0 !important;">
             <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
             <path d="M12 5l0 14" />
             <path d="M5 12l14 0" />
           </svg>
         </button>
-        <button class="btn btn-primary" @click="removeVm(idx)">
+        <button class="btn btn-primary">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-minus" style="margin: 0 !important;">
             <path stroke="none" d="M0 0h24v24H0z" fill="none" />
             <path d="M5 12l14 0" />
           </svg>
         </button>
+      </div>
+
+      <div class="row" style="width:68% !important">
+        <div class="col mt-4">
+          <label class="form-label">Name</label>
+          <input type="text" class="form-control" name="example-password-input" />
+        </div>
+        <div class="col mt-4">
+          <label class="form-label">Port</label>
+          <input type="text" class="form-control" name="example-password-input" />
+        </div>
+      </div>
+
+      <div class="row" style="width:68% !important">
+        <div class="col">
+          <label class="form-label">Protocol</label>
+          <input type="text" class="form-control" name="example-password-input" />
+        </div>
+        <div class="col">
+          <label class="form-label">Host Port</label>
+          <input type="text" class="form-control" name="example-password-input" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col mt-4">
+          <label class="form-label">Resources</label>
+        </div>
+      </div>
+
+      <div class="row" style="width:68% !important">
+        <div class="col">
+          <label class="form-label">Limits CPU</label>
+          <input type="text" class="form-control" name="example-password-input" />
+        </div>
+        <div class="col">
+          <label class="form-label">Limits Memory</label>
+          <input type="text" class="form-control" name="example-password-input" />
+        </div>
+      </div>
+      <div class="row" style="width:68% !important">
+        <div class="col">
+          <label class="form-label">Requests CPU</label>
+          <input type="text" class="form-control" name="example-password-input" />
+        </div>
+        <div class="col">
+          <label class="form-label">Requests Memory</label>
+          <input type="text" class="form-control" name="example-password-input" />
+        </div>
+      </div>
+      <div class="row" style="width:68% !important">
+        <div class="col">
+          <label class="form-label">Restart Policy</label>
+          <input type="text" class="form-control" name="example-password-input" v-model="restartPolicy" />
         </div>
       </div>
     </div>
+    
+
+    <!-- <div class="mb-3">
+      <div class="accordion" id="accordion-example">
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="heading-1">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-1" aria-expanded="true">
+              Labels
+            </button>
+          </h2>
+          <div id="collapse-1" class="accordion-collapse collapse" data-bs-parent="#accordion-example" style="">
+            <div class="accordion-body pt-0">
+              <strong>This is the first item's accordion body.</strong> It is hidden by default, until the collapse plugin adds the appropriate classes that we use to style each element. These classes control the overall appearance, as well as the showing and hiding via CSS transitions. You can modify any of this with custom CSS or overriding our default variables. It's also worth noting that just about any HTML can go within the <code>.accordion-body</code>, though the transition does limit overflow.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div> -->
 
     <div class="btn-list justify-content-end">
       <a class="btn btn-primary" @click="onClickPod">GENERATE</a>
@@ -121,36 +168,37 @@ import { useToast } from 'vue-toastification';
  * @Title formData 
  * @Desc pod 데이터
  */
- const podFormData = reactive({} as Pod)
- const podLabels = ref([])
- const podContainerPort = ref([])
- const podEnv = ref([])
- const podVoumeMounts = ref([])
+ const podFormData = ref({} as Pod)
+ const metadata = ref({} as any)
+ const podLabels = ref([] as any)
+ const podContainers = ref([] as any)
+ const podEnv = ref([] as any)
+ const podVoumeMounts = ref([] as any)
+ const restartPolicy = ref("" as string)
+ const image = ref("" as string)
+ const ports = ref([] as any)
 
  onMounted(async () => {
   await setInit();
 })
 
 const setInit = () => {
+  metadata.value.name = ""
+  metadata.value.namespace = ""
+  restartPolicy.value = ""
+  image.value = ""
   podLabels.value.push({key: "", value:""})
-  podContainerPort.value.push({portNum: "", name:""})
   podEnv.value.push({name: "", value:""})
-  podVoumeMounts.value.push({mountPath: "", name:""})
-  podFormData.podName = ""
-  podFormData.namespace = ""
-  podFormData.image = ""
+
 }
 
 const onClickPod = () => {
-  console.log("onClickPod")
-  podFormData.labels = podLabels.value
-  podFormData.containerPort = podContainerPort.value
-  podFormData.env = podEnv.value
-  podFormData.volumeMounts = podVoumeMounts.value
+  const transformedObject = podLabels.value.reduce((acc: { [x: string]: any; }, item: { key: string|number; value: any; }) => {
+    acc[item.key] = item.value;
+    return acc;
+  }, {});
 
-  const param = { ...podFormData }
-
-  console.log("param : ", param)
+  console.log("transformedObject : ", transformedObject)
 }
 
 const addLabel = () => {
