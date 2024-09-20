@@ -1,10 +1,12 @@
-# temp docker-compose
+version: '3.8'
+
 networks:
   internal_network:
     internal: true
   external_network:
     driver: bridge
 
+services:
   # jenkins - for workflow manager
   jenkins:
     image: jenkins/jenkins:jdk17
@@ -58,20 +60,16 @@ networks:
 
   # application-manager
   mc-application-manager:
-    image: m-cmp/mc-application-manager:latest
+    image: cloudbaristaorg/mc-application-manager:edge
     container_name: application-manager
-    #build:
-      #context: ./
-      #dockerfile: Dockerfile
     networks:
-      - external_network
       - external_network
     ports:
       - target: 18084
         published: 18084
         protocol: tcp
     volumes:
-    - ~/:/nexus-data/blobs/
+      - ./db/application:/db/application
     environment:
       - DDL_AUTO=create-drop
       - DB_USER=application
