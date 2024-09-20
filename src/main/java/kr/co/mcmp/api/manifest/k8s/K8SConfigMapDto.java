@@ -30,7 +30,7 @@ public class K8SConfigMapDto {
     public static class ConfigMapMetadataDto {
         @NotBlank
         private String name;
-        private String namespace;
+        private String namespace = "default";
         private Map<String, String> labels = null;
     }
 }
