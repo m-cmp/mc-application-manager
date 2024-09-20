@@ -146,12 +146,12 @@ import { useToast } from 'vue-toastification';
  * @Title formData 
  * @Desc pod 데이터
  */
- const deploymentFormData = reactive({} as Deployment)
- const deploymentLabels = ref([])
- const deploySelector = ref([])
- const deployContainerPort = ref([])
- const deployEnv = ref([])
- const deployVoumeMounts = ref([])
+ const deploymentFormData = ref({} as Deployment)
+ const deploymentLabels = ref([] as any)
+ const deploySelector = ref([] as any)
+ const deployContainerPort = ref([] as any)
+ const deployEnv = ref([] as any)
+ const deployVoumeMounts = ref([] as any)
 
  onMounted(async () => {
   await setInit();
@@ -163,18 +163,18 @@ const setInit = () => {
   deployContainerPort.value.push({portNum: "", name:""})
   deployEnv.value.push({name: "", value:""})
   deployVoumeMounts.value.push({mountPath: "", name:""})
-  deploymentFormData.deployName = ""
-  deploymentFormData.namespace = ""
-  deploymentFormData.image = ""
+  deploymentFormData.value.deployName = ""
+  deploymentFormData.value.namespace = ""
+  deploymentFormData.value.image = ""
 }
 
 const onClickDeploy = () => {
   console.log("onClickDeploy")
-  deploymentFormData.labels = deploymentLabels.value
-  deploymentFormData.selector = deploySelector.value
-  deploymentFormData.containerPort = deployContainerPort.value
-  deploymentFormData.env = deployEnv.value
-  deploymentFormData.volumeMounts = deployVoumeMounts.value
+  deploymentFormData.value.labels = deploymentLabels.value
+  deploymentFormData.value.selector = deploySelector.value
+  deploymentFormData.value.containerPort = deployContainerPort.value
+  deploymentFormData.value.env = deployEnv.value
+  deploymentFormData.value.volumeMounts = deployVoumeMounts.value
 
   const param = { ...deploymentFormData }
 

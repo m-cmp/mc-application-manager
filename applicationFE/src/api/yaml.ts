@@ -13,7 +13,7 @@ export const generateYamlService = (param:Pod) => {
 
 // HPA YAML
 export const generateYamlHpa = (param:Hpa) => {
-  return request.post('/yaml/hpa', param)
+  return request.post('/manifest/v1/generator/yaml/hpa', param)
 }
 
 // deployment YAML
@@ -23,5 +23,5 @@ export const generateYamlDeployment = (param:Deployment) => {
 
 // configmap YAML
 export const generateYamlConfigmap = (param:Deployment) => {
-  return request.post('/yaml/configmap', param)
+  return request.post('/manifest/v1/generator/yaml/configmap', param)
 }

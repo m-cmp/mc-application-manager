@@ -14,35 +14,18 @@ export interface OssType {
 }
 
 export interface Pod {
-  podName: string
-  namespace: string
-  labels: []
-  image: string
-  containerPort: []
-  env: []
-  volumeMounts: []
+  metadata: {}
+  spec: {}
 }
 
 export interface Deployment {
-  deployName: string
-  namespace: string
-  labels: []
-  selector: []
-  replicas: number
-  image: string
-  containerPort: []
-  env: []
-  volumeMounts: []
+  metadata: {}
+  data: {}
 }
 
 export interface Hpa {
-  hpaName: string
-  namespace: string
-  labels: {}
-  target: {}
-  metric: {}
-  minReplicas: number
-  maxReplicas: number
+  metadata:{}
+  spec: {}
 }
 
 export interface Repository {
