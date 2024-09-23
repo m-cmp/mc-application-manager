@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
 
@@ -16,16 +19,21 @@ public class K8SPodDto {
 
     private final String apiVersion = "v1";
     private final String kind = "Pod";
-    private MetadataDto metadata;
-    private SpecDto spec;
+    @Valid
+    @NotNull
+    private PodMetadataDto metadata;
+    @Valid
+    @NotNull
+    private PodSpecDto spec;
 
     @Getter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class MetadataDto {
+    public static class PodMetadataDto {
+        @NotBlank
         private String name;
-        private String namespace;
+        private String namespace = "default";
         private Map<String, String> labels = null;
     }
 
@@ -33,26 +41,30 @@ public class K8SPodDto {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class SpecDto {
-        private List<ContainerDto> containers = null;
+    public static class PodSpecDto {
+        @Valid
+        @NotNull
+        private List<PodContainerDto> containers;
         private String restartPolicy;
 
         @Getter
         @Builder
         @NoArgsConstructor
         @AllArgsConstructor
-        public static class ContainerDto {
+        public static class PodContainerDto {
+            @NotBlank
             private String name;
+            @NotBlank
             private String image;
-            private List<EnvDto> env = null;
-            private List<PortDto> ports = null;
-            private ResourceDto resources;
+            private List<PodEnvDto> env = null;
+            private List<PodPortDto> ports = null;
+            private PodResourceDto resources;
 
             @Getter
             @Builder
             @NoArgsConstructor
             @AllArgsConstructor
-            public static class EnvDto {
+            public static class PodEnvDto {
                 private String name;
                 private String value;
             }
@@ -61,7 +73,7 @@ public class K8SPodDto {
             @Builder
             @NoArgsConstructor
             @AllArgsConstructor
-            public static class PortDto {
+            public static class PodPortDto {
                 private String name;
                 private Integer containerPort;
                 private Integer hostPort;
@@ -72,7 +84,7 @@ public class K8SPodDto {
             @Builder
             @NoArgsConstructor
             @AllArgsConstructor
-            public static class ResourceDto {
+            public static class PodResourceDto {
                 private Map<String, String> limits = null;
                 private Map<String, String> requests = null;
             }

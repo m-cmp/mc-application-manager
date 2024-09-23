@@ -12,3 +12,47 @@ export interface OssType {
   ossTypeName: string
   ossTypeDesc: string
 }
+
+export interface Pod {
+  metadata: {}
+  spec: {}
+}
+
+export interface Deployment {
+  metadata: {}
+  data: {}
+}
+
+export interface ConfigMap {
+  metadata: {}
+  data: {}
+}
+
+export interface Hpa {
+  metadata:{}
+  spec: {}
+}
+
+export interface Service {
+  metadata:{}
+  spec: {}
+}
+
+export interface Repository {
+  name: string
+  format: string
+  type: string
+  url: string
+  online: boolean
+  storage: {}
+  docker: {}
+}
+
+export interface Component {
+  id: string
+  repository: string
+  format: string
+  group: string
+  name: string
+  assets: []
+}

@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import java.util.Map;
 
 @Getter
@@ -15,16 +18,21 @@ public class K8SHpaDto {
 
     private final String apiVersion = "autoscaling/v1";
     private final String kind = "HorizontalPodAutoscaler";
-    private MetadataDto metadata;
-    private SpecDto spec;
+    @Valid
+    @NotNull
+    private HpaMetadataDto metadata;
+    @Valid
+    @NotNull
+    private HpaSpecDto spec;
 
     @Getter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class MetadataDto {
+    public static class HpaMetadataDto {
+        @NotBlank
         private String name;
-        private String namespace;
+        private String namespace = "default";
         private Map<String, String> labels = null;
     }
 
@@ -32,19 +40,27 @@ public class K8SHpaDto {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class SpecDto {
-        private ScaleTargetRefDto scaleTargetRef;
+    public static class HpaSpecDto {
+        @Valid
+        @NotNull
+        private HpaScaleTargetRefDto scaleTargetRef;
+        @NotNull
         private Integer minReplicas;
+        @NotNull
         private Integer maxReplicas;
+        @NotNull
         private Integer targetCPUUtilizationPercentage;
 
         @Getter
         @Builder
         @NoArgsConstructor
         @AllArgsConstructor
-        public static class ScaleTargetRefDto {
+        public static class HpaScaleTargetRefDto {
+            @NotBlank
             private String apiVersion;
+            @NotBlank
             private String kind;
+            @NotBlank
             private String name;
         }
     }

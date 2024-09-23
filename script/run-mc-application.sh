@@ -7,8 +7,8 @@ echo -e "Start ${LGREEN} $APP_NAME ${NC}"
 
 sudo docker run -itd \
         -p 18084:18084 \
-        -e DB_USER_NAME=mcmp \
-        -e DB_PWD=mcmp1234 \
+        -e DB_USER_NAME=application \
+        -e DB_PWD=application1234 \
         -e DB_URL=localhost:3306 \
         -e DDL_AUTO=create \
         -e SQL_DATA_INIT=always \

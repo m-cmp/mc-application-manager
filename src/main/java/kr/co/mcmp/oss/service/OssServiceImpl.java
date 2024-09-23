@@ -44,7 +44,7 @@ public class OssServiceImpl implements OssService {
 
 		if ( !CollectionUtils.isEmpty(ossList) ) {
 			ossList = ossList.stream()
-					.map(ossDto -> OssDto.withModifiedEncriptPassword(ossDto, encodingBase64String(decryptAesString(ossDto.getOssPassword()))))
+					.map(ossDto -> OssDto.setDecryptPassword(ossDto, decryptAesString(ossDto.getOssPassword())))
 					.collect(Collectors.toList());
 		}
 
@@ -77,7 +77,7 @@ public class OssServiceImpl implements OssService {
 		if ( !CollectionUtils.isEmpty(ossList) ) {
 			ossList = ossList
 					.stream()
-					.map(ossDto -> OssDto.withModifiedEncriptPassword(ossDto, encodingBase64String(decryptAesString(ossDto.getOssPassword()))))
+					.map(ossDto -> OssDto.setDecryptPassword(ossDto, decryptAesString(ossDto.getOssPassword())))
 					.collect(Collectors.toList());
 		}
 
@@ -93,7 +93,7 @@ public class OssServiceImpl implements OssService {
 	@Override
 	public Long registOss(OssDto ossDto) {
 		OssTypeDto ossTypeDto = OssTypeDto.from(ossTypeRepository.findByOssTypeIdx(ossDto.getOssTypeIdx()));
-		ossDto = ossDto.withModifiedEncriptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
+		ossDto = ossDto.setEncryptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
 		ossDto = OssDto.from(ossRepository.save(OssDto.toEntity(ossDto, ossTypeDto)));
 		return ossDto.getOssIdx();
 	}
@@ -107,7 +107,7 @@ public class OssServiceImpl implements OssService {
 	public Long updateOss(OssDto ossDto) {
 		OssTypeDto ossTypeDto = OssTypeDto.from(ossTypeRepository.findByOssTypeIdx(ossDto.getOssTypeIdx()));
 
-		ossDto = ossDto.withModifiedEncriptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
+		ossDto = ossDto.setEncryptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
 		ossRepository.save(OssDto.toEntity(ossDto, ossTypeDto));
 		return ossDto.getOssIdx();
 	}
@@ -149,9 +149,9 @@ public class OssServiceImpl implements OssService {
 						return false;
 					}
 
-					// Front에서 Base64Encoding한 데이터를 복호화하여 AES256 암호화 함.
-					ossDto.withModifiedEncriptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
-					return nexusService.checkNexusConnection(ossDto);
+				// Front에서 Base64Encoding한 데이터를 복호화하여 AES256 암호화 함.
+				ossDto.setEncryptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
+				return nexusService.checkNexusConnection(ossDto);
 
 				default:
 					log.debug("[checkConnection] oss code >>> {}", osstypeDto.getOssTypeName());
@@ -173,13 +173,29 @@ public class OssServiceImpl implements OssService {
 	 */
 	public OssDto detailOss(Long ossIdx) {
 		Oss oss = ossRepository.findByOssIdx(ossIdx);
-		return OssDto.withDetailDecryptPassword(oss, encodingBase64String(decryptAesString(oss.getOssPassword())));
+		OssDto ossDto = OssDto.from(oss);
+		return OssDto.setDecryptPassword(ossDto, decryptAesString(oss.getOssPassword()));
 	}
 
 	public OssDto detailOssByOssName(String ossName) {
 		Oss oss = ossRepository.findByOssName(ossName);
 		String pwd = oss.getOssPassword();
-		String decodePwd = Base64Utils.base64Decoding(pwd);
+		String decodePwd = AES256Utils.decrypt(pwd);
+		return OssDto.builder()
+				.ossIdx(oss.getOssIdx())
+				.ossTypeIdx(oss.getOssType().getOssTypeIdx())
+				.ossName(oss.getOssName())
+				.ossDesc(oss.getOssDesc())
+				.ossUrl(oss.getOssUrl())
+				.ossUsername(oss.getOssUsername())
+				.ossPassword(decodePwd)
+				.build();
+	}
+
+	public OssDto detailOssByOssNameIgnoreCase(String ossName) {
+		Oss oss = ossRepository.findByOssNameIgnoreCase(ossName);
+		String pwd = oss.getOssPassword();
+		String decodePwd = AES256Utils.decrypt(pwd);
 		return OssDto.builder()
 				.ossIdx(oss.getOssIdx())
 				.ossTypeIdx(oss.getOssType().getOssTypeIdx())
@@ -234,7 +250,7 @@ public class OssServiceImpl implements OssService {
 	 */
 	public String encryptAesString(String str) {
 		if ( StringUtils.isNotBlank(str) ) {
-			return AES256Utils.encrypt(Base64Utils.base64Decoding(str));
+			return AES256Utils.encrypt(str);
 		}
 		else {
 			return null;

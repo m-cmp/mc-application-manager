@@ -9,6 +9,7 @@ import kr.co.mcmp.exception.NexusClientException;
 import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.oss.service.OssServiceImpl;
 import kr.co.mcmp.util.Base64Util;
+import kr.co.mcmp.util.Base64Utils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
@@ -23,12 +24,12 @@ import java.util.List;
 @Service
 public class NexusRepositoryAdapterClient {
 
-    private static final String GET_REPO_LIST = "/v1/repositories";
-    private static final String GET_REPO_BY_NAME = "/v1/repositories/{repositoryName}";
-    private static final String GET_REPO_DETAIL = "/v1/repositories/{format}/{type}/{repositoryName}";
-    private static final String POST_REPO_CREATE = "/v1/repositories/{format}/{type}";
-    private static final String PUT_REPO_UPDATE = "/v1/repositories/{format}/{type}/{repositoryName}";
-    private static final String DELETE_REPO_DELETE = "/v1/repositories/{repositoryName}";
+    private static final String GET_REPO_LIST = "/service/rest/v1/repositories";
+    private static final String GET_REPO_BY_NAME = "/service/rest/v1/repositories/{repositoryName}";
+    private static final String GET_REPO_DETAIL = "/service/rest/v1/repositories/{format}/{type}/{repositoryName}";
+    private static final String POST_REPO_CREATE = "/service/rest/v1/repositories/{format}/{type}";
+    private static final String PUT_REPO_UPDATE = "/service/rest/v1/repositories/{format}/{type}/{repositoryName}";
+    private static final String DELETE_REPO_DELETE = "/service/rest/v1/repositories/{repositoryName}";
 
     private String nexusId = "";
     private String nexusPwd = "";
@@ -39,9 +40,9 @@ public class NexusRepositoryAdapterClient {
 
     private void getOssInfo() {
         try {
-            OssDto nexus = ossService.detailOssByOssName("NEXUS");
+            OssDto nexus = ossService.detailOssByOssNameIgnoreCase("NEXUS");
             this.nexusId = nexus.getOssUsername();
-            this.nexusPwd = nexus.getOssPassword();
+            this.nexusPwd = Base64Utils.base64Decoding(nexus.getOssPassword());
             this.baseUrl = nexus.getOssUrl();
         } catch (Exception e) {
             throw new IllegalArgumentException ("DB Nexus 계정 정보가 없습니다.");
