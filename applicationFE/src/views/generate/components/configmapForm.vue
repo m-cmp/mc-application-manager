@@ -6,15 +6,15 @@
       </div>
       <div class="card-body">
         <div class="mb-3">
-          <label class="form-label requierd">Name</label>
+          <label class="form-label required">- Name</label>
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.name" placeholder="configMap-01" />
         </div>
         <div class="mb-3">
-          <label class="form-label">Namespace</label>
+          <label class="form-label">- Namespace</label>
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.namespace" placeholder="namespace" />
         </div>
         <div class="mb-3">
-          <label class="form-label">Labels</label>
+          <label class="form-label">- Labels</label>
           <div class="generate-form" v-for="(item, idx) in ConfigMapLabels" :key="idx">
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.key" placeholder="key" />
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.value" placeholder="value" />
@@ -44,7 +44,7 @@
       </div>
       <div class="card-body">
         <div class="mb-3">
-          <label class="form-label">Data</label>
+          <label class="form-label">- Data</label>
           <div class="generate-form" v-for="(item, idx) in configMapData" :key="idx">
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.key" placeholder="key" />
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.value" placeholder="value" />

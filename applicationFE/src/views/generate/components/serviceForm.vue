@@ -6,16 +6,16 @@
       </div>
       <div class="card-body">
         <div class="mb-3">
-          <label class="form-label required">Name</label>
+          <label class="form-label required">- Name</label>
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.name" placeholder="name-01" />
         </div>
         <div class="mb-3">
-          <label class="form-label">Namespace</label>
+          <label class="form-label">- Namespace</label>
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.namespace" placeholder="namespace" />
         </div>
         <div class="mb-3">
-          <label class="form-label">Labels</label>
-          <div class="pod-form" v-for="(item, idx) in serviceLabels" :key="idx">
+          <label class="form-label">- Labels</label>
+          <div class="generate-form" v-for="(item, idx) in serviceLabels" :key="idx">
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.key" placeholder="key" />
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.value" placeholder="value" />
             <div class="btn-list">
@@ -44,8 +44,8 @@
       </div>
       <div class="card-body">
         <div class="mb-3">
-          <label class="form-label">Selector</label>
-          <div class="pod-form" v-for="(item, idx) in selector" :key="idx">
+          <label class="form-label">- Selector</label>
+          <div class="generate-form" v-for="(item, idx) in selector" :key="idx">
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.key" placeholder="key" />
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.value" placeholder="value" />
             <div class="btn-list">
@@ -66,9 +66,9 @@
           </div>
         </div>
         <div class="mb-3">
-          <div v-for="(item, idx) in ports" :key="idx">
+          <div class="mt-4" v-for="(item, idx) in ports" :key="idx">
             <div class="btn-list">
-              <label class="form-label">Container</label>
+              <label class="form-label">Ports</label>
               <button class="btn btn-primary" @click="addPort" style="text-align: center !important;">
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-plus" style="margin: 0 !important;">
                   <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
@@ -85,30 +85,31 @@
             </div>
             <div class="row" style="width:68% !important">
               <div class="col mt-4">
-                <label class="form-label required">Port</label>
+                <label class="form-label required">- Port</label>
                 <input type="text" class="form-control" v-model="item.port" />
               </div>
               <div class="col mt-4">
-                <label class="form-label required">Target Port</label>
+                <label class="form-label required">- Target Port</label>
                 <input type="text" class="form-control" v-model="item.targetPort" />
               </div>
             </div>
             <div class="row" style="width:68% !important">
               <div class="col mt-4">
-                <label class="form-label">Protocol</label>
+                <label class="form-label">- Protocol</label>
                 <input type="text" class="form-control" v-model="item.protocol" />
               </div>
               <div class="col mt-4">
-                <label class="form-label">Node Port</label>
+                <label class="form-label">- Node Port</label>
                 <input type="text" class="form-control" v-model="item.nodePort" />
               </div>
             </div>
             <div class="row" style="width:68% !important">
               <div class="col mt-4">
-                <label class="form-label">Type</label>
+                <label class="form-label">- Type</label>
                 <input type="text" class="form-control" v-model="type" />
               </div>
             </div>
+            <div class="border-bottom" style="width: 100%; margin-top: 10px" v-if="ports.length > 1"></div>
           </div>
         </div>
       </div>
@@ -227,7 +228,7 @@ const removePort = (idx: number) => {
 
 </script>
 <style scoped>
-.pod-form {
+.generate-form {
   width: 100% !important;
   display: flex;
   gap: 10px;
