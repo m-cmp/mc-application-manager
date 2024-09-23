@@ -3,7 +3,7 @@ import type { Pod, Hpa, Deployment, Service, ConfigMap } from "../views/type/typ
 
 // POD YAML
 export const generateYamlPod = (param:Pod) => {
-  return request.post('/yaml/pod', param)
+  return request.post('/manifest/v1/generator/yaml/pod', param)
 }
 
 // SERVICE YAML

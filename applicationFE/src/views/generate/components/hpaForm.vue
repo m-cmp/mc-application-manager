@@ -6,15 +6,15 @@
       </div>
       <div class="card-body">
         <div class="mb-3">
-          <label class="form-label required">HPA Name</label>
+          <label class="form-label required">- Name</label>
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.name" placeholder="name" />
         </div>
         <div class="mb-3">
-          <label class="form-label required">Namespace</label>
+          <label class="form-label">- Namespace</label>
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.namespace" placeholder="namespace" />
         </div>
         <div class="mb-3">
-          <label class="form-label required">Labels</label>
+          <label class="form-label">- Labels</label>
           <div class="generate-form" v-for="(item, idx) in hpaLabels" :key="idx">
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.key" placeholder="key" />
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.value" placeholder="value" />
@@ -48,35 +48,35 @@
         </div>
         <div class="row" style="width:68% !important">
           <div class="col">
-            <label class="form-label required">Api Version</label>
+            <label class="form-label required">- Api Version</label>
             <input type="text" class="form-control" v-model="scaleTargetRef.apiVersion" />
           </div>
           <div class="col">
-            <label class="form-label required">Kind</label>
+            <label class="form-label required">- Kind</label>
             <input type="text" class="form-control" v-model="scaleTargetRef.kind" />
           </div>
         </div>
         <div class="row" style="width:68% !important">
           <div class="col">
-            <label class="form-label required">Name</label>
+            <label class="form-label required">- Name</label>
             <input type="text" class="form-control" v-model="scaleTargetRef.name" />
           </div>
         </div>
         <div class="row" style="width:68% !important">
           <div class="col">
-            <label class="form-label required">Min Replicas</label>
+            <label class="form-label required">- Min Replicas</label>
             <input type="text" class="form-control" v-model="spec.minReplicas" />
           </div>
         </div>
         <div class="row" style="width:68% !important">
           <div class="col">
-            <label class="form-label required">Max Replicas</label>
+            <label class="form-label required">- Max Replicas</label>
             <input type="text" class="form-control" v-model="spec.maxReplicas" />
           </div>
         </div>
         <div class="row" style="width:68% !important">
           <div class="col">
-            <label class="form-label required">CPU Percentage</label>
+            <label class="form-label required">- CPU Percentage</label>
             <input type="text" class="form-control" v-model="spec.targetCPUUtilizationPercentage" />
           </div>
         </div>
