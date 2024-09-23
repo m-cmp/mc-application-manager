@@ -1,5 +1,5 @@
 import request from "../common/request";
-import type { Pod, Hpa, Deployment } from "../views/type/type";
+import type { Pod, Hpa, Deployment, Service, ConfigMap } from "../views/type/type";
 
 // POD YAML
 export const generateYamlPod = (param:Pod) => {
@@ -7,8 +7,8 @@ export const generateYamlPod = (param:Pod) => {
 }
 
 // SERVICE YAML
-export const generateYamlService = (param:Pod) => {
-  return request.post('/yaml/service', param)
+export const generateYamlService = (param:Service) => {
+  return request.post('/manifest/v1/generator/yaml/service', param)
 }
 
 // HPA YAML
@@ -22,6 +22,6 @@ export const generateYamlDeployment = (param:Deployment) => {
 }
 
 // configmap YAML
-export const generateYamlConfigmap = (param:Deployment) => {
+export const generateYamlConfigmap = (param:ConfigMap) => {
   return request.post('/manifest/v1/generator/yaml/configmap', param)
 }
