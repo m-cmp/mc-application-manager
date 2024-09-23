@@ -5,7 +5,9 @@
         "version": "1.0",
         "title": "Api Documentation",
         "termsOfService": "urn:tos",
-        "contact": {},
+        "contact": {
+
+        },
         "license": {
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0"
@@ -15,12 +17,16 @@
     "basePath": "/",
     "tags": [
         {
-            "name": "external-repo-controller",
-            "description": "External Repo Controller"
+            "name": "common-component-controller",
+            "description": "Common Component Controller"
         },
         {
-            "name": "manifest-controller",
-            "description": "Manifest Controller"
+            "name": "common-repository-controller",
+            "description": "Common Repository Controller"
+        },
+        {
+            "name": "external-repo-controller",
+            "description": "External Repo Controller"
         },
         {
             "name": "repository-controller",
@@ -43,12 +49,12 @@
             "description": "Basic Error Controller"
         },
         {
-            "name": "yaml-generate-controller",
-            "description": "Yaml Generate Controller"
-        },
-        {
             "name": "repository-file-controller",
             "description": "Repository File Controller"
+        },
+        {
+            "name": "yaml-manifest-controller",
+            "description": "Yaml Manifest Controller"
         },
         {
             "name": "oss-type-controller",
@@ -81,6 +87,15 @@
                 ],
                 "produces": [
                     "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "title",
+                        "in": "query",
+                        "description": "title",
+                        "required": true,
+                        "type": "string"
+                    }
                 ],
                 "responses": {
                     "200": {
@@ -132,7 +147,7 @@
                         "format": "int32"
                     },
                     {
-                        "name": "catalogRefData[0].refernectIdx",
+                        "name": "catalogRefData[0].referncetIdx",
                         "in": "query",
                         "required": false,
                         "type": "integer",
@@ -244,7 +259,7 @@
                         "format": "int32"
                     },
                     {
-                        "name": "catalogRefData[0].refernectIdx",
+                        "name": "catalogRefData[0].referncetIdx",
                         "in": "query",
                         "required": false,
                         "type": "integer",
@@ -436,7 +451,7 @@
                         "format": "int32"
                     },
                     {
-                        "name": "refernectIdx",
+                        "name": "referncetIdx",
                         "in": "query",
                         "required": false,
                         "type": "integer",
@@ -835,46 +850,13 @@
                 }
             }
         },
-        "/manifest/": {
-            "get": {
-                "tags": [
-                    "manifest-controller"
-                ],
-                "summary": "getManifest",
-                "operationId": "getManifestUsingGET",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "*/*"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ManifestDTO"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "404": {
-                        "description": "Not Found"
-                    }
-                }
-            },
+        "/manifest/v1/generator/yaml/configmap": {
             "post": {
                 "tags": [
-                    "manifest-controller"
+                    "yaml-manifest-controller"
                 ],
-                "summary": "createManifest",
-                "operationId": "createManifestUsingPOST",
+                "summary": "generateYamlConfigMap",
+                "operationId": "generateYamlConfigMapUsingPOST",
                 "consumes": [
                     "application/json"
                 ],
@@ -883,108 +865,20 @@
                 ],
                 "parameters": [
                     {
-                        "name": "manifestIdx",
-                        "in": "query",
-                        "required": false,
-                        "type": "integer",
-                        "format": "int32"
-                    },
-                    {
-                        "name": "manifestTitle",
-                        "in": "query",
-                        "required": false,
-                        "type": "string"
-                    },
-                    {
-                        "name": "manifestContent",
-                        "in": "query",
-                        "required": false,
-                        "type": "string"
-                    },
-                    {
-                        "name": "manifestType",
-                        "in": "query",
-                        "required": false,
-                        "type": "string"
-                    },
-                    {
-                        "name": "manifestCategory",
-                        "in": "query",
-                        "required": false,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
+                        "in": "body",
+                        "name": "configMap",
+                        "description": "configMap",
+                        "required": true,
                         "schema": {
-                            "$ref": "#/definitions/ManifestDTO"
+                            "$ref": "#/definitions/K8SConfigMapDto"
                         }
-                    },
-                    "201": {
-                        "description": "Created"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "404": {
-                        "description": "Not Found"
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "manifest-controller"
-                ],
-                "summary": "updateManifest",
-                "operationId": "updateManifestUsingPUT",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "*/*"
-                ],
-                "parameters": [
-                    {
-                        "name": "manifestIdx",
-                        "in": "query",
-                        "required": false,
-                        "type": "integer",
-                        "format": "int32"
-                    },
-                    {
-                        "name": "manifestTitle",
-                        "in": "query",
-                        "required": false,
-                        "type": "string"
-                    },
-                    {
-                        "name": "manifestContent",
-                        "in": "query",
-                        "required": false,
-                        "type": "string"
-                    },
-                    {
-                        "name": "manifestType",
-                        "in": "query",
-                        "required": false,
-                        "type": "string"
-                    },
-                    {
-                        "name": "manifestCategory",
-                        "in": "query",
-                        "required": false,
-                        "type": "string"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/ManifestDTO"
+                            "$ref": "#/definitions/ResponseWrapper«string»"
                         }
                     },
                     "201": {
@@ -1002,13 +896,13 @@
                 }
             }
         },
-        "/manifest/download/{manifestIdx}": {
-            "get": {
+        "/manifest/v1/generator/yaml/deployments": {
+            "post": {
                 "tags": [
-                    "manifest-controller"
+                    "yaml-manifest-controller"
                 ],
-                "summary": "saveManifest",
-                "operationId": "saveManifestUsingGET",
+                "summary": "generateYamlDeployments",
+                "operationId": "generateYamlDeploymentsUsingPOST",
                 "consumes": [
                     "application/json"
                 ],
@@ -1017,20 +911,24 @@
                 ],
                 "parameters": [
                     {
-                        "name": "manifestIdx",
-                        "in": "path",
-                        "description": "manifestIdx",
+                        "in": "body",
+                        "name": "deployments",
+                        "description": "deployments",
                         "required": true,
-                        "type": "integer",
-                        "format": "int32"
+                        "schema": {
+                            "$ref": "#/definitions/K8SDeploymentDto"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "boolean"
+                            "$ref": "#/definitions/ResponseWrapper«string»"
                         }
+                    },
+                    "201": {
+                        "description": "Created"
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -1044,13 +942,13 @@
                 }
             }
         },
-        "/manifest/{manifestIdx}": {
-            "get": {
+        "/manifest/v1/generator/yaml/hpa": {
+            "post": {
                 "tags": [
-                    "manifest-controller"
+                    "yaml-manifest-controller"
                 ],
-                "summary": "getManifestDetail",
-                "operationId": "getManifestDetailUsingGET",
+                "summary": "generateYamlHpa",
+                "operationId": "generateYamlHpaUsingPOST",
                 "consumes": [
                     "application/json"
                 ],
@@ -1059,20 +957,24 @@
                 ],
                 "parameters": [
                     {
-                        "name": "manifestIdx",
-                        "in": "path",
-                        "description": "manifestIdx",
+                        "in": "body",
+                        "name": "hpa",
+                        "description": "hpa",
                         "required": true,
-                        "type": "integer",
-                        "format": "int32"
+                        "schema": {
+                            "$ref": "#/definitions/K8SHpaDto"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/ManifestDTO"
+                            "$ref": "#/definitions/ResponseWrapper«string»"
                         }
+                    },
+                    "201": {
+                        "description": "Created"
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -1084,13 +986,15 @@
                         "description": "Not Found"
                     }
                 }
-            },
-            "delete": {
+            }
+        },
+        "/manifest/v1/generator/yaml/pod": {
+            "post": {
                 "tags": [
-                    "manifest-controller"
+                    "yaml-manifest-controller"
                 ],
-                "summary": "updateManifest",
-                "operationId": "updateManifestUsingDELETE",
+                "summary": "generateYamlPod",
+                "operationId": "generateYamlPodUsingPOST",
                 "consumes": [
                     "application/json"
                 ],
@@ -1099,40 +1003,44 @@
                 ],
                 "parameters": [
                     {
-                        "name": "manifestIdx",
-                        "in": "path",
-                        "description": "manifestIdx",
+                        "in": "body",
+                        "name": "pod",
+                        "description": "pod",
                         "required": true,
-                        "type": "integer",
-                        "format": "int32"
+                        "schema": {
+                            "$ref": "#/definitions/K8SPodDto"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "boolean"
+                            "$ref": "#/definitions/ResponseWrapper«string»"
                         }
+                    },
+                    "201": {
+                        "description": "Created"
                     },
                     "401": {
                         "description": "Unauthorized"
                     },
-                    "204": {
-                        "description": "No Content"
-                    },
                     "403": {
                         "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
                     }
                 }
             }
         },
-        "/manifest/{manifestIdx}/txt": {
-            "get": {
+        "/manifest/v1/generator/yaml/service": {
+            "post": {
                 "tags": [
-                    "manifest-controller"
+                    "yaml-manifest-controller"
                 ],
-                "summary": "getManifestDetailTxt",
-                "operationId": "getManifestDetailTxtUsingGET",
+                "summary": "generateYamlService",
+                "operationId": "generateYamlServiceUsingPOST",
                 "consumes": [
                     "application/json"
                 ],
@@ -1141,20 +1049,24 @@
                 ],
                 "parameters": [
                     {
-                        "name": "manifestIdx",
-                        "in": "path",
-                        "description": "manifestIdx",
+                        "in": "body",
+                        "name": "service",
+                        "description": "service",
                         "required": true,
-                        "type": "integer",
-                        "format": "int32"
+                        "schema": {
+                            "$ref": "#/definitions/K8SServiceDto"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/ResponseWrapper«string»"
                         }
+                    },
+                    "201": {
+                        "description": "Created"
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -1388,6 +1300,522 @@
                 }
             }
         },
+        "/oss/v1/components/{module}/create/{name}": {
+            "post": {
+                "tags": [
+                    "common-component-controller"
+                ],
+                "summary": "createComponent",
+                "operationId": "createComponentUsingPOST",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "path",
+                        "description": "module",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "name",
+                        "in": "path",
+                        "description": "name",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "directory",
+                        "in": "formData",
+                        "description": "directory",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "files",
+                        "in": "formData",
+                        "description": "files",
+                        "required": false,
+                        "type": "array",
+                        "items": {
+                            "type": "file"
+                        },
+                        "collectionFormat": "multi"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«string»"
+                        }
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/oss/v1/components/{module}/create/{name}/text": {
+            "post": {
+                "tags": [
+                    "common-component-controller"
+                ],
+                "summary": "createComponentByText",
+                "operationId": "createComponentByTextUsingPOST",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "path",
+                        "description": "module",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "name",
+                        "in": "path",
+                        "description": "name",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "textComponent",
+                        "description": "textComponent",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TextComponentDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«string»"
+                        }
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/oss/v1/components/{module}/delete/{id}": {
+            "delete": {
+                "tags": [
+                    "common-component-controller"
+                ],
+                "summary": "deleteComponent",
+                "operationId": "deleteComponentUsingDELETE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "path",
+                        "description": "module",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "id",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«string»"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                }
+            }
+        },
+        "/oss/v1/components/{module}/detail/{id}": {
+            "get": {
+                "tags": [
+                    "common-component-controller"
+                ],
+                "summary": "getComponentDetailByName",
+                "operationId": "getComponentDetailByNameUsingGET",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "path",
+                        "description": "module",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "id",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«ComponentDto»"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/oss/v1/components/{module}/list/{name}": {
+            "get": {
+                "tags": [
+                    "common-component-controller"
+                ],
+                "summary": "getComponentList",
+                "operationId": "getComponentListUsingGET",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "path",
+                        "description": "module",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "name",
+                        "in": "path",
+                        "description": "name",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«List«ComponentDto»»"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/oss/v1/repositories/{module}/create": {
+            "post": {
+                "tags": [
+                    "common-repository-controller"
+                ],
+                "summary": "createRepository",
+                "operationId": "createRepositoryUsingPOST",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "path",
+                        "description": "module",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "repositoryDto",
+                        "description": "repositoryDto",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RepositoryDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«string»"
+                        }
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/oss/v1/repositories/{module}/delete/{name}": {
+            "delete": {
+                "tags": [
+                    "common-repository-controller"
+                ],
+                "summary": "deleteRepository",
+                "operationId": "deleteRepositoryUsingDELETE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "path",
+                        "description": "module",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "name",
+                        "in": "path",
+                        "description": "name",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«string»"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                }
+            }
+        },
+        "/oss/v1/repositories/{module}/detail/{name}": {
+            "get": {
+                "tags": [
+                    "common-repository-controller"
+                ],
+                "summary": "getRepositoryDetailByName",
+                "operationId": "getRepositoryDetailByNameUsingGET",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "path",
+                        "description": "module",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "name",
+                        "in": "path",
+                        "description": "name",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«RepositoryDto»"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/oss/v1/repositories/{module}/list": {
+            "get": {
+                "tags": [
+                    "common-repository-controller"
+                ],
+                "summary": "getRepositoryList",
+                "operationId": "getRepositoryListUsingGET",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "path",
+                        "description": "module",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«List«RepositoryDto»»"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/oss/v1/repositories/{module}/update": {
+            "put": {
+                "tags": [
+                    "common-repository-controller"
+                ],
+                "summary": "updateRepository",
+                "operationId": "updateRepositoryUsingPUT",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "path",
+                        "description": "module",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "repositoryDto",
+                        "description": "repositoryDto",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RepositoryDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«string»"
+                        }
+                    },
+                    "201": {
+                        "description": "Created"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
         "/oss/{ossIdx}": {
             "get": {
                 "tags": [
@@ -1552,6 +1980,38 @@
                     },
                     "201": {
                         "description": "Created"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/ossType/filter/list": {
+            "get": {
+                "tags": [
+                    "oss-type-controller"
+                ],
+                "summary": "getOssTypeFilteredList",
+                "operationId": "getOssTypeFilteredListUsingGET",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "*/*"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResponseWrapper«List«OssTypeDto»»"
+                        }
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -1734,7 +2194,7 @@
                     "repository-controller"
                 ],
                 "summary": "getRepositoryList",
-                "operationId": "getRepositoryListUsingGET",
+                "operationId": "getRepositoryListUsingGET_1",
                 "consumes": [
                     "application/json"
                 ],
@@ -1764,7 +2224,7 @@
                     "repository-controller"
                 ],
                 "summary": "createRepository",
-                "operationId": "createRepositoryUsingPOST",
+                "operationId": "createRepositoryUsingPOST_1",
                 "consumes": [
                     "application/json"
                 ],
@@ -1797,7 +2257,7 @@
                     "repository-controller"
                 ],
                 "summary": "updateRepository",
-                "operationId": "updateRepositoryUsingPUT",
+                "operationId": "updateRepositoryUsingPUT_1",
                 "consumes": [
                     "application/json"
                 ],
@@ -1830,7 +2290,7 @@
                     "repository-controller"
                 ],
                 "summary": "deleteRepository",
-                "operationId": "deleteRepositoryUsingDELETE",
+                "operationId": "deleteRepositoryUsingDELETE_1",
                 "consumes": [
                     "application/json"
                 ],
@@ -2274,186 +2734,23 @@
                     }
                 }
             }
-        },
-        "/yaml/configmap": {
-            "post": {
-                "tags": [
-                    "yaml-generate-controller"
-                ],
-                "summary": "generateConfigmapYaml",
-                "operationId": "generateConfigmapYamlUsingPOST",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "*/*"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "201": {
-                        "description": "Created"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "404": {
-                        "description": "Not Found"
-                    }
-                }
-            }
-        },
-        "/yaml/deployment": {
-            "post": {
-                "tags": [
-                    "yaml-generate-controller"
-                ],
-                "summary": "generateDeploymentYaml",
-                "operationId": "generateDeploymentYamlUsingPOST",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "*/*"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "201": {
-                        "description": "Created"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "404": {
-                        "description": "Not Found"
-                    }
-                }
-            }
-        },
-        "/yaml/pod": {
-            "post": {
-                "tags": [
-                    "yaml-generate-controller"
-                ],
-                "summary": "generatePodYaml",
-                "operationId": "generatePodYamlUsingPOST",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "*/*"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "201": {
-                        "description": "Created"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "404": {
-                        "description": "Not Found"
-                    }
-                }
-            }
-        },
-        "/yaml/service": {
-            "post": {
-                "tags": [
-                    "yaml-generate-controller"
-                ],
-                "summary": "generateServiceYaml",
-                "operationId": "generateServiceYamlUsingPOST",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "*/*"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "201": {
-                        "description": "Created"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "404": {
-                        "description": "Not Found"
-                    }
-                }
-            }
         }
     },
     "definitions": {
-        "OperatingSystem": {
+        "K8SDeploymentDto": {
             "type": "object",
             "properties": {
-                "label": {
+                "apiVersion": {
                     "type": "string"
                 },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "ResponseWrapper«OssDto»": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "integer",
-                    "format": "int32"
-                },
-                "data": {
-                    "$ref": "#/definitions/OssDto"
-                },
-                "detail": {
+                "kind": {
                     "type": "string"
                 },
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
-        "Category": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
+                "metadata": {
+                    "$ref": "#/definitions/DeploymentMetadataDto"
                 },
-                "slug": {
-                    "type": "string"
+                "spec": {
+                    "$ref": "#/definitions/DeploymentSpecDto"
                 }
             }
         },
@@ -2468,146 +2765,20 @@
                 }
             }
         },
-        "ModelAndView": {
+        "PodResourceDto": {
             "type": "object",
             "properties": {
-                "empty": {
-                    "type": "boolean"
-                },
-                "model": {
-                    "type": "object"
-                },
-                "modelMap": {
+                "limits": {
                     "type": "object",
                     "additionalProperties": {
-                        "type": "object"
+                        "type": "string"
                     }
                 },
-                "reference": {
-                    "type": "boolean"
-                },
-                "status": {
-                    "type": "string",
-                    "enum": [
-                        "100 CONTINUE",
-                        "101 SWITCHING_PROTOCOLS",
-                        "102 PROCESSING",
-                        "103 CHECKPOINT",
-                        "200 OK",
-                        "201 CREATED",
-                        "202 ACCEPTED",
-                        "203 NON_AUTHORITATIVE_INFORMATION",
-                        "204 NO_CONTENT",
-                        "205 RESET_CONTENT",
-                        "206 PARTIAL_CONTENT",
-                        "207 MULTI_STATUS",
-                        "208 ALREADY_REPORTED",
-                        "226 IM_USED",
-                        "300 MULTIPLE_CHOICES",
-                        "301 MOVED_PERMANENTLY",
-                        "302 FOUND",
-                        "302 MOVED_TEMPORARILY",
-                        "303 SEE_OTHER",
-                        "304 NOT_MODIFIED",
-                        "305 USE_PROXY",
-                        "307 TEMPORARY_REDIRECT",
-                        "308 PERMANENT_REDIRECT",
-                        "400 BAD_REQUEST",
-                        "401 UNAUTHORIZED",
-                        "402 PAYMENT_REQUIRED",
-                        "403 FORBIDDEN",
-                        "404 NOT_FOUND",
-                        "405 METHOD_NOT_ALLOWED",
-                        "406 NOT_ACCEPTABLE",
-                        "407 PROXY_AUTHENTICATION_REQUIRED",
-                        "408 REQUEST_TIMEOUT",
-                        "409 CONFLICT",
-                        "410 GONE",
-                        "411 LENGTH_REQUIRED",
-                        "412 PRECONDITION_FAILED",
-                        "413 PAYLOAD_TOO_LARGE",
-                        "413 REQUEST_ENTITY_TOO_LARGE",
-                        "414 URI_TOO_LONG",
-                        "414 REQUEST_URI_TOO_LONG",
-                        "415 UNSUPPORTED_MEDIA_TYPE",
-                        "416 REQUESTED_RANGE_NOT_SATISFIABLE",
-                        "417 EXPECTATION_FAILED",
-                        "418 I_AM_A_TEAPOT",
-                        "419 INSUFFICIENT_SPACE_ON_RESOURCE",
-                        "420 METHOD_FAILURE",
-                        "421 DESTINATION_LOCKED",
-                        "422 UNPROCESSABLE_ENTITY",
-                        "423 LOCKED",
-                        "424 FAILED_DEPENDENCY",
-                        "425 TOO_EARLY",
-                        "426 UPGRADE_REQUIRED",
-                        "428 PRECONDITION_REQUIRED",
-                        "429 TOO_MANY_REQUESTS",
-                        "431 REQUEST_HEADER_FIELDS_TOO_LARGE",
-                        "451 UNAVAILABLE_FOR_LEGAL_REASONS",
-                        "500 INTERNAL_SERVER_ERROR",
-                        "501 NOT_IMPLEMENTED",
-                        "502 BAD_GATEWAY",
-                        "503 SERVICE_UNAVAILABLE",
-                        "504 GATEWAY_TIMEOUT",
-                        "505 HTTP_VERSION_NOT_SUPPORTED",
-                        "506 VARIANT_ALSO_NEGOTIATES",
-                        "507 INSUFFICIENT_STORAGE",
-                        "508 LOOP_DETECTED",
-                        "509 BANDWIDTH_LIMIT_EXCEEDED",
-                        "510 NOT_EXTENDED",
-                        "511 NETWORK_AUTHENTICATION_REQUIRED"
-                    ]
-                },
-                "view": {
-                    "$ref": "#/definitions/View"
-                },
-                "viewName": {
-                    "type": "string"
-                }
-            }
-        },
-        "RatePlans": {
-            "type": "object",
-            "properties": {
-                "architectures": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/Architecture"
+                "requests": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
                     }
-                },
-                "id": {
-                    "type": "string"
-                },
-                "operating_systems": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/OperatingSystem"
-                    }
-                },
-                "repositories": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/Repository"
-                    }
-                }
-            }
-        },
-        "ResponseWrapper«DockerHubCatalog»": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "integer",
-                    "format": "int32"
-                },
-                "data": {
-                    "$ref": "#/definitions/DockerHubCatalog"
-                },
-                "detail": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
                 }
             }
         },
@@ -2658,48 +2829,6 @@
                 }
             }
         },
-        "ManifestDTO": {
-            "type": "object",
-            "properties": {
-                "manifestCategory": {
-                    "type": "string"
-                },
-                "manifestContent": {
-                    "type": "string"
-                },
-                "manifestIdx": {
-                    "type": "integer",
-                    "format": "int32"
-                },
-                "manifestTitle": {
-                    "type": "string"
-                },
-                "manifestType": {
-                    "type": "string"
-                }
-            }
-        },
-        "ResponseWrapper«List«OssDto»»": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "integer",
-                    "format": "int32"
-                },
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/OssDto"
-                    }
-                },
-                "detail": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
         "ResponseWrapper«ArtifactHubPackage»": {
             "type": "object",
             "properties": {
@@ -2726,6 +2855,27 @@
                     "items": {
                         "$ref": "#/definitions/Result"
                     }
+                }
+            }
+        },
+        "ResponseWrapper«List«RepositoryDto»»": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RepositoryDto"
+                    }
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
                 }
             }
         },
@@ -2828,6 +2978,66 @@
                 }
             }
         },
+        "K8SConfigMapDto": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ConfigMapMetadataDto"
+                }
+            }
+        },
+        "DeploymentTemplateDto": {
+            "type": "object",
+            "properties": {
+                "metadata": {
+                    "$ref": "#/definitions/DeploymentPodMetadataDto"
+                },
+                "spec": {
+                    "$ref": "#/definitions/DeploymentPodSpecDto"
+                }
+            }
+        },
+        "Resource": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "file": {
+                    "type": "file"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "inputStream": {
+                    "$ref": "#/definitions/InputStream"
+                },
+                "open": {
+                    "type": "boolean"
+                },
+                "readable": {
+                    "type": "boolean"
+                },
+                "uri": {
+                    "$ref": "#/definitions/URI"
+                },
+                "url": {
+                    "$ref": "#/definitions/URL"
+                }
+            }
+        },
         "OssDto": {
             "type": "object",
             "properties": {
@@ -2856,6 +3066,938 @@
                 }
             }
         },
+        "HpaMetadataDto": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "PodSpecDto": {
+            "type": "object",
+            "properties": {
+                "containers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PodContainerDto"
+                    }
+                },
+                "restartPolicy": {
+                    "type": "string"
+                }
+            }
+        },
+        "K8SHpaDto": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/HpaMetadataDto"
+                },
+                "spec": {
+                    "$ref": "#/definitions/HpaSpecDto"
+                }
+            }
+        },
+        "DeploymentSpecDto": {
+            "type": "object",
+            "properties": {
+                "replicas": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "selector": {
+                    "$ref": "#/definitions/DeploymentSelectorDto"
+                },
+                "template": {
+                    "$ref": "#/definitions/DeploymentTemplateDto"
+                }
+            }
+        },
+        "DeploymentPodContainerDto": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/DeploymentPodEnvDto"
+                    }
+                },
+                "image": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ports": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/DeploymentPodPortDto"
+                    }
+                }
+            }
+        },
+        "DeploymentPodSpecDto": {
+            "type": "object",
+            "properties": {
+                "containers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/DeploymentPodContainerDto"
+                    }
+                }
+            }
+        },
+        "OssTypeDto": {
+            "type": "object",
+            "properties": {
+                "ossTypeDesc": {
+                    "type": "string"
+                },
+                "ossTypeIdx": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "ossTypeName": {
+                    "type": "string"
+                }
+            }
+        },
+        "ResponseWrapper«string»": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "data": {
+                    "type": "string"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "ResponseWrapper«List«ComponentDto»»": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ComponentDto"
+                    }
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "Package": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "has_values_schema": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "normalized_name": {
+                    "type": "string"
+                },
+                "package_id": {
+                    "type": "string"
+                },
+                "repository": {
+                    "$ref": "#/definitions/Repository"
+                }
+            }
+        },
+        "File": {
+            "type": "object",
+            "properties": {
+                "absolute": {
+                    "type": "boolean"
+                },
+                "absoluteFile": {
+                    "type": "file"
+                },
+                "absolutePath": {
+                    "type": "string"
+                },
+                "canonicalFile": {
+                    "type": "file"
+                },
+                "canonicalPath": {
+                    "type": "string"
+                },
+                "directory": {
+                    "type": "boolean"
+                },
+                "executable": {
+                    "type": "boolean"
+                },
+                "file": {
+                    "type": "boolean"
+                },
+                "freeSpace": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "hidden": {
+                    "type": "boolean"
+                },
+                "lastModified": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent": {
+                    "type": "string"
+                },
+                "parentFile": {
+                    "type": "file"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "readable": {
+                    "type": "boolean"
+                },
+                "totalSpace": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "usableSpace": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "writable": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "PodContainerDto": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PodEnvDto"
+                    }
+                },
+                "image": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ports": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PodPortDto"
+                    }
+                },
+                "resources": {
+                    "$ref": "#/definitions/PodResourceDto"
+                }
+            }
+        },
+        "OperatingSystem": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "HpaSpecDto": {
+            "type": "object",
+            "properties": {
+                "maxReplicas": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "minReplicas": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "scaleTargetRef": {
+                    "$ref": "#/definitions/HpaScaleTargetRefDto"
+                },
+                "targetCPUUtilizationPercentage": {
+                    "type": "integer",
+                    "format": "int32"
+                }
+            }
+        },
+        "PodEnvDto": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "ServiceSpecDto": {
+            "type": "object",
+            "properties": {
+                "ports": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ServicePortsDto"
+                    }
+                },
+                "selector": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "TextComponentDto": {
+            "type": "object",
+            "properties": {
+                "directory": {
+                    "type": "string"
+                },
+                "extension": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "ResponseWrapper«OssDto»": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "data": {
+                    "$ref": "#/definitions/OssDto"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "Category": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "ServicePortsDto": {
+            "type": "object",
+            "properties": {
+                "nodePort": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "port": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "protocol": {
+                    "type": "string"
+                },
+                "targetPort": {
+                    "type": "integer",
+                    "format": "int32"
+                }
+            }
+        },
+        "ModelAndView": {
+            "type": "object",
+            "properties": {
+                "empty": {
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "object"
+                },
+                "modelMap": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object"
+                    }
+                },
+                "reference": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "100 CONTINUE",
+                        "101 SWITCHING_PROTOCOLS",
+                        "102 PROCESSING",
+                        "103 CHECKPOINT",
+                        "200 OK",
+                        "201 CREATED",
+                        "202 ACCEPTED",
+                        "203 NON_AUTHORITATIVE_INFORMATION",
+                        "204 NO_CONTENT",
+                        "205 RESET_CONTENT",
+                        "206 PARTIAL_CONTENT",
+                        "207 MULTI_STATUS",
+                        "208 ALREADY_REPORTED",
+                        "226 IM_USED",
+                        "300 MULTIPLE_CHOICES",
+                        "301 MOVED_PERMANENTLY",
+                        "302 FOUND",
+                        "302 MOVED_TEMPORARILY",
+                        "303 SEE_OTHER",
+                        "304 NOT_MODIFIED",
+                        "305 USE_PROXY",
+                        "307 TEMPORARY_REDIRECT",
+                        "308 PERMANENT_REDIRECT",
+                        "400 BAD_REQUEST",
+                        "401 UNAUTHORIZED",
+                        "402 PAYMENT_REQUIRED",
+                        "403 FORBIDDEN",
+                        "404 NOT_FOUND",
+                        "405 METHOD_NOT_ALLOWED",
+                        "406 NOT_ACCEPTABLE",
+                        "407 PROXY_AUTHENTICATION_REQUIRED",
+                        "408 REQUEST_TIMEOUT",
+                        "409 CONFLICT",
+                        "410 GONE",
+                        "411 LENGTH_REQUIRED",
+                        "412 PRECONDITION_FAILED",
+                        "413 PAYLOAD_TOO_LARGE",
+                        "413 REQUEST_ENTITY_TOO_LARGE",
+                        "414 URI_TOO_LONG",
+                        "414 REQUEST_URI_TOO_LONG",
+                        "415 UNSUPPORTED_MEDIA_TYPE",
+                        "416 REQUESTED_RANGE_NOT_SATISFIABLE",
+                        "417 EXPECTATION_FAILED",
+                        "418 I_AM_A_TEAPOT",
+                        "419 INSUFFICIENT_SPACE_ON_RESOURCE",
+                        "420 METHOD_FAILURE",
+                        "421 DESTINATION_LOCKED",
+                        "422 UNPROCESSABLE_ENTITY",
+                        "423 LOCKED",
+                        "424 FAILED_DEPENDENCY",
+                        "425 TOO_EARLY",
+                        "426 UPGRADE_REQUIRED",
+                        "428 PRECONDITION_REQUIRED",
+                        "429 TOO_MANY_REQUESTS",
+                        "431 REQUEST_HEADER_FIELDS_TOO_LARGE",
+                        "451 UNAVAILABLE_FOR_LEGAL_REASONS",
+                        "500 INTERNAL_SERVER_ERROR",
+                        "501 NOT_IMPLEMENTED",
+                        "502 BAD_GATEWAY",
+                        "503 SERVICE_UNAVAILABLE",
+                        "504 GATEWAY_TIMEOUT",
+                        "505 HTTP_VERSION_NOT_SUPPORTED",
+                        "506 VARIANT_ALSO_NEGOTIATES",
+                        "507 INSUFFICIENT_STORAGE",
+                        "508 LOOP_DETECTED",
+                        "509 BANDWIDTH_LIMIT_EXCEEDED",
+                        "510 NOT_EXTENDED",
+                        "511 NETWORK_AUTHENTICATION_REQUIRED"
+                    ]
+                },
+                "view": {
+                    "$ref": "#/definitions/View"
+                },
+                "viewName": {
+                    "type": "string"
+                }
+            }
+        },
+        "ComponentDto": {
+            "type": "object",
+            "properties": {
+                "assets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AssetsDto"
+                    }
+                },
+                "format": {
+                    "type": "string"
+                },
+                "group": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "repository": {
+                    "type": "string"
+                }
+            }
+        },
+        "RatePlans": {
+            "type": "object",
+            "properties": {
+                "architectures": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Architecture"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "operating_systems": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/OperatingSystem"
+                    }
+                },
+                "repositories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Repository"
+                    }
+                }
+            }
+        },
+        "ResponseWrapper«ComponentDto»": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "data": {
+                    "$ref": "#/definitions/ComponentDto"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "DockerDto": {
+            "type": "object",
+            "properties": {
+                "forceBasicAuth": {
+                    "type": "boolean"
+                },
+                "httpPort": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "httpsPort": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "subdomain": {
+                    "type": "string"
+                },
+                "v1Enabled": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "ResponseWrapper«DockerHubCatalog»": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "data": {
+                    "$ref": "#/definitions/DockerHubCatalog"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "URI": {
+            "type": "object",
+            "properties": {
+                "absolute": {
+                    "type": "boolean"
+                },
+                "authority": {
+                    "type": "string"
+                },
+                "fragment": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "opaque": {
+                    "type": "boolean"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "query": {
+                    "type": "string"
+                },
+                "rawAuthority": {
+                    "type": "string"
+                },
+                "rawFragment": {
+                    "type": "string"
+                },
+                "rawPath": {
+                    "type": "string"
+                },
+                "rawQuery": {
+                    "type": "string"
+                },
+                "rawSchemeSpecificPart": {
+                    "type": "string"
+                },
+                "rawUserInfo": {
+                    "type": "string"
+                },
+                "scheme": {
+                    "type": "string"
+                },
+                "schemeSpecificPart": {
+                    "type": "string"
+                },
+                "userInfo": {
+                    "type": "string"
+                }
+            }
+        },
+        "URL": {
+            "type": "object",
+            "properties": {
+                "authority": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "object"
+                },
+                "defaultPort": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "file": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "protocol": {
+                    "type": "string"
+                },
+                "query": {
+                    "type": "string"
+                },
+                "ref": {
+                    "type": "string"
+                },
+                "userInfo": {
+                    "type": "string"
+                }
+            }
+        },
+        "ResponseWrapper«List«OssDto»»": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/OssDto"
+                    }
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "HpaScaleTargetRefDto": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "ConfigMapMetadataDto": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "PodPortDto": {
+            "type": "object",
+            "properties": {
+                "containerPort": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "hostPort": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "protocol": {
+                    "type": "string"
+                }
+            }
+        },
+        "DeploymentSelectorDto": {
+            "type": "object",
+            "properties": {
+                "matchLabels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "K8SServiceDto": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ServiceMetadataDto"
+                },
+                "spec": {
+                    "$ref": "#/definitions/ServiceSpecDto"
+                }
+            }
+        },
+        "AssetsDto": {
+            "type": "object",
+            "properties": {
+                "blobCreated": {
+                    "type": "string"
+                },
+                "contentType": {
+                    "type": "string"
+                },
+                "downloadUrl": {
+                    "type": "string"
+                },
+                "fileSize": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "RepositoryDto": {
+            "type": "object",
+            "properties": {
+                "docker": {
+                    "$ref": "#/definitions/DockerDto"
+                },
+                "format": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "online": {
+                    "type": "boolean"
+                },
+                "storage": {
+                    "$ref": "#/definitions/StorageDto"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "StorageDto": {
+            "type": "object",
+            "properties": {
+                "blobStoreName": {
+                    "type": "string"
+                },
+                "strictContentTypeValidation": {
+                    "type": "boolean"
+                },
+                "writePolicy": {
+                    "type": "string"
+                }
+            }
+        },
+        "K8SPodDto": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/PodMetadataDto"
+                },
+                "spec": {
+                    "$ref": "#/definitions/PodSpecDto"
+                }
+            }
+        },
+        "DeploymentPodMetadataDto": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "ServiceMetadataDto": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "InputStream": {
+            "type": "object"
+        },
+        "ResponseWrapper«RepositoryDto»": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "data": {
+                    "$ref": "#/definitions/RepositoryDto"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
         "Publisher": {
             "type": "object",
             "properties": {
@@ -2863,6 +4005,23 @@
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "PodMetadataDto": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
                     "type": "string"
                 }
             }
@@ -2928,17 +4087,39 @@
                 }
             }
         },
-        "OssTypeDto": {
+        "DeploymentMetadataDto": {
             "type": "object",
             "properties": {
-                "ossTypeDesc": {
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
                     "type": "string"
                 },
-                "ossTypeIdx": {
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "DeploymentPodPortDto": {
+            "type": "object",
+            "properties": {
+                "containerPort": {
                     "type": "integer",
-                    "format": "int64"
+                    "format": "int32"
+                }
+            }
+        },
+        "DeploymentPodEnvDto": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
                 },
-                "ossTypeName": {
+                "value": {
                     "type": "string"
                 }
             }
@@ -2963,32 +4144,9 @@
                 "referenceValue": {
                     "type": "string"
                 },
-                "refernectIdx": {
+                "referncetIdx": {
                     "type": "integer",
                     "format": "int32"
-                }
-            }
-        },
-        "Package": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "has_values_schema": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "normalized_name": {
-                    "type": "string"
-                },
-                "package_id": {
-                    "type": "string"
-                },
-                "repository": {
-                    "$ref": "#/definitions/Repository"
                 }
             }
         },
