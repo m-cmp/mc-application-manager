@@ -23,7 +23,17 @@ export interface Deployment {
   data: {}
 }
 
+export interface ConfigMap {
+  metadata: {}
+  data: {}
+}
+
 export interface Hpa {
+  metadata:{}
+  spec: {}
+}
+
+export interface Service {
   metadata:{}
   spec: {}
 }

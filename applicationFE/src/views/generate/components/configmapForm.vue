@@ -6,7 +6,7 @@
       </div>
       <div class="card-body">
         <div class="mb-3">
-          <label class="form-label">Name</label>
+          <label class="form-label requierd">Name</label>
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.name" placeholder="configMap-01" />
         </div>
         <div class="mb-3">
@@ -15,7 +15,7 @@
         </div>
         <div class="mb-3">
           <label class="form-label">Labels</label>
-          <div class="generate-form" v-for="(item, idx) in deploymentLabels" :key="idx">
+          <div class="generate-form" v-for="(item, idx) in ConfigMapLabels" :key="idx">
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.key" placeholder="key" />
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.value" placeholder="value" />
             <div class="btn-list">
@@ -45,7 +45,7 @@
       <div class="card-body">
         <div class="mb-3">
           <label class="form-label">Data</label>
-          <div class="generate-form" v-for="(item, idx) in deployData" :key="idx">
+          <div class="generate-form" v-for="(item, idx) in configMapData" :key="idx">
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.key" placeholder="key" />
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.value" placeholder="value" />
             <div class="btn-list">
@@ -79,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Deployment } from '@/views/type/type';
+import type { ConfigMap } from '@/views/type/type';
 import { ref } from 'vue';
 import { onMounted } from 'vue';
 import { generateYamlConfigmap } from '@/api/yaml.ts';
@@ -92,10 +92,10 @@ const toast = useToast()
  * @Desc ConfigMap 데이터
  */
  const title = ref("" as string)
- const deploymentFormData = ref({} as Deployment)
+ const configMapFormData = ref({} as ConfigMap)
  const metadata = ref({} as any)
- const deploymentLabels = ref([] as any)
- const deployData = ref([] as any)
+ const ConfigMapLabels = ref([] as any)
+ const configMapData = ref([] as any)
  const yamlData = ref("" as string)
 
  onMounted(async () => {
@@ -109,51 +109,51 @@ const setInit = () => {
     namespace: "",
     labels: {}
   }
-  deploymentLabels.value.push({key: "", value:""})
-  deployData.value.push({key: "", value:""})
+  ConfigMapLabels.value.push({key: "", value:""})
+  configMapData.value.push({key: "", value:""})
 }
 
 const onClickDeploy = async () => {
-  const transformedObject = deploymentLabels.value.reduce((acc: { [x: string]: any; }, item: { key: string | number; value: any; }) => {
+  const transformedObject = ConfigMapLabels.value.reduce((acc: { [x: string]: any; }, item: { key: string | number; value: any; }) => {
     acc[item.key] = item.value;
     return acc;
   }, {});
 
   metadata.value.labels = transformedObject;
 
-  const transformedData =  deployData.value.reduce((acc: { [x: string]: any; }, item: { key: string | number; value: any; }) => {
+  const transformedData =  configMapData.value.reduce((acc: { [x: string]: any; }, item: { key: string | number; value: any; }) => {
     acc[item.key] = item.value;
     return acc;
   }, {});
 
-  deploymentFormData.value.metadata = metadata.value
-  deploymentFormData.value.data = transformedData;
+  configMapFormData.value.metadata = metadata.value
+  configMapFormData.value.data = transformedData;
 
-  const { data } = await generateYamlConfigmap(deploymentFormData.value);
+  const { data } = await generateYamlConfigmap(configMapFormData.value);
   yamlData.value = data;
 }
 
 const addLabel = () => {
-  deploymentLabels.value.push({
+  ConfigMapLabels.value.push({
     key: "", value:""
   })
 }
 
 const removeLabel = (idx: number) => {
-  if(deploymentLabels.value.length !== 1) {
-    deploymentLabels.value.splice(idx, 1)
+  if(ConfigMapLabels.value.length !== 1) {
+    ConfigMapLabels.value.splice(idx, 1)
   }
 }
 
 const addData = () => {
-  deployData.value.push({
+  configMapData.value.push({
     key: "", value:""
   })
 }
 
 const removeData = (idx: number) => {
-  if(deployData.value.length !== 1) {
-    deployData.value.splice(idx, 1)
+  if(configMapData.value.length !== 1) {
+    configMapData.value.splice(idx, 1)
   }
 }
 

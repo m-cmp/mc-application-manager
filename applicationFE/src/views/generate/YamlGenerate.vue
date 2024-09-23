@@ -11,11 +11,11 @@
           <li class="nav-item">
             <a href="#tabs-pod" class="nav-link active" data-bs-toggle="tab">Pod</a>
           </li>
-          <!-- <li class="nav-item">
-            <a href="#tabs-service" class="nav-link" data-bs-toggle="tab">Service</a>
-          </li> -->
           <li class="nav-item">
             <a href="#tabs-deployment" class="nav-link" data-bs-toggle="tab">Deployment</a>
+          </li>
+          <li class="nav-item">
+            <a href="#tabs-service" class="nav-link" data-bs-toggle="tab">Service</a>
           </li>
           <li class="nav-item">
             <a href="#tabs-hpa" class="nav-link" data-bs-toggle="tab">HPA</a>
@@ -28,8 +28,8 @@
       <div class="card-body">
         <div class="tab-content">
           <PodForm />
-          <ServiceForm />
           <DeploymentForm />
+          <ServiceForm />
           <HpaForm />
           <ConfigmapForm />
         </div>
