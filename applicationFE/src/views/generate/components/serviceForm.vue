@@ -103,14 +103,16 @@
                 <input type="text" class="form-control" v-model="item.nodePort" />
               </div>
             </div>
+            <div class="border-bottom" style="width: 100%; margin-top: 10px" v-if="ports.length > 1"></div>
+          </div>
+          
             <div class="row" style="width:68% !important">
               <div class="col mt-4">
                 <label class="form-label">- Type</label>
-                <input type="text" class="form-control" v-model="type" />
+                <input type="text" class="form-control" v-model="spec.type" />
               </div>
             </div>
-            <div class="border-bottom" style="width: 100%; margin-top: 10px" v-if="ports.length > 1"></div>
-          </div>
+          
         </div>
       </div>
     </div>
@@ -118,7 +120,7 @@
     <div class="btn-list justify-content-end mt-4">
       <a class="btn btn-primary" @click="onClickService" data-bs-toggle='modal' data-bs-target='#modal-service'>GENERATE</a>
     </div>
-    <yamlModal :yaml-data="yamlData" :title="title" />
+    <YamlModal :yaml-data="yamlData" :title="title" />
   </div>
   
   
@@ -131,7 +133,7 @@ import { ref } from 'vue';
 import { onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
 import { generateYamlService } from '@/api/yaml.ts';
-import yamlModal from './servcieModal.vue';
+import YamlModal from './servcieModal.vue';
 
 /**
  * @Title formData 
@@ -166,7 +168,6 @@ const setInit = () => {
   serviceLabels.value.push({key: "", value:""})
   selector.value.push({key: "", value:""})
   ports.value.push({protocol: "", port: "", targetPort: "", nodePort: ""})
-  type.value = ""
 }
 
 const onClickService = async () => {
@@ -185,7 +186,6 @@ const onClickService = async () => {
 
   spec.value.selector = transformedObjectSelector;
   spec.value.ports = ports.value;
-  spec.value.type = type.value
   serviceFormData.value.spec = spec.value
 
   const { data } = await generateYamlService(serviceFormData.value);

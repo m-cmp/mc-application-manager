@@ -15,7 +15,7 @@
         </div>
         <div class="mb-3">
           <label class="form-label">- Labels</label>
-          <div class="generate-form" v-for="(item, idx) in ConfigMapLabels" :key="idx">
+          <div class="generate-form" v-for="(item, idx) in configMapLabels" :key="idx">
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.key" placeholder="key" />
             <input type="text" class="form-control w-33" name="example-password-input" v-model="item.value" placeholder="value" />
             <div class="btn-list">
@@ -71,7 +71,7 @@
     <div class="btn-list justify-content-end mt-4">
       <a class="btn btn-primary" @click="onClickDeploy" data-bs-toggle='modal' data-bs-target='#modal-config-map'>GENERATE</a>
     </div>
-    <yamlModal :yaml-data="yamlData" :title="title" />
+    <YamlModal :yaml-data="yamlData" :title="title" />
   </div>
   
   
@@ -84,7 +84,7 @@ import { ref } from 'vue';
 import { onMounted } from 'vue';
 import { generateYamlConfigmap } from '@/api/yaml.ts';
 import { useToast } from 'vue-toastification';
-import yamlModal from './configMapModal.vue';
+import YamlModal from './configMapModal.vue';
 
 const toast = useToast()
 /**
@@ -94,7 +94,7 @@ const toast = useToast()
  const title = ref("" as string)
  const configMapFormData = ref({} as ConfigMap)
  const metadata = ref({} as any)
- const ConfigMapLabels = ref([] as any)
+ const configMapLabels = ref([] as any)
  const configMapData = ref([] as any)
  const yamlData = ref("" as string)
 
@@ -109,12 +109,12 @@ const setInit = () => {
     namespace: "",
     labels: {}
   }
-  ConfigMapLabels.value.push({key: "", value:""})
+  configMapLabels.value.push({key: "", value:""})
   configMapData.value.push({key: "", value:""})
 }
 
 const onClickDeploy = async () => {
-  const transformedObject = ConfigMapLabels.value.reduce((acc: { [x: string]: any; }, item: { key: string | number; value: any; }) => {
+  const transformedObject = configMapLabels.value.reduce((acc: { [x: string]: any; }, item: { key: string | number; value: any; }) => {
     acc[item.key] = item.value;
     return acc;
   }, {});
@@ -134,14 +134,14 @@ const onClickDeploy = async () => {
 }
 
 const addLabel = () => {
-  ConfigMapLabels.value.push({
+  configMapLabels.value.push({
     key: "", value:""
   })
 }
 
 const removeLabel = (idx: number) => {
-  if(ConfigMapLabels.value.length !== 1) {
-    ConfigMapLabels.value.splice(idx, 1)
+  if(configMapLabels.value.length !== 1) {
+    configMapLabels.value.splice(idx, 1)
   }
 }
 

@@ -18,7 +18,7 @@ export const generateYamlHpa = (param:Hpa) => {
 
 // deployment YAML
 export const generateYamlDeployment = (param:Deployment) => {
-  return request.post('/yaml/deployment', param)
+  return request.post('/manifest/v1/generator/yaml/deployments', param)
 }
 
 // configmap YAML
