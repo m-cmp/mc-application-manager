@@ -87,7 +87,7 @@
     <div class="btn-list justify-content-end mt-4">
       <a class="btn btn-primary" @click="onClickHpa" data-bs-toggle='modal' data-bs-target='#modal-yaml'>GENERATE</a>
     </div>
-    <yamlModal :yaml-data="yamlData" :title="title" />
+    <YamlModal :yaml-data="yamlData" :title="title" />
   </div>
   
   
@@ -101,7 +101,7 @@ import { ref } from 'vue';
 import { onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
 import { generateYamlHpa } from '@/api/yaml.ts';
-import yamlModal from './yamlModal.vue';
+import YamlModal from './yamlModal.vue';
 
 const toast = useToast()
 /**

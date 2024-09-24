@@ -20,7 +20,7 @@ export interface Pod {
 
 export interface Deployment {
   metadata: {}
-  data: {}
+  spec: {}
 }
 
 export interface ConfigMap {
