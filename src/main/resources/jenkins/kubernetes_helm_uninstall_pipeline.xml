@@ -1,0 +1,154 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@1254.v3f64639b_11dd">
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>CB_TUMBLEBUG_SWAGGER_URI</name>
+          <description>CB-Tumblebug Swagger API URI</description>
+          <defaultValue>http://localhost:1323/tumblebug</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>NAMESPACE</name>
+          <description>Namespace</description>
+          <defaultValue>ns01</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>MCIS_NAME</name>
+          <description>MCIS Name</description>
+          <defaultValue>mcis-01</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>CLOUD_CONNECTION_NAME</name>
+          <description>Cloud Connection Name</description>
+          <defaultValue>aws-conn-01</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>HELM_RELEASE_NAME</name>
+          <description>Helm Release Name to Uninstall</description>
+          <defaultValue>my-release</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3659.v582dc37621d8">
+    <script>
+<![CDATA[
+// Function to retrieve Kubernetes configuration
+def getK8sConfig(namespace) {
+    def apiResponse = sh(script: """
+        curl -s -X GET '${params.CB_TUMBLEBUG_SWAGGER_URI}/ns/${namespace}/mcis/${params.MCIS_NAME}/access?option=config' \
+        -H 'Content-Type: application/json' \
+        -H 'Accept: application/json' \
+        -d '{
+            "connectionName": "${params.CLOUD_CONNECTION_NAME}"
+        }'
+    """, returnStdout: true).trim()
+    
+    return apiResponse
+}
+
+// Function to execute shell commands
+def executeShellCommand(command) {
+    def result
+    try {
+        result = sh(script: command, returnStdout: true).trim()
+    } catch (Exception e) {
+        error "Failed to execute command: ${command}\nError: ${e.message}"
+    }
+    return result
+}
+
+pipeline {
+    agent any
+    
+    stages {
+        // Stage to prepare Kubernetes configuration
+        stage('Prepare K8s Config') {
+            steps {
+                script {
+                    try {
+                        def k8sConfig = getK8sConfig(params.NAMESPACE)
+                        writeFile file: 'kubeconfig', text: k8sConfig
+                        env.KUBECONFIG = "${WORKSPACE}/kubeconfig"
+                        echo "Kubernetes configuration file created successfully."
+                    } catch (Exception e) {
+                        error "Failed to prepare Kubernetes configuration: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+        // Stage to uninstall Helm chart
+        stage('Uninstall Helm Chart') {
+            steps {
+                script {
+                    try {
+                        // Uninstall Helm chart
+                        def uninstallCommand = """
+                            helm uninstall ${params.HELM_RELEASE_NAME} \
+                            --namespace ${params.NAMESPACE} \
+                            --kubeconfig=${env.KUBECONFIG}
+                        """
+                        def result = executeShellCommand(uninstallCommand)
+                        echo "Helm chart uninstallation result: ${result}"
+                    } catch (Exception e) {
+                        error "Failed to uninstall Helm chart: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+        // Stage to verify uninstallation
+        stage('Verify Uninstallation') {
+            steps {
+                script {
+                    try {
+                        // Check if the release still exists
+                        def releaseStatus = executeShellCommand("helm status ${params.HELM_RELEASE_NAME} --namespace ${params.NAMESPACE} --kubeconfig=${env.KUBECONFIG} || echo 'Release not found'")
+                        if (releaseStatus.contains('Release not found')) {
+                            echo "Helm release ${params.HELM_RELEASE_NAME} has been successfully uninstalled."
+                        } else {
+                            error "Helm release ${params.HELM_RELEASE_NAME} still exists after uninstallation attempt."
+                        }
+                        
+                        // Check for any remaining resources
+                        def remainingResources = executeShellCommand("kubectl get all -n ${params.NAMESPACE} --kubeconfig=${env.KUBECONFIG}")
+                        echo "Remaining resources in namespace ${params.NAMESPACE}:\n${remainingResources}"
+                    } catch (Exception e) {
+                        error "Failed to verify uninstallation: ${e.message}"
+                    }
+                }
+            }
+        }
+    }
+    
+    // Post-pipeline actions
+    post {
+        success {
+            echo "Helm chart uninstallation completed successfully!"
+        }
+        failure {
+            echo "Helm chart uninstallation failed. Please check the logs for details."
+        }
+        always {
+            // Clean up Kubernetes configuration file
+            sh "rm -f ${env.KUBECONFIG}"
+        }
+    }
+}
+]]>
+    </script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

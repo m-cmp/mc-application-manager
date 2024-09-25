@@ -30,25 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AppProvEngineServiceImpl implements AppProvEngineService {
 
-
-    
-    private final WorkflowRepository workflowRepository;
-
-    private final WorkflowParamRepository workflowParamRepository;
-
-    private final WorkflowStageMappingRepository workflowStageMappingRepository;
-
-    private final WorkflowHistoryRepository workflowHistoryRepository;
-
-    private final WorkflowStageTypeRepository workflowStageTypeRepository;
-
-    private final WorkflowStageRepository workflowStageRepository;
-
     private final JenkinsService jenkinsService;
-
-    private final JenkinsPipelineGeneratorService pipelineService;
-
-    private static final String PIPE_LINE_NAME = "ApplicationProvisioningPipeline";
 
     // public List<WorkflowListResDto> getWorkflowList() {
 
@@ -85,10 +67,10 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
     @Override
     public void createJenkinsPipeline(OssTypeDto ossTypeDto, OssDto ossDto) {
         if(ossTypeDto.getOssTypeName().equalsIgnoreCase("JENKINS")){
+            
             boolean isConnect = jenkinsService.isJenkinsConnect(ossDto);
-            boolean isExistJobName = jenkinsService.isExistJobName(ossDto, PIPE_LINE_NAME);
-            if(isConnect && !isExistJobName){
-                jenkinsService.createJenkinsPipeline(ossDto, PIPE_LINE_NAME);
+            if(isConnect){
+                jenkinsService.createJenkinsDefaultJobs(ossDto);
             }
         }
     }

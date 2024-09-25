@@ -1,13 +1,20 @@
 package kr.co.mcmp.ape.workflow.service.jenkins.service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import javax.xml.xpath.XPathExpressionException;
 
@@ -23,6 +30,7 @@ import org.w3c.dom.NodeList;
 import com.cdancy.jenkins.rest.domain.common.RequestStatus;
 import com.cdancy.jenkins.rest.domain.crumb.Crumb;
 import com.cdancy.jenkins.rest.domain.job.BuildInfo;
+import com.cdancy.jenkins.rest.domain.job.JobInfo;
 
 import kr.co.mcmp.ape.workflow.service.jenkins.api.JenkinsRestApi;
 import kr.co.mcmp.ape.workflow.service.jenkins.model.JenkinsCredential;
@@ -45,7 +53,16 @@ public class JenkinsService {
 
 	private static final String PIPELINE_XML_PATH = "/flow-definition/definition/script";
 
-    private static final String INIT_PIPELINE_XML_FILE_PATH = "jenkins/dynamic-application-provisioning-pipeline.xml";
+    private static final List<String> PIPELINE_XML_FILE_PATHS = Arrays.asList(
+    "jenkins/vm_application_install_pipeline.xml",
+    "jenkins/vm_application_uninstall_pipeline.xml",
+    "jenkins/kubernetes_helm_install_pipeline.xml",
+    "jenkins/kubernetes_helm_uninstall_pipeline.xml"
+    );
+
+    enum JobCreationResult {
+        SUCCESS, FAIL, SKIP
+    }
 
 	private final JenkinsRestApi api;
 
@@ -62,9 +79,16 @@ public class JenkinsService {
     public boolean isExistJobName(OssDto jenkins, String jobName) {
         return Optional.ofNullable(api.getJenkinsJob(jenkins.getOssUrl(), jenkins.getOssUsername(), jenkins.getOssPassword(), jobName)).isPresent();
     }
+
+
+    public JobInfo getJenkinsJobInfo(OssDto jenkins, String jobName){
+        return api.getJenkinsJob(jenkins.getOssUrl(), jenkins.getOssUsername(), jenkins.getOssPassword(), jobName);
+
+    }
     /*****
      * jenkins job 생성
      */
+    /* 
     public boolean createJenkinsJob_v2(OssDto jenkins, String jenkinsJobName, String pipelineScript, List<WorkflowParamDto> params) throws IOException {
 
         if ( isExistJobName(jenkins, jenkinsJobName) ) {
@@ -93,28 +117,77 @@ public class JenkinsService {
             throw new McmpException(ResponseCode.ERROR_JENKINS_API);
         }
     }
+     */
 
-    public String getXmlContent(){
-        try(var inputStream = JenkinsService.class.getClassLoader().getResourceAsStream(INIT_PIPELINE_XML_FILE_PATH)){
-            if(inputStream == null){
-                throw new IOException("File not found : " + INIT_PIPELINE_XML_FILE_PATH);
+    public List<String> getXmlContents() {
+        return PIPELINE_XML_FILE_PATHS.stream()
+            .map(this::readXmlFile)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+    }
+
+    
+    private String readXmlFile(String filePath) {
+        try (InputStream inputStream = getClass().getResourceAsStream("/"+filePath)) {
+            if (inputStream == null) {
+                log.error("File not found: {}", filePath);
+                return null;
             }
-            return new String(inputStream.readAllBytes());
-        }catch(IOException e){
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
             log.error("Error reading Jenkins pipeline XML file: {}", e.getMessage(), e);
             return null;
         }
     }
-    
-    public boolean createJenkinsPipeline(OssDto jenkins, String jobName){
-        String xmlContent = getXmlContent();
-        try {
-            api.createJenkinsJob(jenkins.getOssUrl(), jenkins.getOssUsername(), jenkins.getOssPassword(), jobName, xmlContent);
-        } catch (UnsupportedEncodingException e) {
-            log.error(e.getMessage(), e);
-        }
-        return false;
+
+    public void createJenkinsDefaultJobs(OssDto jenkins) {
+        List<String> xmlContents = getXmlContents();
+        List<String> jobNames = Arrays.asList("vm_application_install", "vm_application_uninstall", "helm_application_install", "helm_application_uninstall");
+        
+        Map<JobCreationResult, Long> resultCounts = IntStream.range(0, jobNames.size())
+            .mapToObj(i -> {
+                String jobName = jobNames.get(i);
+                String xmlContent = xmlContents.get(i);
+                if(!isExistJobName(jenkins, jobName)){
+                    RequestStatus status = createSingleJenkinsJob(jenkins, jobName, xmlContent);
+                    if (status.value()) {
+                        log.info("Job '{}' created successfully.", jobName);
+                        return JobCreationResult.SUCCESS;
+                    } else {
+                        log.error("Failed to create job '{}'. Error: {}", jobName, status.errors());
+                        return JobCreationResult.FAIL;
+                    }
+                }else{
+                    log.info("Job '{}' already exists. Skipping creation.", jobName);
+                    return JobCreationResult.SKIP;
+                }
+        }).collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+
+        long successCount = resultCounts.getOrDefault(JobCreationResult.SUCCESS, 0L);
+        long failCount = resultCounts.getOrDefault(JobCreationResult.FAIL, 0L);
+        long skippedCount = resultCounts.getOrDefault(JobCreationResult.SKIP, 0L);
+
+        log.info("Jenkins job creation summary - Success: {}, Failed: {}, Skipped: {}", successCount, failCount, skippedCount);
     }
+    
+    private RequestStatus createSingleJenkinsJob(OssDto jenkins, String jobName, String xmlContent) {
+        try {
+            return api.createJenkinsJob(jenkins.getOssUrl(), jenkins.getOssUsername(), jenkins.getOssPassword(), jobName, xmlContent);
+        } catch (UnsupportedEncodingException e) {
+            log.error("Failed to create Jenkins job: {}", jobName, e);
+            return null;
+        }
+    }
+    
+    // public boolean createJenkinsPipeline(OssDto jenkins, String jobName){
+    //     String xmlContent = getXmlContent();
+    //     try {
+    //         api.createJenkinsJob(jenkins.getOssUrl(), jenkins.getOssUsername(), jenkins.getOssPassword(), jobName, xmlContent);
+    //     } catch (UnsupportedEncodingException e) {
+    //         log.error(e.getMessage(), e);
+    //     }
+    //     return false;
+    // }
 
 //    /*******
 //     * jenkins job Pipeline, Description 수정

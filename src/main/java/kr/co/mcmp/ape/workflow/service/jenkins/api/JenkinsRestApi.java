@@ -2,11 +2,15 @@ package kr.co.mcmp.ape.workflow.service.jenkins.api;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import lombok.RequiredArgsConstructor;
+
+import org.apache.commons.collections4.map.HashedMap;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -21,6 +25,7 @@ import com.cdancy.jenkins.rest.domain.job.JobInfo;
 import com.cdancy.jenkins.rest.domain.job.PipelineNode;
 import com.cdancy.jenkins.rest.domain.job.Workflow;
 import com.cdancy.jenkins.rest.domain.queue.QueueItem;
+import com.cdancy.jenkins.rest.features.CrumbIssuerApi;
 import com.cdancy.jenkins.rest.features.JobsApi;
 import com.cdancy.jenkins.rest.features.QueueApi;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -113,12 +118,22 @@ public class JenkinsRestApi {
      * @throws UnsupportedEncodingException
      */
     public RequestStatus createJenkinsJob(String url, String id, String password, String jobName, String configXml) throws UnsupportedEncodingException {
-        configXml = URLEncoder.encode(configXml, "UTF-8");
-        log.info("[JenkinsRestApi.createJenkinsJob] configXml >>> {}", configXml);
-
         JenkinsClient jenkinsClient = getJenkinsClient(url, id, password);
         JobsApi jobsApi = jenkinsClient.api().jobsApi();
-        return jobsApi.create(null, jobName, configXml);
+
+        try {
+            // XML 특수 문자 인코딩
+            configXml = URLEncoder.encode(configXml, StandardCharsets.UTF_8.toString());    
+            log.info("[JenkinsRestApi.createJenkinsJob] configXml >>> {}", configXml);
+            log.info("url : {}, id : {}, password : {}, jobName : {}", url, id, password, jobName);
+            // 작업 생성 요청
+            RequestStatus status = jobsApi.create(null, jobName, configXml);
+            log.info("Jenkins API response: {}", status);
+            return status;
+        }catch(Exception e){
+            log.error(e.getMessage(), e);
+        }
+        return null;
     }
 
     /**

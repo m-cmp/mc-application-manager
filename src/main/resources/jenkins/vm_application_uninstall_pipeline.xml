@@ -1,0 +1,158 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@1254.v3f64639b_11dd">
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>CB_TUMBLEBUG_SWAGGER_URI</name>
+          <description>Tumblebug Swagger URI</description>
+          <defaultValue>http://localhost:1323/tumblebug</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>MCIS_NAME</name>
+          <description>MCIS Name</description>
+          <defaultValue>mcis-01</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>USER</name>
+          <description>Username for API authentication</description>
+          <defaultValue>default</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.PasswordParameterDefinition>
+          <name>USERPASS</name>
+          <description>Password for API authentication</description>
+          <defaultValue>{AQAAABAAAAAQwt4bUeKjGqPUgXWxMUt+J+7BG3eRYTHCrAo2YnE2Zqw=}</defaultValue>
+        </hudson.model.PasswordParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>APPLICATIONS</name>
+          <description>Comma-separated list of applications to install (e.g. nginx,tomcat,mariadb,redis,grafana,prometheus)</description>
+          <defaultValue>nginx,apache2</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3659.v582dc37621d8">
+    <script>
+<![CDATA[
+def executeShellCommand(command) {
+    def result
+    try {
+        result = sh(script: command, returnStdout: true).trim()
+    } catch (Exception e) {
+        error "Failed to execute command: ${command}\nError: ${e.message}"
+    }
+    return result
+}
+
+pipeline {
+    agent any
+    
+    stages {
+        stage('Fetch VM Access Information') {
+            steps {
+                script {
+                    try {
+                        def apiResponse = executeShellCommand("""
+                            curl -s -w '\\n- Http_Status_code:%{http_code}' '${params.CB_TUMBLEBUG_SWAGGER_URI}/ns/ns01/mcis/${params.MCIS_NAME}?option=accessinfo' --user '${params.USER}:${params.USERPASS}'
+                        """)
+                        
+                        def (responseBody, statusLine) = apiResponse.split('\n- Http_Status_code:')
+                        def statusCode = statusLine.trim()
+                        
+                        if (statusCode == '200') {
+                            echo "VM Access Information retrieved successfully"
+                            env.VM_ACCESS_INFO = responseBody
+                        } else {
+                            error "Failed to retrieve VM access information. Status code: ${statusCode}"
+                        }
+                    } catch (Exception e) {
+                        error "Error in Fetch VM Access Information stage: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+        stage('Uninstall Specified Applications') {
+            steps {
+                script {
+                    try {
+                        def applicationsToUninstall = params.APPLICATIONS.split(',')
+                        def targetIPs = extractPublicIPs(env.VM_ACCESS_INFO)
+                        echo "Uninstalling applications: ${applicationsToUninstall} on IPs: ${targetIPs}"
+                        parallel targetIPs.collectEntries { ip ->
+                            ["Uninstall on ${ip}" : {
+                                applicationsToUninstall.each { app ->
+                                    app = app.trim().toLowerCase()
+                                    if (app) {
+                                        echo "Uninstalling ${app} on ${ip}"
+                                        executeShellCommand("""
+                                            ssh ${SSH_OPTIONS} -i ${params.MCIS_NAME}_ssh_key.pem cb-user@${ip} '
+                                            sudo systemctl stop ${app}
+                                            sudo systemctl disable ${app}
+                                            sudo apt-get remove -y ${app}
+                                            sudo apt-get autoremove -y
+                                            '
+                                        """)
+                                    }
+                                }
+                            }]
+                        }
+                    } catch (Exception e) {
+                        error "Error in Uninstall Specified Applications stage: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+        stage('Verify Application Uninstallations') {
+            steps {
+                script {
+                    try {
+                        def applicationsToVerify = params.APPLICATIONS.split(',')
+                        def targetIPs = extractPublicIPs(env.VM_ACCESS_INFO)
+                        echo "Verifying uninstallation of applications: ${applicationsToVerify} on IPs: ${targetIPs}"
+                        parallel targetIPs.collectEntries { ip ->
+                            ["Verify on ${ip}" : {
+                                applicationsToVerify.each { app ->
+                                    app = app.trim().toLowerCase()
+                                    if (app) {
+                                        def status = executeShellCommand("""
+                                            ssh ${SSH_OPTIONS} -i ${params.MCIS_NAME}_ssh_key.pem cb-user@${ip} '
+                                            dpkg -s ${app} 2>/dev/null | grep -q "Status: install ok installed" && echo "Still installed" || echo "Not installed"
+                                            '
+                                        """)
+                                        if (status == "Still installed") {
+                                            error "${app} is still installed on ${ip}"
+                                        }
+                                    }
+                                }
+                            }]
+                        }
+                    } catch (Exception e) {
+                        error "Error in Verify Application Uninstallations stage: ${e.message}"
+                    }
+                }
+            }
+        }
+    }
+}
+
+def extractPublicIPs(vmAccessInfo) {
+    def jsonSlurper = new groovy.json.JsonSlurper()
+    def accessInfo = jsonSlurper.parseText(vmAccessInfo)
+    return accessInfo.vm.collect { it.publicIP }
+}
+]]>
+    </script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

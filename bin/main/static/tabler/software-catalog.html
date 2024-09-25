@@ -4,7 +4,7 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
     <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
-    <title>Music components - Tabler - Premium and Open Source dashboard template with responsive and high quality UI.</title>
+    <title>Software catalog</title>
     <!-- CSS files -->
     <link href="./dist/css/tabler.min.css?1684106062" rel="stylesheet"/>
     <link href="./dist/css/tabler-flags.min.css?1684106062" rel="stylesheet"/>
@@ -21,7 +21,7 @@
       }
     </style>
     <script>
-function searchCatalog(e){    
+function searchCatalog(e){
     //console.log($('#inputCatalogSearch').val());
     //if(e.code == 'Enter'){
     if(e.keyCode == 13){
@@ -49,6 +49,18 @@ function searchCatalog(e){
                             Software catalog
                         </h2>
                     </div>
+                    <div class="col-auto ms-auto">
+                        <div class="btn-list">
+                            <a class="btn btn-primary d-none d-sm-inline-block" data-bs-toggle="modal" data-bs-target="#modal-form">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-plus" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                    <path d="M12 5l0 14"></path>
+                                    <path d="M5 12l14 0"></path>
+                                </svg>
+                                New
+                          </a>
+                        </div>
+                      </div>
                 </div>
             </div>
         </div>
@@ -97,12 +109,7 @@ function searchCatalog(e){
 
     </div>
 </div>
-
-
-
-
-
-
+<!-- S: modal-report -->
 <div class="modal modal-blur fade" id="modal-report" tabindex="-1" role="dialog" aria-hidden="true" style="display:none;">
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
         <div class="modal-content">
@@ -123,8 +130,84 @@ function searchCatalog(e){
         </div>
     </div>
 </div>
+<!-- E: modal-report -->
 
-
+<!-- S: modal-form -->
+<div class="modal" id="modal-form" tabindex="-1">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Software catalog</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Title</label>
+                    <input type="text" class="form-control" id="sc-title" name="title" placeholder="Application name" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Summary</label>
+                    <input type="text" class="form-control" id="sc-summary" name="summary" placeholder="Application summary" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Icon</label>
+                    <input type="text" class="form-control" id="sc-icon" name="icon" placeholder="Icon URL" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" id="sc-category">
+                        <option value="server" selected>SERVER</option>
+                        <option value="was">WAS</option>
+                        <option value="db">DB</option>
+                        <option value="util">UTIL</option>
+                        <option value="observability">OBSERVABILITY</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" rows="5" id="sc-desc"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="mb-3">
+                            <label class="form-label">Reference</label>
+                            <select class="form-select" id="sc-reference">
+                                <option value="url" selected>URL</option>
+                                <option value="manifest">manifest</option>
+                                <option value="workflow">workflow</option>
+                                <option value="image">image</option>
+                                <option value="etc">etc</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <input type="text" class="form-control" id="sc-ref-value" name="refValue" placeholder="Ref value/idx" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="sc-ref-desc" name="refDescription" placeholder="Ref Description" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a class="btn btn-link link-secondary" data-bs-dismiss="modal" onclick="setInit()">
+                    Cancel
+                </a>
+                <a class="btn btn-primary ms-auto" data-bs-dismiss="modal" onclick="createSoftwareCatalog()">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-plus" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                        <path d="M12 5l0 14"></path>
+                        <path d="M5 12l14 0"></path>
+                    </svg>
+                    Create New Software catalog
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- E: modal-form -->
 
 <!-- Libs JS -->
 <!-- Tabler Core -->
@@ -138,7 +221,8 @@ $(function() {
 });
 
 let listHtml, listHtmlHub, workflowParams, refWorkflowBtns;
-const beUrl = "http://" + $(location).attr('hostname') + ":" + $(location).attr('port');
+// const beUrl = "http://" + $(location).attr('hostname') + ":" + $(location).attr('port');
+const beUrl = "http://43.203.253.173:18084";
 let workflowUrl = ""; // oss 등록 후 받아와야됨
 
 // softwareCatalog list를 만듦
@@ -361,6 +445,41 @@ function setArtifactHubSearch(){
 
 }
 
+function setInit(){
+    console.log("setInit")
+    $("#sc-title").val("");
+    $("#sc-summary").val("");
+    $("#sc-icon").val("");
+    $("#sc-category").val("");
+    $("#sc-desc").val("");
+    $("#sc-reference").val("");
+    $("#sc-ref-value").val("");
+    $("#sc-ref-desc").val("");
+}
+
+function createSoftwareCatalog() {
+    console.log("createSoftwareCatalog")
+    let param = {
+        "catalogIdx": null,
+        "catalogTitle": $("#sc-title").val(),
+        "catalogDescription": $("#sc-desc").val(),
+        "catalogSummary": $("#sc-summary").val(),
+        "catalogIcon": $("#sc-icon").val(),
+        "catalogCategory": $("#sc-category").val()
+    }
+
+    $.ajax({
+        url: beUrl + "/catalog/software/",
+        type: "POST",
+        data: param,
+    }).done(function( data ) {
+        console.log("data : ", data)
+        setInit();
+        console.log("success");
+        location.reload();
+    });
+
+}
 
 
 
