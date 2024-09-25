@@ -17,7 +17,7 @@ public class YamlManifestService {
 
     private final ObjectMapper mapper = new ObjectMapper(new YAMLFactory()
             .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER))
-            .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+            .setSerializationInclusion(JsonInclude.Include.NON_EMPTY);
 
     public String generateYamlDeployments(K8SDeploymentDto deployments) {
         return generateYaml(deployments);
