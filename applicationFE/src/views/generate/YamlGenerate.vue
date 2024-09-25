@@ -40,8 +40,8 @@
 </template>
 <script setup lang="ts">
 import PodForm from './components/podForm.vue';
-import ServiceForm from './components/serviceForm.vue';
 import DeploymentForm from './components/deploymentForm.vue';
+import ServiceForm from './components/serviceForm.vue';
 import HpaForm from './components/hpaForm.vue';
 import ConfigmapForm from './components/configmapForm.vue';
 import { onMounted } from 'vue';

@@ -174,7 +174,7 @@
     <div class="btn-list justify-content-end mt-4">
       <a class="btn btn-primary" @click="onClickPod" data-bs-toggle='modal' data-bs-target='#modal-pod'>GENERATE</a>
     </div>
-    <yamlModal :yaml-data="yamlData" :title="title" />
+    <YamlModal :yaml-data="yamlData" :title="title" />
   </div>
   
   
@@ -187,7 +187,7 @@ import { ref, reactive } from 'vue';
 import { onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
 import { generateYamlPod } from '@/api/yaml.ts';
-import yamlModal from './podModal.vue';
+import YamlModal from './podModal.vue';
 
 /**
  * @Title formData 
