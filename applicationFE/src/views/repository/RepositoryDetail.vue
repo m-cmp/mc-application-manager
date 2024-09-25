@@ -38,7 +38,7 @@
 
         <div class="mb-3">
           <div class="btn-list">
-            <button class='btn btn-primary d-none d-sm-inline-block' style="margin-left: auto; margin-bottom:10px;" data-bs-toggle='modal' data-bs-target='#uploadComponent'>
+            <button class='btn btn-primary d-none d-sm-inline-block' style="margin-left: auto; margin-bottom:10px;" data-bs-toggle='modal' data-bs-target='#uploadComponent' :disabled="repositoryDetail.format == 'docker'">
               File Upload
             </button>      
           </div>
