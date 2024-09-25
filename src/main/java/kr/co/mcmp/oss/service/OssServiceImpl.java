@@ -1,5 +1,6 @@
 package kr.co.mcmp.oss.service;
 
+import kr.co.mcmp.ape.workflow.service.AppProvEngineService;
 import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.oss.dto.OssTypeDto;
 import kr.co.mcmp.oss.entity.Oss;
@@ -30,6 +31,8 @@ public class OssServiceImpl implements OssService {
 	private final OssTypeRepository ossTypeRepository;
 
 	private final NexusService nexusService;
+
+	private final AppProvEngineService appProvEngineService;
 
 	/**
 	 * OSS 목록 조회
@@ -95,6 +98,7 @@ public class OssServiceImpl implements OssService {
 		OssTypeDto ossTypeDto = OssTypeDto.from(ossTypeRepository.findByOssTypeIdx(ossDto.getOssTypeIdx()));
 		ossDto = ossDto.setEncryptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
 		ossDto = OssDto.from(ossRepository.save(OssDto.toEntity(ossDto, ossTypeDto)));
+		appProvEngineService.createJenkinsPipeline(ossTypeDto, ossDto);
 		return ossDto.getOssIdx();
 	}
 
@@ -142,12 +146,12 @@ public class OssServiceImpl implements OssService {
 
 		if(!osstypeDto.getOssTypeName().isEmpty()) {
 			switch(osstypeDto.getOssTypeName()) {
-			case "NEXUS" :
-				if (StringUtils.isBlank(ossDto.getOssUrl()) ||
-						StringUtils.isBlank(ossDto.getOssUsername()) ) {
-					log.error("접속정보 누락");
-					return false;
-				}
+				case "NEXUS" :
+					if (StringUtils.isBlank(ossDto.getOssUrl()) ||
+							StringUtils.isBlank(ossDto.getOssUsername()) ) {
+						log.error("접속정보 누락");
+						return false;
+					}
 
 				// Front에서 Base64Encoding한 데이터를 복호화하여 AES256 암호화 함.
 				ossDto.setEncryptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));

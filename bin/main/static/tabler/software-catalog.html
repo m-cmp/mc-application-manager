@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+    <title>Software catalog</title>
+    <!-- CSS files -->
+    <link href="./dist/css/tabler.min.css?1684106062" rel="stylesheet"/>
+    <link href="./dist/css/tabler-flags.min.css?1684106062" rel="stylesheet"/>
+    <link href="./dist/css/tabler-payments.min.css?1684106062" rel="stylesheet"/>
+    <link href="./dist/css/tabler-vendors.min.css?1684106062" rel="stylesheet"/>
+    <link href="./dist/css/demo.min.css?1684106062" rel="stylesheet"/>
+    <style>
+      @import url('https://rsms.me/inter/inter.css');
+      :root {
+      	--tblr-font-sans-serif: 'Inter Var', -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif;
+      }
+      body {
+      	font-feature-settings: "cv03", "cv04", "cv11";
+      }
+    </style>
+    <script>
+function searchCatalog(e){
+    //console.log($('#inputCatalogSearch').val());
+    //if(e.code == 'Enter'){
+    if(e.keyCode == 13){
+        console.log($('#inputCatalogSearch').val());
+        setSoftwareCatalogEntity();
+        setDockerHubSearch();
+        setArtifactHubSearch();
+    }
+
+}
+    </script>
+
+</head>
+<body >
+<script src="./dist/js/demo-theme.min.js?1684106062"></script>
+<div class="page">
+    <!-- Navbar -->
+    <div class="page-wrapper">
+        <!-- Page header -->
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <h2 class="page-title">
+                            Software catalog
+                        </h2>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <div class="btn-list">
+                            <a class="btn btn-primary d-none d-sm-inline-block" data-bs-toggle="modal" data-bs-target="#modal-form">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-plus" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                    <path d="M12 5l0 14"></path>
+                                    <path d="M5 12l14 0"></path>
+                                </svg>
+                                New
+                          </a>
+                        </div>
+                      </div>
+                </div>
+            </div>
+        </div>
+
+
+
+
+        <!-- Page body -->
+        <div class="page-body">
+            <div class="container-xl">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="list-group card-list-group" id="sc-list-group">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+
+                        <input type="text" value="" class="form-control" placeholder="Search…" aria-label="Search in website" onkeypress="searchCatalog(event);" id="inputCatalogSearch">
+
+                        <div> <br /></div>
+
+                        <h3 class="mb-3">dockerHub search</h3>
+                        <div class="col-md-6 col-lg-12" id="resultDockerHubEmpty">
+                            검색된 관련 ContainerImage가 없습니다.
+                        </div>
+                        <div class="row row-cards" id="resultDockerHubSearch">
+                        </div>
+
+                        <div style="margin-bottom:20px;">&nbsp;</div>
+
+                        <h3 class="mb-3">artifactHub search</h3>
+                        <div class="col-md-6 col-lg-12" id="resultArtifactHubEmpty">
+                            검색된 관련 HelmChart가 없습니다.
+                        </div>
+                        <div class="row row-cards" id="resultArtifactHubSearch">
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+<!-- S: modal-report -->
+<div class="modal modal-blur fade" id="modal-report" tabindex="-1" role="dialog" aria-hidden="true" style="display:none;">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <form name="workflowExecForm" id="workflowExecForm">
+                <input type="hidden" name="workflowExecIdx" id="workflowExecIdx" valu="" />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="workflowExecModalTitle">{{workflowName}}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="workflowExecModalDescription"></div>
+                <div class="modal-body" id="workflowExecModalParams"></div>
+                <div class="modal-footer">
+                    <a href="#" class="btn btn-primary ms-auto" data-bs-dismiss="modal" onclick="runWorkflow()">
+                        workflow 실행
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- E: modal-report -->
+
+<!-- S: modal-form -->
+<div class="modal" id="modal-form" tabindex="-1">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Software catalog</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Title</label>
+                    <input type="text" class="form-control" id="sc-title" name="title" placeholder="Application name" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Summary</label>
+                    <input type="text" class="form-control" id="sc-summary" name="summary" placeholder="Application summary" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Icon</label>
+                    <input type="text" class="form-control" id="sc-icon" name="icon" placeholder="Icon URL" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" id="sc-category">
+                        <option value="server" selected>SERVER</option>
+                        <option value="was">WAS</option>
+                        <option value="db">DB</option>
+                        <option value="util">UTIL</option>
+                        <option value="observability">OBSERVABILITY</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" rows="5" id="sc-desc"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="mb-3">
+                            <label class="form-label">Reference</label>
+                            <select class="form-select" id="sc-reference">
+                                <option value="url" selected>URL</option>
+                                <option value="manifest">manifest</option>
+                                <option value="workflow">workflow</option>
+                                <option value="image">image</option>
+                                <option value="etc">etc</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <input type="text" class="form-control" id="sc-ref-value" name="refValue" placeholder="Ref value/idx" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="sc-ref-desc" name="refDescription" placeholder="Ref Description" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a class="btn btn-link link-secondary" data-bs-dismiss="modal" onclick="setInit()">
+                    Cancel
+                </a>
+                <a class="btn btn-primary ms-auto" data-bs-dismiss="modal" onclick="createSoftwareCatalog()">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-plus" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                        <path d="M12 5l0 14"></path>
+                        <path d="M5 12l14 0"></path>
+                    </svg>
+                    Create New Software catalog
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- E: modal-form -->
+
+<!-- Libs JS -->
+<!-- Tabler Core -->
+<script src="./dist/js/tabler.min.js?1684106062" defer></script>
+<script src="./dist/js/demo.min.js?1684106062" defer></script>
+<script src="./jquery.js"></script>
+<script>
+$(function() {
+    console.log( "ready!" );
+    setSoftwareCatalogList();
+});
+
+let listHtml, listHtmlHub, workflowParams, refWorkflowBtns;
+// const beUrl = "http://" + $(location).attr('hostname') + ":" + $(location).attr('port');
+const beUrl = "http://43.203.253.173:18084";
+let workflowUrl = ""; // oss 등록 후 받아와야됨
+
+// softwareCatalog list를 만듦
+function setSoftwareCatalogList(){
+    $.ajax({ url: "software-catalog-list-entity.html", cache: false
+    }).done(function( html ) {
+        listHtml = html; // software-catalog-list-entity.html내용을 listHtml에 넣음
+        setSoftwareCatalogEntity();
+    });
+
+    //$.ajax({ url: beUrl + "/catalog/software/", cache: false }).done(function( json ) { console.log(json); });
+
+    // listHtmlHub변수에는 software-catalog-list-entity-hub.html내용이 담긴다. 이하 구문 동일
+    $.ajax({ url: "software-catalog-list-entity-hub.html", cache: false }).done(function( html ) { listHtmlHub = html; });
+    $.ajax({ url: "software-catalog-list-entity-workflow.html", cache: false }).done(function( html ) { refWorkflowBtns = html; });
+    $.ajax({ url: "software-catalog-workflow-param.html", cache: false }).done(function( html ) { workflowParams = html; });
+}
+
+function setSoftwareCatalogEntity(){
+    // progress bar 노출
+    $('#sc-list-group').html('<div class="progress progress-sm"> <div class="progress-bar progress-bar-indeterminate"></div> </div>');
+    let entity;
+    let html = listHtml;
+    $.ajax({
+        url: beUrl + "/catalog/software/?title=" + $('#inputCatalogSearch').val(),
+        cache: false
+    }).done(function( data ) {
+        $('#sc-list-group').html("");
+        var result = data;
+        console.log(data);
+        result.forEach(function(i){
+            entity = html.replace(/{{iconUrl}}/gi, beUrl + i.catalogIcon).replace(/{{index}}/gi, i.catalogIdx).replace(/{{title}}/gi, i.catalogTitle).replace(/{{referenceUrl}}/gi, i.scReference).replace(/{{description}}/gi, brSw(i.catalogDescription)).replace(/{{summary}}/gi, i.catalogSummary).replace(/{{category}}/gi, i.catalogCategory);
+            $('#sc-list-group').append(entity);
+        });
+    });
+
+}
+
+
+function setSoftwareCatalogRefrence(catalogIdx){
+
+    $.ajax({
+        url: beUrl + "/catalog/software/" + catalogIdx,
+        cache: false
+    }).done(function( data ) {
+        var result = data.catalogRefData;
+        console.log(data);
+        let listWorkflowLi = refWorkflowBtns
+        let workflowContents = "";
+        let etcContents = "";
+        let tagContents = "";
+        result.forEach(function(i){
+            if(i.referenceType == "WORKFLOW"){
+                workflowContents += listWorkflowLi.replace(/{{workflowTitle}}/gi, i.referenceType).replace(/{{workflowId}}/gi, i.referncetIdx);
+            }else if(i.referenceType == "TAG"){
+                tagContents += tagContents == "" ? "#" + i.referenceValue : ", #" + i.referenceValue;
+            }else{
+                etcContents += listWorkflowLi.replace(/{{workflowTitle}}/gi, i.referenceType).replace(/{{workflowId}}/gi, i.referncetIdx);
+            }
+        });
+
+        workflowContents == "" ? workflowContents = listWorkflowLi.replace(/{{workflowTitle}}/gi, "등록된 워크플로우가 없습니다.").replace('class="btn"', "") : "";
+
+        $('#' + catalogIdx + '-workflow-ul').append(workflowContents);
+        $('#' + catalogIdx + '-entity-ul').append(etcContents);
+        $('#' + catalogIdx + '-tag-ul').append(tagContents);
+
+        //$("#workflowExecModalParams").html(paramHtml);
+    });
+}
+
+
+
+
+function brSw(text){
+    return text.replace(/\\n/gi, "<br />");
+}
+
+function setWorkflowParamsForm(workflowIdx){
+    $.ajax({
+        url: workflowUrl + "/workflow/" + workflowIdx,
+        cache: false
+    }).done(function( data ) {
+        //console.log("paramLength : " + data.data.pipelineParam.length);
+        $("#workflowExecModalTitle").html(data.data.workflowId + " - " + data.data.workflowName);
+        $("#workflowExecModalDescription").html(data.data.workflowPurpose);
+        $("#workflowExecIdx").val(workflowIdx);
+        let paramArr = data.data.pipelineParam;
+        let paramTemplate = workflowParams;
+        let paramHtml = "";
+        $("#workflowExecModalParams").html("");
+        console.log("=================paramLength: " + paramArr.length);
+        paramArr.forEach(function(i){
+            //console.log(i.paramKey + " : " + i.paramValue);
+            paramHtml += paramTemplate.replace(/{{workflowParamKey}}/gi, i.paramKey).replace(/{{workflowParamDefaultValue}}/gi,i.paramValue); 
+        });
+        $("#workflowExecModalParams").html(paramHtml);
+    });
+}
+
+
+
+
+
+
+
+function runWorkflow(workflowIdx){
+    var paramKeyArr = new Array();
+    var paramValueArr = new Array();
+    var pipelineParamArr = new Array();
+
+    $("input[name=paramKey]").each(function(index, item){ paramKeyArr.push($(item).val()); });
+    $("input[name=paramValue]").each(function(index, item){ paramValueArr.push($(item).val()); });
+
+    for(let c=0;c<paramKeyArr.length;c++){
+        pipelineParamArr.push({paramKey: paramKeyArr[c], paramValue: paramValueArr[c]});
+    }
+
+    let workflowData = {
+        "workflowId": $("#workflowExecIdx").val(),
+        "pipelineParam": pipelineParamArr
+    }
+
+    $.ajax({
+        url: workflowUrl + "/workflow/run",
+        accept: "application/json",
+        contentType: "application/json; charset=utf-8",
+        type: "POST",
+        dataType: "json",
+        data: JSON.stringify(workflowData),
+    }).done(function( data ) {
+        console.log("");
+        console.log("success");
+    });
+}
+
+
+
+
+
+// TODO ↓ 같은구성, 합쳐야함
+
+function setDockerHubSearch(){
+    $('#resultDockerHubSearch').html('');
+    $('#resultDockerHubSearch').html('<div class="progress progress-sm"> <div class="progress-bar progress-bar-indeterminate"></div> </div>');
+
+    if($('#inputCatalogSearch').val()){
+        let entity;
+        let html = listHtmlHub;
+        $.ajax({
+            url: beUrl + "/search/dockerhub/" + $('#inputCatalogSearch').val(),
+            cache: false
+        }).done(function( data ) {
+            console.log(data.code);
+            if(data.code == 200){
+                $('#resultDockerHubSearch').html("");
+                var result = data.data.results;
+                //console.log(result);
+                if(result.length){
+                    // 검색결과 없음 숨김
+                    $('#resultDockerHubEmpty').hide();
+                    for(var i = 0; i < 3 && i < result.length; i++){
+                        // for문 돌면서 변수부분 replace해서 내용 만들고 resultDockerHubSearch 추가
+                        entity = listHtmlHub.replace(/{{hubIconImg}}/gi, result[i].logo_url.large).replace(/{{hubTitle}}/gi, result[i].name).replace(/{{hubSummary}}/gi, result[i].short_description.length > 30 ? result[i].short_description.substring(0, 30) + "..." : "");
+                        $('#resultDockerHubSearch').append(entity);
+                    }
+                }else{
+                    // 검색결과 없음 노출
+                    $('#resultDockerHubEmpty').show();
+                }
+            }
+        });
+    }else{
+        // 검색결과 없음 노출
+        $('#resultDockerHubEmpty').show();
+        $('#resultDockerHubSearch').html('');
+    }
+
+}
+
+
+
+function setArtifactHubSearch(){
+    // 내용 노출부분 비움
+    $('#resultArtifactHubSearch').html('');
+    // 내용 노출부분에 로딩바 ㄱㄱ로딩바
+    $('#resultArtifactHubSearch').html('<div class="progress progress-sm"> <div class="progress-bar progress-bar-indeterminate"></div> </div>');
+
+    if($('#inputCatalogSearch').val()){
+        let entity;
+        let html = listHtmlHub;
+        $.ajax({
+            url: beUrl + "/search/artifacthub/" + $('#inputCatalogSearch').val(),
+            cache: false
+        }).done(function( data ) {
+            console.log(data.code);
+            if(data.code == 200){
+                $('#resultArtifactHubSearch').html("");
+                var result = data.data.packages;
+                console.log(result);
+                if(result.length){
+                    // 검색결과가 없습니다. 숨김
+                    $('#resultArtifactHubEmpty').hide();
+                    // for문 돌면서 변수부분 replace해서 내용 만들고 resultArtifactHubSearch안에 추가
+                    for(var i = 0; i < 3 && i < result.length; i++){
+                        entity = listHtmlHub.replace(/{{hubIconImg}}/gi, "https://artifacthub.io/static/media/placeholder_pkg_helm.png").replace(/{{hubTitle}}/gi, result[i].name).replace(/{{hubSummary}}/gi, result[i].description.length > 30 ? result[i].description.substring(0, 30) + "..." : "");
+                        $('#resultArtifactHubSearch').append(entity);
+                    }
+                }else{
+                    // 검색결과가 없습니다. 보여쥼
+                    $('#resultArtifactHubEmpty').show();
+                }
+            }
+        });
+    }else{
+        // 검색결과가 없습니다. 보여쥼
+        $('#resultArtifactHubEmpty').show();
+        $('#resultArtifactHubSearch').html('');
+    }
+
+}
+
+function setInit(){
+    console.log("setInit")
+    $("#sc-title").val("");
+    $("#sc-summary").val("");
+    $("#sc-icon").val("");
+    $("#sc-category").val("");
+    $("#sc-desc").val("");
+    $("#sc-reference").val("");
+    $("#sc-ref-value").val("");
+    $("#sc-ref-desc").val("");
+}
+
+function createSoftwareCatalog() {
+    console.log("createSoftwareCatalog")
+    let param = {
+        "catalogIdx": null,
+        "catalogTitle": $("#sc-title").val(),
+        "catalogDescription": $("#sc-desc").val(),
+        "catalogSummary": $("#sc-summary").val(),
+        "catalogIcon": $("#sc-icon").val(),
+        "catalogCategory": $("#sc-category").val()
+    }
+
+    $.ajax({
+        url: beUrl + "/catalog/software/",
+        type: "POST",
+        data: param,
+    }).done(function( data ) {
+        console.log("data : ", data)
+        setInit();
+        console.log("success");
+        location.reload();
+    });
+
+}
+
+
+
+    </script>
+</body>
+</html>

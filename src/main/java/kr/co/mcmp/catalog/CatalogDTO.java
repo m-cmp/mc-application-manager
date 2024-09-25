@@ -6,6 +6,8 @@ import lombok.Setter;
 
 import java.util.List;
 
+import kr.co.mcmp.catalog.Ref.CatalogRefDTO;
+
 @Getter
 @Setter
 @NoArgsConstructor

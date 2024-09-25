@@ -247,4 +247,19 @@ public class XMLUtil {
 		return xml;
 	}
 
+	public static Document appendXml(Document templateDoc, String path, String content) throws XPathExpressionException {
+
+		Document doc = (Document) templateDoc.cloneNode(true);
+		Node node = getXPathNode(doc, path);
+		if (node != null) {
+			node.setTextContent(content);
+			return doc;
+		}
+		return null;
+	}
+
+	public static String XmlToString(Document document){
+		return wrtieXMLString(document);
+	}
+
 }
