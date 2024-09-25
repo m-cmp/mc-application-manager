@@ -10,7 +10,7 @@
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.name" placeholder="pod-01" />
         </div>
         <div class="mb-3">
-          <label class="form-label">- Namespace</label>
+          <label class="form-label required">- Namespace</label>
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.namespace" placeholder="namespace" />
         </div>
         <div class="mb-3">
@@ -43,69 +43,18 @@
         <h3 class="card-title">Spec 영역</h3>
       </div>
       <div class="card-body">
-        <div v-for="(container, idx) in containers" :key="idx">
-        <div class="mb-3">
-          <div class="btn-list">
-            <label class="form-label">Containers</label>
-            <button class="btn btn-primary" @click="addContainer" style="text-align: center !important;">
-              <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-plus" style="margin: 0 !important;">
-                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                <path d="M12 5l0 14" />
-                <path d="M5 12l14 0" />
-              </svg>
-            </button>
-            <button class="btn btn-primary" @click="removeContainer(idx)">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-minus" style="margin: 0 !important;">
-                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                <path d="M5 12l14 0" />
-              </svg>
-            </button>
-          </div>
-          <div class="row" style="width:68% !important">
-            <div class="col mt-4">
-              <label class="form-label required">- Name</label>
-              <input type="text" class="form-control" v-model="container.name" />
-            </div>
-            <div class="col mt-4">
-              <label class="form-label required">- Image</label>
-              <input type="text" class="form-control" v-model="container.image" />
-            </div>
-          </div>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">- Env</label>
-          <div class="generate-form" v-for="(env, envIndex) in container.env" :key="envIndex">
-            <input type="text" class="form-control w-33" v-model="env.name" placeholder="key" />
-            <input type="text" class="form-control w-33" v-model="env.value" placeholder="value" />
+        <div class="mt-4" v-for="(container, idx) in containers" :key="idx">
+          <div class="mb-3">
             <div class="btn-list">
-              <button class="btn btn-primary" @click="addEnv(idx)" style="text-align: center !important;">
+              <label class="form-label">Containers</label>
+              <button class="btn btn-primary" @click="addContainer" style="text-align: center !important;">
                 <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-plus" style="margin: 0 !important;">
                   <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                   <path d="M12 5l0 14" />
                   <path d="M5 12l14 0" />
                 </svg>
               </button>
-              <button class="btn btn-primary" @click="removeEnv(idx, envIndex)">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-minus" style="margin: 0 !important;">
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                  <path d="M5 12l14 0" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="mb-3"> 
-          <div class="mt-4" v-for="(port, portIndex) in container.ports" :key="portIndex">
-            <div class="btn-list">
-              <label class="form-label">Ports</label>
-              <button class="btn btn-primary" @click="addPort(idx)" style="text-align: center !important;">
-                <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-plus" style="margin: 0 !important;">
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                  <path d="M12 5l0 14" />
-                  <path d="M5 12l14 0" />
-                </svg>
-              </button>
-              <button class="btn btn-primary" @click="removePort(idx, portIndex)">
+              <button class="btn btn-primary" @click="removeContainer(idx)">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-minus" style="margin: 0 !important;">
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                   <path d="M5 12l14 0" />
@@ -114,60 +63,112 @@
             </div>
             <div class="row" style="width:68% !important">
               <div class="col mt-4">
-                <label class="form-label">- Name</label>
-                <input type="text" class="form-control" v-model="port.name" />
+                <label class="form-label required">- Name</label>
+                <input type="text" class="form-control" v-model="container.name" />
               </div>
               <div class="col mt-4">
-                <label class="form-label">- Port</label>
-                <input type="text" class="form-control" v-model="port.containerPort" />
+                <label class="form-label required">- Image</label>
+                <input type="text" class="form-control" v-model="container.image" />
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">- Env</label>
+            <div class="generate-form" v-for="(env, envIndex) in container.env" :key="envIndex">
+              <input type="text" class="form-control w-33" v-model="env.name" placeholder="key" />
+              <input type="text" class="form-control w-33" v-model="env.value" placeholder="value" />
+              <div class="btn-list">
+                <button class="btn btn-primary" @click="addEnv(idx)" style="text-align: center !important;">
+                  <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-plus" style="margin: 0 !important;">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M12 5l0 14" />
+                    <path d="M5 12l14 0" />
+                  </svg>
+                </button>
+                <button class="btn btn-primary" @click="removeEnv(idx, envIndex)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-minus" style="margin: 0 !important;">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M5 12l14 0" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="mb-3"> 
+            <div class="mt-4" v-for="(port, portIndex) in container.ports" :key="portIndex">
+              <div class="btn-list">
+                <label class="form-label">Ports</label>
+                <button class="btn btn-primary" @click="addPort(idx)" style="text-align: center !important;">
+                  <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-plus" style="margin: 0 !important;">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M12 5l0 14" />
+                    <path d="M5 12l14 0" />
+                  </svg>
+                </button>
+                <button class="btn btn-primary" @click="removePort(idx, portIndex)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-minus" style="margin: 0 !important;">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M5 12l14 0" />
+                  </svg>
+                </button>
+              </div>
+              <div class="row" style="width:68% !important">
+                <div class="col mt-4">
+                  <label class="form-label">- Name</label>
+                  <input type="text" class="form-control" v-model="port.name" />
+                </div>
+                <div class="col mt-4">
+                  <label class="form-label">- Port</label>
+                  <input type="text" class="form-control" v-model="port.containerPort" />
+                </div>
+              </div>
+              <div class="row" style="width:68% !important">
+                <div class="col mt-4">
+                  <label class="form-label">- Protocol</label>
+                  <input type="text" class="form-control" v-model="port.protocol" />
+                </div>
+                <div class="col mt-4">
+                  <label class="form-label">- Host Port</label>
+                  <input type="text" class="form-control" v-model="port.hostPort" />
+                </div>
+              </div>
+              <div class="border-bottom" style="width: 100%; margin-top: 10px" v-if="container.ports.length > 1"></div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <div class="btn-list">
+              <label class="form-label">Resources</label>
+            </div>
+            <div class="row" style="width:68% !important">
+              <div class="col mt-4">
+                <label class="form-label">- Limits CPU</label>
+                <input type="text" class="form-control" v-model="container.resources.limits.cpu" />
+              </div>
+              <div class="col mt-4">
+                <label class="form-label">- Limits Memory</label>
+                <input type="text" class="form-control" v-model="container.resources.limits.memory" />
               </div>
             </div>
             <div class="row" style="width:68% !important">
               <div class="col mt-4">
-                <label class="form-label">- Protocol</label>
-                <input type="text" class="form-control" v-model="port.protocol" />
+                <label class="form-label">- Requests CPU</label>
+                <input type="text" class="form-control" v-model="container.resources.requests.cpu" />
               </div>
               <div class="col mt-4">
-                <label class="form-label">- Host Port</label>
-                <input type="text" class="form-control" v-model="port.hostPort" />
+                <label class="form-label">- Requests Memory</label>
+                <input type="text" class="form-control" v-model="container.resources.requests.memory" />
               </div>
             </div>
-            <div class="border-bottom" style="width: 100%; margin-top: 10px" v-if="container.ports.length > 1"></div>
           </div>
+          <div class="border-bottom" style="width: 100%; margin-top: 10px" v-if="containers.length > 1"></div>
         </div>
         <div class="mb-3">
-          
-          <div class="btn-list">
-            <label class="form-label">Resources</label>
-          </div>
-          <div class="row" style="width:68% !important">
-            <div class="col mt-4">
-              <label class="form-label">- Limits CPU</label>
-              <input type="text" class="form-control" v-model="container.resources.limits.cpu" />
-            </div>
-            <div class="col mt-4">
-              <label class="form-label">- Limits Memory</label>
-              <input type="text" class="form-control" v-model="container.resources.limits.memory" />
-            </div>
-          </div>
-          <div class="row" style="width:68% !important">
-            <div class="col mt-4">
-              <label class="form-label">- Requests CPU</label>
-              <input type="text" class="form-control" v-model="container.resources.requests.cpu" />
-            </div>
-            <div class="col mt-4">
-              <label class="form-label">- Requests Memory</label>
-              <input type="text" class="form-control" v-model="container.resources.requests.memory" />
-            </div>
-          </div>
-          <div class="row" style="width:68% !important">
-            <div class="col mt-4">
-              <label class="form-label">- Restart Policy</label>
-              <input type="text" class="form-control" v-model="spec.restartPolicy" />
-            </div>
+          <div class="mt-4">
+            <label class="form-label">- Restart Policy</label>
+            <input type="text" class="form-control w-33" v-model="spec.restartPolicy" />
           </div>
         </div>
-        </div>
+
       </div>
     </div>
 

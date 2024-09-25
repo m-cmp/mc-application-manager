@@ -10,7 +10,7 @@
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.name" placeholder="configMap-01" />
         </div>
         <div class="mb-3">
-          <label class="form-label">- Namespace</label>
+          <label class="form-label required">- Namespace</label>
           <input type="text" class="form-control w-33" name="example-text-input" v-model="metadata.namespace" placeholder="namespace" />
         </div>
         <div class="mb-3">

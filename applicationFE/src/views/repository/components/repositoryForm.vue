@@ -15,7 +15,7 @@
             <div class="row mb-3">
               <label class="form-label required">Name</label>
               <div class="grid gap-0 column-gap-3">
-                <input type="text" class="form-control p-2 g-col-11" v-model="repositoryFormData.name" />
+                <input type="text" class="form-control p-2 g-col-11" v-model="repositoryFormData.name" :disabled="props.mode != 'new'" />
               </div>
             </div>
             
@@ -24,15 +24,15 @@
               <label class="form-label required">Format</label>
               <div>
                 <label class="form-check form-check-inline">
-                  <input class="form-check-input" type="radio" name="format" value="raw" v-model="repositoryFormData.format">
+                  <input class="form-check-input" type="radio" name="format" value="raw" v-model="repositoryFormData.format" :disabled="props.mode != 'new'" />
                   <span class="form-check-label">raw</span>
                 </label>
                 <label class="form-check form-check-inline">
-                  <input class="form-check-input" type="radio" name="format" value="helm" v-model="repositoryFormData.format">
+                  <input class="form-check-input" type="radio" name="format" value="helm" v-model="repositoryFormData.format" :disabled="props.mode != 'new'" />
                   <span class="form-check-label">helm</span>
                 </label>
                 <label class="form-check form-check-inline">
-                  <input class="form-check-input" type="radio" name="format" value="docker" v-model="repositoryFormData.format">
+                  <input class="form-check-input" type="radio" name="format" value="docker" v-model="repositoryFormData.format" :disabled="props.mode != 'new'" />
                   <span class="form-check-label">docker</span>
                 </label>
               </div>
