@@ -56,3 +56,13 @@ export interface Component {
   name: string
   assets: []
 }
+
+export interface SoftwareCatalog {
+  catalogIdx: number
+  catalogTitle: string
+  catalogDescription: string
+  catalogSummary: string
+  catalogIcon: string
+  catalogCategory: string
+  catalogRefData: []
+}
