@@ -3,6 +3,7 @@ package kr.co.mcmp.util;
 
 import org.apache.commons.codec.binary.Base64;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
@@ -12,30 +13,37 @@ import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 
-
+@Component
 public class AES256Util {
 	private static String iv;
 	private static Key keySpec;
 	private static String authAesKey;
 
 	@Value("${aes.key}")
-	public void setAuthAesKey(String aesKey) {
+	public void setAuthAesKey(String aesKey) throws UnsupportedEncodingException {
 		authAesKey = aesKey;
-	}
-
-	public AES256Util(String authAesKey) throws UnsupportedEncodingException {
-		this.iv = authAesKey.substring(0, 16);
+		this.iv = aesKey.substring(0, 16);
 		byte[] keyBytes = new byte[16];
-		byte[] b = authAesKey.getBytes("UTF-8");
-		int len = b.length;
-		if (len > keyBytes.length) {
-			len = keyBytes.length;
-		}
+		byte[] b = aesKey.getBytes("UTF-8");
+		int len = Math.min(b.length, keyBytes.length);
 		System.arraycopy(b, 0, keyBytes, 0, len);
-		SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-
-		this.keySpec = keySpec;
+		this.keySpec = new SecretKeySpec(keyBytes, "AES");
 	}
+
+	
+	// public AES256Util(String authAesKey) throws UnsupportedEncodingException {
+	// 	this.iv = authAesKey.substring(0, 16);
+	// 	byte[] keyBytes = new byte[16];
+	// 	byte[] b = authAesKey.getBytes("UTF-8");
+	// 	int len = b.length;
+	// 	if (len > keyBytes.length) {
+	// 		len = keyBytes.length;
+	// 	}
+	// 	System.arraycopy(b, 0, keyBytes, 0, len);
+	// 	SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
+
+	// 	this.keySpec = keySpec;
+	// }
 
 	public static String encrypt(String str) throws NoSuchAlgorithmException,
 			GeneralSecurityException, UnsupportedEncodingException {

@@ -1,14 +1,16 @@
-# temp docker-compose
+version: '3.8'
+
 networks:
   internal_network:
     internal: true
   external_network:
     driver: bridge
 
+services:
   # jenkins - for workflow manager
   jenkins:
     image: jenkins/jenkins:jdk17
-    container_name: jenkins
+    container_name: ape-jenkins
     platform: linux/amd64
     networks:
       - internal_network
@@ -58,25 +60,21 @@ networks:
 
   # application-manager
   mc-application-manager:
-    image: m-cmp/mc-application-manager
+    image: cloudbaristaorg/mc-application-manager:edge
     container_name: application-manager
-    build:
-      context: ./
-      dockerfile: Dockerfile
     networks:
-      - external_network
       - external_network
     ports:
       - target: 18084
         published: 18084
         protocol: tcp
     volumes:
-    - ~/:/nexus-data/blobs/
+      - ./db/application:/db/application
     environment:
       - DDL_AUTO=create-drop
       - DB_USER=application
       - DB_PASS=application!23
-      - SQL_DATA_INIT=always
+      - SQL_DATA_INIT=always # or never
     healthcheck: # for cb-application-manager
       test: ["CMD", "nc", "-vz", "localhost", "1324"]
       interval: 1m

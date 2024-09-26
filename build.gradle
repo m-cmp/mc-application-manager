@@ -94,11 +94,11 @@ dependencies {
 
     implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
     implementation 'org.apache.commons:commons-compress'
-    implementation 'io.kubernetes:client-java'
-    implementation 'io.kubernetes:client-java-api'
-    implementation 'io.kubernetes:client-java-api'
-    implementation 'io.kubernetes:client-java-extended'
+    implementation 'io.kubernetes:client-java:20.0.0'
+    implementation 'io.kubernetes:client-java-api:20.0.0'
+    implementation 'io.kubernetes:client-java-extended:20.0.0'
 
+    implementation 'io.github.cdancy:jenkins-rest:1.0.1:all'
 
 }
 

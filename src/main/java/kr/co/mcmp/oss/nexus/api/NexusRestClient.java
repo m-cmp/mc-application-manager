@@ -37,7 +37,7 @@ import java.security.cert.X509Certificate;
 @Component
 public class NexusRestClient {
 
-	private static String NEXUS_API_BASE_URL = "/service/rest/";
+	private static String NEXUS_API_BASE_URL = "service/rest";
     
     private static final int CONNECT_TIMEOUT = 10000;
     private static final int READ_TIMEOUT = 10000;

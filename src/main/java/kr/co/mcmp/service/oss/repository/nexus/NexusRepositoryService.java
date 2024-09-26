@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -16,8 +17,14 @@ public class NexusRepositoryService implements CommonRepositoryService {
 
     @Override
     public List<CommonRepository.RepositoryDto> getRepositoryList() {
-        return repositoryAdapterService.getRepositoryList();
+        return repositoryAdapterService.getRepositoryList().stream()
+                .filter(t -> "hosted".equals(t.getType()) &&
+                        ("docker".equals(t.getFormat()) ||
+                                "raw".equals(t.getFormat()) ||
+                                "helm".equals(t.getFormat())))
+                .collect(Collectors.toList());
     }
+
 
     @Override
     public CommonRepository.RepositoryDto getRepositoryByName(String name) {

@@ -15,6 +15,10 @@
   "basePath": "/",
   "tags": [
     {
+      "name": "common-component-controller",
+      "description": "Common Component Controller"
+    },
+    {
       "name": "common-repository-controller",
       "description": "Common Repository Controller"
     },
@@ -41,6 +45,10 @@
     {
       "name": "swagger-welcome-web-mvc",
       "description": "Swagger Welcome Web Mvc"
+    },
+    {
+      "name": "basic-error-controller",
+      "description": "Basic Error Controller"
     },
     {
       "name": "yaml-generate-controller",
@@ -81,6 +89,15 @@
         ],
         "produces": [
           "*/*"
+        ],
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "description": "title",
+            "required": true,
+            "type": "string"
+          }
         ],
         "responses": {
           "200": {
@@ -132,7 +149,7 @@
             "format": "int32"
           },
           {
-            "name": "catalogRefData[0].refernectIdx",
+            "name": "catalogRefData[0].referncetIdx",
             "in": "query",
             "required": false,
             "type": "integer",
@@ -244,7 +261,7 @@
             "format": "int32"
           },
           {
-            "name": "catalogRefData[0].refernectIdx",
+            "name": "catalogRefData[0].referncetIdx",
             "in": "query",
             "required": false,
             "type": "integer",
@@ -436,7 +453,7 @@
             "format": "int32"
           },
           {
-            "name": "refernectIdx",
+            "name": "referncetIdx",
             "in": "query",
             "required": false,
             "type": "integer",
@@ -613,6 +630,391 @@
           },
           "403": {
             "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/error": {
+      "get": {
+        "tags": [
+          "basic-error-controller"
+        ],
+        "summary": "errorHtml",
+        "operationId": "errorHtmlUsingGET",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "text/html"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ModelAndView"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "basic-error-controller"
+        ],
+        "summary": "errorHtml",
+        "operationId": "errorHtmlUsingHEAD",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "text/html"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ModelAndView"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "basic-error-controller"
+        ],
+        "summary": "errorHtml",
+        "operationId": "errorHtmlUsingPOST",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "text/html"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ModelAndView"
+            }
+          },
+          "201": {
+            "description": "Created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "basic-error-controller"
+        ],
+        "summary": "errorHtml",
+        "operationId": "errorHtmlUsingPUT",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "text/html"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ModelAndView"
+            }
+          },
+          "201": {
+            "description": "Created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "basic-error-controller"
+        ],
+        "summary": "errorHtml",
+        "operationId": "errorHtmlUsingDELETE",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "text/html"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ModelAndView"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "options": {
+        "tags": [
+          "basic-error-controller"
+        ],
+        "summary": "errorHtml",
+        "operationId": "errorHtmlUsingOPTIONS",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "text/html"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ModelAndView"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "basic-error-controller"
+        ],
+        "summary": "errorHtml",
+        "operationId": "errorHtmlUsingPATCH",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "text/html"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ModelAndView"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/manifest/": {
+      "get": {
+        "tags": [
+          "manifest-controller"
+        ],
+        "summary": "getManifest",
+        "operationId": "getManifestUsingGET",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ManifestDTO"
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "manifest-controller"
+        ],
+        "summary": "createManifest",
+        "operationId": "createManifestUsingPOST",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "parameters": [
+          {
+            "name": "manifestIdx",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "manifestTitle",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "manifestContent",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "manifestType",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "manifestCategory",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ManifestDTO"
+            }
+          },
+          "201": {
+            "description": "Created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "manifest-controller"
+        ],
+        "summary": "updateManifest",
+        "operationId": "updateManifestUsingPUT",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "parameters": [
+          {
+            "name": "manifestIdx",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "manifestTitle",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "manifestContent",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "manifestType",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "manifestCategory",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ManifestDTO"
+            }
+          },
+          "201": {
+            "description": "Created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -989,6 +1391,279 @@
             "description": "OK",
             "schema": {
               "$ref": "#/definitions/ResponseWrapper«List«OssDto»»"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/oss/v1/components/{module}/create/{name}": {
+      "post": {
+        "tags": [
+          "common-component-controller"
+        ],
+        "summary": "createComponent",
+        "operationId": "createComponentUsingPOST",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "parameters": [
+          {
+            "name": "module",
+            "in": "path",
+            "description": "module",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "description": "name",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "directory",
+            "in": "formData",
+            "description": "directory",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "files",
+            "in": "formData",
+            "description": "files",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "file"
+            },
+            "collectionFormat": "multi"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ResponseWrapper«string»"
+            }
+          },
+          "201": {
+            "description": "Created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/oss/v1/components/{module}/create/{name}/text": {
+      "post": {
+        "tags": [
+          "common-component-controller"
+        ],
+        "summary": "createComponentByText",
+        "operationId": "createComponentByTextUsingPOST",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "parameters": [
+          {
+            "name": "module",
+            "in": "path",
+            "description": "module",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "description": "name",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "textComponent",
+            "description": "textComponent",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/TextComponentDto"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ResponseWrapper«string»"
+            }
+          },
+          "201": {
+            "description": "Created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/oss/v1/components/{module}/delete/{id}": {
+      "delete": {
+        "tags": [
+          "common-component-controller"
+        ],
+        "summary": "deleteComponent",
+        "operationId": "deleteComponentUsingDELETE",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "parameters": [
+          {
+            "name": "module",
+            "in": "path",
+            "description": "module",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ResponseWrapper«string»"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/oss/v1/components/{module}/detail/{id}": {
+      "get": {
+        "tags": [
+          "common-component-controller"
+        ],
+        "summary": "getComponentDetailByName",
+        "operationId": "getComponentDetailByNameUsingGET",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "parameters": [
+          {
+            "name": "module",
+            "in": "path",
+            "description": "module",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ResponseWrapper«ComponentDto»"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/oss/v1/components/{module}/list/{name}": {
+      "get": {
+        "tags": [
+          "common-component-controller"
+        ],
+        "summary": "getComponentList",
+        "operationId": "getComponentListUsingGET",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "parameters": [
+          {
+            "name": "module",
+            "in": "path",
+            "description": "module",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "description": "name",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ResponseWrapper«List«ComponentDto»»"
             }
           },
           "401": {
@@ -3181,6 +3856,106 @@
         }
       }
     },
+    "/yaml/hpa": {
+      "post": {
+        "tags": [
+          "yaml-generate-controller"
+        ],
+        "summary": "generateHPAYaml",
+        "operationId": "generateHPAYamlUsingPOST",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "parameters": [
+          {
+            "name": "target.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "target.name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "metric.type",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "metric.resourceName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "metric.targetType",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "metric.targetAverageUtilization",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "hpaName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "namespace",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "minReplicas",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "maxReplicas",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "201": {
+            "description": "Created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/yaml/pod": {
       "post": {
         "tags": [
@@ -3196,99 +3971,7 @@
         ],
         "parameters": [
           {
-            "name": "autoscale.maxReplicas",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          },
-          {
-            "name": "autoscale.resourceName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "autoscale.averageUtilization",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          },
-          {
-            "name": "resource.requestCpu",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "resource.requestMemory",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "resource.limitCpu",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "resource.limitMemory",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "proxyInfo.defaultDomainYn",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "proxyInfo.domainName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "proxyInfo.tlsYn",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "proxyInfo.tlsSecretName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "proxyInfo.tlsCrt",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "proxyInfo.tlsCrtName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "proxyInfo.tlsKey",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "proxyInfo.tlsKeyName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "command",
+            "name": "containers[0].lifecycle.postStart.exec.command",
             "in": "query",
             "required": false,
             "type": "array",
@@ -3298,7 +3981,43 @@
             "collectionFormat": "multi"
           },
           {
-            "name": "args",
+            "name": "containers[0].lifecycle.postStart.httpGet.httpHeaders[0].name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.postStart.httpGet.httpHeaders[0].value",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.postStart.httpGet.host",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.postStart.httpGet.path",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.postStart.httpGet.scheme",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.postStart.tcpSocket.host",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.preStop.exec.command",
             "in": "query",
             "required": false,
             "type": "array",
@@ -3308,7 +4027,43 @@
             "collectionFormat": "multi"
           },
           {
-            "name": "nodeSelector",
+            "name": "containers[0].lifecycle.preStop.httpGet.httpHeaders[0].name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.preStop.httpGet.httpHeaders[0].value",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.preStop.httpGet.host",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.preStop.httpGet.path",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.preStop.httpGet.scheme",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].lifecycle.preStop.tcpSocket.host",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].livenessProbe.exec.command",
             "in": "query",
             "required": false,
             "type": "array",
@@ -3318,208 +4073,78 @@
             "collectionFormat": "multi"
           },
           {
-            "name": "hostPathVolumes[0].name",
+            "name": "containers[0].livenessProbe.httpGet.httpHeaders[0].name",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "hostPathVolumes[0].mountPath",
+            "name": "containers[0].livenessProbe.httpGet.httpHeaders[0].value",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "hostPathVolumes[0].hostPath",
+            "name": "containers[0].livenessProbe.httpGet.host",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "hostPathVolumes[0].type",
+            "name": "containers[0].livenessProbe.httpGet.path",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "hostPathVolumes[0].claimName",
+            "name": "containers[0].livenessProbe.httpGet.scheme",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "hostPathVolumes[0].secretName",
+            "name": "containers[0].livenessProbe.tcpSocket.host",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "hostPathVolumes[0].shareName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "hostPathVolumes[0].requestStorage",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "hostPathVolumes[0].storageClassName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "pvcVolumes[0].name",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "pvcVolumes[0].mountPath",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "pvcVolumes[0].hostPath",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "pvcVolumes[0].type",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "pvcVolumes[0].claimName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "pvcVolumes[0].secretName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "pvcVolumes[0].shareName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "pvcVolumes[0].requestStorage",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "pvcVolumes[0].storageClassName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "azureFileVolumes[0].name",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "azureFileVolumes[0].mountPath",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "azureFileVolumes[0].hostPath",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "azureFileVolumes[0].type",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "azureFileVolumes[0].claimName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "azureFileVolumes[0].secretName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "azureFileVolumes[0].shareName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "azureFileVolumes[0].requestStorage",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "azureFileVolumes[0].storageClassName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "ports[0].name",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "ports[0].protocol",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "ports[0].port",
+            "name": "containers[0].livenessProbe.failureThreshold",
             "in": "query",
             "required": false,
             "type": "integer",
             "format": "int32"
           },
           {
-            "name": "ports[0].containerPort",
+            "name": "containers[0].livenessProbe.initialDelaySeconds",
             "in": "query",
             "required": false,
             "type": "integer",
             "format": "int32"
           },
           {
-            "name": "ports[0].nodePort",
+            "name": "containers[0].livenessProbe.periodSeconds",
             "in": "query",
             "required": false,
             "type": "integer",
             "format": "int32"
           },
           {
-            "name": "ports[0].ingressPath",
+            "name": "containers[0].livenessProbe.successThreshold",
             "in": "query",
             "required": false,
-            "type": "string"
+            "type": "integer",
+            "format": "int32"
           },
           {
-            "name": "externalIPs",
+            "name": "containers[0].livenessProbe.timeoutSeconds",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "containers[0].readinessProbe.exec.command",
             "in": "query",
             "required": false,
             "type": "array",
@@ -3529,85 +4154,536 @@
             "collectionFormat": "multi"
           },
           {
-            "name": "deployId",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int64"
-          },
-          {
-            "name": "deployName",
+            "name": "containers[0].readinessProbe.httpGet.httpHeaders[0].name",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "deployFrom",
+            "name": "containers[0].readinessProbe.httpGet.httpHeaders[0].value",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].readinessProbe.httpGet.host",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].readinessProbe.httpGet.path",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].readinessProbe.httpGet.scheme",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].readinessProbe.tcpSocket.host",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].readinessProbe.failureThreshold",
             "in": "query",
             "required": false,
             "type": "integer",
             "format": "int32"
           },
           {
-            "name": "deployType",
+            "name": "containers[0].readinessProbe.initialDelaySeconds",
             "in": "query",
             "required": false,
             "type": "integer",
             "format": "int32"
           },
           {
-            "name": "stageId",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int64"
-          },
-          {
-            "name": "projectId",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int64"
-          },
-          {
-            "name": "buildId",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int64"
-          },
-          {
-            "name": "regId",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "regDate",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "date-time"
-          },
-          {
-            "name": "modId",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "modDate",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "date-time"
-          },
-          {
-            "name": "deployApproveFlow",
+            "name": "containers[0].readinessProbe.periodSeconds",
             "in": "query",
             "required": false,
             "type": "integer",
             "format": "int32"
+          },
+          {
+            "name": "containers[0].readinessProbe.successThreshold",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "containers[0].readinessProbe.timeoutSeconds",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "containers[0].securityContext.capabilities.add",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "containers[0].securityContext.capabilities.drop",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "containers[0].securityContext.seLinuxOptions.level",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].securityContext.seLinuxOptions.role",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].securityContext.seLinuxOptions.type",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].securityContext.seLinuxOptions.user",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].securityContext.seccompProfile.localhostProfile",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].securityContext.seccompProfile.type",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].securityContext.windowsOptions.gmsaCredentialSpec",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].securityContext.windowsOptions.gmsaCredentialSpecName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].securityContext.windowsOptions.runAsUserName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].securityContext.allowPrivilegeEscalation",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].securityContext.privileged",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].securityContext.procMount",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].securityContext.readOnlyRootFilesystem",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].securityContext.runAsGroup",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "containers[0].securityContext.runAsNonRoot",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].securityContext.runAsUser",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "containers[0].startupProbe.exec.command",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "containers[0].startupProbe.httpGet.httpHeaders[0].name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].startupProbe.httpGet.httpHeaders[0].value",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].startupProbe.httpGet.host",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].startupProbe.httpGet.path",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].startupProbe.httpGet.scheme",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].startupProbe.tcpSocket.host",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].startupProbe.failureThreshold",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "containers[0].startupProbe.initialDelaySeconds",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "containers[0].startupProbe.periodSeconds",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "containers[0].startupProbe.successThreshold",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "containers[0].startupProbe.timeoutSeconds",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "containers[0].args",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "containers[0].command",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "containers[0].env[0].valueFrom.configMapKeyRef.key",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].env[0].valueFrom.configMapKeyRef.name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].env[0].valueFrom.configMapKeyRef.optional",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].env[0].valueFrom.fieldRef.apiVersion",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].env[0].valueFrom.fieldRef.fieldPath",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].env[0].valueFrom.resourceFieldRef.containerName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].env[0].valueFrom.resourceFieldRef.resource",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].env[0].valueFrom.secretKeyRef.key",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].env[0].valueFrom.secretKeyRef.name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].env[0].valueFrom.secretKeyRef.optional",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].env[0].name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].env[0].value",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].envFrom[0].configMapRef.name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].envFrom[0].configMapRef.optional",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].envFrom[0].secretRef.name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].envFrom[0].secretRef.optional",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].envFrom[0].prefix",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].ports[0].containerPort",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "containers[0].ports[0].hostIP",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].ports[0].hostPort",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "containers[0].ports[0].name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].ports[0].protocol",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].volumeDevices[0].devicePath",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].volumeDevices[0].name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].volumeMounts[0].mountPath",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].volumeMounts[0].mountPropagation",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].volumeMounts[0].name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].volumeMounts[0].readOnly",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].volumeMounts[0].subPath",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].volumeMounts[0].subPathExpr",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].image",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].imagePullPolicy",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].stdin",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].stdinOnce",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].terminationMessagePath",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].terminationMessagePolicy",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "containers[0].tty",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "containers[0].workingDir",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "podName",
+            "in": "query",
+            "required": false,
+            "type": "string"
           },
           {
             "name": "namespace",
@@ -3616,68 +4692,7 @@
             "type": "string"
           },
           {
-            "name": "image",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "controller",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "replicas",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          },
-          {
-            "name": "strategyType",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "schedule",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "name",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "hostname",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "ingressPathRewriteYn",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "serviceType",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "imagePullSecret",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "disableDelete",
+            "name": "restartPolicy",
             "in": "query",
             "required": false,
             "type": "string"
@@ -4242,6 +5257,23 @@
         }
       }
     },
+    "TextComponentDto": {
+      "type": "object",
+      "properties": {
+        "directory": {
+          "type": "string"
+        },
+        "extension": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
     "ResponseWrapper«OssDto»": {
       "type": "object",
       "properties": {
@@ -4381,6 +5413,32 @@
         }
       }
     },
+    "ComponentDto": {
+      "type": "object",
+      "properties": {
+        "assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AssetsDto"
+          }
+        },
+        "format": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      }
+    },
     "RatePlans": {
       "type": "object",
       "properties": {
@@ -4404,6 +5462,24 @@
           "items": {
             "$ref": "#/definitions/Repository"
           }
+        }
+      }
+    },
+    "ResponseWrapper«ComponentDto»": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "data": {
+          "$ref": "#/definitions/ComponentDto"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
         }
       }
     },
@@ -4443,6 +5519,103 @@
           "type": "string"
         },
         "message": {
+          "type": "string"
+        }
+      }
+    },
+    "URI": {
+      "type": "object",
+      "properties": {
+        "absolute": {
+          "type": "boolean"
+        },
+        "authority": {
+          "type": "string"
+        },
+        "fragment": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "opaque": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "query": {
+          "type": "string"
+        },
+        "rawAuthority": {
+          "type": "string"
+        },
+        "rawFragment": {
+          "type": "string"
+        },
+        "rawPath": {
+          "type": "string"
+        },
+        "rawQuery": {
+          "type": "string"
+        },
+        "rawSchemeSpecificPart": {
+          "type": "string"
+        },
+        "rawUserInfo": {
+          "type": "string"
+        },
+        "scheme": {
+          "type": "string"
+        },
+        "schemeSpecificPart": {
+          "type": "string"
+        },
+        "userInfo": {
+          "type": "string"
+        }
+      }
+    },
+    "URL": {
+      "type": "object",
+      "properties": {
+        "authority": {
+          "type": "string"
+        },
+        "content": {
+          "type": "object"
+        },
+        "defaultPort": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "file": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "protocol": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "userInfo": {
           "type": "string"
         }
       }
@@ -4562,6 +5735,27 @@
           "items": {
             "$ref": "#/definitions/Result"
           }
+        }
+      }
+    },
+    "AssetsDto": {
+      "type": "object",
+      "properties": {
+        "blobCreated": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "downloadUrl": {
+          "type": "string"
+        },
+        "fileSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "id": {
+          "type": "string"
         }
       }
     },
@@ -4722,6 +5916,38 @@
         },
         "name": {
           "type": "string"
+        }
+      }
+    },
+    "InputStream": {
+      "type": "object"
+    },
+    "Resource": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "file": {
+          "type": "file"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "inputStream": {
+          "$ref": "#/definitions/InputStream"
+        },
+        "open": {
+          "type": "boolean"
+        },
+        "readable": {
+          "type": "boolean"
+        },
+        "uri": {
+          "$ref": "#/definitions/URI"
+        },
+        "url": {
+          "$ref": "#/definitions/URL"
         }
       }
     },
@@ -4896,9 +6122,30 @@
         "referenceValue": {
           "type": "string"
         },
-        "refernectIdx": {
+        "referncetIdx": {
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "ResponseWrapper«List«ComponentDto»»": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ComponentDto"
+          }
+        },
+        "detail": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
         }
       }
     },
@@ -4922,6 +6169,72 @@
         },
         "repository": {
           "$ref": "#/definitions/Repository"
+        }
+      }
+    },
+    "File": {
+      "type": "object",
+      "properties": {
+        "absolute": {
+          "type": "boolean"
+        },
+        "absoluteFile": {
+          "type": "file"
+        },
+        "absolutePath": {
+          "type": "string"
+        },
+        "canonicalFile": {
+          "type": "file"
+        },
+        "canonicalPath": {
+          "type": "string"
+        },
+        "directory": {
+          "type": "boolean"
+        },
+        "executable": {
+          "type": "boolean"
+        },
+        "file": {
+          "type": "boolean"
+        },
+        "freeSpace": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "lastModified": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "parent": {
+          "type": "string"
+        },
+        "parentFile": {
+          "type": "file"
+        },
+        "path": {
+          "type": "string"
+        },
+        "readable": {
+          "type": "boolean"
+        },
+        "totalSpace": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "usableSpace": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "writable": {
+          "type": "boolean"
         }
       }
     },

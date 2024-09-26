@@ -30,16 +30,5 @@ public class DateUtil {
 		return c.getTimeInMillis();
 	}
 	
-	public static void main(String[] args) {	
-		Format format = new SimpleDateFormat("yyyy MM dd HH:mm:ss");
-		
-		Date dt = new Date();
-		long dateMs = dt.getTime();
-		long yDay = calDate(dateMs, - 6);			
-		
-		String a = format.format(dateMs);
-		String b = format.format(yDay);
-		System.out.println(a + " ~ " + b);
-	}
 	
 }
