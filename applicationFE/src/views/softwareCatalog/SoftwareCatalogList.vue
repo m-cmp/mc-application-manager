@@ -107,7 +107,7 @@
                             <h3 class="mb-3">dockerHub search</h3>
                             <div class="col-md-6 col-lg-12" id="resultDockerHubEmpty" v-if="dockerHubSearchList.length == 0">검색된 관련 ContainerImage가 없습니다.</div>
                             <div class="row row-cards" id="resultDockerHubSearch">
-                                <!-- <div class="progress progress-sm" v-if="isDockerSearch"> <div class="progress-bar progress-bar-indeterminate"></div> </div> -->
+                                <!-- <div class="progress progress-sm"> <div class="progress-bar progress-bar-indeterminate"></div> </div> -->
                                 <div class="col-md-6 col-lg-12" v-for="(result, idx) in dockerHubSearchList" :key="idx">
                                     <div class="card">
                                         <div class="row row-0">
@@ -148,7 +148,7 @@
                             <h3 class="mb-3">artifactHub search</h3>
                             <div class="col-md-6 col-lg-12" id="resultArtifactHubEmpty" v-if="artifactHubSearch.length == 0">검색된 관련 HelmChart가 없습니다.</div>
                             <div class="row row-cards" id="resultArtifactHubSearch">
-                                <!-- <div class="progress progress-sm" v-if="isArtifactHubSearch"> <div class="progress-bar progress-bar-indeterminate"></div> </div> -->
+                                <!-- <div class="progress progress-sm"> <div class="progress-bar progress-bar-indeterminate"></div> </div> -->
                                 <div class="col-md-6 col-lg-12" v-for="(result, idx) in artifactHubSearch" :key="idx">
                                     <div class="card">
                                         <div class="row row-0">
@@ -211,11 +211,9 @@
     const catalogList = ref([] as any)
     const searchKeyword = ref("")
     const splitUrl = window.location.host.split(':');
-    // const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18083'
-    const baseUrl = "http://210.217.178.130:18084";
+    const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18083'
+    // const baseUrl = "http://210.217.178.130:18084";
 
-    const isDockerSearch = ref(false as boolean)
-    const isArtifactHubSearch = ref(false as boolean)
     const dockerHubSearchList = ref([] as any)
     const artifactHubSearch = ref([] as any)
 
@@ -270,8 +268,6 @@
             await _getSoftwareCatalogList();
             await setDockerHubSearch();
             await setArtifactHubSearch();
-            isDockerSearch.value = true;
-            isArtifactHubSearch.value = true;
         }
         
     }
@@ -289,7 +285,6 @@
             console.log(error)
             toast.error('데이터를 가져올 수 없습니다.')
         }
-        isDockerSearch.value = false;
     }
 
     const setArtifactHubSearch = async () => {
@@ -304,7 +299,6 @@
             console.log(error)
             toast.error('데이터를 가져올 수 없습니다.')
         }
-        isArtifactHubSearch.value = false
     }
 
     const setSoftwareCatalogRefrence = async (idx:any) => {
