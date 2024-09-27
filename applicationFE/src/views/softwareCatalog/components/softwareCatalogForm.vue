@@ -96,16 +96,18 @@
 import type { Repository } from '../../type/type';
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
-import { createCatalog} from '@/api/softwareCatalog';
+import { createCatalog } from '@/api/softwareCatalog';
 import { onMounted } from 'vue';
-import { computed } from 'vue';
-import { watch } from 'vue';
+import axios from 'axios'
 
 const toast = useToast()
 const catalogDto = ref({} as any);
 const refData = ref([] as any)
 const files = ref([] as any)
 
+const splitUrl = window.location.host.split(':');
+const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
+// const baseUrl = "http://210.217.178.130:18084";
 const emit = defineEmits(['get-list'])
 
 onMounted(async () => {
@@ -127,7 +129,7 @@ const setInit = async () => {
       {
           "catalogRefIdx": null,
           "catalogIdx": null,
-          "referncetIdx": null,
+          "referncetIdx": 0,
           "referenceValue": "",
           "referenceDescription": "",
           "referenceType": "url"
@@ -140,7 +142,7 @@ const addRef = () => {
     refData.value.push({
         "catalogRefIdx": null,
         "catalogIdx": null,
-        "referncetIdx": null,
+        "referncetIdx": 0,
         "referenceValue": "",
         "referenceDescription": "",
         "referenceType": "url"
@@ -160,14 +162,25 @@ const handleFileChange = (event: any) => {
 const createSoftwareCatalog = async () => {
   const formData = new FormData();
   formData.append('iconFile', files.value);
-  formData.append('catalogDto', catalogDto.value);
 
-  const { data } = await createCatalog(formData);
-  if (data)
+  catalogDto.value.catalogRefData = refData.value;
+  formData.append('catalogDto', new Blob([JSON.stringify(catalogDto.value)], {
+    type: 'application/json'
+  }));
+
+  const response = await axios.post(baseUrl + '/catalog/software/', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+
+  if(response.data) {
     toast.success('등록되었습니다.')
-  else
-    toast.error('등록 할 수 없습니다.')
     emit('get-list')
+  } else {
+    toast.error('등록 할 수 없습니다.')
+  }
+
 }
 
 </script>
