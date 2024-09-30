@@ -28,6 +28,11 @@ const router = createRouter({
       name: 'repositoryDetail',
       component: () => import('@/views/repository/RepositoryDetail.vue' as any)
     },
+    {
+      path: `/web/sofrwareCatalog/list`,
+      name: 'softwareCatalogList',
+      component: () => import('@/views/softwareCatalog/SoftwareCatalogList.vue' as any)
+    },
   ]
 })
 

@@ -1,9 +1,14 @@
 package kr.co.mcmp.exception;
 
+import kr.co.mcmp.response.ResponseCode;
 import kr.co.mcmp.response.ResponseWrapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.stream.Collectors;
 
 
 @Slf4j
@@ -20,6 +25,19 @@ public class GlobalExceptionHandler {
         McmpException de = new McmpException(e);
         return new ResponseWrapper<>(de.getResponseCode(), de.getDetail());
         
+    }
+
+    /**
+    * MethodArgumentNotValidException 발생시
+    */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ResponseWrapper<String>> handleValidationException(MethodArgumentNotValidException e) {
+        String errors = e.getBindingResult().getFieldErrors().stream()
+                .filter(fieldError -> fieldError.getRejectedValue() == null ||
+                        fieldError.getRejectedValue().toString().trim().isEmpty())
+                .map(fieldError -> String.format("'%s' %s", fieldError.getField(), fieldError.getDefaultMessage()))
+                .collect(Collectors.joining("\n"));
+        return ResponseEntity.ok().body(new ResponseWrapper<>(ResponseCode.BAD_REQUEST, errors));
     }
 
 //    /**
