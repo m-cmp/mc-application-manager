@@ -11,7 +11,7 @@
                         </div>
                         <div class="col-auto ms-auto">
                             <div class="btn-list">
-                                <a class="btn btn-primary d-none d-sm-inline-block" data-bs-toggle="modal" data-bs-target="#modal-form">
+                                <a class="btn btn-primary d-none d-sm-inline-block" @click="onClickCreate" data-bs-toggle="modal" data-bs-target="#modal-form">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-plus" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
                                         <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
                                         <path d="M12 5l0 14"></path>
@@ -48,8 +48,8 @@
                                                         <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M19 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg>
                                                     </a>
                                                     <div class="dropdown-menu dropdown-menu-end">
-                                                        <a class="dropdown-item" href="#">temp action - 1</a>
-                                                        <a class="dropdown-item" href="#">temp action - 2</a>
+                                                        <a class="dropdown-item" @click="onClickUpdate(catalog.catalogIdx)" data-bs-toggle="modal" data-bs-target="#modal-form">Update</a>
+                                                        <!-- <a class="dropdown-item" href="#">temp action - 2</a> -->
                                                     </div>
                                                 </div>
                                             </div>
@@ -190,7 +190,7 @@
                 </div>
             </div>
         </div>
-        <SoftwareCatalogForm @get-list="_getSoftwareCatalogList"/>
+        <SoftwareCatalogForm :mode="formMode" :catalog-idx="selectCatalogIdx" @get-list="_getSoftwareCatalogList"/>
     </div>
 </template>
 <script setup lang="ts">
@@ -216,6 +216,8 @@
 
     const dockerHubSearchList = ref([] as any)
     const artifactHubSearch = ref([] as any)
+    const selectCatalogIdx = ref(0 as number)
+    const formMode = ref('new')
 
     /**
     * @Title Life Cycle
@@ -243,8 +245,6 @@
                 item.isShow = false;
             })
             catalogList.value = response.data;
-
-            console.log("catalogList.value : ", catalogList.value)
         } catch(error) {
             console.log(error)
             toast.error('데이터를 가져올 수 없습니다.')
@@ -253,7 +253,6 @@
 
     const groupedData = (catalogRefData: any) => {
         return catalogRefData.reduce((acc:any, item:any) => {
-        // item의 referenceType을 키로 사용
         if (!acc[item.referenceType]) {
           acc[item.referenceType] = [];
         }
@@ -321,7 +320,16 @@
     const goToPage = (url:string) => {
         window.open(url)
     }
-  
+
+    const onClickUpdate = (idx:number) => {
+        formMode.value = "update";
+        selectCatalogIdx.value = idx;
+    }
+
+    const onClickCreate = () => {
+        formMode.value = "new"
+        selectCatalogIdx.value = 0;
+    }
  
   
 </script>
