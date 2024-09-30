@@ -6,7 +6,7 @@
                 <h5 class="modal-title">Create New Software catalog</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="max-height: calc(100vh - 200px);overflow-y: auto;">
                 <div class="mb-3">
                     <label class="form-label">Title</label>
                     <input type="text" class="form-control" id="sc-title" name="title" placeholder="Application name" v-model="catalogDto.catalogTitle" />
@@ -22,11 +22,11 @@
                 <div class="mb-3">
                     <label class="form-label">Category</label>
                     <select class="form-select" id="sc-category" v-model="catalogDto.catalogCategory">
-                        <option value="server" selected>SERVER</option>
-                        <option value="was">WAS</option>
-                        <option value="db">DB</option>
-                        <option value="util">UTIL</option>
-                        <option value="observability">OBSERVABILITY</option>
+                        <option value="SERVER" selected>SERVER</option>
+                        <option value="WAS">WAS</option>
+                        <option value="DB">DB</option>
+                        <option value="UTIL">UTIL</option>
+                        <option value="OBSERVABILITY">OBSERVABILITY</option>
                     </select>
                 </div>
                 <div class="mb-3">
@@ -38,11 +38,13 @@
                         <div class="mb-3">
                             <label class="form-label">Reference</label>
                             <select class="form-select" id="sc-reference-1" v-model="ref.referenceType">
-                                <option value="url" selected>URL</option>
-                                <option value="manifest">manifest</option>
-                                <option value="workflow">workflow</option>
-                                <option value="image">image</option>
-                                <option value="etc">etc</option>
+                                <option value="URL">URL</option>
+                                <option value="MANIFEST">MANIFEST</option>
+                                <option value="WORKFLOW">WORKFLOW</option>
+                                <option value="IMAGE">IMAGE</option>
+                                <option value="HOMEPAGE">HOMEPAGE</option>
+                                <option value="TAG">TAG</option>
+                                <option value="ETC">ETC</option>
                             </select>
                         </div>
                     </div>
@@ -97,8 +99,16 @@ import type { Repository } from '../../type/type';
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
 import { createCatalog } from '@/api/softwareCatalog';
-import { onMounted } from 'vue';
+import { onMounted, watch, computed } from 'vue';
 import axios from 'axios'
+
+/**
+ * @Title Props / Emit
+ */
+ interface Props {
+  mode: String
+  catalogIdx: Number
+}
 
 const toast = useToast()
 const catalogDto = ref({} as any);
@@ -108,33 +118,56 @@ const files = ref([] as any)
 const splitUrl = window.location.host.split(':');
 const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
 // const baseUrl = "http://210.217.178.130:18084";
-const emit = defineEmits(['get-list'])
 
+const emit = defineEmits(['get-list'])
+const props = defineProps<Props>()
+const catalogIdx = computed(() => props.catalogIdx);
+watch(catalogIdx, async () => {
+  await setInit();
+});
 onMounted(async () => {
     await setInit()
 })
 
 const setInit = async () => {
-  console.log("setInit")
-  catalogDto.value = {
-    "catalogIdx": null,
-    "catalogTitle": "",
-    "catalogDescription": "",
-    "catalogSummary": "",
-    "catalogCategory": "",
-    "catalogRefData": []
-  }
-  refData.value = [];
-  refData.value.push(
-      {
-          "catalogRefIdx": null,
-          "catalogIdx": null,
-          "referncetIdx": 0,
-          "referenceValue": "",
-          "referenceDescription": "",
-          "referenceType": "url"
+  console.log("setInit props.catalogIdx : ", props.catalogIdx)
+  console.log("porps.mode : ", props.mode)
+  if(props.mode == 'update') {
+    await _getSoftwareCatalogDetail()
+  } else {
+      catalogDto.value = {
+        "catalogIdx": null,
+        "catalogTitle": "",
+        "catalogDescription": "",
+        "catalogSummary": "",
+        "catalogCategory": "",
+        "catalogRefData": []
       }
-  )
+      refData.value = [];
+      refData.value.push(
+          {
+              "catalogRefIdx": null,
+              "catalogIdx": null,
+              "referncetIdx": 0,
+              "referenceValue": "",
+              "referenceDescription": "",
+              "referenceType": "url"
+          }
+      )
+  }
+}
+
+const _getSoftwareCatalogDetail = async () => {
+    try {
+            const response = await axios.get(baseUrl + '/catalog/software/' + props.catalogIdx);
+            console.log("response : ", response)
+
+            catalogDto.value = response.data
+            refData.value = response.data.catalogRefData;
+        } catch(error) {
+            console.log(error)
+            toast.error('데이터를 가져올 수 없습니다.')
+        }
 }
 
 const addRef = () => {
@@ -160,26 +193,30 @@ const handleFileChange = (event: any) => {
 }
 
 const createSoftwareCatalog = async () => {
-  const formData = new FormData();
-  formData.append('iconFile', files.value);
-
-  catalogDto.value.catalogRefData = refData.value;
-  formData.append('catalogDto', new Blob([JSON.stringify(catalogDto.value)], {
-    type: 'application/json'
-  }));
-
-  const response = await axios.post(baseUrl + '/catalog/software/', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
+    if(props.mode == 'new') {
+        const formData = new FormData();
+        formData.append('iconFile', files.value);
+      
+        catalogDto.value.catalogRefData = refData.value;
+        formData.append('catalogDto', new Blob([JSON.stringify(catalogDto.value)], {
+          type: 'application/json'
+        }));
+      
+        const response = await axios.post(baseUrl + '/catalog/software', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      
+        if(response.data) {
+          toast.success('등록되었습니다.')
+          emit('get-list')
+        } else {
+          toast.error('등록 할 수 없습니다.')
+        }
+    } else {
+        const response = await axios.put(baseUrl + '/catalog/software')
     }
-  });
-
-  if(response.data) {
-    toast.success('등록되었습니다.')
-    emit('get-list')
-  } else {
-    toast.error('등록 할 수 없습니다.')
-  }
 
 }
 
