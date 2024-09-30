@@ -156,3 +156,8 @@ build/
 #eclipse
 .settings
 .project
+
+# Ignore specific image files in the directory
+src/main/resources/static/images/*.jpg
+src/main/resources/static/images/*.png
+src/main/resources/static/images/*.gif
