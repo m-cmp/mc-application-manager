@@ -77,7 +77,7 @@ public class CbtumblebugRestApi {
 
     public List<NamespaceDto> getAllNamespace() {
         log.info("Fetching all namespaces");
-        return executeWithConnectionCheck("Fetching all namespaces", () ->{
+        return executeWithConnectionCheck("getAllNamespace", () ->{
             String apiUrl = createApiUrl("/tumblebug/ns");
             HttpHeaders headers = createCommonHeaders();
             ResponseEntity<NamespaceResponse> response = restClient.request(apiUrl, headers, null, HttpMethod.GET, new ParameterizedTypeReference<NamespaceResponse>() {});
@@ -87,7 +87,7 @@ public class CbtumblebugRestApi {
 
     public List<MciDto> getMcisByNamespace(String namespace) {
         log.info("Fetching MCIs by namespace: {}", namespace);
-        return executeWithConnectionCheck("Fetching MCIs by namespace", () ->{
+        return executeWithConnectionCheck("getMcisByNamespace", () ->{
             String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/mci", namespace));
             HttpHeaders headers = createCommonHeaders();
             ResponseEntity<MciResponse> response = restClient.request(apiUrl, headers, null, HttpMethod.GET, new ParameterizedTypeReference<MciResponse>() {});
@@ -97,7 +97,7 @@ public class CbtumblebugRestApi {
 
     public String getK8sClusterInfo(){
         log.info("Fetching all K8sClusterInfo");
-        return executeWithConnectionCheck("Fetching all K8sClusterInfo", () ->{
+        return executeWithConnectionCheck("getK8sClusterInfo", () ->{
             String apiUrl = createApiUrl("/k8sClusterInfo");
             HttpHeaders headers = createCommonHeaders();
             ResponseEntity<String> response = restClient.request(apiUrl, headers, headers, HttpMethod.GET, new ParameterizedTypeReference<String>() {});
@@ -107,7 +107,7 @@ public class CbtumblebugRestApi {
 
     public String getK8sClusterByNamespace(String namespace){
         log.info("Fetching k8sCluster Info by namespace :{}", namespace);
-        return executeWithConnectionCheck("Fetching k8sCluster Info by namespace", () ->{
+        return executeWithConnectionCheck("getK8sClusterByNamespace", () ->{
             String apiUrl = createApiUrl(String.format("/ns/%s/k8scluster", namespace));
             HttpHeaders headers = createCommonHeaders();
             ResponseEntity<String> response = restClient.request(apiUrl, headers, null, HttpMethod.GET, new ParameterizedTypeReference<String>() {});
