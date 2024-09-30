@@ -98,5 +98,10 @@ public class AppProvEngineController {
         return null;
     }
     
+    @GetMapping("/readyz")
+    @Operation(summary="", description="")
+    public boolean checkReadyz(){
+        return true;
+    }
 }
     
