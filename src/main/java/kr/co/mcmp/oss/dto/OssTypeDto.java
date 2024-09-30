@@ -39,7 +39,7 @@ public class OssTypeDto {
     public static OssType toEntity(OssTypeDto ossTypeDto) {
         return OssType.builder()
                 .ossTypeIdx(ossTypeDto.getOssTypeIdx())
-                .ossTypeName(ossTypeDto.getOssTypeName())
+                .ossTypeName(ossTypeDto.getOssTypeName().toUpperCase())
                 .ossTypeDesc(ossTypeDto.getOssTypeDesc())
                 .build();
     }

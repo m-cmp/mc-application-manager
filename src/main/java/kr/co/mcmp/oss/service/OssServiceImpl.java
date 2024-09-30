@@ -1,6 +1,7 @@
 package kr.co.mcmp.oss.service;
 
-import kr.co.mcmp.ape.workflow.service.AppProvEngineService;
+import kr.co.mcmp.ape.service.AppProvEngineService;
+import kr.co.mcmp.ape.service.jenkins.service.JenkinsService;
 import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.oss.dto.OssTypeDto;
 import kr.co.mcmp.oss.entity.Oss;
@@ -32,6 +33,8 @@ public class OssServiceImpl implements OssService {
 
 	private final NexusService nexusService;
 
+	private final JenkinsService jenkinsService;
+	
 	private final AppProvEngineService appProvEngineService;
 
 	/**
@@ -54,6 +57,30 @@ public class OssServiceImpl implements OssService {
 		return ossList;
 	}
 
+	
+	/**
+	 * OSS 목록 조회, 패스워드 복호화 안함 
+	 * @param ossTypeName
+	 * @return List<OssDto> ossDtoList
+	 */
+	public List<OssDto> getOssListNotDecryptPassword(String ossTypeName) {
+		List<OssTypeDto> ossTypeList = ossTypeRepository.findByOssTypeName(ossTypeName)
+				.stream()
+				.map(OssTypeDto::from)
+				.collect(Collectors.toList());
+		log.info(ossTypeList);
+
+		// ossTypeList에서 ossTypeIdx 목록을 추출
+		List<Long> ossTypeIdxList = ossTypeList.stream()
+				.map(OssTypeDto::getOssTypeIdx)
+				.collect(Collectors.toList());
+
+		return ossRepository.findByOssTypeIdxIn(ossTypeIdxList)
+				.stream()
+				.map(OssDto::from)
+				.collect(Collectors.toList());
+
+	}
 	/**
 	 * OSS 목록 조회
 	 * @param ossTypeName
@@ -156,11 +183,23 @@ public class OssServiceImpl implements OssService {
 				// Front에서 Base64Encoding한 데이터를 복호화하여 AES256 암호화 함.
 				ossDto.setEncryptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
 				return nexusService.checkNexusConnection(ossDto);
+				
+				case "JENKINS" :
+					if (StringUtils.isBlank(ossDto.getOssUrl()) ||
+							StringUtils.isBlank(ossDto.getOssUsername()) ||
+							StringUtils.isBlank(ossDto.getOssPassword()) ) {
+						log.error("접속정보 누락");
+						return false;
+					}
+					// Front에서 Base64Encoding한 데이터를 복호화하여 AES256 암호화 함.
+					ossDto = ossDto.setEncryptPassword(ossDto, encryptAesString(ossDto.getOssPassword()));
+				return jenkinsService.isJenkinsConnect(ossDto);
 
 				default:
 					log.debug("[checkConnection] oss code >>> {}", osstypeDto.getOssTypeName());
 					log.error("Code is not registered] ossTypeName >>> {}", osstypeDto.getOssTypeName());
 					return false;
+
 			}
 		}
 		else {

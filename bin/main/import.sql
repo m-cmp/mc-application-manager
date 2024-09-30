@@ -21,19 +21,26 @@ VALUES
     ('GRAFANA', 'Your observability stack, faster and easier\n\nWith Grafana Cloud, enable observability - from operational dashboards to a fully centralized system and everything in between - without the overhead of building and maintaining your own stack.', 'observability', '/images/grafana.jpg', 'OBSERVABILITY');
 
 
-
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'https://tomcat.apache.org/', '', 'HOMEPAGE'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'apache', '', 'TAG'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'oss', '', 'TAG'),
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'server', '', 'TAG');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'server', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'vm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'vm_application_uninstall', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'helm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE TOMCAT'), 0, 'helm_application_uninstall', '', 'workflow');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'https://redis.io/', '', 'HOMEPAGE'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'NoSQL', '', 'TAG'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'oss', '', 'TAG'),
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'inMemoryDB', '', 'TAG');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'inMemoryDB', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'vm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'vm_application_uninstall', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'helm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'REDIS'), 0, 'helm_application_uninstall', '', 'workflow');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'https://nginx.org/en/', '', 'HOMEPAGE'),
@@ -42,7 +49,11 @@ VALUES
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'proxy', '', 'TAG'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'web', '', 'TAG'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'frontend', '', 'TAG'),
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'server', '', 'TAG');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'server', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'vm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'vm_application_uninstall', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'helm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NGINX'), 0, 'helm_application_uninstall', '', 'workflow');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'https://httpd.apache.org/', '', 'HOMEPAGE'),
@@ -50,25 +61,41 @@ VALUES
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'oss', '', 'TAG'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'frontend', '', 'TAG'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'webserver', '', 'TAG'),
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'httpd', '', 'TAG');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'httpd', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'vm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'vm_application_uninstall', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'helm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'APACHE'), 0, 'helm_application_uninstall', '', 'workflow');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'https://www.sonatype.com/products/sonatype-nexus-repository', '', 'HOMEPAGE'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'repository', '', 'TAG'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'oss', '', 'TAG'),
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'license', '', 'TAG');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'license', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'vm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'vm_application_uninstall', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'helm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'NEXUS'), 0, 'helm_application_uninstall', '', 'workflow');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'https://mariadb.org/', '', 'HOMEPAGE'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'RDBMS', '', 'TAG'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'oss', '', 'TAG'),
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'database', '', 'TAG');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'database', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'vm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'vm_application_uninstall', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'helm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'MARIA DB'), 0, 'helm_application_uninstall', '', 'workflow');
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
 VALUES
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'https://grafana.com/', '', 'HOMEPAGE'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'view', '', 'TAG'),
     ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'observer', '', 'TAG'),
-    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'oss', '', 'TAG');
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'oss', '', 'TAG'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'vm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'vm_application_uninstall', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'helm_application_install', '', 'workflow'),
+    ((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'GRAFANA'), 0, 'helm_application_uninstall', '', 'workflow');
 
 
 

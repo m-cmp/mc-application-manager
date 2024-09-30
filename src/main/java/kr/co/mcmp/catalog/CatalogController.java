@@ -1,12 +1,16 @@
 package kr.co.mcmp.catalog;
 
+import java.io.UncheckedIOException;
 import java.util.List;
+
+import javax.persistence.EntityNotFoundException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -76,11 +80,21 @@ public class CatalogController {
         return catalogService.deleteCatalog(catalogIdx);
     }
 
+    // @Operation(summary = "update software catalog")
+    // @ApiOperation(value="software catalog update", notes="software catalog 수정")
+    // @PutMapping
+    // public boolean updateCatalog(@RequestBody CatalogDTO catalogDto, ){
+    //     return catalogService.updateCatalog(catalogDto);
+    // }
+
     @Operation(summary = "update software catalog")
     @ApiOperation(value="software catalog update", notes="software catalog 수정")
     @PutMapping
-    public boolean updateCatalog(@RequestBody CatalogDTO catalogDto){
-        return catalogService.updateCatalog(catalogDto);
+    public boolean updateCatalog(
+            @PathVariable Long catalogIdx,
+            @RequestPart("catalogDto") CatalogDTO catalogDto,
+            @RequestPart(value = "iconFile", required = false) MultipartFile iconFile) {
+            return catalogService.updateCatalog(catalogDto, iconFile);
     }
 
 
