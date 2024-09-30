@@ -23,7 +23,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FileUtils { 
 	
-	private static final String ICON_UPLOAD_DIR = "src/main/resources/static/images/";
+	
+	private static String projectRoot = System.getProperty("user.dir");
+    private static String ICON_UPLOAD_DIR = Paths.get(projectRoot, "src", "main", "resources", "static", "images").toString();
 
 	public static String readLine(InputStream is) throws IOException {
 		StringBuffer out = new StringBuffer(); 
