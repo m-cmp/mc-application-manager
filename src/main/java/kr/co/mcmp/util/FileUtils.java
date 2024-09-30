@@ -18,6 +18,9 @@ import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class FileUtils { 
 	
 	private static final String ICON_UPLOAD_DIR = "src/main/resources/static/images/";
@@ -31,7 +34,21 @@ public class FileUtils {
 		return out.toString();
 	}
 	
-	
+	public static boolean deleteFile(String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            return false;
+        }
+
+        try {
+            Path path = Paths.get(filePath);
+            Files.deleteIfExists(path);
+            return true;
+        } catch (IOException e) {
+			log.error(e.getMessage(), e);
+            return false;
+        }
+    }
+
 	public static String readLineByLineJava8(File file) throws IOException {
 		return readLineByLineJava8(file.getAbsolutePath());
 	}

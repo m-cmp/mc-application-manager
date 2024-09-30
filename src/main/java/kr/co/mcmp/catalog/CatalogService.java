@@ -171,6 +171,46 @@ public class CatalogService {
         }).orElseThrow(() -> new EntityNotFoundException("catalog not found with id : " + catalogDto.getCatalogIdx()));
     }
 
+    @Transactional
+    public boolean updateCatalog(CatalogDTO catalogDto, MultipartFile iconFile) {
+        return catalogRepository.findById(catalogDto.getCatalogIdx())
+            .map(catalogEntity -> {
+                // 기존 아이콘 파일 삭제
+                if (catalogEntity.getIcon() != null && !catalogEntity.getIcon().isEmpty()) {
+                    FileUtils.deleteFile(catalogEntity.getIcon());
+                }
+
+                // 새 아이콘 파일 업로드
+                Optional.ofNullable(iconFile)
+                    .filter(file -> !file.isEmpty())
+                    .ifPresent(file -> {
+                        try {
+                            String iconPath = FileUtils.uploadIcon(file);
+                            catalogDto.setCatalogIcon(iconPath);
+                        } catch (IOException e) {
+                            throw new UncheckedIOException("Failed to upload new icon", e);
+                        }
+                    });
+
+                CatalogEntity updateEntity = catalogRepository.save(new CatalogEntity(catalogDto));
+
+                // CatalogRef 항목들 삭제
+                catalogRefRepository.deleteAllByCatalogId(updateEntity.getId());
+
+                // 새 CatalogRef 항목들 저장
+                if (catalogDto.getCatalogRefData() != null) {
+                    List<CatalogRefEntity> newRefs = catalogDto.getCatalogRefData().stream()
+                        .map(refDto -> {
+                            refDto.setCatalogIdx(updateEntity.getId());
+                            return new CatalogRefEntity(refDto);
+                        })
+                        .collect(Collectors.toList());
+                    catalogRefRepository.saveAll(newRefs);
+                }
+                return true;
+            })
+            .orElseThrow(() -> new EntityNotFoundException("Catalog not found with id: " + catalogDto.getCatalogIdx()));
+    }
 
 }
 

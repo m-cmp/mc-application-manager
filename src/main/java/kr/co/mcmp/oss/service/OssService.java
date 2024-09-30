@@ -10,6 +10,7 @@ import java.util.List;
 public interface OssService {
     List<OssDto> getAllOssList();
     List<OssDto> getOssList(String ossTypeName);
+    List<OssDto> getOssListNotDecryptPassword(String ossTypeName);
     Boolean isOssInfoDuplicated(OssDto ossDto);
     Long registOss(OssDto ossDto);
     Long updateOss(OssDto ossDto);
