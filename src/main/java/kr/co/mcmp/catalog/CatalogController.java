@@ -89,9 +89,8 @@ public class CatalogController {
 
     @Operation(summary = "update software catalog")
     @ApiOperation(value="software catalog update", notes="software catalog 수정")
-    @PutMapping
+    @PutMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public boolean updateCatalog(
-            @PathVariable Long catalogIdx,
             @RequestPart("catalogDto") CatalogDTO catalogDto,
             @RequestPart(value = "iconFile", required = false) MultipartFile iconFile) {
             return catalogService.updateCatalog(catalogDto, iconFile);

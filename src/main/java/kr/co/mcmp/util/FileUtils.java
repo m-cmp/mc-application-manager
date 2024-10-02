@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.web.multipart.MultipartFile;
 
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +24,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FileUtils { 
 	
-	private static final String ICON_UPLOAD_DIR = "src/main/resources/static/images/";
+	
+	// private static String projectRoot = System.getProperty("user.dir");
+    // private static String ICON_UPLOAD_DIR = Paths.get(projectRoot, "src", "main", "resources", "static", "images").toString();
 
 	public static String readLine(InputStream is) throws IOException {
 		StringBuffer out = new StringBuffer(); 
@@ -101,9 +104,6 @@ public class FileUtils {
 		return directory;
 	}
 	
-	    
-    
-
     public static String uploadIcon(MultipartFile iconFile) throws IOException {
 		 /* 파일 확장자 검사 */
 		 String originalFilename = iconFile.getOriginalFilename();
@@ -121,6 +121,8 @@ public class FileUtils {
 		 }
         String uniqueFilename = UUID.randomUUID().toString() + fileExtension; 
 		/* 업로드할 전체 경로 생성 */
+		ClassPathResource resource = new ClassPathResource("static/images");
+		String ICON_UPLOAD_DIR = resource.getFile().getAbsolutePath();
         Path uploadPath = Paths.get(ICON_UPLOAD_DIR).toAbsolutePath().normalize();  
         File destFile = new File(uploadPath.toFile(), uniqueFilename);
 		/* 디렉토리가 존재하지 않으면 생성 */
@@ -131,6 +133,7 @@ public class FileUtils {
         // 저장된 파일의 상대 경로 반환
         return "/images/" + uniqueFilename;
     }
+	
 	public static void copy(File sourceLocation, File targetLocation)	throws IOException {
 		if (sourceLocation.isDirectory()) {
 			if (!targetLocation.isDirectory()) {
