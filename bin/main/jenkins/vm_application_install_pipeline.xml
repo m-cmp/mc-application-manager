@@ -1,5 +1,5 @@
-<?xml version='1.1' encoding='UTF-8'?>
-<flow-definition plugin="workflow-job@1254.v3f64639b_11dd">
+<?xml version="1.0" encoding="UTF-8"?>
+<flow-definition plugin="workflow-job@1316.vd2290d3341a_f" name="vm_application_install">
   <actions/>
   <description></description>
   <keepDependencies>false</keepDependencies>
@@ -7,147 +7,255 @@
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
         <hudson.model.StringParameterDefinition>
-          <name>CB_TUMBLEBUG_SWAGGER_URI</name>
-          <description>Tumblebug Swagger URI</description>
-          <defaultValue>http://localhost:1323/tumblebug</defaultValue>
-          <trim>true</trim>
+          <name>NAMESPACE</name>
+          <description>Namespace</description>
+          <defaultValue>ns01</defaultValue>
+          <trim>false</trim>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
-          <name>MCIS_NAME</name>
-          <description>MCIS Name</description>
-          <defaultValue>mcis-01</defaultValue>
-          <trim>true</trim>
+          <name>MCI_ID</name>
+          <description>MCI ID</description>
+          <defaultValue>mci01</defaultValue>
+          <trim>false</trim>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
-          <name>USER</name>
-          <description>Username for API authentication</description>
+          <name>CB_TUMBLEBUG_URI</name>
+          <description>Tumblebug URI</description>
+          <defaultValue>http://13.125.199.35:1323/tumblebug</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>TUMBLEBUG_USER</name>
+          <description>Tumblebug User</description>
           <defaultValue>default</defaultValue>
-          <trim>true</trim>
+          <trim>false</trim>
         </hudson.model.StringParameterDefinition>
         <hudson.model.PasswordParameterDefinition>
-          <name>USERPASS</name>
-          <description>Password for API authentication</description>
-          <defaultValue>{AQAAABAAAAAQwt4bUeKjGqPUgXWxMUt+J+7BG3eRYTHCrAo2YnE2Zqw=}</defaultValue>
+          <name>TUMBLEBUG_PASSWORD</name>
+          <description>Tumblebug Password</description>
+          <defaultValue>default</defaultValue>
         </hudson.model.PasswordParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>APPLICATIONS</name>
-          <description>Comma-separated list of applications to install (e.g. nginx,tomcat,mariadb,redis,grafana,prometheus)</description>
-          <defaultValue>nginx,tomcat</defaultValue>
-          <trim>true</trim>
+          <description>Applications to install (comma-separated)</description>
+          <defaultValue>nginx,tomcat9,mariadb-server,redis-server,grafana,prometheus</defaultValue>
+          <trim>false</trim>
         </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
   </properties>
-  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3659.v582dc37621d8">
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3731.ve4b_5b_857b_a_d3">
     <script>
 <![CDATA[
-def executeShellCommand(command) {
-    def result
-    try {
-        result = sh(script: command, returnStdout: true).trim()
-    } catch (Exception e) {
-        error "Failed to execute command: ${command}\nError: ${e.message}"
-    }
-    return result
+import groovy.json.JsonSlurper
+
+def getSSHKey(jsonInput) {
+    def json = new JsonSlurper().parseText(jsonInput)
+    return json.findResult { it.key == 'MciSubGroupAccessInfo' ?
+        it.value.findResult { it.MciVmAccessInfo?.findResult { it.privateKey } } : null
+    } ?: ''
+}
+
+def getPublicInfoList(jsonInput) {
+    def json = new JsonSlurper().parseText(jsonInput)
+    return json.findAll { it.key == 'MciSubGroupAccessInfo' }
+        .collectMany { it.value.MciVmAccessInfo*.publicIP }
 }
 
 pipeline {
     agent any
-    
+
     stages {
-        stage('Fetch VM Access Information') {
+        stage('VM GET Access Info') {
             steps {
+                echo '>>>>>STAGE: VM GET Access Info'
                 script {
-                    try {
-                        def apiResponse = executeShellCommand("""
-                            curl -s -w '\\n- Http_Status_code:%{http_code}' '${params.CB_TUMBLEBUG_SWAGGER_URI}/ns/ns01/mcis/${params.MCIS_NAME}?option=accessinfo' --user '${params.USER}:${params.USERPASS}'
-                        """)
+                    def response = sh(script: """curl -w "- Http_Status_code:%{http_code}" ${CB_TUMBLEBUG_URI}/ns/${NAMESPACE}/mci/${MCI_ID}?option=accessinfo --user "${TUMBLEBUG_USER}:${TUMBLEBUG_PASSWORD}" """, returnStdout: true).trim()
+                    if (response.contains('Http_Status_code:200')) {
+                        echo "GET API call successful."
+                        callData = response.replace('- Http_Status_code:200', '')
+                        echo(callData)
+                    } else {
+                        error "GET API call failed with status code: ${response}"
+                    }
+
+                    def tb_sw_url = "${CB_TUMBLEBUG_URI}/ns/${NAMESPACE}/mci/${MCI_ID}?option=accessinfo&accessInfoOption=showSshKey"
+                    def response2 = sh(script: """curl -X 'GET' --user '${TUMBLEBUG_USER}:${TUMBLEBUG_PASSWORD}' '${tb_sw_url}' -H 'accept: application/json' """, returnStdout: true).trim()
+                    def pemkey = getSSHKey(response2)
+                    if (pemkey) {
+                        // 임시 디렉토리 사용
+                        def tempDir = sh(script: "mktemp -d", returnStdout: true).trim()
+                        def pemFile = "${tempDir}/${MCI_ID}.pem"
                         
-                        def (responseBody, statusLine) = apiResponse.split('\n- Http_Status_code:')
-                        def statusCode = statusLine.trim()
+                        // 파일 쓰기 및 권한 설정
+                        writeFile file: pemFile, text: pemkey
+                        sh "chmod 600 ${pemFile}"
                         
-                        if (statusCode == '200') {
-                            echo "VM Access Information retrieved successfully"
-                            env.VM_ACCESS_INFO = responseBody
-                        } else {
-                            error "Failed to retrieve VM access information. Status code: ${statusCode}"
-                        }
-                    } catch (Exception e) {
-                        error "Error in Fetch VM Access Information stage: ${e.message}"
+                        // 환경 변수로 PEM 파일 경로 저장
+                        env.PEM_FILE_PATH = pemFile
+                        
+                        echo "PEM file created at: ${pemFile}"
+                    } else {
+                        error "SSH Key retrieval failed."
                     }
                 }
             }
         }
-        
-        stage('Install Specified Applications') {
+
+        stage('Install Software') {
             steps {
+                echo '>>>>>STAGE: Install Software'
                 script {
-                    try {
-                        def applicationsToInstall = params.APPLICATIONS.split(',')
-                        def targetIPs = extractPublicIPs(env.VM_ACCESS_INFO)
-                        echo "Installing applications: ${applicationsToInstall} on IPs: ${targetIPs}"
-                        parallel targetIPs.collectEntries { ip ->
-                            ["Install on ${ip}" : {
-                                applicationsToInstall.each { app ->
-                                    app = app.trim().toLowerCase()
-                                    if (app) {
-                                        echo "Installing ${app} on ${ip}"
-                                        executeShellCommand("""
-                                            ssh ${SSH_OPTIONS} -i ${params.MCIS_NAME}_ssh_key.pem cb-user@${ip} '
-                                            sudo apt-get update
-                                            sudo apt-get install -y ${app}
-                                            sudo systemctl start ${app}
-                                            sudo systemctl enable ${app}
-                                            '
-                                        """)
-                                    }
-                                }
-                            }]
+                    def publicIPs = getPublicInfoList(callData)
+                    echo publicIPs.toString()
+                    publicIPs[0].each{ ip-> echo "ip view : " + ip }
+                    def apps = APPLICATIONS.split(',')
+                    publicIPs.each { ip ->
+                        ip.each { inip ->
+                            def cleanIp = inip.toString().replaceAll(/[\[\]]/, '')
+                            println ">>test SSH to MCI VMs : ${cleanIp}"
+                            sh """
+ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${env.PEM_FILE_PATH} cb-user@${cleanIp} '
+#!/bin/bash
+
+echo ==========================================================================
+
+# Determine OS name
+os=\$(uname)
+
+# Check release
+if [ "\$os" = "Linux" ]; then
+  echo "This is a Linux machine"
+
+  if [[ -f /etc/redhat-release ]]; then
+    pkg_manager=yum
+  elif [[ -f /etc/debian_version ]]; then
+    pkg_manager=apt
+  fi
+
+  if [ \$pkg_manager = "yum" ]; then
+    echo "Using yum package manager"
+    sudo yum update -y
+    for app in ${apps.join(' ')}; do
+      case \$app in
+        nginx|tomcat|mariadb-server|redis)
+          if ! rpm -q \$app &>/dev/null; then
+            echo "\$app is not installed. Installing..."
+            sudo yum install -y \$app
+          else
+            echo "\$app is already installed. Skipping..."
+          fi
+          sudo systemctl start \$app
+          sudo systemctl enable \$app
+          echo "\$app status:"
+          sudo systemctl status \$app
+          ;;
+        grafana)
+          if ! rpm -q grafana &>/dev/null; then
+            echo "Grafana is not installed. Installing..."
+            sudo yum install -y https://dl.grafana.com/oss/release/grafana-9.5.2-1.x86_64.rpm
+          else
+            echo "Grafana is already installed. Skipping..."
+          fi
+          sudo systemctl start grafana-server
+          sudo systemctl enable grafana-server
+          echo "Grafana status:"
+          sudo systemctl status grafana-server
+          ;;
+        prometheus)
+          if ! command -v prometheus &>/dev/null; then
+            echo "Prometheus is not installed. Installing..."
+            sudo yum install -y https://github.com/prometheus/prometheus/releases/download/v2.37.6/prometheus-2.37.6.linux-amd64.tar.gz
+            sudo tar xvfz prometheus-*.tar.gz -C /usr/local/bin/ --strip-components=1
+          else
+            echo "Prometheus is already installed. Skipping..."
+          fi
+          sudo systemctl start prometheus
+          sudo systemctl enable prometheus
+          echo "Prometheus status:"
+          sudo systemctl status prometheus
+          ;;
+      esac
+    done
+  elif [ \$pkg_manager = "apt" ]; then
+    echo "Using apt package manager"
+    sudo apt-get update && sudo apt-get upgrade -y
+    for app in ${apps.join(' ')}; do
+      case \$app in
+        nginx|tomcat9|redis-server)
+          if ! dpkg -s \$app &>/dev/null; then
+            echo "\$app is not installed. Installing..."
+            sudo apt-get install -y \$app
+          else
+            echo "\$app is already installed. Skipping..."
+          fi
+          sudo systemctl start \$app
+          sudo systemctl enable \$app
+          echo "\$app status:"
+          sudo systemctl status \$app
+          ;;
+        mariadb-server)
+            if ! dpkg -s mysql-server &>/dev/null; then
+                echo "MariaDB is not installed. Installing..."
+                sudo apt-get install -y mariadb-server
+            else
+                echo "MariaDB is already installed. Skipping..."
+            fi
+            sudo systemctl start mariadb
+            sudo systemctl enable mariadb
+            echo "MariaDB status:"
+            sudo systemctl status mariadb
+            ;;
+        grafana)
+          if ! dpkg -s grafana &>/dev/null; then
+            echo "Grafana is not installed. Installing..."
+            sudo apt-get install -y apt-transport-https software-properties-common
+            wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+            echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee -a /etc/apt/sources.list.d/grafana.list
+            sudo apt-get update
+            sudo apt-get install -y grafana
+          else
+            echo "Grafana is already installed. Skipping..."
+          fi
+          sudo systemctl start grafana-server
+          sudo systemctl enable grafana-server
+          echo "Grafana status:"
+          sudo systemctl status grafana-server
+          ;;
+        prometheus)
+          if ! dpkg -s prometheus &>/dev/null; then
+            echo "Prometheus is not installed. Installing..."
+            sudo apt-get install -y prometheus
+          else
+            echo "Prometheus is already installed. Skipping..."
+          fi
+          sudo systemctl start prometheus
+          sudo systemctl enable prometheus
+          echo "Prometheus status:"
+          sudo systemctl status prometheus
+          ;;
+      esac
+    done
+  fi
+
+  echo "Software installation and status check completed!"
+
+elif [ "\$os" = "Darwin" ]; then
+  echo "This is a Mac Machine. Not supported."
+else
+  echo "Unsupported OS"
+  exit 1
+fi
+
+echo ==========================================================================
+'
+                            """
                         }
-                    } catch (Exception e) {
-                        error "Error in Install Specified Applications stage: ${e.message}"
-                    }
-                }
-            }
-        }
-        
-        stage('Verify Application Installations') {
-            steps {
-                script {
-                    try {
-                        def applicationsToVerify = params.APPLICATIONS.split(',')
-                        def targetIPs = extractPublicIPs(env.VM_ACCESS_INFO)
-                        echo "Verifying applications: ${applicationsToVerify} on IPs: ${targetIPs}"
-                        parallel targetIPs.collectEntries { ip ->
-                            ["Verify on ${ip}" : {
-                                applicationsToVerify.each { app ->
-                                    app = app.trim().toLowerCase()
-                                    if (app) {
-                                        def status = executeShellCommand("""
-                                            ssh ${SSH_OPTIONS} -i ${params.MCIS_NAME}_ssh_key.pem cb-user@${ip} '
-                                            systemctl is-active --quiet ${app} && echo "Running" || echo "Not running"
-                                            '
-                                        """)
-                                        if (status != "Running") {
-                                            error "${app} is not running on ${ip}"
-                                        }
-                                    }
-                                }
-                            }]
-                        }
-                    } catch (Exception e) {
-                        error "Error in Verify Application Installations stage: ${e.message}"
                     }
                 }
             }
         }
     }
-}
-
-def extractPublicIPs(vmAccessInfo) {
-    def jsonSlurper = new groovy.json.JsonSlurper()
-    def accessInfo = jsonSlurper.parseText(vmAccessInfo)
-    return accessInfo.vm.collect { it.publicIP }
 }
 ]]>
     </script>

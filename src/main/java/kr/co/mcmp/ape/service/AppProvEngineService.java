@@ -13,8 +13,6 @@ public interface AppProvEngineService {
 
     List<ApeLogResDto> getApeLog(String jobName);
 
-    String getJobStatus(String jobId);
-
     String triggerJenkinsJob(JenkinsJobDto dto);
 
 }
