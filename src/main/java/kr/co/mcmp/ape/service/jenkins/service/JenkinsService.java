@@ -32,8 +32,10 @@ import com.cdancy.jenkins.rest.domain.crumb.Crumb;
 import com.cdancy.jenkins.rest.domain.job.BuildInfo;
 import com.cdancy.jenkins.rest.domain.job.JobInfo;
 
+import kr.co.mcmp.ape.entity.JobConfig;
 import kr.co.mcmp.ape.service.jenkins.api.JenkinsRestApi;
 import kr.co.mcmp.ape.service.jenkins.model.JenkinsCredential;
+import kr.co.mcmp.ape.service.jenkins.service.JenkinsService.JobCreationResult;
 import kr.co.mcmp.exception.McmpException;
 import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.response.ResponseCode;
@@ -54,10 +56,10 @@ public class JenkinsService {
 	private static final String PIPELINE_XML_PATH = "/flow-definition/definition/script";
 
     private static final List<String> PIPELINE_XML_FILE_PATHS = Arrays.asList(
-    "jenkins/vm_application_install_pipeline.xml",
-    "jenkins/vm_application_uninstall_pipeline.xml",
-    "jenkins/kubernetes_helm_install_pipeline.xml",
-    "jenkins/kubernetes_helm_uninstall_pipeline.xml"
+    "jenkins/vm_application_install_pipeline.xml"
+    // "jenkins/vm_application_uninstall_pipeline.xml",
+    // "jenkins/kubernetes_helm_install_pipeline.xml",
+    // "jenkins/kubernetes_helm_uninstall_pipeline.xml"
     );
 
     enum JobCreationResult {
@@ -119,7 +121,7 @@ public class JenkinsService {
     }
      */
 
-    public List<String> getXmlContents() {
+    public List<JobConfig> getJobConfigs() {
         return PIPELINE_XML_FILE_PATHS.stream()
             .map(this::readXmlFile)
             .filter(Objects::nonNull)
@@ -127,13 +129,17 @@ public class JenkinsService {
     }
 
     
-    private String readXmlFile(String filePath) {
+    private JobConfig readXmlFile(String filePath) {
         try (InputStream inputStream = getClass().getResourceAsStream("/"+filePath)) {
             if (inputStream == null) {
                 log.error("File not found: {}", filePath);
                 return null;
             }
-            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            Document doc = XMLUtil.getDocument(inputStream);
+            Element flowDefinitionElement = (Element) doc.getElementsByTagName("flow-definition").item(0);
+            String jobName = flowDefinitionElement.getAttribute("name");
+            String xmlContent = XMLUtil.XmlToString(doc);
+            return new JobConfig(jobName, xmlContent);
         } catch (IOException e) {
             log.error("Error reading Jenkins pipeline XML file: {}", e.getMessage(), e);
             return null;
@@ -141,13 +147,12 @@ public class JenkinsService {
     }
 
     public void createJenkinsDefaultJobs(OssDto jenkins) {
-        List<String> xmlContents = getXmlContents();
-        List<String> jobNames = Arrays.asList("vm_application_install", "vm_application_uninstall", "helm_application_install", "helm_application_uninstall");
-        
-        Map<JobCreationResult, Long> resultCounts = IntStream.range(0, jobNames.size())
-            .mapToObj(i -> {
-                String jobName = jobNames.get(i);
-                String xmlContent = xmlContents.get(i);
+        List<JobConfig> jobConfigs = getJobConfigs();
+
+        Map<JobCreationResult, Long> resultCounts = jobConfigs.stream()
+            .map(jobConfig -> {
+                String jobName = jobConfig.getJobName();
+                String xmlContent = jobConfig.getXmlContent();
                 if(!isExistJobName(jenkins, jobName)){
                     RequestStatus status = createSingleJenkinsJob(jenkins, jobName, xmlContent);
                     if (status.value()) {
