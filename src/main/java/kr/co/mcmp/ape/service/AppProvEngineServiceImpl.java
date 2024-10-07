@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +31,20 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
     @Autowired
     private OssService ossService;
 
+    @Value("${cbtumblebug.url}")
+    private String tumblebugUrl;
+
+    @Value("${cbtumblebug.port}")
+    private String tumblebugPort;
+
+    @Value("${cbtumblebug.id}")
+    private String tumblebugId;
+
+    @Value("${cbtumblebug.pass}")
+    private String tumblebugPass;
+
+    
+    
     private static final int MAX_LOGS = 100; // 최대 로그 갯수 제한
 
     @Override
@@ -87,16 +102,16 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
         }
     }
 
-    @Override
-    public String getJobStatus(String jobId) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getJobStatus'");
-    }
 
     @Override
     public String triggerJenkinsJob(JenkinsJobDto jobDto) {
         OssDto jenkinsOss = getJenkinsOss();
         Map<String, List<String>> jenkinsJobParams = jobDto.convertToJenkinsParams();
+        String tumblebugUri = makeTumblebugUri(tumblebugUrl, tumblebugPort);
+        log.info("tumblebugUri : {}", tumblebugUri);
+        jenkinsJobParams.put("CB_TUMBLEBUG_URI", List.of(tumblebugUri));
+        jenkinsJobParams.put("TUMBLEBUG_USER", List.of(tumblebugId));
+        jenkinsJobParams.put("TUMBLEBUG_PASSWORD", List.of(tumblebugPass));
         int buildNumber = jenkinsService.buildJenkinsJob(
             jenkinsOss,
             jobDto.getJobName(),
@@ -107,5 +122,8 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
         return String.valueOf(buildNumber);
     }
 
-
+    private String makeTumblebugUri(String url, String port){
+        StringBuilder builder = new StringBuilder();
+        return builder.append("http://").append(url).append(":").append(port).append("/tumblebug").toString();
+    }
 }

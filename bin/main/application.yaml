@@ -70,3 +70,10 @@ cbtumblebug:
   port: 1323
   id: default
   pass: default
+
+file:
+  upload:
+    path:
+      windows: C:/mcmp/uploads/
+      linux: /home/mcmp/uploads/
+    allowed-extensions: jpg,jpeg,png,gif

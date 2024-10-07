@@ -46,23 +46,23 @@ public class AppProvEngineController {
         return triggerJenkinsJob(jobDto);
     }
 
-    @PostMapping("/vm/uninstall")
-    @Operation(summary = "Uninstall VM Application", description = "VM에서 애플리케이션을 제거하기 위해 Jenkins 작업을 트리거합니다.")
-    public ResponseWrapper<String> triggerVmUninstall(@RequestBody JenkinsJobDto.VmApplicationUninstall jobDto) {
-        return triggerJenkinsJob(jobDto);
-    }
+    // @PostMapping("/vm/uninstall")
+    // @Operation(summary = "Uninstall VM Application", description = "VM에서 애플리케이션을 제거하기 위해 Jenkins 작업을 트리거합니다.")
+    // public ResponseWrapper<String> triggerVmUninstall(@RequestBody JenkinsJobDto.VmApplicationUninstall jobDto) {
+    //     return triggerJenkinsJob(jobDto);
+    // }
 
-    @PostMapping("/helm/install")
-    @Operation(summary = "Install Kubernetes Helm Chart", description = "Kubernetes에 Helm 차트를 설치하기 위해 Jenkins 작업을 트리거합니다.")
-    public ResponseWrapper<String> triggerHelmInstall(@RequestBody JenkinsJobDto.KubernetesHelmInstall jobDto) {
-        return triggerJenkinsJob(jobDto);
-    }
+    // @PostMapping("/helm/install")
+    // @Operation(summary = "Install Kubernetes Helm Chart", description = "Kubernetes에 Helm 차트를 설치하기 위해 Jenkins 작업을 트리거합니다.")
+    // public ResponseWrapper<String> triggerHelmInstall(@RequestBody JenkinsJobDto.KubernetesHelmInstall jobDto) {
+    //     return triggerJenkinsJob(jobDto);
+    // }
 
-    @PostMapping("/helm/uninstall")
-    @Operation(summary = "Uninstall Kubernetes Helm Release", description = "Kubernetes에서 Helm 릴리스를 제거하기 위해 Jenkins 작업을 트리거합니다.")
-    public ResponseWrapper<String> triggerHelmUninstall(@RequestBody JenkinsJobDto.KubernetesHelmUninstall jobDto) {
-        return triggerJenkinsJob(jobDto);
-    }
+    // @PostMapping("/helm/uninstall")
+    // @Operation(summary = "Uninstall Kubernetes Helm Release", description = "Kubernetes에서 Helm 릴리스를 제거하기 위해 Jenkins 작업을 트리거합니다.")
+    // public ResponseWrapper<String> triggerHelmUninstall(@RequestBody JenkinsJobDto.KubernetesHelmUninstall jobDto) {
+    //     return triggerJenkinsJob(jobDto);
+    // }
 
     private ResponseWrapper<String> triggerJenkinsJob(JenkinsJobDto jobDto) {
         try {
@@ -73,15 +73,15 @@ public class AppProvEngineController {
         }
     }
 
-    @GetMapping("/job/status/{jobId}")
-    public ResponseWrapper<String> getJobStatus(@PathVariable String jobId) {
-        try {
-            String status = appProvEngineService.getJobStatus(jobId);
-            return new ResponseWrapper<>(status);
-        } catch (Exception e) {
-            return new ResponseWrapper<>("Failed to get job status: " + e.getMessage());
-        }
-    }
+    // @GetMapping("/job/status/{jobId}")
+    // public ResponseWrapper<String> getJobStatus(@PathVariable String jobId) {
+    //     try {
+    //         String status = appProvEngineService.getJobStatus(jobId);
+    //         return new ResponseWrapper<>(status);
+    //     } catch (Exception e) {
+    //         return new ResponseWrapper<>("Failed to get job status: " + e.getMessage());
+    //     }
+    // }
 
     @GetMapping("/ns")
     @Operation(summary = "모든 네임스페이스 조회", description = "시스템에 등록된 모든 네임스페이스를 조회합니다.")
