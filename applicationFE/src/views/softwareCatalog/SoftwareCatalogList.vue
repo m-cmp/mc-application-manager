@@ -59,10 +59,26 @@
                                                     {{ catalog.catalogDescription }}
                                                     <div>
                                                         <br />
-                                                        <strong>연동 workflow</strong>
+                                                        <div class="btn-list" style="width:70%;" v-for="wf in catalog.refData.workflow" :key="wf.catalogRefIdx">
+                                                            <a class="btn" :class="{'btn-outline-primary': containsText('install', wf.referenceValue), 'btn-outline-danger' : containsText('uninstall', wf.referenceValue)}" style="margin-bottom:10px;">
+                                                                {{ btnName(wf.referenceValue) }}
+                                                            </a><!-- btn-loading -->
+                                                            <button class="btn btn-primary" style="text-align: center !important; margin-bottom:10px;" @click="onClickLog(wf.referenceValue)" id='log-btn' data-bs-toggle='modal' data-bs-target='#softwareCatalogLog'>
+                                                                &nbsp;LOG&nbsp;
+                                                            </button>
+                                                            <!-- <a href="#" class="btn btn-outline-danger">Application uninstallation for VM</a>
+                                                            <button class="btn btn-primary" style="text-align: center !important;">&nbsp;LOG&nbsp;</button>
+                                                            <a href="#" class="btn btn-outline-primary">Application installation for Kubernetes using Helm</a>
+                                                            <button class="btn btn-primary" style="text-align: center !important;">&nbsp;LOG&nbsp;</button>
+                                                            <a href="#" class="btn btn-outline-danger">Application uninstallation for Kubernetes using Helm</a>
+                                                            <button class="btn btn-primary" style="text-align: center !important;">&nbsp;LOG&nbsp;</button> -->
+                                                        </div>
+                                                        <br />
+                                                        
+                                                        <!-- <strong>연동 workflow</strong>
                                                         <ul :id="`${idx}-workflow-ul`">
-                                                            <template v-if="hasProperty(catalog.refData, 'WORKFLOW')">
-                                                                <template v-for="wf in catalog.refData.WORKFLOW" >
+                                                            <template v-if="hasProperty(catalog.refData, 'workflow')">
+                                                                <template v-for="wf in catalog.refData.workflow" >
                                                                     <li>
                                                                         <a href="" class="btn">{{wf.referenceValue}}</a>
                                                                     </li>
@@ -73,7 +89,8 @@
                                                                     <a href="">등록된 워크플로우가 없습니다.</a>
                                                                 </li>
                                                             </template>
-                                                        </ul>
+                                                        </ul> -->
+                                                        
                                                         <br />
                                                         <strong>관련 정보</strong>
                                                         <ul :id="`${idx}-entity-ul`">
@@ -85,6 +102,7 @@
                                                                 </template>
                                                             </template>
                                                         </ul>
+                                                        
                                                         <strong>TAGS</strong>
                                                         <ul :id="`${idx}-tag-ul`">
                                                             <template v-if="hasProperty(catalog.refData, 'TAG')">
@@ -128,7 +146,7 @@
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M19 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg>
                                                 </a>
                                                 <div class="dropdown-menu dropdown-menu-end">
-                                                    <a class="dropdown-item" href="#">
+                                                    <a class="dropdown-item" @click="onClickDockerHubSearch">
                                                     해당 페이지로 이동
                                                     </a>
                                                     <a class="dropdown-item" href="#">
@@ -169,7 +187,7 @@
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M19 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg>
                                                 </a>
                                                 <div class="dropdown-menu dropdown-menu-end">
-                                                    <a class="dropdown-item" href="#">
+                                                    <a class="dropdown-item" @click="onClickArtifactHub">
                                                     해당 페이지로 이동
                                                     </a>
                                                     <a class="dropdown-item" href="#">
@@ -191,6 +209,7 @@
             </div>
         </div>
         <SoftwareCatalogForm :mode="formMode" :catalog-idx="selectCatalogIdx" @get-list="_getSoftwareCatalogList"/>
+        <SoftwareCatalogLog :job-name="selectJobName" />
     </div>
 </template>
 <script setup lang="ts">
@@ -202,6 +221,7 @@
     import axios from 'axios'
     import _ from 'lodash';
     import SoftwareCatalogForm from './components/softwareCatalogForm.vue';
+    import SoftwareCatalogLog from './components/softwareCatalogLog.vue';
     import '@/resources/css/tabler.min.css'
     import '@/resources/css/demo.min.css'
     import '@/resources/js/demo-theme.min.js'
@@ -217,6 +237,7 @@
     const dockerHubSearchList = ref([] as any)
     const artifactHubSearch = ref([] as any)
     const selectCatalogIdx = ref(0 as number)
+    const selectJobName = ref("" as string)
     const formMode = ref('new')
 
     /**
@@ -245,6 +266,7 @@
                 item.isShow = false;
             })
             catalogList.value = response.data;
+            console.log("catalogList.value : ", catalogList.value)
         } catch(error) {
             console.log(error)
             toast.error('데이터를 가져올 수 없습니다.')
@@ -330,6 +352,28 @@
         formMode.value = "new"
         selectCatalogIdx.value = 0;
     }
+
+    const onClickDockerHubSearch = () => {
+        let dockerHubUrl = `https://hub.docker.com/search?q=${searchKeyword.value}`;
+        window.open(dockerHubUrl, '_blank');
+    }
+
+    const onClickArtifactHub = () => {
+        let artifactHubUrl = `https://artifacthub.io/packages/search?ts_query_web=${searchKeyword.value}&sort=relevance&page=1`;
+        window.open(artifactHubUrl, '_blank');
+    }
+
+    const containsText = (text: any, refVal: string | any[]) => {
+        return refVal.includes(text);
+    }
+
+    const btnName = (text: string) => {
+        return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
+
+    const onClickLog = (name: string) => {
+        selectJobName.value = name;
+    }
  
   
 </script>
@@ -340,5 +384,12 @@
     }
     body {
     font-feature-settings: "cv03", "cv04", "cv11";
+    }
+
+    .btn-grid-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-column-gap: 10px;
+        grid-row-gap: 10px;
     }
 </style>
