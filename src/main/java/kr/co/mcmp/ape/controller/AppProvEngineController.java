@@ -22,6 +22,7 @@ import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
 import kr.co.mcmp.ape.dto.reqDto.JenkinsJobDto;
 import kr.co.mcmp.ape.dto.resDto.ApeLogResDto;
 import kr.co.mcmp.ape.service.AppProvEngineService;
+import kr.co.mcmp.response.ResponseCode;
 import kr.co.mcmp.response.ResponseWrapper;
 import lombok.RequiredArgsConstructor;
 
@@ -53,24 +54,24 @@ public class AppProvEngineController {
         return triggerJenkinsJob(jobDto);
     }
 
-    // @PostMapping("/helm/install")
-    // @Operation(summary = "Install Kubernetes Helm Chart", description = "Kubernetes에 Helm 차트를 설치하기 위해 Jenkins 작업을 트리거합니다.")
-    // public ResponseWrapper<String> triggerHelmInstall(@RequestBody JenkinsJobDto.KubernetesHelmInstall jobDto) {
-    //     return triggerJenkinsJob(jobDto);
-    // }
+    @PostMapping("/helm/install")
+    @Operation(summary = "Install Kubernetes Helm Chart", description = "Kubernetes에 Helm 차트를 설치하기 위해 Jenkins 작업을 트리거합니다.")
+    public ResponseWrapper<String> triggerHelmInstall(@RequestBody JenkinsJobDto.HelmChartInstall jobDto) {
+        return triggerJenkinsJob(jobDto);
+    }
 
-    // @PostMapping("/helm/uninstall")
-    // @Operation(summary = "Uninstall Kubernetes Helm Release", description = "Kubernetes에서 Helm 릴리스를 제거하기 위해 Jenkins 작업을 트리거합니다.")
-    // public ResponseWrapper<String> triggerHelmUninstall(@RequestBody JenkinsJobDto.KubernetesHelmUninstall jobDto) {
-    //     return triggerJenkinsJob(jobDto);
-    // }
+    @PostMapping("/helm/uninstall")
+    @Operation(summary = "Uninstall Kubernetes Helm Release", description = "Kubernetes에서 Helm 릴리스를 제거하기 위해 Jenkins 작업을 트리거합니다.")
+    public ResponseWrapper<String> triggerHelmUninstall(@RequestBody JenkinsJobDto.HelmChartUninstall jobDto) {
+        return triggerJenkinsJob(jobDto);
+    }
 
     private ResponseWrapper<String> triggerJenkinsJob(JenkinsJobDto jobDto) {
         try {
             String jobId = appProvEngineService.triggerJenkinsJob(jobDto);
-            return new ResponseWrapper<>("Jenkins job triggered. Job ID: " + jobId);
+            return new ResponseWrapper<>(ResponseCode.OK, "Jenkins job triggered. Job ID: " + jobId);
         } catch (Exception e) {
-            return new ResponseWrapper("Failed to trigger job: " + e.getMessage());
+            return new ResponseWrapper(ResponseCode.UNKNOWN_ERROR, "Failed to trigger job: " + e.getMessage());
         }
     }
 

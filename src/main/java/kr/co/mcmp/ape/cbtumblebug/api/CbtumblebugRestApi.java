@@ -140,6 +140,22 @@ public class CbtumblebugRestApi {
         });
     }
 
+    public MciDto getMciByMciId(String nsId, String mciId) {
+        log.info("Fetching MCI by mciId: {}", mciId);
+        return executeWithConnectionCheck("getMciByMciId", () -> {
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/mci/%s", nsId, mciId));
+            HttpHeaders headers = createCommonHeaders();
+            ResponseEntity<MciDto> response = restClient.request(
+                apiUrl, 
+                headers, 
+                null, 
+                HttpMethod.GET, 
+                new ParameterizedTypeReference<MciDto>() {}
+            );
+            return response.getBody();
+        });
+    }
+
 
 
 }

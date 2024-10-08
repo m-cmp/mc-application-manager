@@ -41,4 +41,9 @@ public class CbtumblebugServiceImpl implements CbtumblebugService{
         return api.getK8sClusterByName(namespace, clusterName);
     }
 
+    @Override
+    public MciDto getMciByMciId(String nsId, String mciId) {
+        return api.getMciByMciId(nsId, mciId);
+    }
+
 }

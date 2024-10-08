@@ -19,6 +19,12 @@
           <trim>false</trim>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
+          <name>VM_ID</name>
+          <description>VM ID for software uninstallation</description>
+          <defaultValue></defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
           <name>CB_TUMBLEBUG_URI</name>
           <description>Tumblebug URI</description>
           <defaultValue>http://13.125.199.35:1323/tumblebug</defaultValue>
@@ -56,10 +62,13 @@ def getSSHKey(jsonInput) {
     } ?: ''
 }
 
-def getPublicInfoList(jsonInput) {
+def getVMInfoList(jsonInput) {
     def json = new JsonSlurper().parseText(jsonInput)
-    return json.findAll { it.key == 'MciSubGroupAccessInfo' }
-        .collectMany { it.value.MciVmAccessInfo*.publicIP }
+    return json.MciSubGroupAccessInfo.collectMany { subGroup ->
+        subGroup.MciVmAccessInfo.collect { vm ->
+            [id: vm.vmId, name: vm.vmId, ip: vm.publicIP]
+        }
+    }
 }
 
 pipeline {
@@ -74,7 +83,7 @@ pipeline {
                     if (response.contains('Http_Status_code:200')) {
                         echo "GET API call successful."
                         callData = response.replace('- Http_Status_code:200', '')
-                        echo(callData)
+                        echo "API Response: ${callData}"
                     } else {
                         error "GET API call failed with status code: ${response}"
                     }
@@ -100,16 +109,16 @@ pipeline {
             steps {
                 echo '>>>>>STAGE: Uninstall Software'
                 script {
-                    def publicIPs = getPublicInfoList(callData)
-                    echo publicIPs.toString()
-                    publicIPs[0].each{ ip-> echo "ip view : " + ip }
+                    def vmInfoList = getVMInfoList(callData)
+                    echo "VM Info: ${vmInfoList}"
+                    echo "Target VM ID: ${VM_ID}"
                     def apps = APPLICATIONS.split(',')
-                    publicIPs.each { ip ->
-                        ip.each { inip ->
-                            def cleanIp = inip.toString().replaceAll(/[\[\]]/, '')
-                            println ">>test SSH to MCI VMs : ${cleanIp}"
-                            sh """
-ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${env.PEM_FILE_PATH} cb-user@${cleanIp} '
+                    
+                    def targetVM = vmInfoList.find { it.id == VM_ID }
+                    if (targetVM) {
+                        echo "Uninstalling software on VM: ${targetVM.name} (ID: ${targetVM.id}, IP: ${targetVM.ip})"
+                        sh """
+ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${env.PEM_FILE_PATH} cb-user@${targetVM.ip} '
 #!/bin/bash
 
 echo ==========================================================================
@@ -163,8 +172,9 @@ fi
 
 echo ==========================================================================
 '
-                            """
-                        }
+                        """
+                    } else {
+                        echo "VM with ID ${VM_ID} not found in the list of available VMs."
                     }
                 }
             }
