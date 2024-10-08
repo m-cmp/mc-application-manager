@@ -98,7 +98,6 @@
 import type { Repository } from '../../type/type';
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
-import { createCatalog } from '@/api/softwareCatalog';
 import { onMounted, watch, computed } from 'vue';
 import axios from 'axios'
 
