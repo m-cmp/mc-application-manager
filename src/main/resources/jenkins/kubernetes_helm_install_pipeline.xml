@@ -1,6 +1,5 @@
 <?xml version='1.1' encoding='UTF-8'?>
-<flow-definition plugin="workflow-job@1254.v3f64639b_11dd" name="vm_application_install">
-    
+<flow-definition plugin="workflow-job@1254.v3f64639b_11dd" name="helm_application_install">
   <actions/>
   <description></description>
   <keepDependencies>false</keepDependencies>
@@ -8,45 +7,38 @@
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
         <hudson.model.StringParameterDefinition>
-          <name>CB_TUMBLEBUG_SWAGGER_URI</name>
-          <description>CB-Tumblebug Swagger API URI</description>
-          <defaultValue>http://localhost:1323/tumblebug</defaultValue>
+          <name>CB_TUMBLEBUG_URI</name>
+          <description>Tumblebug API URL</description>
+          <defaultValue>http://13.125.199.35:1323/tumblebug</defaultValue>
           <trim>true</trim>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>NAMESPACE</name>
-          <description>Namespace</description>
+          <description>Namespace ID</description>
           <defaultValue>ns01</defaultValue>
           <trim>true</trim>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
-          <name>MCIS_NAME</name>
-          <description>MCIS Name</description>
-          <defaultValue>mcis-01</defaultValue>
+          <name>CLUSTERNAME</name>
+          <description>K8s Cluster Name</description>
+          <defaultValue>cluster01</defaultValue>
           <trim>true</trim>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
-          <name>CLOUD_CONNECTION_NAME</name>
-          <description>Cloud Connection Name</description>
-          <defaultValue>aws-conn-01</defaultValue>
+          <name>TUMBLEBUG_USER</name>
+          <description>Tumblebug User ID</description>
+          <defaultValue>default</defaultValue>
           <trim>true</trim>
         </hudson.model.StringParameterDefinition>
+        <hudson.model.PasswordParameterDefinition>
+          <name>TUMBLEBUG_PASSWORD</name>
+          <description>Tumblebug User Password</description>
+          <defaultValue>default</defaultValue>
+        </hudson.model.PasswordParameterDefinition>
         <hudson.model.StringParameterDefinition>
-          <name>HELM_RELEASE_NAME</name>
-          <description>Helm Release Name</description>
-          <defaultValue>my-release</defaultValue>
-          <trim>true</trim>
-        </hudson.model.StringParameterDefinition>
-        <hudson.model.StringParameterDefinition>
-          <name>HELM_CHART_NAME</name>
-          <description>Helm Chart Name</description>
-          <defaultValue>bitnami/nginx</defaultValue>
-          <trim>true</trim>
-        </hudson.model.StringParameterDefinition>
-        <hudson.model.StringParameterDefinition>
-          <name>HELM_CHART_VERSION</name>
-          <description>Helm Chart Version</description>
-          <defaultValue>latest</defaultValue>
+          <name>HELM_CHARTS</name>
+          <description>Helm Charts to Install (comma-separated)</description>
+          <defaultValue>nginx,grafana</defaultValue>
           <trim>true</trim>
         </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
@@ -55,107 +47,126 @@
   <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3659.v582dc37621d8">
     <script>
 <![CDATA[
-// Function to retrieve Kubernetes configuration
-def getK8sConfig(namespace) {
-    def apiResponse = sh(script: """
-        curl -s -X GET '${params.CB_TUMBLEBUG_SWAGGER_URI}/ns/${namespace}/mcis/${params.MCIS_NAME}/access?option=config' \
-        -H 'Content-Type: application/json' \
-        -H 'Accept: application/json' \
-        -d '{
-            "connectionName": "${params.CLOUD_CONNECTION_NAME}"
-        }'
-    """, returnStdout: true).trim()
-    
-    return apiResponse
-}
+import groovy.json.JsonSlurper
 
-// Function to execute shell commands
-def executeShellCommand(command) {
-    def result
-    try {
-        result = sh(script: command, returnStdout: true).trim()
-    } catch (Exception e) {
-        error "Failed to execute command: ${command}\nError: ${e.message}"
-    }
-    return result
-}
+def kubeconfig = ""
 
 pipeline {
     agent any
     
     stages {
-        // Stage to prepare Kubernetes configuration
-        stage('Prepare K8s Config') {
+        stage('Check Tumblebug Connection') {
             steps {
                 script {
                     try {
-                        def k8sConfig = getK8sConfig(params.NAMESPACE)
-                        writeFile file: 'kubeconfig', text: k8sConfig
-                        env.KUBECONFIG = "${WORKSPACE}/kubeconfig"
-                        echo "Kubernetes configuration file created successfully."
+                        def response = sh(script: """
+                            curl -s -X GET '${params.CB_TUMBLEBUG_URI}/readyz' \
+                            --user '${params.TUMBLEBUG_USER}:${params.TUMBLEBUG_PASSWORD}' \
+                            -H 'accept: application/json'
+                        """, returnStdout: true).trim()
+                        def json = new JsonSlurper().parseText(response)
+                        if (json.message != "CB-Tumblebug is ready") {
+                            error "Tumblebug is not ready: ${json.message}"
+                        }
+                        echo "Tumblebug connection successful"
                     } catch (Exception e) {
-                        error "Failed to prepare Kubernetes configuration: ${e.message}"
+                        error "Failed to connect to Tumblebug: ${e.message}"
                     }
                 }
             }
         }
-        
-        // Stage to install Helm chart
-        stage('Install Helm Chart') {
+
+        stage('Get K8s Cluster Info') {
             steps {
                 script {
                     try {
-                        // Update Helm repository
-                        executeShellCommand("helm repo update")
-                        
-                        // Install or upgrade Helm chart
-                        def installCommand = """
-                            helm upgrade --install ${params.HELM_RELEASE_NAME} ${params.HELM_CHART_NAME} \
-                            --namespace ${params.NAMESPACE} \
-                            --version ${params.HELM_CHART_VERSION} \
-                            --create-namespace \
-                            --kubeconfig=${env.KUBECONFIG}
-                        """
-                        def result = executeShellCommand(installCommand)
-                        echo "Helm chart installation result: ${result}"
+                        def response = sh(script: """
+                            curl -s -X GET '${params.CB_TUMBLEBUG_URI}/ns/${params.NAMESPACE}/k8scluster/${params.CLUSTERNAME}' \
+                            --user '${params.TUMBLEBUG_USER}:${params.TUMBLEBUG_PASSWORD}' \
+                            -H 'accept: application/json'
+                        """, returnStdout: true).trim()
+                        def json = new JsonSlurper().parseText(response)
+                        kubeconfig = json.accessInfo.kubeconfig
+                        writeFile file: 'kubeconfig', text: kubeconfig
+                        sh "chmod 600 kubeconfig"
                     } catch (Exception e) {
-                        error "Failed to install Helm chart: ${e.message}"
+                        error "Failed to get K8s cluster info: ${e.message}"
                     }
                 }
             }
         }
-        
-        // Stage to verify installation
-        stage('Verify Installation') {
+
+        stage('Install Helm Charts') {
             steps {
                 script {
-                    try {
-                        // Check Pod status
-                        def podStatus = executeShellCommand("kubectl get pods -n ${params.NAMESPACE} --kubeconfig=${env.KUBECONFIG}")
-                        echo "Pod status:\n${podStatus}"
-                        
-                        // Check Service status
-                        def serviceStatus = executeShellCommand("kubectl get services -n ${params.NAMESPACE} --kubeconfig=${env.KUBECONFIG}")
-                        echo "Service status:\n${serviceStatus}"
-                    } catch (Exception e) {
-                        error "Failed to verify installation: ${e.message}"
+                    def helmCommands = [
+                        'nginx': "helm install --generate-name oci://registry-1.docker.io/bitnamicharts/nginx",
+                        'grafana': "helm repo add grafana https://grafana.github.io/helm-charts && helm repo update && helm install --generate-name grafana/grafana",
+                        'prometheus': "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts && helm repo update && helm install --generate-name prometheus-community/prometheus",
+                        'mariadb': "helm install --generate-name oci://registry-1.docker.io/bitnamicharts/mariadb",
+                        'redis': "helm install --generate-name oci://registry-1.docker.io/bitnamicharts/redis",
+                        'tomcat': "helm install --generate-name oci://registry-1.docker.io/bitnamicharts/tomcat"
+                    ]
+                    
+                    def charts = params.HELM_CHARTS.split(',')
+                    
+                    charts.each { chart ->
+                        chart = chart.trim()
+                        if (helmCommands.containsKey(chart)) {
+                            echo "Installing ${chart}..."
+                            sh """
+                                docker run --rm -v ${WORKSPACE}/kubeconfig:/root/.kube/config alpine/helm:3.9.0 \
+                                ${helmCommands[chart]}
+                            """
+                        } else {
+                            echo "Warning: ${chart} is not a recognized chart. Skipping."
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Verify Installations') {
+            steps {
+                script {
+                    sh """
+                        docker run --rm -v ${WORKSPACE}/kubeconfig:/root/.kube/config bitnami/kubectl:latest \
+                        get pods,services --all-namespaces
+                    """
+                }
+            }
+        }
+
+        stage('Check Services Status') {
+            steps {
+                script {
+                    def charts = params.HELM_CHARTS.split(',')
+                    charts.each { chart ->
+                        chart = chart.trim()
+                        def serviceCheck = sh(script: """
+                            docker run --rm -v ${WORKSPACE}/kubeconfig:/root/.kube/config bitnami/kubectl:latest \
+                            get services --all-namespaces | grep ${chart}
+                        """, returnStatus: true)
+                        if (serviceCheck == 0) {
+                            echo "${chart} service is running."
+                        } else {
+                            echo "Warning: ${chart} service is not detected. Please check the installation."
+                        }
                     }
                 }
             }
         }
     }
     
-    // Post-pipeline actions
     post {
+        always {
+            sh "rm -f ${WORKSPACE}/kubeconfig"
+        }
         success {
-            echo "Helm chart installation completed successfully!"
+            echo "Helm charts installation and verification completed successfully!"
         }
         failure {
-            echo "Helm chart installation failed. Please check the logs for details."
-        }
-        always {
-            // Clean up Kubernetes configuration file
-            sh "rm -f ${env.KUBECONFIG}"
+            echo "Helm charts installation or verification failed. Please check the logs for details."
         }
     }
 }

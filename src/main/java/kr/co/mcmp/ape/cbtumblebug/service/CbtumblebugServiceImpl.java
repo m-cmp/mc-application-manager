@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
+import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
 import lombok.RequiredArgsConstructor;
@@ -25,14 +26,19 @@ public class CbtumblebugServiceImpl implements CbtumblebugService{
         return api.getMcisByNamespace(namespace);
     }
 
+    // @Override
+    // public String getK8sClusterInfo() {
+    //     return api.getK8sClusterInfo();
+    // }
+
     @Override
-    public String getK8sClusterInfo() {
-        return api.getK8sClusterInfo();
+    public List<K8sClusterDto> getAllK8sClusters(String namespace) {
+        return api.getAllK8sClusters(namespace);
     }
 
     @Override
-    public String getK8sClusterByNamespace(String namespace) {
-        return api.getK8sClusterByNamespace(namespace);
+    public K8sClusterDto getK8sClusterByName(String namespace, String clusterName) {
+        return api.getK8sClusterByName(namespace, clusterName);
     }
 
 }
