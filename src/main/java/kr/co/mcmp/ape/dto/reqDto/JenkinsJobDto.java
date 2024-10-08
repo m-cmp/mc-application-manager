@@ -20,8 +20,7 @@ public abstract class JenkinsJobDto {
 
     @Schema(description = "Namespace", example = "ns01")
     private String namespace;
-    @Schema(description = "MCIS 이름", example = "my-mcis")
-    private String mciName;
+    
 
     @JsonIgnore
     @Schema(hidden = true)
@@ -31,7 +30,6 @@ public abstract class JenkinsJobDto {
     public Map<String, List<String>> convertToJenkinsParams() {
         Map<String, List<String>> params = new HashMap<>();
         params.put("NAMESPACE", List.of(this.namespace));
-        params.put("MCI_ID", List.of(this.mciName));
         params.putAll(convertToSpecificParams());
         return params;
     }
@@ -42,6 +40,12 @@ public abstract class JenkinsJobDto {
     public static class VmApplicationInstall extends JenkinsJobDto {
         @Schema(description = "설치할 애플리케이션 목록", example = "[\"nginx\", \"tomcat9\", \"mariadb-server\", \"mariadb-server\", \"redis-server\", \"grafana\", \"prometheus\"]")
         private List<String> applications;
+
+        @Schema(description = "설치할 VM", example = "vm01")
+        private String vmName;
+
+        @Schema(description = "MCIS 이름", example = "mci01")
+        private String mciName;
 
         @Override
         @JsonIgnore
@@ -54,6 +58,8 @@ public abstract class JenkinsJobDto {
         public Map<String, List<String>> convertToSpecificParams() {
             Map<String, List<String>> params = new HashMap<>();
             params.put("APPLICATIONS", List.of(String.join(",", this.applications)));
+            params.put("MCI_ID", List.of(this.mciName));
+            params.put("VM_ID", List.of(this.vmName));
             return params;
         }
     }
@@ -63,6 +69,12 @@ public abstract class JenkinsJobDto {
     public static class VmApplicationUninstall extends JenkinsJobDto {
         @Schema(description = "설치할 애플리케이션 목록", example = "[\"nginx\", \"tomcat9\", \"mariadb-server\", \"mariadb-server\", \"redis-server\", \"grafana\", \"prometheus\"]")
         private List<String> applications;
+
+        @Schema(description = "MCIS 이름", example = "mci01")
+        private String mciName;
+
+        @Schema(description = "설치할 VM", example = "vm01")
+        private String vmName;
 
         @Override
         @JsonIgnore
@@ -75,6 +87,8 @@ public abstract class JenkinsJobDto {
         public Map<String, List<String>> convertToSpecificParams() {
             Map<String, List<String>> params = new HashMap<>();
             params.put("APPLICATIONS", List.of(String.join(",", this.applications)));
+            params.put("MCI_ID", List.of(this.mciName));
+            params.put("VM_ID", List.of(this.vmName));
             return params;
         }
     }
@@ -105,4 +119,29 @@ public abstract class JenkinsJobDto {
         }
     }
     
+    @Getter
+    @Setter
+    @Schema(description = "Helm 차트 제거 작업")
+    public static class HelmChartUninstall extends JenkinsJobDto {
+        @Schema(description = "K8s 클러스터 이름", example = "cluster01", required = true)
+        private String clusterName;
+
+        @Schema(description = "제거할 Helm 차트 목록", example = "[\"nginx\", \"grafana\"]")
+        private List<String> helmCharts;
+
+        @Override
+        @JsonIgnore
+        @Schema(hidden = true)
+        public String getJobName() {
+            return "helm_application_uninstall";
+        }
+
+        @Override
+        public Map<String, List<String>> convertToSpecificParams() {
+            Map<String, List<String>> params = new HashMap<>();
+            params.put("CLUSTERNAME", List.of(this.clusterName));
+            params.put("HELM_CHARTS", List.of(String.join(",", this.helmCharts)));
+            return params;
+        }
+    }
 }

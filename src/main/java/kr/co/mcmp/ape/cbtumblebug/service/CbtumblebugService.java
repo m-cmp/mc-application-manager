@@ -13,9 +13,9 @@ public interface CbtumblebugService {
 
     List<MciDto> getMcisByNamespace(String namespace);
 
-    // String getK8sClusterInfo();
-
     List<K8sClusterDto> getAllK8sClusters(String namespace);
 
     K8sClusterDto getK8sClusterByName(String namespace, String clusterName);
+
+    MciDto getMciByMciId(String nsId, String mciId);
 }

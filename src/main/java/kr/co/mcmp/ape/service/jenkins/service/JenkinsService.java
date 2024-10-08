@@ -58,8 +58,8 @@ public class JenkinsService {
     private static final List<String> PIPELINE_XML_FILE_PATHS = Arrays.asList(
     "jenkins/vm_application_install_pipeline.xml",
     "jenkins/vm_application_uninstall_pipeline.xml",
-    "jenkins/kubernetes_helm_install_pipeline.xml"
-    // "jenkins/kubernetes_helm_uninstall_pipeline.xml"
+    "jenkins/kubernetes_helm_install_pipeline.xml",
+    "jenkins/kubernetes_helm_uninstall_pipeline.xml"
     );
 
     enum JobCreationResult {
