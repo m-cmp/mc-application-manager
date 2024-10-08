@@ -130,8 +130,6 @@ onMounted(async () => {
 })
 
 const setInit = async () => {
-  console.log("setInit props.catalogIdx : ", props.catalogIdx)
-  console.log("porps.mode : ", props.mode)
   if(props.mode == 'update') {
     await _getSoftwareCatalogDetail()
   } else {
@@ -193,29 +191,48 @@ const handleFileChange = (event: any) => {
 }
 
 const createSoftwareCatalog = async () => {
-    if(props.mode == 'new') {
-        const formData = new FormData();
-        formData.append('iconFile', files.value);
-      
-        catalogDto.value.catalogRefData = refData.value;
-        formData.append('catalogDto', new Blob([JSON.stringify(catalogDto.value)], {
-          type: 'application/json'
-        }));
-      
+    const formData = new FormData();
+    formData.append('iconFile', files.value);
+    
+    catalogDto.value.catalogRefData = refData.value;
+    formData.append('catalogDto', new Blob([JSON.stringify(catalogDto.value)], {
+        type: 'application/json'
+    }));
+    
+    if(props.mode == 'new') {     
         const response = await axios.post(baseUrl + '/catalog/software', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        
+        if(response.data) {
+            if(response.data.data == null) {
+                toast.error('등록 할 수 없습니다.')
+                setInit();
+            } else {
+                toast.success('등록되었습니다.')
+                emit('get-list')
+            }
+        } else {
+          toast.error('등록 할 수 없습니다.')
+          setInit();
+        }
+
+    } else {
+        const response = await axios.put(baseUrl + '/catalog/software', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
         });
       
         if(response.data) {
-          toast.success('등록되었습니다.')
+          toast.success('수정되었습니다.')
           emit('get-list')
         } else {
-          toast.error('등록 할 수 없습니다.')
+          toast.error('수정 할 수 없습니다.')
+          setInit();
         }
-    } else {
-        const response = await axios.put(baseUrl + '/catalog/software')
     }
 
 }
