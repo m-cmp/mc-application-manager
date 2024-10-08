@@ -1,51 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<flow-definition plugin="workflow-job@1316.vd2290d3341a_f" name="vm_application_install">
-  <actions/>
-  <description></description>
-  <keepDependencies>false</keepDependencies>
-  <properties>
-    <hudson.model.ParametersDefinitionProperty>
-      <parameterDefinitions>
-        <hudson.model.StringParameterDefinition>
-          <name>NAMESPACE</name>
-          <description>Namespace</description>
-          <defaultValue>ns01</defaultValue>
-          <trim>false</trim>
-        </hudson.model.StringParameterDefinition>
-        <hudson.model.StringParameterDefinition>
-          <name>MCI_ID</name>
-          <description>MCI ID</description>
-          <defaultValue>mci01</defaultValue>
-          <trim>false</trim>
-        </hudson.model.StringParameterDefinition>
-        <hudson.model.StringParameterDefinition>
-          <name>CB_TUMBLEBUG_URI</name>
-          <description>Tumblebug URI</description>
-          <defaultValue>http://13.125.199.35:1323/tumblebug</defaultValue>
-          <trim>false</trim>
-        </hudson.model.StringParameterDefinition>
-        <hudson.model.StringParameterDefinition>
-          <name>TUMBLEBUG_USER</name>
-          <description>Tumblebug User</description>
-          <defaultValue>default</defaultValue>
-          <trim>false</trim>
-        </hudson.model.StringParameterDefinition>
-        <hudson.model.PasswordParameterDefinition>
-          <name>TUMBLEBUG_PASSWORD</name>
-          <description>Tumblebug Password</description>
-          <defaultValue>default</defaultValue>
-        </hudson.model.PasswordParameterDefinition>
-        <hudson.model.StringParameterDefinition>
-          <name>APPLICATIONS</name>
-          <description>Applications to install (comma-separated)</description>
-          <defaultValue>nginx,tomcat9,mariadb-server,redis-server,grafana,prometheus</defaultValue>
-          <trim>false</trim>
-        </hudson.model.StringParameterDefinition>
-      </parameterDefinitions>
-    </hudson.model.ParametersDefinitionProperty>
-  </properties>
-  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3731.ve4b_5b_857b_a_d3">
-    <script>
+<flow-definition plugin="workflow-job@1254.v3f64639b_11dd" name="vm_application_install">
+    <actions/>
+    <description></description>
+    <keepDependencies>false</keepDependencies>
+    <properties>
+        <hudson.model.ParametersDefinitionProperty>
+            <parameterDefinitions>
+                <hudson.model.StringParameterDefinition>
+                    <name>NAMESPACE</name>
+                    <description>Please enter namespace</description>
+                    <defaultValue></defaultValue>
+                    <trim>false</trim>
+                </hudson.model.StringParameterDefinition>
+                <hudson.model.StringParameterDefinition>
+                    <name>MCI_ID</name>
+                    <description>Please enter MCI ID</description>
+                    <defaultValue></defaultValue>
+                    <trim>false</trim>
+                </hudson.model.StringParameterDefinition>
+                <hudson.model.StringParameterDefinition>
+                    <name>VM_ID</name>
+                    <description>Please enter VM ID for software installation</description>
+                    <defaultValue></defaultValue>
+                    <trim>false</trim>
+                </hudson.model.StringParameterDefinition>
+                <hudson.model.StringParameterDefinition>
+                    <name>APPLICATIONS</name>
+                    <description>Please enter applications to install (comma-separated)</description>
+                    <defaultValue>nginx,tomcat,mariadb-server,redis,grafana,prometheus</defaultValue>
+                    <trim>false</trim>
+                </hudson.model.StringParameterDefinition>
+                <hudson.model.StringParameterDefinition>
+                    <name>TUMBLEBUG_USER</name>
+                    <description>Please enter Tumblebug user</description>
+                    <defaultValue></defaultValue>
+                    <trim>false</trim>
+                </hudson.model.StringParameterDefinition>
+                <hudson.model.StringParameterDefinition>
+                    <name>TUMBLEBUG_PASSWORD</name>
+                    <description>Please enter Tumblebug password</description>
+                    <defaultValue></defaultValue>
+                    <trim>false</trim>
+                </hudson.model.StringParameterDefinition>
+                <hudson.model.StringParameterDefinition>
+                    <name>CB_TUMBLEBUG_URI</name>
+                    <description>Please enter CB Tumblebug URI</description>
+                    <defaultValue></defaultValue>
+                    <trim>false</trim>
+                </hudson.model.StringParameterDefinition>
+            </parameterDefinitions>
+        </hudson.model.ParametersDefinitionProperty>
+    </properties>
+    <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3659.v582dc37621d8">
+        <script>
 <![CDATA[
 import groovy.json.JsonSlurper
 
@@ -56,10 +63,13 @@ def getSSHKey(jsonInput) {
     } ?: ''
 }
 
-def getPublicInfoList(jsonInput) {
+def getVMInfoList(jsonInput) {
     def json = new JsonSlurper().parseText(jsonInput)
-    return json.findAll { it.key == 'MciSubGroupAccessInfo' }
-        .collectMany { it.value.MciVmAccessInfo*.publicIP }
+    return json.MciSubGroupAccessInfo.collectMany { subGroup ->
+        subGroup.MciVmAccessInfo.collect { vm ->
+            [id: vm.vmId, name: vm.vmId, ip: vm.publicIP]  // vmId를 name으로 사용
+        }
+    }
 }
 
 pipeline {
@@ -74,7 +84,7 @@ pipeline {
                     if (response.contains('Http_Status_code:200')) {
                         echo "GET API call successful."
                         callData = response.replace('- Http_Status_code:200', '')
-                        echo(callData)
+                        echo "API Response: ${callData}"
                     } else {
                         error "GET API call failed with status code: ${response}"
                     }
@@ -83,15 +93,12 @@ pipeline {
                     def response2 = sh(script: """curl -X 'GET' --user '${TUMBLEBUG_USER}:${TUMBLEBUG_PASSWORD}' '${tb_sw_url}' -H 'accept: application/json' """, returnStdout: true).trim()
                     def pemkey = getSSHKey(response2)
                     if (pemkey) {
-                        // 임시 디렉토리 사용
                         def tempDir = sh(script: "mktemp -d", returnStdout: true).trim()
                         def pemFile = "${tempDir}/${MCI_ID}.pem"
                         
-                        // 파일 쓰기 및 권한 설정
                         writeFile file: pemFile, text: pemkey
                         sh "chmod 600 ${pemFile}"
                         
-                        // 환경 변수로 PEM 파일 경로 저장
                         env.PEM_FILE_PATH = pemFile
                         
                         echo "PEM file created at: ${pemFile}"
@@ -106,16 +113,16 @@ pipeline {
             steps {
                 echo '>>>>>STAGE: Install Software'
                 script {
-                    def publicIPs = getPublicInfoList(callData)
-                    echo publicIPs.toString()
-                    publicIPs[0].each{ ip-> echo "ip view : " + ip }
+                    def vmInfoList = getVMInfoList(callData)
+                    echo "VM Info: ${vmInfoList}"
+                    echo "Target VM ID: ${VM_ID}"
                     def apps = APPLICATIONS.split(',')
-                    publicIPs.each { ip ->
-                        ip.each { inip ->
-                            def cleanIp = inip.toString().replaceAll(/[\[\]]/, '')
-                            println ">>test SSH to MCI VMs : ${cleanIp}"
-                            sh """
-ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${env.PEM_FILE_PATH} cb-user@${cleanIp} '
+                    
+                    def targetVM = vmInfoList.find { it.id == VM_ID }
+                    if (targetVM) {
+                        echo "Installing software on VM: ${targetVM.name} (ID: ${targetVM.id}, IP: ${targetVM.ip})"
+                        sh """
+                        ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${env.PEM_FILE_PATH} cb-user@${targetVM.ip} '
 #!/bin/bash
 
 echo ==========================================================================
@@ -249,8 +256,9 @@ fi
 
 echo ==========================================================================
 '
-                            """
-                        }
+                        """
+                    } else {
+                        echo "VM with ID ${VM_ID} not found in the list of available VMs."
                     }
                 }
             }
@@ -258,9 +266,9 @@ echo ==========================================================================
     }
 }
 ]]>
-    </script>
-    <sandbox>true</sandbox>
-  </definition>
-  <triggers/>
-  <disabled>false</disabled>
+        </script>
+        <sandbox>true</sandbox>
+    </definition>
+    <triggers/>
+    <disabled>false</disabled>
 </flow-definition>

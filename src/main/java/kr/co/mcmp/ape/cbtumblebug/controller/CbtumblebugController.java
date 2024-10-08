@@ -39,11 +39,12 @@ public class CbtumblebugController {
         return cbtumblebugService.getMcisByNamespace(nsId);
     }
     
-    // @GetMapping("/k8sCluster/info")
-    // @Operation(summary = "k8sCluster 정보 조회", description = "등록된 모든 K8s Cluster의 정보를 조회합니다.")
-    // public String getAllK8sClusterInfo() {
-    //     return cbtumblebugService.getK8sClusterInfo();
-    // }
+    @GetMapping("/ns/{nsId}/mci/{mciId}")
+    public MciDto getMicByMciId(@PathVariable String nsId, @PathVariable String mciId) {
+        return cbtumblebugService.getMciByMciId(nsId, mciId);
+    }
+    
+
     
     @GetMapping("/ns/{nsId}/k8scluster")
     public List<K8sClusterDto> getK8sCluster(@PathVariable String nsId) {

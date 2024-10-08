@@ -25,6 +25,12 @@
           <trim>false</trim>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
+          <name>VM ID</name>
+          <description>VM ID</description>
+          <defaultValue>vm01</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
           <name>TUMBLEBUG_USER</name>
           <description>Tumblebug User</description>
           <defaultValue>default</defaultValue>
