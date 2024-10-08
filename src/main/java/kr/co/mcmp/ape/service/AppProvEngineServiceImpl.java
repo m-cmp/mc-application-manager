@@ -64,7 +64,7 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
         return fetchLogs(jenkinsOss, jobName);
     }
 
-    private OssDto getJenkinsOss() {
+    public OssDto getJenkinsOss() {
         return ossService.getOssListNotDecryptPassword("JENKINS").stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Jenkins OSS 정보를 찾을 수 없습니다."));
@@ -126,4 +126,5 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
         StringBuilder builder = new StringBuilder();
         return builder.append("http://").append(url).append(":").append(port).append("/tumblebug").toString();
     }
+    
 }
