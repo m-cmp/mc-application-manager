@@ -2,6 +2,7 @@ package kr.co.mcmp.ape.controller;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,11 +47,11 @@ public class AppProvEngineController {
         return triggerJenkinsJob(jobDto);
     }
 
-    // @PostMapping("/vm/uninstall")
-    // @Operation(summary = "Uninstall VM Application", description = "VM에서 애플리케이션을 제거하기 위해 Jenkins 작업을 트리거합니다.")
-    // public ResponseWrapper<String> triggerVmUninstall(@RequestBody JenkinsJobDto.VmApplicationUninstall jobDto) {
-    //     return triggerJenkinsJob(jobDto);
-    // }
+    @PostMapping("/vm/uninstall")
+    @Operation(summary = "Uninstall VM Application", description = "VM에서 애플리케이션을 제거하기 위해 Jenkins 작업을 트리거합니다.")
+    public ResponseWrapper<String> triggerVmUninstall(@RequestBody JenkinsJobDto.VmApplicationUninstall jobDto) {
+        return triggerJenkinsJob(jobDto);
+    }
 
     // @PostMapping("/helm/install")
     // @Operation(summary = "Install Kubernetes Helm Chart", description = "Kubernetes에 Helm 차트를 설치하기 위해 Jenkins 작업을 트리거합니다.")
@@ -83,25 +84,6 @@ public class AppProvEngineController {
     //     }
     // }
 
-    @GetMapping("/ns")
-    @Operation(summary = "모든 네임스페이스 조회", description = "시스템에 등록된 모든 네임스페이스를 조회합니다.")
-    public List<NamespaceDto> getAllNamespaces() {
-        // return appProvEngineService.getAllNamespaces();
-        return null;
-    }
-
-    @GetMapping("/ns/{nsId}/mcis")
-    @Operation(summary = "특정 네임스페이스의 MCIS 조회", description = "지정된 네임스페이스에 속한 모든 MCIS를 조회합니다.")
-    public List<MciDto> getMCISByNamespace(@Parameter(description = "네임스페이스 ID", required = true)
-            @PathVariable String nsId) {
-        // return appProvEngineService.getMcisByNamespace(nsId);
-        return null;
-    }
     
-    @GetMapping("/readyz")
-    @Operation(summary="", description="")
-    public boolean checkReadyz(){
-        return true;
-    }
 }
     

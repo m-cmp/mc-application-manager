@@ -13,6 +13,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
+import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
+import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterResponse;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciResponse;
 import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
@@ -54,15 +56,16 @@ public class CbtumblebugRestApi {
         return String.format("http://%s:%s%s", cbtumblebugUrl, cbtumblebugPort, endpoint);
     }
 
-    public boolean checkTumblebug(){
-        log.info("check Tumblebug is ready");
-        String apiUrl = createApiUrl("/readyz");
+    public boolean checkTumblebug() {
+        log.info("Checking if Tumblebug is ready");
+        String apiUrl = createApiUrl("/tumblebug/readyz");
         HttpHeaders headers = createCommonHeaders();
         try {
             ResponseEntity<String> response = restClient.request(apiUrl, headers, null, HttpMethod.GET, new ParameterizedTypeReference<String>() {});
+            log.info("Tumblebug readyz response: {}", response.getBody());
             return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
-            log.error("Tumblebug connection fail", e);
+            log.error("Tumblebug connection failed", e);
             return false;
         }
     }
@@ -95,24 +98,48 @@ public class CbtumblebugRestApi {
         });
     }
 
-    public String getK8sClusterInfo(){
-        log.info("Fetching all K8sClusterInfo");
-        return executeWithConnectionCheck("getK8sClusterInfo", () ->{
-            String apiUrl = createApiUrl("/k8sClusterInfo");
+    // public String getK8sClusterInfo(){
+    //     log.info("Fetching all K8sClusterInfo");
+    //     return executeWithConnectionCheck("getK8sClusterInfo", () ->{
+    //         String apiUrl = createApiUrl("/k8sClusterInfo");
+    //         HttpHeaders headers = createCommonHeaders();
+    //         ResponseEntity<String> response = restClient.request(apiUrl, headers, headers, HttpMethod.GET, new ParameterizedTypeReference<String>() {});
+    //         return response.getBody() != null ? response.getBody() : null;
+    //     });
+    // }
+
+    public List<K8sClusterDto> getAllK8sClusters(String namespace){
+        log.info("Fetching K8s Clusters by namespace: {}", namespace);
+        return executeWithConnectionCheck("getK8sClustersByNamespace", () -> {
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/k8scluster", namespace));
             HttpHeaders headers = createCommonHeaders();
-            ResponseEntity<String> response = restClient.request(apiUrl, headers, headers, HttpMethod.GET, new ParameterizedTypeReference<String>() {});
-            return response.getBody() != null ? response.getBody() : null;
+            ResponseEntity<K8sClusterResponse> response = restClient.request(
+                apiUrl, 
+                headers, 
+                null, 
+                HttpMethod.GET, 
+                new ParameterizedTypeReference<K8sClusterResponse>() {}
+            );
+            return response.getBody() != null ? response.getBody().getK8sClusterInfo() : Collections.emptyList();
         });
     }
 
-    public String getK8sClusterByNamespace(String namespace){
-        log.info("Fetching k8sCluster Info by namespace :{}", namespace);
-        return executeWithConnectionCheck("getK8sClusterByNamespace", () ->{
-            String apiUrl = createApiUrl(String.format("/ns/%s/k8scluster", namespace));
+    public K8sClusterDto getK8sClusterByName(String namespace, String clusterName){
+        log.info("Fetching K8s Cluster by name: {} in namespace: {}", clusterName, namespace);
+        return executeWithConnectionCheck("getK8sClusterByName", () -> {
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/k8scluster/%s", namespace, clusterName));
             HttpHeaders headers = createCommonHeaders();
-            ResponseEntity<String> response = restClient.request(apiUrl, headers, null, HttpMethod.GET, new ParameterizedTypeReference<String>() {});
-            return response.getBody() != null ? response.getBody() : null;
+            ResponseEntity<K8sClusterDto> response = restClient.request(
+                apiUrl, 
+                headers, 
+                null, 
+                HttpMethod.GET, 
+                new ParameterizedTypeReference<K8sClusterDto>() {}
+            );
+            return response.getBody();
         });
     }
+
+
 
 }

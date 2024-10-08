@@ -45,7 +45,7 @@
 // Function to retrieve Kubernetes configuration
 def getK8sConfig(namespace) {
     def apiResponse = sh(script: """
-        curl -s -X GET '${params.CB_TUMBLEBUG_SWAGGER_URI}/ns/${namespace}/mcis/${params.MCIS_NAME}/access?option=config' \
+        curl -s -X GET '${params.CB_TUMBLEBUG_SWAGGER_URI}/ns/${namespace}/mci/${params.MCIS_NAME}/access?option=config' \
         -H 'Content-Type: application/json' \
         -H 'Accept: application/json' \
         -d '{
