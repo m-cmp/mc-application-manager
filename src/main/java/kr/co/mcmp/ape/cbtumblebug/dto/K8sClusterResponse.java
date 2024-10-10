@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class K8sClusterResponse {
-     @JsonProperty("K8sClusterInfo")
+    @JsonProperty("K8sClusterInfo")
     private List<K8sClusterDto> k8sClusterInfo;
+    
 }
