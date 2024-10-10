@@ -126,5 +126,5 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
         StringBuilder builder = new StringBuilder();
         return builder.append("http://").append(url).append(":").append(port).append("/tumblebug").toString();
     }
-    
+
 }
