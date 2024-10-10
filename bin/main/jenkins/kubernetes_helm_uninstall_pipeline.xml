@@ -1,0 +1,196 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@1316.vd2290d3341a_f" name="helm_application_uninstall">
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>TUMBLEBUG_URI</name>
+          <description>Tumblebug API URL</description>
+          <defaultValue>http://52.78.129.10:1323/tumblebug</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>NAMESPACE</name>
+          <description>Namespace ID</description>
+          <defaultValue>nhn-ns</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>CLUSTERNAME</name>
+          <description>K8s Cluster Name</description>
+          <defaultValue>k8scluster-01</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>TUMBLEBUG_USERID</name>
+          <description>Tumblebug User ID</description>
+          <defaultValue>default</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.PasswordParameterDefinition>
+          <name>TUMBLEBUG_PASSWORD</name>
+          <description>Tumblebug User Password</description>
+          <defaultValue>default</defaultValue>
+        </hudson.model.PasswordParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3659.v582dc37621d8">
+    <script>
+<![CDATA[
+import groovy.json.JsonSlurper
+
+def getKubeconfig(jsonInput) {
+    def json = new JsonSlurper().parseText(jsonInput)
+    return json.CspViewK8sClusterDetail.AccessInfo.Kubeconfig
+}
+
+pipeline {
+    agent any
+    
+    environment {
+        PATH = "${env.HOME}/bin:${env.PATH}"
+    }
+    
+    stages {
+        stage('Check and Install Tools') {
+            steps {
+                script {
+                    // Check and install kubectl if not present
+                    def kubectlInstalled = sh(script: 'command -v kubectl', returnStatus: true) == 0
+                    if (!kubectlInstalled) {
+                        sh '''
+                            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                            chmod +x kubectl
+                            mkdir -p $HOME/bin
+                            mv kubectl $HOME/bin/
+                        '''
+                    }
+                    sh 'kubectl version --client'
+                    
+                    // Check and install Helm if not present
+                    def helmInstalled = sh(script: 'command -v helm', returnStatus: true) == 0
+                    if (!helmInstalled) {
+                        sh '''
+                            curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+                        '''
+                    }
+                    sh 'helm version'
+                }
+            }
+        }
+        
+        stage('Check Tumblebug Connection') {
+            steps {
+                script {
+                    def response = sh(script: """
+                        curl -s -X GET '${params.TUMBLEBUG_URI}/readyz' \
+                        --user '${params.TUMBLEBUG_USERID}:${params.TUMBLEBUG_PASSWORD}' \
+                        -H 'accept: application/json'
+                    """, returnStdout: true).trim()
+                    def json = new JsonSlurper().parseText(response)
+                    if (json.message != "CB-Tumblebug is ready") {
+                        error "Tumblebug is not ready: ${json.message}"
+                    }
+                    echo "Tumblebug connection successful"
+                }
+            }
+        }
+
+        stage('Get K8s Cluster Info') {
+            steps {
+                script {
+                    def response = sh(script: """
+                        curl -s -X GET '${params.TUMBLEBUG_URI}/ns/${params.NAMESPACE}/k8scluster/${params.CLUSTERNAME}' \
+                        --user '${params.TUMBLEBUG_USERID}:${params.TUMBLEBUG_PASSWORD}' \
+                        -H 'accept: application/json'
+                    """, returnStdout: true).trim()
+                    def kubeconfig = getKubeconfig(response)
+                    if (!kubeconfig) {
+                        error "Failed to extract kubeconfig from cluster information"
+                    }
+                    
+                    writeFile file: 'kubeconfig', text: kubeconfig
+                    sh "chmod 600 kubeconfig"
+                    
+                    
+                    def fileExists = fileExists 'kubeconfig'
+                    if (!fileExists) {
+                        error "Failed to save kubeconfig"
+                    }
+                    
+                    echo "Kubeconfig saved successfully"
+                }
+            }
+        }
+
+        stage('Uninstall Helm Charts') {
+            steps {
+                script {
+                    def applications = ['nginx', 'tomcat', 'redis', 'grafana', 'prometheus', 'mariadb']
+                    
+                    applications.each { app ->
+                        echo "Uninstalling ${app}..."
+                        try {
+                            def releases = sh(script: """
+                                export KUBECONFIG=${WORKSPACE}/kubeconfig
+                                helm list --all-namespaces | grep ${app} | awk '{print \$1}'
+                            """, returnStdout: true).trim().split("\n")
+                            
+                            releases.each { release ->
+                                if (release) {
+                                    sh """
+                                        export KUBECONFIG=${WORKSPACE}/kubeconfig
+                                        helm uninstall ${release} --namespace default
+                                    """
+                                    echo "${release} uninstalled successfully"
+                                }
+                            }
+                        } catch (Exception e) {
+                            echo "Failed to uninstall ${app}: ${e.message}"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Verify Uninstallations') {
+            steps {
+                script {
+                    try {
+                        sh """
+                            export KUBECONFIG=${WORKSPACE}/kubeconfig
+                            helm list --all-namespaces
+                            kubectl get pods,services --all-namespaces
+                        """
+                    } catch (Exception e) {
+                        echo "Failed to verify uninstallations: ${e.message}"
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            sh "rm -f ${WORKSPACE}/kubeconfig"
+            echo "Removed kubeconfig file"
+        }
+        success {
+            echo "Helm charts uninstallation and verification completed successfully!"
+        }
+        failure {
+            echo "Helm charts uninstallation or verification failed. Please check the logs for details."
+        }
+    }
+}
+]]>
+    </script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

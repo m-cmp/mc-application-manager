@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flow-definition plugin="workflow-job@1316.vd2290d3341a_f" name="vm_application_install">
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>NAMESPACE</name>
+          <description>Namespace</description>
+          <defaultValue>ns01</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>MCI_ID</name>
+          <description>MCI ID</description>
+          <defaultValue>mci01</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>CB_TUMBLEBUG_URI</name>
+          <description>Tumblebug URI</description>
+          <defaultValue>http://13.125.199.35:1323/tumblebug</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>VM_ID</name>
+          <description>VM ID</description>
+          <defaultValue>vm01</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>TUMBLEBUG_USER</name>
+          <description>Tumblebug User</description>
+          <defaultValue>default</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.PasswordParameterDefinition>
+          <name>TUMBLEBUG_PASSWORD</name>
+          <description>Tumblebug Password</description>
+          <defaultValue>default</defaultValue>
+        </hudson.model.PasswordParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>APPLICATIONS</name>
+          <description>Applications to install (comma-separated)</description>
+          <defaultValue>nginx,tomcat9,mariadb-server,redis-server,grafana,prometheus</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3731.ve4b_5b_857b_a_d3">
+    <script>
+<![CDATA[
+
+
+import groovy.json.JsonSlurper
+
+def getSSHKey(jsonInput) {
+    def json = new JsonSlurper().parseText(jsonInput)
+    return json.findResult { it.key == 'MciSubGroupAccessInfo' ?
+        it.value.findResult { it.MciVmAccessInfo?.findResult { it.privateKey } } : null
+    } ?: ''
+}
+
+def getVMInfoList(jsonInput) {
+    def json = new JsonSlurper().parseText(jsonInput)
+    return json.MciSubGroupAccessInfo.collectMany { subGroup ->
+        subGroup.MciVmAccessInfo.collect { vm ->
+            [id: vm.vmId, name: vm.vmId, ip: vm.publicIP] 
+        }
+    }
+}
+
+pipeline {
+    agent any
+
+    stages {
+        stage('VM GET Access Info') {
+            steps {
+                echo '>>>>>STAGE: VM GET Access Info'
+                script {
+                    def response = sh(script: """curl -w "- Http_Status_code:%{http_code}" ${CB_TUMBLEBUG_URI}/ns/${NAMESPACE}/mci/${MCI_ID}?option=accessinfo --user "${TUMBLEBUG_USER}:${TUMBLEBUG_PASSWORD}" """, returnStdout: true).trim()
+                    if (response.contains('Http_Status_code:200')) {
+                        echo "GET API call successful."
+                        callData = response.replace('- Http_Status_code:200', '')
+                        echo "API Response: ${callData}"
+                    } else {
+                        error "GET API call failed with status code: ${response}"
+                    }
+
+                    def tb_sw_url = "${CB_TUMBLEBUG_URI}/ns/${NAMESPACE}/mci/${MCI_ID}?option=accessinfo&accessInfoOption=showSshKey"
+                    def response2 = sh(script: """curl -X 'GET' --user '${TUMBLEBUG_USER}:${TUMBLEBUG_PASSWORD}' '${tb_sw_url}' -H 'accept: application/json' """, returnStdout: true).trim()
+                    def pemkey = getSSHKey(response2)
+                    if (pemkey) {
+                        def tempDir = sh(script: "mktemp -d", returnStdout: true).trim()
+                        def pemFile = "${tempDir}/${MCI_ID}.pem"
+                        
+                        writeFile file: pemFile, text: pemkey
+                        sh "chmod 600 ${pemFile}"
+                        
+                        env.PEM_FILE_PATH = pemFile
+                        
+                        echo "PEM file created at: ${pemFile}"
+                    } else {
+                        error "SSH Key retrieval failed."
+                    }
+                }
+            }
+        }
+
+        stage('Install Software') {
+            steps {
+                echo '>>>>>STAGE: Install Software'
+                script {
+                    def vmInfoList = getVMInfoList(callData)
+                    echo "VM Info: ${vmInfoList}"
+                    echo "Target VM ID: ${VM_ID}"
+                    def apps = APPLICATIONS.split(',')
+                    
+                    def targetVM = vmInfoList.find { it.id == VM_ID }
+                    if (targetVM) {
+                        echo "Installing software on VM: ${targetVM.name} (ID: ${targetVM.id}, IP: ${targetVM.ip})"
+                        sh """
+                        ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${env.PEM_FILE_PATH} cb-user@${targetVM.ip} '
+#!/bin/bash
+
+echo ==========================================================================
+
+# Determine OS name
+os=\$(uname)
+
+# Check release
+if [ "\$os" = "Linux" ]; then
+  echo "This is a Linux machine"
+
+  if [[ -f /etc/redhat-release ]]; then
+    pkg_manager=yum
+  elif [[ -f /etc/debian_version ]]; then
+    pkg_manager=apt
+  fi
+
+  if [ \$pkg_manager = "yum" ]; then
+    echo "Using yum package manager"
+    sudo yum update -y
+    for app in ${apps.join(' ')}; do
+      case \$app in
+        nginx|tomcat|mariadb-server|redis)
+          if ! rpm -q \$app &>/dev/null; then
+            echo "\$app is not installed. Installing..."
+            sudo yum install -y \$app
+          else
+            echo "\$app is already installed. Skipping..."
+          fi
+          sudo systemctl start \$app
+          sudo systemctl enable \$app
+          echo "\$app status:"
+          sudo systemctl status \$app
+          ;;
+        grafana)
+          if ! rpm -q grafana &>/dev/null; then
+            echo "Grafana is not installed. Installing..."
+            sudo yum install -y https://dl.grafana.com/oss/release/grafana-9.5.2-1.x86_64.rpm
+          else
+            echo "Grafana is already installed. Skipping..."
+          fi
+          sudo systemctl start grafana-server
+          sudo systemctl enable grafana-server
+          echo "Grafana status:"
+          sudo systemctl status grafana-server
+          ;;
+        prometheus)
+          if ! command -v prometheus &>/dev/null; then
+            echo "Prometheus is not installed. Installing..."
+            sudo yum install -y https://github.com/prometheus/prometheus/releases/download/v2.37.6/prometheus-2.37.6.linux-amd64.tar.gz
+            sudo tar xvfz prometheus-*.tar.gz -C /usr/local/bin/ --strip-components=1
+          else
+            echo "Prometheus is already installed. Skipping..."
+          fi
+          sudo systemctl start prometheus
+          sudo systemctl enable prometheus
+          echo "Prometheus status:"
+          sudo systemctl status prometheus
+          ;;
+      esac
+    done
+  elif [ \$pkg_manager = "apt" ]; then
+    echo "Using apt package manager"
+    sudo apt-get update && sudo apt-get upgrade -y
+    for app in ${apps.join(' ')}; do
+      case \$app in
+        nginx|tomcat9|redis-server)
+          if ! dpkg -s \$app &>/dev/null; then
+            echo "\$app is not installed. Installing..."
+            sudo apt-get install -y \$app
+          else
+            echo "\$app is already installed. Skipping..."
+          fi
+          sudo systemctl start \$app
+          sudo systemctl enable \$app
+          echo "\$app status:"
+          sudo systemctl status \$app
+          ;;
+        mariadb-server)
+            if ! dpkg -s mysql-server &>/dev/null; then
+                echo "MariaDB is not installed. Installing..."
+                sudo apt-get install -y mariadb-server
+            else
+                echo "MariaDB is already installed. Skipping..."
+            fi
+            sudo systemctl start mariadb
+            sudo systemctl enable mariadb
+            echo "MariaDB status:"
+            sudo systemctl status mariadb
+            ;;
+        grafana)
+          if ! dpkg -s grafana &>/dev/null; then
+            echo "Grafana is not installed. Installing..."
+            sudo apt-get install -y apt-transport-https software-properties-common
+            wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+            echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee -a /etc/apt/sources.list.d/grafana.list
+            sudo apt-get update
+            sudo apt-get install -y grafana
+          else
+            echo "Grafana is already installed. Skipping..."
+          fi
+          sudo systemctl start grafana-server
+          sudo systemctl enable grafana-server
+          echo "Grafana status:"
+          sudo systemctl status grafana-server
+          ;;
+        prometheus)
+          if ! dpkg -s prometheus &>/dev/null; then
+            echo "Prometheus is not installed. Installing..."
+            sudo apt-get install -y prometheus
+          else
+            echo "Prometheus is already installed. Skipping..."
+          fi
+          sudo systemctl start prometheus
+          sudo systemctl enable prometheus
+          echo "Prometheus status:"
+          sudo systemctl status prometheus
+          ;;
+      esac
+    done
+  fi
+
+  echo "Software installation and status check completed!"
+
+elif [ "\$os" = "Darwin" ]; then
+  echo "This is a Mac Machine. Not supported."
+else
+  echo "Unsupported OS"
+  exit 1
+fi
+
+echo ==========================================================================
+'
+                        """
+                    } else {
+                        echo "VM with ID ${VM_ID} not found in the list of available VMs."
+                    }
+                }
+            }
+        }
+    }
+}
+
+        
+]]>
+    </script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>
