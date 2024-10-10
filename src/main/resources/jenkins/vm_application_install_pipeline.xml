@@ -265,6 +265,21 @@ echo ==========================================================================
             }
         }
     }
+    
+    post {
+        always {
+            echo '>>>>>POST: Cleaning up PEM file'
+            script {
+                if (env.PEM_FILE_PATH) {
+                    echo "Deleting PEM file: ${env.PEM_FILE_PATH}"
+                    sh "rm -f ${env.PEM_FILE_PATH}"
+                    echo "PEM file deleted successfully"
+                } else {
+                    echo "No PEM file to delete"
+                }
+            }
+        }
+    }
 }
 
         
