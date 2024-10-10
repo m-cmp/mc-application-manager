@@ -274,7 +274,6 @@
                 item.isShow = false;
             })
             catalogList.value = response.data;
-            console.log("catalogList.value : ", catalogList.value)
         } catch(error) {
             console.log(error)
             toast.error('데이터를 가져올 수 없습니다.')
@@ -292,7 +291,6 @@
     }
 
     const searchCatalog = async (e: { keyCode: number; }) => {
-        console.log("e.keyCode : ", e.keyCode)
         if(e.keyCode == 13){
             await _getSoftwareCatalogList();
             await setDockerHubSearch();
@@ -309,7 +307,6 @@
                 dockerHubSearchList.value.push(response.data.data.results[i])
             }
             // dockerHubSearchList.value = response.data.data.results
-            console.log("setDockerHubSearch dockerHubSearchList.value : ", dockerHubSearchList.value)
         } catch(error) {
             console.log(error)
             toast.error('데이터를 가져올 수 없습니다.')
@@ -323,7 +320,6 @@
                 artifactHubSearch.value.push(response.data.data.packages[i])
             }
             // artifactHubSearch.value = response.data.data.packages
-            console.log("setArtifactHubSearch artifactHubSearch.value : ", artifactHubSearch.value)
         } catch(error) {
             console.log(error)
             toast.error('데이터를 가져올 수 없습니다.')

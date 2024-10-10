@@ -61,7 +61,7 @@
   const firstLoadData = ref(false as boolean)
   const splitUrl = window.location.host.split(':');
   const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
-//   const baseUrl = "http://210.217.178.130:18084";
+  // const baseUrl = "http://210.217.178.130:18084";
 
   const jobName = computed(() => props.jobName);
   watch(jobName, async () => {
