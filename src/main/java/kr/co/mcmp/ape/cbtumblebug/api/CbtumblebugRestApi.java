@@ -120,6 +120,7 @@ public class CbtumblebugRestApi {
                 HttpMethod.GET, 
                 new ParameterizedTypeReference<K8sClusterResponse>() {}
             );
+            log.info("response : {}", response.getBody());
             return response.getBody() != null ? response.getBody().getK8sClusterInfo() : Collections.emptyList();
         });
     }
