@@ -64,6 +64,8 @@ pipeline {
     }
     
     stages {
+        
+
         stage('Check and Install kubectl and Helm') {
             steps {
                 script {
@@ -75,6 +77,7 @@ pipeline {
                             mkdir -p $HOME/bin
                             mv kubectl $HOME/bin/
                         '''
+                        env.PATH = "${env.HOME}/bin:${env.PATH}"
                         env.KUBECTL_INSTALLED = true
                     }
                     sh "kubectl version --client"
@@ -82,15 +85,20 @@ pipeline {
                     // Check and install Helm
                     if (sh(script: "command -v helm", returnStatus: true) != 0) {
                         sh '''
-                            curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+                            curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+                            chmod 700 get_helm.sh
+                            HELM_INSTALL_DIR=$HOME/bin ./get_helm.sh --no-sudo
+                            rm get_helm.sh
                         '''
+                        env.PATH = "${env.HOME}/bin:${env.PATH}"
                         env.HELM_INSTALLED = true
+                        
                     }
                     sh "helm version"
                 }
             }
-        }
-        
+        }    
+            
         stage('Check Tumblebug Connection') {
             steps {
                 script {
@@ -153,7 +161,7 @@ pipeline {
                         if (helmCommands.containsKey(chart)) {
                             echo "Checking if ${chart} is already installed..."
                             def releaseName = "${chart}-release"
-                            def isInstalled = sh(script: "helm list | grep ${releaseName}", returnStatus: true) == 0
+                            def isInstalled = sh(script: "helm list --kubeconfig ${WORKSPACE}/kubeconfig | grep ${releaseName}", returnStatus: true) == 0
                             if (isInstalled) {
                                 echo "${chart} is already installed. Upgrading..."
                             } else {
