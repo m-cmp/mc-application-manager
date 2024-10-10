@@ -59,30 +59,34 @@ pipeline {
     
     environment {
         PATH = "${env.HOME}/bin:${env.PATH}"
+        HELM_INSTALLED = false
+        KUBECTL_INSTALLED = false
     }
     
     stages {
-        stage('Install kubectl and Helm') {
+        stage('Check and Install kubectl and Helm') {
             steps {
                 script {
-                    // Install kubectl
-                    sh '''
-                        if ! command -v kubectl &> /dev/null; then
+                    // Check and install kubectl
+                    if (sh(script: "command -v kubectl", returnStatus: true) != 0) {
+                        sh '''
                             curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                             chmod +x kubectl
                             mkdir -p $HOME/bin
                             mv kubectl $HOME/bin/
-                        fi
-                        kubectl version --client
-                    '''
+                        '''
+                        env.KUBECTL_INSTALLED = true
+                    }
+                    sh "kubectl version --client"
                     
-                    // Install Helm (if not already installed)
-                    sh '''
-                        if ! command -v helm &> /dev/null; then
+                    // Check and install Helm
+                    if (sh(script: "command -v helm", returnStatus: true) != 0) {
+                        sh '''
                             curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-                        fi
-                        helm version
-                    '''
+                        '''
+                        env.HELM_INSTALLED = true
+                    }
+                    sh "helm version"
                 }
             }
         }
@@ -193,6 +197,17 @@ pipeline {
         always {
             sh "rm -f ${WORKSPACE}/kubeconfig"
             echo "Removed kubeconfig file"
+            
+            script {
+                if (env.KUBECTL_INSTALLED == 'true') {
+                    sh "rm -f $HOME/bin/kubectl"
+                    echo "Removed kubectl"
+                }
+                if (env.HELM_INSTALLED == 'true') {
+                    sh "rm -f /usr/local/bin/helm"
+                    echo "Removed Helm"
+                }
+            }
         }
         success {
             echo "Helm charts installation and verification completed successfully!"
