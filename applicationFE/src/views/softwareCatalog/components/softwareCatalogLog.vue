@@ -30,7 +30,7 @@
           </div>
   
           <div class="modal-footer">
-            <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal" @click="setClear">
+            <a class="btn btn-link link-secondary" data-bs-dismiss="modal" @click="setClear">
               Cancel
             </a>
           </div>

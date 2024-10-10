@@ -60,7 +60,7 @@
                                                     <div>
                                                         <br />
                                                         <div class="btn-list" style="width:70%;" v-for="wf in catalog.refData.workflow" :key="wf.catalogRefIdx">
-                                                            <a class="btn" :class="{'btn-outline-primary': containsText('install', wf.referenceValue), 'btn-outline-danger' : containsText('uninstall', wf.referenceValue)}" style="margin-bottom:10px;">
+                                                            <a class="btn" :class="{'btn-outline-primary': containsText('install', wf.referenceValue), 'btn-outline-danger' : containsText('uninstall', wf.referenceValue)}" style="margin-bottom:10px;" @click="onClickDeploy(wf.referenceValue)" data-bs-toggle='modal' data-bs-target='#install-form'>
                                                                 {{ btnName(wf.referenceValue) }}
                                                             </a><!-- btn-loading -->
                                                             <button class="btn btn-primary" style="text-align: center !important; margin-bottom:10px;" @click="onClickLog(wf.referenceValue)" id='log-btn' data-bs-toggle='modal' data-bs-target='#softwareCatalogLog'>
@@ -210,11 +210,10 @@
         </div>
         <SoftwareCatalogForm :mode="formMode" :catalog-idx="selectCatalogIdx" @get-list="_getSoftwareCatalogList"/>
         <SoftwareCatalogLog :job-name="selectJobName" />
+        <ApplicationInstallationForm :ns-id="nsId" :title="modalTite" />
     </div>
 </template>
 <script setup lang="ts">
-    import { getSoftwareCaltalogList } from '@/api/softwareCatalog'
-    import { type SoftwareCatalog } from '@/views/type/type'
     import { onMounted } from 'vue';
     import { ref } from 'vue';
     import { useToast } from 'vue-toastification';
@@ -222,6 +221,7 @@
     import _ from 'lodash';
     import SoftwareCatalogForm from './components/softwareCatalogForm.vue';
     import SoftwareCatalogLog from './components/softwareCatalogLog.vue';
+    import ApplicationInstallationForm from './components/applicationInstallationForm.vue';
     import '@/resources/css/tabler.min.css'
     import '@/resources/css/demo.min.css'
     import '@/resources/js/demo-theme.min.js'
@@ -239,6 +239,8 @@
     const selectCatalogIdx = ref(0 as number)
     const selectJobName = ref("" as string)
     const formMode = ref('new')
+    const nsId = ref("" as string)
+    const modalTite = ref("" as string)
 
     /**
     * @Title Life Cycle
@@ -246,6 +248,12 @@
     */
     onMounted(async () => {
         searchKeyword.value = ""
+        window.addEventListener("message", async function(event) {
+            const data = event.data;
+            if(data.projectInfo) {
+                nsId.value = data.projectInfo.ns_id;
+            }
+        })
         await _getSoftwareCatalogList()
     })
   
@@ -373,6 +381,10 @@
 
     const onClickLog = (name: string) => {
         selectJobName.value = name;
+    }
+
+    const onClickDeploy = (value: string) => {
+        modalTite.value = value
     }
  
   
