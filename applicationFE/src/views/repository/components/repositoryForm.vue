@@ -136,8 +136,6 @@ watch(repositoryName, async () => {
 
 onMounted(async () => {
   await setInit();
-  const modalElement = document.getElementById('repositoryForm');
-  modalElement?.addEventListener('hidden.bs.modal', handleModalClose);
 })
 
 const repositoryFormData = ref({} as Repository)
@@ -195,13 +193,16 @@ const onClickSubmit = async () => {
   if (props.mode === 'new') {
     await _registRepository().then(() => {
       emit('get-repository-list')
+      setInit()
     })
   }
-  else 
+  else {
     await _updateRepository().then(() => {
       emit('get-repository-list')
+      setInit()
     })  
-  setInit()
+  }
+  
 }
 
 /**
@@ -226,17 +227,6 @@ const _updateRepository = async () => {
     toast.success('등록되었습니다.')
   else
     toast.error('등록 할 수 없습니다.')
-}
-
-const handleModalClose = () => {
-  repositoryFormData.value.name = ''
-  repositoryFormData.value.format = 'raw'
-  repositoryFormData.value.type = 'hosted'
-  repositoryFormData.value.url = ''
-  repositoryFormData.value.online = true
-  httpPort.value = 0
-  httpsPort.value = 0
-  writePolicy.value = "allow"
 }
 
 </script>
