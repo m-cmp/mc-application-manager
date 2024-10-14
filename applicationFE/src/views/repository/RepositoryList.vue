@@ -158,7 +158,8 @@ const formMode = ref('new')
  * @Desc repository 생성버튼 클릭시 동작하는 함수 (formMode set)
  */
 const onClickNewBtn = () => {
-  formMode.value = 'new'
+  selectRepositoryName.value = "";
+  formMode.value = 'new';
 }
 
 
