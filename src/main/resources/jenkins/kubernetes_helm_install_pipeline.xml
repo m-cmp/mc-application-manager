@@ -38,7 +38,7 @@
         <hudson.model.StringParameterDefinition>
           <name>HELM_CHARTS</name>
           <description>Helm Charts to Install (comma-separated)</description>
-          <defaultValue>nginx,grafana,prometheus,tomcat,redis</defaultValue>
+          <defaultValue>nginx,grafana,prometheus,tomcat,redis,mariadb</defaultValue>
           <trim>true</trim>
         </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
@@ -64,8 +64,6 @@ pipeline {
     }
     
     stages {
-        
-
         stage('Check and Install kubectl and Helm') {
             steps {
                 script {
@@ -92,7 +90,6 @@ pipeline {
                         '''
                         env.PATH = "${env.HOME}/bin:${env.PATH}"
                         env.HELM_INSTALLED = true
-                        
                     }
                     sh "helm version"
                 }
@@ -151,9 +148,10 @@ pipeline {
                         'grafana': "helm repo add grafana https://grafana.github.io/helm-charts && helm repo update && helm upgrade --install grafana-release grafana/grafana",
                         'prometheus': "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts && helm repo update && helm upgrade --install prometheus-release prometheus-community/prometheus",
                         'tomcat': "helm upgrade --install tomcat-release oci://registry-1.docker.io/bitnamicharts/tomcat",
-                        'redis': "helm upgrade --install redis-release oci://registry-1.docker.io/bitnamicharts/redis"
+                        'redis': "helm upgrade --install redis-release oci://registry-1.docker.io/bitnamicharts/redis",
+                        'mariadb': "helm repo add bitnami https://charts.bitnami.com/bitnami && helm repo update && helm upgrade --install mariadb-release bitnami/mariadb --set auth.rootPassword=rootpassword --set auth.database=mydb --set auth.username=myuser --set auth.password=mypassword"
                     ]
-                    
+                     
                     def charts = params.HELM_CHARTS.split(',')
                     
                     charts.each { chart ->
@@ -212,7 +210,7 @@ pipeline {
                     echo "Removed kubectl"
                 }
                 if (env.HELM_INSTALLED == 'true') {
-                    sh "rm -f /usr/local/bin/helm"
+                    sh "rm -f $HOME/bin/helm"
                     echo "Removed Helm"
                 }
             }
