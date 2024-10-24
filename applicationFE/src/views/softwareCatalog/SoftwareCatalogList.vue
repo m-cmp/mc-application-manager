@@ -68,7 +68,7 @@
                         :style="[catalog.isShow ? {display: 'block'} : {display:'none'}]">
                         <div class="accordion-body pt-0">
                           <br />
-                          {{ catalog.catalogDescription }}
+                          <div style="white-space: pre-wrap;" v-html="formattedText(catalog.catalogDescription)"></div>
                           <div>
                             <br />
                             <div class="btn-list" style="width:70%;" v-for="wf in catalog.refData.workflow"
@@ -449,7 +449,9 @@
     const formattedText = (text:string) => {
         return text.replace(/\\n|\n/g, '<br/>');
     }
-
+    const formattedText = (text:string) => {
+      return text.replace(/\\n|\n/g, '<br/>');
+    }
   
 </script>
 <style>
