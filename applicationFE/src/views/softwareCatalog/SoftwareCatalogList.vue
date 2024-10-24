@@ -357,6 +357,7 @@
     }
 
     const setDockerHubSearch = async () => {
+        dockerHubSearchList.value  = [];
         try {
             const response = await axios.get(baseUrl + '/search/dockerhub/' + searchKeyword.value);
             
@@ -371,6 +372,7 @@
     }
 
     const setArtifactHubSearch = async () => {
+        artifactHubSearch.value = [];
         try {
             const response = await axios.get(baseUrl + '/search/artifacthub/' + searchKeyword.value);
             for(let i=0; i<3; i++) {
@@ -443,7 +445,11 @@
     const onClickDeploy = (value: string) => {
         modalTite.value = value
     }
- 
+
+    const formattedText = (text:string) => {
+        return text.replace(/\\n|\n/g, '<br/>');
+    }
+
   
 </script>
 <style>

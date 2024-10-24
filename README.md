@@ -72,7 +72,7 @@ Once the services are up, you can access the following endpoints:
 - Repository UI : `http://<Public_IP>:8081`
 - Application Manager UI: `http://<Public_IP>:18084/web`
   - OSS Management: `http://<Public_IP>:18084/web/oss/list`
-  - Application Catalog Management: `http://<Public_IP>:18084/web/catalog/list`
+  - Application Catalog Management: `http://<Public_IP>:18084/web/softwareCatalog/list`
   - Repository Management: `http://<Public_IP>:18084/web/repository/list`
   - Yaml Generator: `http://<Public_IP>:18084/web/generate/yaml`
 
