@@ -143,9 +143,9 @@ const refData = ref([] as any)
 const files = ref([] as any)
 
 const splitUrl = window.location.host.split(':');
-// const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
+const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
 // const baseUrl = "http://15.164.227.13:18084";
-const baseUrl = "http://192.168.6.30:18084";
+// const baseUrl = "http://192.168.6.30:18084";
 
 
 const emit = defineEmits(['get-list'])

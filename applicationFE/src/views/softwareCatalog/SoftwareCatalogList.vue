@@ -285,9 +285,9 @@
     const catalogList = ref([] as any)
     const searchKeyword = ref("")
     const splitUrl = window.location.host.split(':');
-    // const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
+    const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
     // const baseUrl = "http://15.164.227.13:18084";
-    const baseUrl = "http://192.168.6.30:18084";
+    // const baseUrl = "http://192.168.6.30:18084";
 
     const dockerHubSearchList = ref([] as any)
     const artifactHubSearch = ref([] as any)
