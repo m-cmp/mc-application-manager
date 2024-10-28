@@ -15,6 +15,8 @@ import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
 import kr.co.mcmp.ape.dto.reqDto.JenkinsJobDto;
 import kr.co.mcmp.ape.dto.resDto.ApeLogResDto;
 import kr.co.mcmp.ape.service.jenkins.service.JenkinsService;
+import kr.co.mcmp.catalog.application.model.ApplicationStatus;
+import kr.co.mcmp.catalog.application.service.ApplicationService;
 import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.oss.dto.OssTypeDto;
 import kr.co.mcmp.oss.service.OssService;
@@ -27,6 +29,9 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
     @Autowired
     private JenkinsService jenkinsService;
 
+    @Autowired
+    private ApplicationService applicationService;
+    
     @Lazy
     @Autowired
     private OssService ossService;
@@ -117,9 +122,23 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
             jobDto.getJobName(),
             jenkinsJobParams
         );
+        
         log.info("Jenkins job triggered successfully. Build number: {}", buildNumber);
-
+        this.logJob(jobDto);
         return String.valueOf(buildNumber);
+    }
+    
+    private void logJob(JenkinsJobDto jobDto){
+        
+        if (jobDto instanceof JenkinsJobDto.VmApplicationInstall) {
+           applicationService.logVmInstallation((JenkinsJobDto.VmApplicationInstall) jobDto, ApplicationStatus.INSTALL);
+       } else if (jobDto instanceof JenkinsJobDto.VmApplicationUninstall) {
+            applicationService.updateVmApplicationStatus((JenkinsJobDto.VmApplicationUninstall) jobDto, ApplicationStatus.UNINSTALL);
+       } else if (jobDto instanceof JenkinsJobDto.HelmChartInstall) {
+            applicationService.logK8sInstallation((JenkinsJobDto.HelmChartInstall) jobDto, ApplicationStatus.INSTALL);
+       } else if (jobDto instanceof JenkinsJobDto.HelmChartUninstall) {
+            applicationService.updateK8sApplicationStatus((JenkinsJobDto.HelmChartUninstall) jobDto, ApplicationStatus.UNINSTALL);
+       }
     }
 
     private String makeTumblebugUri(String url, String port){

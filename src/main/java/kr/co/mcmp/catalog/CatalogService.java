@@ -47,6 +47,7 @@ public class CatalogService {
                     }).collect(Collectors.toList());
     }
 
+    
     /**
      * catalogIdx 검색 CatalogDTO 조회 
      * @param catalogIdx
@@ -62,6 +63,18 @@ public class CatalogService {
             }).orElseThrow(() -> new IllegalArgumentException("catalog index is null"));
     }
 
+     /**
+     * 제목과 버전으로 CatalogDTO 조회
+     * @param title
+     * @param version
+     * @return 제목과 버전에 일치하는 CatalogDTO
+     */
+    // public CatalogDTO getCatalogByTitleAndVersion(String title, String version) {
+    //     return catalogRepository.findByTitleAndVersion(title, version)
+    //             .map(CatalogDTO::new)
+    //             .orElseThrow(() -> new EntityNotFoundException("Catalog not found with title: " + title + " and version: " + version));
+    // }
+    
     /**
      * 제목 키워드 검색을 통한 CatalogDTO 목록 조회
      * @param keyword
@@ -76,6 +89,20 @@ public class CatalogService {
                     return dto;
                 }).collect(Collectors.toList());
     }
+    
+    /**
+     * 제목과 버전으로 CatalogDTO 목록 조회
+     * @param title
+     * @param version
+     * @return 제목을 포함하고 버전에 일치하는 CatalogDTO List
+     */
+    // public List<CatalogDTO> getCatalogsByTitleAndVersion(String title, String version) {
+    //     return catalogRepository.findByTitleContainingIgnoreCaseAndVersion(title, version)
+    //             .stream()
+    //             .map(CatalogDTO::new)
+    //             .collect(Collectors.toList());
+    // }
+
 
     /**
      * CatalogRefDTO 조회

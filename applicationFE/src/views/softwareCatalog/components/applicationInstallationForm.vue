@@ -254,7 +254,7 @@ const runInstall = async () => {
             "namespace": selectNsId.value,
             "mciName": selectMci.value,
             "vmName": selectVm.value,
-            "applications": appList
+            "application": appList
       }
         const res = await axios.post(baseUrl + runUrl, param)
         if(res.data.code == 200 && res.data.message) {

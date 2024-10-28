@@ -20,6 +20,10 @@ public class CatalogDTO {
     private String catalogIcon;
     private String catalogCategory;
     private List<CatalogRefDTO> catalogRefData;
+    
+    private int recommendedCpu;
+    private int recommendedMemory;
+    private int recommendedDisk;
 
     public CatalogDTO(CatalogEntity cEntity){
         if(cEntity.getId() != null){ this.catalogIdx = cEntity.getId(); }
@@ -28,6 +32,9 @@ public class CatalogDTO {
         this.catalogSummary = cEntity.getSummary();
         this.catalogIcon = cEntity.getIcon();
         this.catalogCategory = cEntity.getCategory();
+        this.recommendedCpu = cEntity.getRecommendedCpu();
+        this.recommendedMemory = cEntity.getRecommendedMemory();
+        this.recommendedDisk = cEntity.getRecommendedDisk();
     }
 
 

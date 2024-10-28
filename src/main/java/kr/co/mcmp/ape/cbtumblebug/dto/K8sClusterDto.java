@@ -9,6 +9,8 @@ import io.swagger.annotations.ApiModelProperty;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,6 +27,7 @@ public class K8sClusterDto {
     private String cspResourceName;
 
     @ApiModelProperty(value = "CSP View K8s 클러스터 상세 정보")
+    @JsonProperty("CspViewK8sClusterDetail")
     private CspViewK8sClusterDetail cspViewK8sClusterDetail;
 
     @ApiModelProperty(value = "설명", example = "My K8sCluster")
@@ -56,32 +59,42 @@ public class K8sClusterDto {
     @AllArgsConstructor
     @ApiModel(description = "CSP View K8s 클러스터 상세 정보")
     public static class CspViewK8sClusterDetail {
-        @ApiModelProperty(value = "접근 정보")
-        private AccessInfo accessInfo;
-
-        @ApiModelProperty(value = "애드온 정보")
-        private Addons addons;
-
-        @ApiModelProperty(value = "생성 시간")
-        private String createdTime;
-
         @ApiModelProperty(value = "IID 정보")
+        @JsonProperty("IId")
         private IID iid;
-
-        @ApiModelProperty(value = "키-값 목록")
-        private List<KeyValue> keyValueList;
-
-        @ApiModelProperty(value = "네트워크 정보")
-        private Network network;
-
-        @ApiModelProperty(value = "노드 그룹 목록")
-        private List<NodeGroup> nodeGroupList;
-
-        @ApiModelProperty(value = "상태", example = "Creating")
-        private String status;
-
+    
         @ApiModelProperty(value = "버전")
+        @JsonProperty("Version")
         private String version;
+    
+        @ApiModelProperty(value = "네트워크 정보")
+        @JsonProperty("Network")
+        private Network network;
+    
+        @ApiModelProperty(value = "노드 그룹 목록")
+        @JsonProperty("NodeGroupList")
+        private List<NodeGroup> nodeGroupList;
+    
+        @ApiModelProperty(value = "접근 정보")
+        @JsonProperty("AccessInfo")
+        private AccessInfo accessInfo;
+    
+        @ApiModelProperty(value = "애드온 정보")
+        @JsonProperty("Addons")
+        private Addons addons;
+    
+        @ApiModelProperty(value = "상태")
+        @JsonProperty("Status")
+        private String status;
+    
+        @ApiModelProperty(value = "생성 시간")
+        @JsonProperty("CreatedTime")
+        private String createdTime;
+    
+        @ApiModelProperty(value = "키-값 목록")
+        @JsonProperty("KeyValueList")
+        private List<KeyValue> keyValueList;
+    
     }
 
     @Data
@@ -110,10 +123,12 @@ public class K8sClusterDto {
     @AllArgsConstructor
     @ApiModel(description = "IID 정보")
     public static class IID {
+        @JsonProperty("NameId")
         @ApiModelProperty(value = "이름 ID")
         private String nameId;
 
         @ApiModelProperty(value = "시스템 ID")
+        @JsonProperty("SystemId")
         private String systemId;
     }
 
@@ -152,43 +167,57 @@ public class K8sClusterDto {
     @AllArgsConstructor
     @ApiModel(description = "노드 그룹 정보")
     public static class NodeGroup {
+        
         @ApiModelProperty(value = "원하는 노드 크기")
+        @JsonProperty("DesiredNodeSize")
         private int desiredNodeSize;
-
+    
         @ApiModelProperty(value = "IID")
+        @JsonProperty("IId")
         private IID iid;
-
+    
         @ApiModelProperty(value = "이미지 IID")
+        @JsonProperty("ImageIID")
         private IID imageIID;
-
+    
         @ApiModelProperty(value = "키 페어 IID")
+        @JsonProperty("KeyPairIID")
         private IID keyPairIID;
-
+    
         @ApiModelProperty(value = "키-값 목록")
+        @JsonProperty("KeyValueList")
         private List<KeyValue> keyValueList;
-
+    
         @ApiModelProperty(value = "최대 노드 크기")
+        @JsonProperty("MaxNodeSize")
         private int maxNodeSize;
-
+    
         @ApiModelProperty(value = "최소 노드 크기")
+        @JsonProperty("MinNodeSize")
         private int minNodeSize;
-
+    
         @ApiModelProperty(value = "노드 목록")
+        @JsonProperty("Nodes")
         private List<IID> nodes;
-
+    
         @ApiModelProperty(value = "오토스케일링 여부")
+        @JsonProperty("OnAutoScaling")
         private boolean onAutoScaling;
-
+    
         @ApiModelProperty(value = "루트 디스크 크기")
+        @JsonProperty("RootDiskSize")
         private String rootDiskSize;
-
+    
         @ApiModelProperty(value = "루트 디스크 타입")
+        @JsonProperty("RootDiskType")
         private String rootDiskType;
-
+    
         @ApiModelProperty(value = "상태", example = "Creating")
+        @JsonProperty("Status")
         private String status;
-
+    
         @ApiModelProperty(value = "VM 스펙 이름")
-        private String vmspecName;
+        @JsonProperty("VMSpecName")
+        private String vmSpecName;
     }
 }
