@@ -65,7 +65,7 @@ aes:
   key: fb1755281b0ca6184a0ee644e6477ee7
 
 cbtumblebug:
-  url: 52.78.129.10
+  url: 13.124.226.58
   port: 1323
   id: default
   pass: default
