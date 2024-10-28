@@ -13,8 +13,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
+import kr.co.mcmp.ape.cbtumblebug.dto.Spec;
 import kr.co.mcmp.ape.cbtumblebug.service.CbtumblebugService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 @Tag(name="tumblebug", description = "Tumblebug API queries")
 @RestController
@@ -54,5 +57,11 @@ public class CbtumblebugController {
     public K8sClusterDto getK8sClusterByName(@PathVariable String nsId, @PathVariable String clusterName) {
         return cbtumblebugService.getK8sClusterByName(nsId, clusterName);
     }
+
+    @GetMapping("/ns/{nsId}/resources/spec/{specId}")
+    public Spec getMethodName(@PathVariable String nsId, @PathVariable String specId) {
+        return cbtumblebugService.getSpecBySpecId(nsId, specId);
+    }
+    
 
 }

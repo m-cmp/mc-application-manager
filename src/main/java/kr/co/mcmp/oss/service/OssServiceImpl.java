@@ -64,6 +64,7 @@ public class OssServiceImpl implements OssService {
 	 * @return List<OssDto> ossDtoList
 	 */
 	public List<OssDto> getOssListNotDecryptPassword(String ossTypeName) {
+		log.info("ossTypeName : {}", ossTypeName);
 		List<OssTypeDto> ossTypeList = ossTypeRepository.findByOssTypeName(ossTypeName)
 				.stream()
 				.map(OssTypeDto::from)

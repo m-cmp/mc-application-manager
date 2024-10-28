@@ -3,7 +3,9 @@ package kr.co.mcmp.ape.cbtumblebug.api;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -13,12 +15,18 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterResponse;
+import kr.co.mcmp.ape.cbtumblebug.dto.K8sSpec;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciResponse;
 import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceResponse;
+import kr.co.mcmp.ape.cbtumblebug.dto.Spec;
+import kr.co.mcmp.ape.cbtumblebug.dto.VmDto;
 import kr.co.mcmp.ape.cbtumblebug.exception.CbtumblebugException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +56,7 @@ public class CbtumblebugRestApi {
         byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
         String authHeader = "Basic " + new String(encodedAuth);
         headers.set("Authorization", authHeader);
-        // headers.set("Content-Type", "application/json");
+        headers.set("Content-Type", "application/json");
         return headers;
     }
 
@@ -120,7 +128,6 @@ public class CbtumblebugRestApi {
                 HttpMethod.GET, 
                 new ParameterizedTypeReference<K8sClusterResponse>() {}
             );
-            log.info("response : {}", response.getBody());
             return response.getBody() != null ? response.getBody().getK8sClusterInfo() : Collections.emptyList();
         });
     }
@@ -157,6 +164,79 @@ public class CbtumblebugRestApi {
         });
     }
 
+    public Spec getSpecBySpecId(String nsId, String specId) {
+        log.info("Fetching Spec by specId: {}", specId);
+        return executeWithConnectionCheck("getSpecBySpecId", () -> {
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/resources/spec/%s", nsId, specId));
+            HttpHeaders headers = createCommonHeaders();
+            ResponseEntity<Spec> response = restClient.request(
+                apiUrl,
+                headers,
+                null,
+                HttpMethod.GET,
+                new ParameterizedTypeReference<Spec>() {}
+            );
+            return response.getBody();
+        });
+    }
 
+    public VmDto getVmInfo(String nsId, String mciId, String vmId) {
+        log.info("Fetching VM info for VM ID: {}", vmId);
+        return executeWithConnectionCheck("getVmInfo", () -> {
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/mci/%s/vm/%s", nsId, mciId, vmId));
+            HttpHeaders headers = createCommonHeaders();
+            ResponseEntity<VmDto> response = restClient.request(
+                apiUrl,
+                headers,
+                null,
+                HttpMethod.GET,
+                new ParameterizedTypeReference<VmDto>() {}
+            );
+            return response.getBody();
+        });
+    }
+    
+    public K8sSpec lookupSpec(String connectionName, String cspResourceId) {
+        log.info("Fetching Spec info for K8s ID : {}", connectionName);
+        return executeWithConnectionCheck("lookupSpec", () -> {
+            String apiUrl = createApiUrl(String.format("/tumblebug/lookupSpec"));
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, String> requestMap = new HashMap<>();
+            requestMap.put("connectionName", connectionName);
+            requestMap.put("cspResourceId", cspResourceId);
+            String requestBody = "";
+            try {
+                requestBody = objectMapper.writeValueAsString(requestMap);
+            } catch (JsonProcessingException e) {
+                log.error(e.getMessage());
+            }
+            HttpHeaders headers = createCommonHeaders();
+            ResponseEntity<K8sSpec> response = restClient.request(
+                apiUrl,
+                headers,
+                requestBody,
+                HttpMethod.POST,
+                new ParameterizedTypeReference<K8sSpec>() {}
+            );
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                log.error("Error response from server: {}", response.getBody());
+                throw new CbtumblebugException("Failed to fetch spec info: " + response.getStatusCode());
+            }
+    
+            return response.getBody();
+        });
+        // String apiUrl = "http://localhost:1323/tumblebug/lookupSpec";
+        // String requestBody = String.format("{\"connectionName\": \"%s\", \"cspResourceId\": \"%s\"}", connectionName, cspResourceId);
 
+        // HttpHeaders headers = createCommonHeaders();
+        // ResponseEntity<K8sSpec> response = restClient.request(
+        //     apiUrl,
+        //     headers,
+        //     requestBody,
+        //     HttpMethod.POST,
+        //     new ParameterizedTypeReference<K8sSpec>() {}
+        // );
+
+        // return response.getBody();
+    }
 }

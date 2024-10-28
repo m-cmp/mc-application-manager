@@ -8,6 +8,7 @@ import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
+import kr.co.mcmp.ape.cbtumblebug.dto.Spec;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -44,6 +45,11 @@ public class CbtumblebugServiceImpl implements CbtumblebugService{
     @Override
     public MciDto getMciByMciId(String nsId, String mciId) {
         return api.getMciByMciId(nsId, mciId);
+    }
+
+    @Override
+    public Spec getSpecBySpecId(String nsId, String specId) {
+        return api.getSpecBySpecId(nsId, specId);
     }
 
 }

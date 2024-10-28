@@ -1,8 +1,16 @@
 package kr.co.mcmp.catalog;
 
-import lombok.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
 
-import javax.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Getter
@@ -32,6 +40,14 @@ public class CatalogEntity {
     @Column(columnDefinition="VARCHAR(15) NOT NULL DEFAULT ''", name="CATEGORY")
     private String category;
 
+    @Column(name = "RECOMMENDED_CPU", nullable = false)
+    private int recommendedCpu;
+
+    @Column(name = "RECOMMENDED_MEMORY", nullable = false)
+    private int recommendedMemory;
+
+    @Column(name = "RECOMMENDED_DISK", nullable = false)
+    private int recommendedDisk;
 
     public CatalogEntity(CatalogDTO cDto){
         if(cDto.getCatalogIdx() != null) { this.id = cDto.getCatalogIdx(); }
@@ -40,6 +56,9 @@ public class CatalogEntity {
         this.summary = cDto.getCatalogSummary();
         this.icon = cDto.getCatalogIcon();
         this.category = cDto.getCatalogCategory();
+        this.recommendedCpu = cDto.getRecommendedCpu();
+        this.recommendedMemory = cDto.getRecommendedMemory();
+        this.recommendedDisk = cDto.getRecommendedDisk();
     }
 
 

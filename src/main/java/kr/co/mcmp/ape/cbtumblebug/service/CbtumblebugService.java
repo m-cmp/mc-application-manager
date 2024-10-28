@@ -5,6 +5,7 @@ import java.util.List;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
+import kr.co.mcmp.ape.cbtumblebug.dto.Spec;
 
 public interface CbtumblebugService {
 
@@ -18,4 +19,6 @@ public interface CbtumblebugService {
     K8sClusterDto getK8sClusterByName(String namespace, String clusterName);
 
     MciDto getMciByMciId(String nsId, String mciId);
+
+    Spec getSpecBySpecId(String nsId, String specId);
 }
