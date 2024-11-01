@@ -61,6 +61,14 @@ To bring up the mc-application-manager service along with its dependencies, run 
 sudo apt update
 sudo apt install -y docker-compose
 
+cd ./script
+chmod +x setup-docker-no-sudo.sh
+./setup-docker-no-sudo.sh
+
+cd ..
+# The initial user information for the workflow engine is admin / 123456
+# The initial user information for the repository is admin / 123456
+# If you need to modify, modify docker-compose.yaml
 sudo docker-compose up -d
 ```
 This command will pull the necessary Docker images, build the services, and start the containers in detached mode.
@@ -76,6 +84,27 @@ Once the services are up, you can access the following endpoints:
   - Repository Management: `http://<Public_IP>:18084/web/repository/list`
   - Yaml Generator: `http://<Public_IP>:18084/web/generate/yaml`
 
+### Step 4-1: Certainly! Here’s the translated list of settings:
+1. Access the OSS List
+2. Modify previously registered OSS
+3. Update with Workflow Engine And Repository information
+4. Check for duplicates and verify connections
+5. Click the "Edit" button
+
+※ If no separate modifications were made, the Workflow Engine (Jenkins) information is as follows.
+1. APE (Application Provisioning Engine) - Jenkins
+> URL : http://<Public_IP>:9800
+> 
+> OSS ID : admin
+> 
+> OSS PW : 123456
+
+2. Repository - Nexus
+> URL : http://<Public_IP>:8081
+> 
+> OSS ID : admin
+> 
+> OSS PW : 123456
 
 ### Step 5: Stop Services
 To stop the running services, use:
@@ -143,65 +172,6 @@ If you prefer to build and run the project manually, follow these steps:
     # Run Springboot Project
     . $PROJECT_ROOT/script/run-mc-application.sh
     ```
-
-### Refer to Set Application-Provisioning-Engine(Jenkins)
-**1. Access the Jenkins container**
-```bash
-sudo docker exec -it ape-jenkins /bin/bash
-```
-
-**2. Inside the container, retrieve the initial admin password**
-```bash
-cat /var/jenkins_home/secrets/initialAdminPassword
-```
-
-**3. Copy the string that appears after running the cat command.**
-
-**4. Open Chrome browser and navigate to `http://<Public IP>:9800` Jenkins Unlock Page**
-![img_4.png](document/img_4.png)
-**5. Paste the copied string into the password field.**
-
-**6. Click `Install suggested plugins` Button**
-![img_5.png](document/img_5.png)
-![img_6.png](document/img_6.png)
-
-**7. Insert User Information**
-![img_1.png](document/img_1.png)
-![img_2.png](document/img_2.png)
-![img_3.png](document/img_3.png)
-
-**This process will complete the initial setup of Jenkins**
-
-### Refer to Set Repository(Nexus)
-**1. Access the Nexus container**
-```bash
-sudo docker exec -it nexus-repository /bin/bash
-```
-
-**2. Inside the container, retrieve the initial admin password**
-```bash
-cat /nexus-data/admin.password
-```
-**3. Copy the string that appears after running the cat command.**
-
-**4. Open Chrome browser and navigate to `http://<Public IP>:8081` Nexus Unlock Page**
-![img.png](document/nexusMain.png)
-**5. Paste the copied string into the password field. (ID: admin)**
-
-**6. Click `Next` Button**
-![img.png](document/setup1.png)
-
-**7. Insert New Password**
-![img_1.png](document/setup2.png)
-
-**8. After selecting one, click the next button**
-![img_2.png](document/setup3.png)
-
-**9. click the finish button**
-![img_3.png](document/setup4.png)
-
-**This process will complete the initial setup of Nexus**
----
 
 ## Contributing
 

@@ -9,7 +9,8 @@ networks:
 services:
   # jenkins - for workflow manager
   jenkins:
-    image: jenkins/jenkins:jdk17
+    image: bitnami/jenkins:2.462.3
+    user: root
     container_name: ape-jenkins
     platform: linux/amd64
     networks:
@@ -24,9 +25,33 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/bin/docker:/usr/bin/docker # -v $(which docker):/usr/bin/docker
     environment:
-      - PROJECT=mcmp
+      JENKINS_USERNAME: admin
+      JENKINS_PASSWORD: 123456 # Please CHANGE ME
+      JENKINS_PLUGINS: >-
+        workflow-api,
+        swarm,
+        authorize-project,
+        antisamy-markup-formatter,
+        pipeline-github-lib,
+        pipeline-rest-api,
+        git,
+        github-branch-source,
+        gradle,
+        pipeline-model-definition,
+        pipeline-build-step,
+        workflow-aggregator,
+        matrix-project,
+        email-ext,
+        durable-task,
+        checks-api,
+        build-timeout,
+        timestamper,
+        ws-cleanup,
+        ssh-slaves,
+        ssh-agent,
+        publish-over-ssh
     healthcheck: # for application-manager
-      test: [ "CMD", "curl", "-f", "http://localhost:1024/catalog/software" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/login" ]
       interval: 1m
       timeout: 5s
       retries: 3
@@ -50,9 +75,10 @@ services:
     volumes:
       - ~/:/nexus-data/blobs/
     environment:
-      - PROJECT=mcmp
+      NEXUS_SECURITY_RANDOMPASSWORD: 'false'
+      NEXUS_SECURITY_INITIAL_PASSWORD: 123456 # Please CHANGE ME
     healthcheck: # for application-manager
-      test: [ "CMD", "curl", "-f", "http://localhost:1024/catalog/software" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8081/login" ]
       interval: 1m
       timeout: 5s
       retries: 3
@@ -72,8 +98,8 @@ services:
       - ./db/application:/db/application
     environment:
       - DDL_AUTO=create-drop
-      - DB_USER=application
-      - DB_PASS=application!23
+      - DB_USER=application # Please CHANGE ME
+      - DB_PASS=application!23 # Please CHANGE ME
       - SQL_DATA_INIT=always # or never
     healthcheck: # for cb-application-manager
       test: ["CMD", "nc", "-vz", "localhost", "1324"]
