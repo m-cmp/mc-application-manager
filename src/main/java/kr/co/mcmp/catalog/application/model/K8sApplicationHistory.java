@@ -38,6 +38,21 @@ public class K8sApplicationHistory {
     @Column(name = "status", nullable = false)
     private ApplicationStatus status; 
     
+    @Column(name = "hpa_enabled", nullable = false)
+    private boolean hpaEnabled;
+
+    @Column(name = "hpa_min_replicas", nullable = true)
+    private Integer hpaMinReplicas;
+
+    @Column(name = "hpa_max_replicas", nullable = true)
+    private Integer hpaMaxReplicas;
+
+    @Column(name = "hpa_target_cpu_utilization_percentage", nullable = true)
+    private Integer hpaTargetCpuUtilizationPercentage;
+
+    @Column(name = "hpa_target_memory_utilization_percentage", nullable = true)
+    private Integer hpaTargetMemoryUtilizationPercentage;
+
     @Column(name = "installed_at")
     private LocalDateTime installedAt;
     @Column(name = "uninstalled_at")

@@ -40,14 +40,29 @@ public class CatalogEntity {
     @Column(columnDefinition="VARCHAR(15) NOT NULL DEFAULT ''", name="CATEGORY")
     private String category;
 
-    @Column(name = "RECOMMENDED_CPU", nullable = false)
-    private int recommendedCpu;
+    @Column(columnDefinition="INT", name = "RECOMMENDED_CPU", nullable = false)
+    private Integer recommendedCpu;
 
-    @Column(name = "RECOMMENDED_MEMORY", nullable = false)
-    private int recommendedMemory;
+    @Column(columnDefinition="INT", name = "RECOMMENDED_MEMORY", nullable = false)
+    private Integer recommendedMemory;
 
-    @Column(name = "RECOMMENDED_DISK", nullable = false)
-    private int recommendedDisk;
+    @Column(columnDefinition="INT", name = "RECOMMENDED_DISK", nullable = false)
+    private Integer recommendedDisk;
+
+    @Column(columnDefinition="BOOLEAN", name = "ENABLE_HPA", nullable = false)
+    private Boolean enableHpa;
+
+    @Column(columnDefinition="INT", name="HPA_MIN_REPLICAS", nullable = true)
+    private Integer hpaMinReplicas;
+
+    @Column(columnDefinition="INT", name="HPA_MAX_REPLICAS", nullable = true)
+    private Integer hpaMaxReplicas;
+
+    @Column(columnDefinition="INT", name="HPA_CPU_UTILIZATION", nullable = true)
+    private Integer hpaCpuUtilization;
+
+    @Column(columnDefinition="INT", name="HPA_MEMORY_UTILIZATION", nullable = true)
+    private Integer hpaMemoryUtilization;         
 
     public CatalogEntity(CatalogDTO cDto){
         if(cDto.getCatalogIdx() != null) { this.id = cDto.getCatalogIdx(); }
@@ -59,6 +74,11 @@ public class CatalogEntity {
         this.recommendedCpu = cDto.getRecommendedCpu();
         this.recommendedMemory = cDto.getRecommendedMemory();
         this.recommendedDisk = cDto.getRecommendedDisk();
+        this.enableHpa = cDto.getEnableHpa();
+        this.hpaMinReplicas = cDto.getHpaMinReplicas();
+        this.hpaMaxReplicas = cDto.getHpaMaxReplicas();
+        this.hpaCpuUtilization = cDto.getHpaCpuUtilization();
+        this.hpaMemoryUtilization = cDto.getHpaMemoryUtilization();
     }
 
 
