@@ -101,7 +101,7 @@ services:
       - DB_USER=application # Please CHANGE ME
       - DB_PASS=application!23 # Please CHANGE ME
       - SQL_DATA_INIT=always # or never
-      - TUMBLEBUG_URL=http://mc-infra-manager
+      - TUMBLEBUG_URL=mc-infra-manager
       - TUMBLEBUG_PORT=1323
       - TUMBLEBUG_ID=default
       - TUMBLEBUG_PASSWORD=default
