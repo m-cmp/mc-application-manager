@@ -97,10 +97,10 @@ services:
     volumes:
       - ./db/application:/db/application
     environment:
-      - DDL_AUTO=create-drop
+      - DDL_AUTO=update     # create-drop or update
       - DB_USER=application # Please CHANGE ME
       - DB_PASS=application!23 # Please CHANGE ME
-      - SQL_DATA_INIT=always # or never
+      - SQL_DATA_INIT=never # or never or always
       - TUMBLEBUG_URL=mc-infra-manager
       - TUMBLEBUG_PORT=1323
       - TUMBLEBUG_ID=default
