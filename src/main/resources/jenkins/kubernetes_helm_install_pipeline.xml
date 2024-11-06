@@ -41,6 +41,35 @@
           <defaultValue>nginx,grafana,prometheus,tomcat,redis,mariadb</defaultValue>
           <trim>true</trim>
         </hudson.model.StringParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+            <name>ENABLE_HPA</name>
+            <description>Enable Horizontal Pod Autoscaler</description>
+            <defaultValue>false</defaultValue>
+          </hudson.model.BooleanParameterDefinition>
+          <hudson.model.StringParameterDefinition>
+            <name>HPA_MIN_REPLICAS</name>
+            <description>Minimum number of replicas for HPA</description>
+            <defaultValue>1</defaultValue>
+            <trim>true</trim>
+          </hudson.model.StringParameterDefinition>
+          <hudson.model.StringParameterDefinition>
+            <name>HPA_MAX_REPLICAS</name>
+            <description>Maximum number of replicas for HPA</description>
+            <defaultValue>10</defaultValue>
+            <trim>true</trim>
+          </hudson.model.StringParameterDefinition>
+          <hudson.model.StringParameterDefinition>
+            <name>HPA_CPU_UTILIZATION</name>
+            <description>Target CPU utilization percentage for HPA</description>
+            <defaultValue>80</defaultValue>
+            <trim>true</trim>
+          </hudson.model.StringParameterDefinition>
+          <hudson.model.StringParameterDefinition>
+            <name>HPA_MEMORY_UTILIZATION</name>
+            <description>Target Memory utilization percentage for HPA</description>
+            <defaultValue>80</defaultValue>
+            <trim>true</trim>
+          </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
   </properties>
@@ -182,6 +211,35 @@ pipeline {
             }
         }
 
+        stage('Apply HPA') {
+            when {
+                expression { params.ENABLE_HPA == true }
+            }
+            steps {
+                script {
+                    def charts = params.HELM_CHARTS.split(',')
+                    charts.each { chart ->
+                        chart = chart.trim()
+                        def deploymentName = "${chart}-release"
+                        echo "Applying HPA to ${deploymentName}"
+                        try {
+                            sh """
+                            export KUBECONFIG=${WORKSPACE}/kubeconfig
+                            kubectl autoscale deployment ${deploymentName} \
+                                --min=${params.HPA_MIN_REPLICAS} \
+                                --max=${params.HPA_MAX_REPLICAS} \
+                                --cpu-percent=${params.HPA_CPU_UTILIZATION} \
+                                --memory-percent=${params.HPA_MEMORY_UTILIZATION}
+                            """
+                            echo "HPA applied to ${deploymentName} successfully"
+                        } catch (Exception e) {
+                            echo "Failed to apply HPA to ${deploymentName}: ${e.message}"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Verify Installations') {
             steps {
                 script {
@@ -190,6 +248,9 @@ pipeline {
                             export KUBECONFIG=${WORKSPACE}/kubeconfig
                             kubectl get pods,services --all-namespaces
                             helm list --all-namespaces
+                            if (params.ENABLE_HPA) {
+                                sh "kubectl get hpa --all-namespaces"
+                            }
                         """
                     } catch (Exception e) {
                         echo "Failed to verify installations: ${e.message}"

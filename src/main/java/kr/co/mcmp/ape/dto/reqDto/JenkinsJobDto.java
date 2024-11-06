@@ -106,11 +106,29 @@ public abstract class JenkinsJobDto {
         @Schema(description = "K8s 클러스터 이름", example = "cluster01", required = true)
         private String clusterName;
 
-        @Schema(description = "설치할 Helm 차트 목록", example = "[\"nginx\", \"grafana\"]")
+        @Schema(description = "설치할 Helm 차트 목록", example = "[\"nginx\"]")
         private List<String> helmCharts;
         // @Schema(description = "설치할 Helm 차트", example = "nginx")
         // private String helmCharts;
         private String version;
+
+        
+        @Schema(description = "HPA(Horizontal Pod AutoScaler) 활성화 여부", example = "false")
+        private boolean enableHpa;
+
+        @Schema(description = "HPA 최소 레플리카 수", example = "1", minimum = "1")
+        private int hpaMinReplicas;
+
+        @Schema(description = "HPA 최대 레플리카 수", example = "10", minimum = "1")
+        private int hpaMaxReplicas;
+
+        @Schema(description = "HPA CPU 사용률 목표 (퍼센트)", example = "80", minimum = "1", maximum = "100")
+        private int hpaCpuUtilization;
+
+        @Schema(description = "HPA 메모리 사용률 목표 (퍼센트)", example = "80", minimum = "1", maximum = "100")
+        private int hpaMemoryUtilization;
+
+
         
         @Override
         @JsonIgnore
@@ -124,6 +142,11 @@ public abstract class JenkinsJobDto {
             Map<String, List<String>> params = new HashMap<>();
             params.put("CLUSTERNAME", List.of(this.clusterName));
             params.put("HELM_CHARTS", List.of(String.join(",", this.helmCharts)));
+            params.put("ENABLE_HPA", List.of(String.valueOf(this.enableHpa)));
+            params.put("HPA_MIN_REPLICAS", List.of(String.valueOf(this.hpaMinReplicas)));
+            params.put("HPA_MAX_REPLICAS", List.of(String.valueOf(this.hpaMaxReplicas)));
+            params.put("HPA_CPU_UTILIZATION", List.of(String.valueOf(this.hpaCpuUtilization)));
+            params.put("HPA_MEMORY_UTILIZATION", List.of(String.valueOf(this.hpaMemoryUtilization)));
             // params.put("HELM_CHARTS", List.of(this.helmCharts));
             return params;
         }
@@ -136,11 +159,12 @@ public abstract class JenkinsJobDto {
         @Schema(description = "K8s 클러스터 이름", example = "cluster01", required = true)
         private String clusterName;
 
-        @Schema(description = "제거할 Helm 차트 목록", example = "[\"nginx\", \"grafana\"]")
+        @Schema(description = "제거할 Helm 차트 목록", example = "[\"nginx\"]")
         private List<String> helmCharts;
         // @Schema(description = "제거할 Helm 차트 목록", example = "nginx")
         // private String helmCharts;
 
+        
         private String version;
 
         @Override

@@ -61,7 +61,9 @@ public class CbtumblebugRestApi {
     }
 
     private String createApiUrl(String endpoint) {
-        return String.format("http://%s:%s%s", cbtumblebugUrl, cbtumblebugPort, endpoint);
+        String apiUrl = String.format("http://%s:%s%s", cbtumblebugUrl, cbtumblebugPort, endpoint);
+        log.info("apiUrl : {}", apiUrl);
+        return apiUrl;
     }
 
     public boolean checkTumblebug() {

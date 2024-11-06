@@ -172,6 +172,11 @@ public class ApplicationService {
                 .clusterName(jobDto.getClusterName())
                 .catalog(new CatalogEntity(catalogDto))
                 .status(status)
+                .hpaEnabled(jobDto.isEnableHpa())
+                .hpaMaxReplicas(jobDto.isEnableHpa() ? jobDto.getHpaMaxReplicas() : null)
+                .hpaMinReplicas(jobDto.isEnableHpa() ? jobDto.getHpaMinReplicas() : null)
+                .hpaTargetCpuUtilizationPercentage(jobDto.isEnableHpa() ? jobDto.getHpaCpuUtilization() : null)
+                .hpaTargetMemoryUtilizationPercentage(jobDto.isEnableHpa() ? jobDto.getHpaMemoryUtilization() : null)
                 .installedAt(LocalDateTime.now())
                 .build();
     }

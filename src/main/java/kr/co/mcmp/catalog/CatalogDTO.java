@@ -6,6 +6,8 @@ import lombok.Setter;
 
 import java.util.List;
 
+import javax.persistence.Column;
+
 import kr.co.mcmp.catalog.Ref.CatalogRefDTO;
 
 @Getter
@@ -21,9 +23,15 @@ public class CatalogDTO {
     private String catalogCategory;
     private List<CatalogRefDTO> catalogRefData;
     
-    private int recommendedCpu;
-    private int recommendedMemory;
-    private int recommendedDisk;
+    private Integer recommendedCpu;
+    private Integer recommendedMemory;
+    private Integer recommendedDisk;
+
+    private Boolean enableHpa;
+    private Integer hpaMinReplicas;
+    private Integer hpaMaxReplicas;
+    private Integer hpaCpuUtilization;
+    private Integer hpaMemoryUtilization;         
 
     public CatalogDTO(CatalogEntity cEntity){
         if(cEntity.getId() != null){ this.catalogIdx = cEntity.getId(); }
@@ -35,6 +43,11 @@ public class CatalogDTO {
         this.recommendedCpu = cEntity.getRecommendedCpu();
         this.recommendedMemory = cEntity.getRecommendedMemory();
         this.recommendedDisk = cEntity.getRecommendedDisk();
+        this.enableHpa = cEntity.getEnableHpa();
+        this.hpaMinReplicas = cEntity.getHpaMinReplicas();
+        this.hpaMaxReplicas = cEntity.getHpaMaxReplicas();
+        this.hpaCpuUtilization = cEntity.getHpaCpuUtilization();
+        this.hpaMemoryUtilization = cEntity.getHpaMemoryUtilization();
     }
 
 
