@@ -27,7 +27,7 @@ spring:
     defer-datasopurce-initalization: true
     generate-ddl: true
     hibernate:
-      ddl-auto: ${DDL_AUTO:create-drop} # ${DDL_AUTO:none}
+      ddl-auto: ${DDL_AUTO:update} # ${DDL_AUTO:none}
 # ddl-auto: create # 실행할 때에 테이블을 자동으로 생성시킬것인지 #create-drop, update, validate, none
 # create : SessionFactory 시작시 스키마를 삭제하고 다시 생성
 # create-drop : SessionFactory 종료 시 스키마를 삭제
@@ -49,7 +49,7 @@ spring:
   sql:
     init:
       data-locations: classpath:./import.sql
-      mode: ${SQL_DATA_INIT:always} #${SQL_DATA_INIT:always} # ${SQL_DATA_INIT:never}
+      mode: ${SQL_DATA_INIT:never} #${SQL_DATA_INIT:always} # ${SQL_DATA_INIT:never}
       platform: h2
       #schema-locations: classpath:ddl.sql
 
@@ -65,7 +65,7 @@ aes:
   key: fb1755281b0ca6184a0ee644e6477ee7
 
 cbtumblebug:
-  url: ${TUMBLEBUG_URL}
+  url: ${TUMBLEBUG_URL:13.124.226.58}
   port: ${TUMBLEBUG_PORT:1323}
   id: ${TUMBLEBUG_ID:default}
   pass: ${TUMBLEBUG_PASSWORD:default}
