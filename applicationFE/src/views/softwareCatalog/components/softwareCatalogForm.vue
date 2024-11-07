@@ -53,6 +53,35 @@
               </div>
             </div>
           </div>
+
+          <!-- <div class="mb-3">
+            <label class="form-label">HPA (For K8S)</label>
+            <div style="display: flex; justify-content: space-between;">
+              <div>
+                <label class="form-label required">minReplicas</label>
+                <input type="number" class="form-control w-90-per" placeholder="1" v-model="catalogDto.hpaMinReplicas" />
+              </div>
+              <div>
+                <label class="form-label required">maxReplicas</label>
+                <input type="number" class="form-control w-90-per" placeholder="10" v-model="catalogDto.hpaMaxReplicas" />
+              </div>
+              <div>
+                <div>
+                  <input class="form-check-input mr-5" type="checkbox" v-model="checkedHPACpu" />
+                  <label class="form-check-label d-inline">CPU (%)</label>
+                </div>
+                <input type="number" class="form-control w-80-per d-inline" placeholder="60" v-model="catalogDto.hpaCpuUtilization" :disabled="!checkedHPACpu"/> %
+              </div>
+              <div>
+                <div>
+                  <input class="form-check-input mr-5" type="checkbox" v-model="checkedHPAMemory" />
+                  <label class="form-check-label d-inline" >MEMORY (%)</label>
+                </div>
+                <input type="number" class="form-control w-80-per d-inline" placeholder="80" v-model="catalogDto.hpaMemoryUtilization" :disabled="!checkedHPAMemory"/> %
+              </div>
+            </div>
+          </div> -->
+
           <div class="row" id="sc-ref" v-for="(ref, idx) in refData" :key="idx">
             <div class="col-lg-6">
               <div class="mb-3">
@@ -142,6 +171,9 @@ const catalogDto = ref({} as any);
 const refData = ref([] as any)
 const files = ref([] as any)
 
+const checkedHPACpu = ref(false as boolean)
+const checkedHPAMemory = ref(false as boolean)
+
 const splitUrl = window.location.host.split(':');
 const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
 // const baseUrl = "http://15.164.227.13:18084";
@@ -162,25 +194,34 @@ const setInit = async () => {
   if(props.mode == 'update') {
     await _getSoftwareCatalogDetail()
   } else {
-      catalogDto.value = {
+    catalogDto.value = {
+      "catalogIdx": null,
+      "catalogTitle": "",
+      "catalogDescription": "",
+      "catalogSummary": "",
+      "catalogCategory": "",
+      "catalogRefData": [],
+
+      "recommendedCpu": "",
+      "recommendedMemory": "",
+      "recommendedDisk": "",
+
+      "hpaMinReplicas": "",
+      "hpaMaxReplicas": "",
+      "hpaCpuUtilization": "",
+      "hpaMemoryUtilization": "",
+    }
+    refData.value = [];
+    refData.value.push(
+      {
+        "catalogRefIdx": null,
         "catalogIdx": null,
-        "catalogTitle": "",
-        "catalogDescription": "",
-        "catalogSummary": "",
-        "catalogCategory": "",
-        "catalogRefData": []
+        "referncetIdx": 0,
+        "referenceValue": "",
+        "referenceDescription": "",
+        "referenceType": "URL"
       }
-      refData.value = [];
-      refData.value.push(
-        {
-            "catalogRefIdx": null,
-            "catalogIdx": null,
-            "referncetIdx": 0,
-            "referenceValue": "",
-            "referenceDescription": "",
-            "referenceType": "URL"
-        }
-      )
+    )
   }
 }
 
@@ -201,21 +242,21 @@ const _getSoftwareCatalogDetail = async () => {
 }
 
 const addRef = () => {
-    console.log("addRef");
-    refData.value.push({
-        "catalogRefIdx": null,
-        "catalogIdx": null,
-        "referncetIdx": 0,
-        "referenceValue": "",
-        "referenceDescription": "",
-        "referenceType": "URL"
-    })
-    // location.reload()
+  console.log("addRef");
+  refData.value.push({
+    "catalogRefIdx": null,
+    "catalogIdx": null,
+    "referncetIdx": 0,
+    "referenceValue": "",
+    "referenceDescription": "",
+    "referenceType": "URL"
+  })
+  // location.reload()
 }
 const removeRef = (idx:number) => {
-    if(refData.value.length !== 1) {
-        refData.value.splice(idx, 1)
-    }
+  if(refData.value.length !== 1) {
+    refData.value.splice(idx, 1)
+  }
 }
 
 const handleFileChange = (event: any) => {
@@ -223,50 +264,49 @@ const handleFileChange = (event: any) => {
 }
 
 const createSoftwareCatalog = async () => {
-    const formData = new FormData();
-    formData.append('iconFile', files.value);
-    
-    catalogDto.value.catalogRefData = refData.value;
-    formData.append('catalogDto', new Blob([JSON.stringify(catalogDto.value)], {
-        type: 'application/json'
-    }));
-    
-    if(props.mode == 'new') {     
-        const response = await axios.post(baseUrl + '/catalog/software', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
-        
-        if(response.data) {
-            if(response.data.data == null) {
-                toast.error('등록 할 수 없습니다.')
-                setInit();
-            } else {
-                toast.success('등록되었습니다.')
-                emit('get-list')
-            }
-        } else {
-          toast.error('등록 할 수 없습니다.')
-          setInit();
-        }
+const formData = new FormData();
+formData.append('iconFile', files.value);
 
-    } else {
-        const response = await axios.put(baseUrl + '/catalog/software', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
-      
-        if(response.data) {
-          toast.success('수정되었습니다.')
-          emit('get-list')
-        } else {
-          toast.error('수정 할 수 없습니다.')
-          setInit();
-        }
+catalogDto.value.catalogRefData = refData.value;
+formData.append('catalogDto', new Blob([JSON.stringify(catalogDto.value)], {
+  type: 'application/json'
+}));
+
+if(props.mode == 'new') {     
+  const response = await axios.post(baseUrl + '/catalog/software', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
     }
+  });
+    
+  if(response.data) {
+    if(response.data.data == null) {
+      toast.error('등록 할 수 없습니다.')
+      setInit();
+    } else {
+      toast.success('등록되었습니다.')
+      emit('get-list')
+    }
+  } else {
+    toast.error('등록 할 수 없습니다.')
+    setInit();
+  }
 
+} else {
+    const response = await axios.put(baseUrl + '/catalog/software', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  
+    if(response.data) {
+      toast.success('수정되었습니다.')
+      emit('get-list')
+    } else {
+      toast.error('수정 할 수 없습니다.')
+      setInit();
+    }
+  }
 }
 
 </script>
@@ -277,10 +317,16 @@ const createSoftwareCatalog = async () => {
   gap: 10px;
   margin-bottom: 10px;
 }
+.w-50-per {
+  width: 50% !important;
+}
 .w-80-per {
   width: 80% !important;
 }
 .w-90-per {
   width: 90% !important;
+}
+.mr-5 {
+  margin-right: 5px;
 }
 </style>

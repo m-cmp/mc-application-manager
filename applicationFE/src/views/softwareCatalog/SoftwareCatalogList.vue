@@ -6,8 +6,10 @@
       <div class="page-header d-print-none">
         <div class="container-xl">
           <div class="row g-2 align-items-center">
-            <div class="col">
+            <div class="col d-flex">
               <h2 class="page-title">Software catalog</h2>
+              <!-- <button class="btn btn-success m-3 btn-sm" @click="onClickStatus" data-bs-toggle="modal"
+                data-bs-target="#status-modal">STATUS</button> -->
             </div>
             <div class="col-auto ms-auto">
               <div class="btn-list">
@@ -32,6 +34,22 @@
         <div class="container-xl">
           <div class="row">
             <div class="col-lg-8">
+
+              <div class="col-auto me-auto fs-3">
+                <div class="d-flex justify-content-end">
+                  <button 
+                    class="btn btn-primary me-md-2 mb-2" 
+                    data-bs-toggle='modal' 
+                    data-bs-target='#install-form'
+                    @click="onClickDeploy('Application Installation')">INSTALL</button>
+                  <button 
+                    class="btn btn-danger me-md-2 mb-2" 
+                    data-bs-toggle='modal' 
+                    data-bs-target='#install-form'
+                    @click="onClickDeploy('Application Uninstallation')">UNINSTALL</button>
+                </div>
+              </div>
+
               <div class="card">
                 <div class="list-group card-list-group" id="sc-list-group">
                   <div class="list-group-item" v-for="(catalog, idx) in catalogList" :key="idx">
@@ -70,7 +88,9 @@
                           <br />
                           <div style="white-space: pre-wrap;" v-html="formattedText(catalog.catalogDescription)"></div>
                           <div>
-                            <br />
+
+
+                            <!-- <br />
                             <div class="btn-list" style="width:70%;" v-for="wf in catalog.refData.workflow"
                               :key="wf.catalogRefIdx">
                               <a class="btn"
@@ -78,37 +98,17 @@
                                 style="margin-bottom:10px;" @click="onClickDeploy(wf.referenceValue)"
                                 data-bs-toggle='modal' data-bs-target='#install-form'>
                                 {{ btnName(wf.referenceValue) }}
-                              </a><!-- btn-loading -->
+                              </a>
+                              {{ wf.referenceValue }}
                               <button class="btn btn-primary" style="text-align: center !important; margin-bottom:10px;"
                                 @click="onClickLog(wf.referenceValue)" id='log-btn' data-bs-toggle='modal'
                                 data-bs-target='#softwareCatalogLog'>
                                 &nbsp;LOG&nbsp;
                               </button>
-                              <!-- <a href="#" class="btn btn-outline-danger">Application uninstallation for VM</a>
-                                                            <button class="btn btn-primary" style="text-align: center !important;">&nbsp;LOG&nbsp;</button>
-                                                            <a href="#" class="btn btn-outline-primary">Application installation for Kubernetes using Helm</a>
-                                                            <button class="btn btn-primary" style="text-align: center !important;">&nbsp;LOG&nbsp;</button>
-                                                            <a href="#" class="btn btn-outline-danger">Application uninstallation for Kubernetes using Helm</a>
-                                                            <button class="btn btn-primary" style="text-align: center !important;">&nbsp;LOG&nbsp;</button> -->
-                            </div>
+                            </div> -->
+
+
                             <br />
-
-                            <!-- <strong>연동 workflow</strong>
-                                                        <ul :id="`${idx}-workflow-ul`">
-                                                            <template v-if="hasProperty(catalog.refData, 'workflow')">
-                                                                <template v-for="wf in catalog.refData.workflow" >
-                                                                    <li>
-                                                                        <a href="" class="btn">{{wf.referenceValue}}</a>
-                                                                    </li>
-                                                                </template>
-                                                            </template>
-                                                            <template v-else>
-                                                                <li>
-                                                                    <a href="">등록된 워크플로우가 없습니다.</a>
-                                                                </li>
-                                                            </template>
-                                                        </ul> -->
-
                             <br />
                             <strong>관련 정보</strong>
                             <ul :id="`${idx}-entity-ul`">
@@ -133,7 +133,8 @@
 
                             <strong>Recommended Spec</strong>
                             <ul :id="`${idx}-tag-ul`">
-                              <template v-if="catalog.recommendedCpu && catalog.recommendedMemory && catalog.recommendedDisk">
+                              <template
+                                v-if="catalog.recommendedCpu && catalog.recommendedMemory && catalog.recommendedDisk">
                                 <button class="btn btn-sm" style="margin-right: 5px;">
                                   CPU : {{ catalog.recommendedCpu }}
                                 </button>
@@ -262,211 +263,208 @@
         </div>
       </div>
     </div>
+    <SoftwareStatus :ns-name="nsName" />
     <SoftwareCatalogForm :mode="formMode" :catalog-idx="selectCatalogIdx" @get-list="_getSoftwareCatalogList" />
     <SoftwareCatalogLog :job-name="selectJobName" />
-    <ApplicationInstallationForm :ns-id="nsId" :title="modalTite" :application-name="selectedApplicationName" :catalog-idx="selectedApplicationIdx" />
+    <ApplicationInstallationForm 
+      :ns-id="nsId" 
+      :title="modalTite" 
+      :catalog-list="catalogList"/>
   </div>
 </template>
 <script setup lang="ts">
-    import { onMounted } from 'vue';
-    import { ref } from 'vue';
-    import { useToast } from 'vue-toastification';
-    import axios from 'axios'
-    import _ from 'lodash';
-    import SoftwareCatalogForm from './components/softwareCatalogForm.vue';
-    import SoftwareCatalogLog from './components/softwareCatalogLog.vue';
-    import ApplicationInstallationForm from './components/applicationInstallationForm.vue';
-    import '@/resources/css/tabler.min.css'
-    import '@/resources/css/demo.min.css'
-    import '@/resources/js/demo-theme.min.js'
+import { onMounted } from 'vue';
+import { ref } from 'vue';
+import { useToast } from 'vue-toastification';
+import axios from 'axios'
+import _ from 'lodash';
+import SoftwareCatalogForm from './components/softwareCatalogForm.vue';
+import SoftwareCatalogLog from './components/softwareCatalogLog.vue';
+import ApplicationInstallationForm from './components/applicationInstallationForm.vue';
+import SoftwareStatus from './components/softwareStatus.vue';
+import '@/resources/css/tabler.min.css'
+import '@/resources/css/demo.min.css'
+import '@/resources/js/demo-theme.min.js'
   
-    const toast = useToast()
+const toast = useToast()
 
-    const catalogList = ref([] as any)
-    const searchKeyword = ref("")
-    const splitUrl = window.location.host.split(':');
-    const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
-    // const baseUrl = "http://15.164.227.13:18084";
-    // const baseUrl = "http://192.168.6.30:18084";
+const catalogList = ref([] as any)
+const searchKeyword = ref("")
+const splitUrl = window.location.host.split(':');
+const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
+// const baseUrl = "http://15.164.227.13:18084";
+// const baseUrl = "http://192.168.6.30:18084";
 
-    const dockerHubSearchList = ref([] as any)
-    const artifactHubSearch = ref([] as any)
-    const selectCatalogIdx = ref(0 as number)
-    const selectJobName = ref("" as string)
-    const formMode = ref('new')
-    const nsId = ref("" as string)
-    const modalTite = ref("" as string)
-    const selectedApplicationName = ref("" as string)
-    const selectedApplicationIdx = ref(0 as number)
+const dockerHubSearchList = ref([] as any)
+const artifactHubSearch = ref([] as any)
+const selectCatalogIdx = ref(0 as number)
+const selectJobName = ref("" as string)
+const formMode = ref('new')
+const nsId = ref("" as string)
+const nsName = ref("ns01" as string)
+const modalTite = ref("" as string)
 
-    /**
-    * @Title Life Cycle
-    * @Desc 컬럼 set Callback 함수 호출 / catalogList Callback 함수 호출
-    */
-    onMounted(async () => {
-        searchKeyword.value = ""
-        window.addEventListener("message", async function(event) {
-            const data = event.data;
-            if(data.projectInfo) {
-                nsId.value = data.projectInfo.ns_id;
-            }
-        })
-        await _getSoftwareCatalogList()
+/**
+* @Title Life Cycle
+* @Desc 컬럼 set Callback 함수 호출 / catalogList Callback 함수 호출
+*/
+onMounted(async () => {
+  searchKeyword.value = ""
+  window.addEventListener("message", async function(event) {
+    const data = event.data;
+    if (data.projectInfo) {
+      nsId.value = data.projectInfo.ns_id;
+    }
+  })
+  await _getSoftwareCatalogList()
+})
+
+/**
+* @Title _getSoftwareCatalogList
+* @Desc software catalog List Callback 함수 / software catalog List api 호출
+*/
+const _getSoftwareCatalogList = async () => {
+  try {
+    const response = await axios.get(baseUrl + '/catalog/software/?title=' + searchKeyword.value);
+    _.forEach(response.data, function(item: {
+      isShow: boolean;
+      refData: any;
+      catalogRefData: any; catalogIcon: string; 
+    }) {
+      item.catalogIcon = baseUrl + item.catalogIcon
+      item.refData = groupedData(item.catalogRefData)
+      item.isShow = false;
     })
-  
-    /**
-    * @Title _getSoftwareCatalogList
-    * @Desc software catalog List Callback 함수 / software catalog List api 호출
-    */
-    const _getSoftwareCatalogList = async () => {
-        try {
-            const response = await axios.get(baseUrl + '/catalog/software/?title=' + searchKeyword.value);
-            _.forEach(response.data, function(item: {
-                isShow: boolean;
-                refData: any;
-                catalogRefData: any; catalogIcon: string; 
-            }) {
-                item.catalogIcon = baseUrl + item.catalogIcon
-                item.refData = groupedData(item.catalogRefData)
-                item.isShow = false;
-            })
-            catalogList.value = response.data;
-        } catch(error) {
-            console.log(error)
-            toast.error('데이터를 가져올 수 없습니다.')
-        }
-    }
+    catalogList.value = response.data;
+  } catch(error) {
+    console.log(error)
+    toast.error('데이터를 가져올 수 없습니다.')
+  }
+}
 
-    const groupedData = (catalogRefData: any) => {
-        return catalogRefData.reduce((acc:any, item:any) => {
-        if (!acc[item.referenceType]) {
-          acc[item.referenceType] = [];
-        }
-        acc[item.referenceType].push(item);
-        return acc;
-      }, {});
+const groupedData = (catalogRefData: any) => {
+  return catalogRefData.reduce((acc:any, item:any) => {
+    if (!acc[item.referenceType]) {
+      acc[item.referenceType] = [];
     }
+    acc[item.referenceType].push(item);
+    return acc;
+  }, {});
+}
 
-    const searchCatalog = async (e: { keyCode: number; }) => {
-        if(e.keyCode == 13){
-            await _getSoftwareCatalogList();
-            await setDockerHubSearch();
-            await setArtifactHubSearch();
-        }
-        
-    }
+const searchCatalog = async (e: { keyCode: number; }) => {
+  if(e.keyCode == 13){
+    await _getSoftwareCatalogList();
+    await setDockerHubSearch();
+    await setArtifactHubSearch();
+  }
+}
 
-    const setDockerHubSearch = async () => {
-        dockerHubSearchList.value  = [];
-        try {
-            const response = await axios.get(baseUrl + '/search/dockerhub/' + searchKeyword.value);
-            
-            for(let i=0; i<3; i++) {
-                dockerHubSearchList.value.push(response.data.data.results[i])
-            }
-            // dockerHubSearchList.value = response.data.data.results
-        } catch(error) {
-            console.log(error)
-            toast.error('데이터를 가져올 수 없습니다.')
-        }
+const setDockerHubSearch = async () => {
+  dockerHubSearchList.value  = [];
+  try {
+    const response = await axios.get(baseUrl + '/search/dockerhub/' + searchKeyword.value);
+    
+    for(let i=0; i<3; i++) {
+      dockerHubSearchList.value.push(response.data.data.results[i])
     }
+    // dockerHubSearchList.value = response.data.data.results
+  } catch(error) {
+    console.log(error)
+    toast.error('데이터를 가져올 수 없습니다.')
+  }
+}
 
-    const setArtifactHubSearch = async () => {
-        artifactHubSearch.value = [];
-        try {
-            const response = await axios.get(baseUrl + '/search/artifacthub/' + searchKeyword.value);
-            for(let i=0; i<3; i++) {
-                artifactHubSearch.value.push(response.data.data.packages[i])
-            }
-            // artifactHubSearch.value = response.data.data.packages
-        } catch(error) {
-            console.log(error)
-            toast.error('데이터를 가져올 수 없습니다.')
-        }
+const setArtifactHubSearch = async () => {
+  artifactHubSearch.value = [];
+  try {
+    const response = await axios.get(baseUrl + '/search/artifacthub/' + searchKeyword.value);
+    for(let i=0; i<3; i++) {
+      artifactHubSearch.value.push(response.data.data.packages[i])
     }
+    // artifactHubSearch.value = response.data.data.packages
+  } catch(error) {
+    console.log(error)
+    toast.error('데이터를 가져올 수 없습니다.')
+  }
+}
 
-    const setSoftwareCatalogRefrence = async (idx:any) => {
+const setSoftwareCatalogRefrence = async (idx:any) => {
 
-        catalogList.value.forEach((catalogInfo:any) => {
-          catalogInfo.isShow = false
-        })
-        catalogList.value[idx].isShow = !catalogList.value[idx].isShow
-        selectedApplicationName.value = catalogList.value[idx].catalogTitle
-        selectedApplicationIdx.value = catalogList.value[idx].catalogIdx
-        // try {
-        //     const response = await axios.get(baseUrl + '/catalog/software/' + idx);
-        //     console.log("response : ", response)
-        // } catch(error) {
-        //     console.log(error)
-        //     toast.error('데이터를 가져올 수 없습니다.')
-        // }
-    }
+  catalogList.value.forEach((catalogInfo:any) => {
+    catalogInfo.isShow = false
+  })
+  catalogList.value[idx].isShow = !catalogList.value[idx].isShow
+  // try {
+  //     const response = await axios.get(baseUrl + '/catalog/software/' + idx);
+  //     console.log("response : ", response)
+  // } catch(error) {
+  //     console.log(error)
+  //     toast.error('데이터를 가져올 수 없습니다.')
+  // }
+}
 
-    const hasProperty = (data:any, prop:any) => {
-        return Object.prototype.hasOwnProperty.call(data, prop);
-    }
+const hasProperty = (data:any, prop:any) => {
+  return Object.prototype.hasOwnProperty.call(data, prop);
+}
 
-    const goToPage = (url:string) => {
-        window.open(url)
-    }
+const goToPage = (url:string) => {
+  window.open(url)
+}
 
-    const onClickUpdate = (idx:number) => {
-        formMode.value = "update";
-        selectCatalogIdx.value = idx;
-    }
+const onClickUpdate = (idx:number) => {
+  formMode.value = "update";
+  selectCatalogIdx.value = idx;
+}
 
-    const onClickCreate = () => {
-        formMode.value = "new"
-        selectCatalogIdx.value = 0;
-    }
+const onClickCreate = () => {
+  formMode.value = "new"
+  selectCatalogIdx.value = 0;
+}
 
-    const onClickDockerHubSearch = () => {
-        let dockerHubUrl = `https://hub.docker.com/search?q=${searchKeyword.value}`;
-        window.open(dockerHubUrl, '_blank');
-    }
+const onClickDockerHubSearch = () => {
+  let dockerHubUrl = `https://hub.docker.com/search?q=${searchKeyword.value}`;
+  window.open(dockerHubUrl, '_blank');
+}
 
-    const onClickArtifactHub = () => {
-        let artifactHubUrl = `https://artifacthub.io/packages/search?ts_query_web=${searchKeyword.value}&sort=relevance&page=1`;
-        window.open(artifactHubUrl, '_blank');
-    }
+const onClickArtifactHub = () => {
+  let artifactHubUrl = `https://artifacthub.io/packages/search?ts_query_web=${searchKeyword.value}&sort=relevance&page=1`;
+  window.open(artifactHubUrl, '_blank');
+}
 
-    const containsText = (text: any, refVal: string | any[]) => {
-        return refVal.includes(text);
-    }
+const containsText = (text: any, refVal: string | any[]) => {
+  return refVal.includes(text);
+}
 
-    const btnName = (text: string) => {
-        return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    }
+const btnName = (text: string) => {
+  return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
 
-    const onClickLog = (name: string) => {
-        selectJobName.value = name;
-    }
+const onClickLog = (name: string) => {
+  selectJobName.value = name;
+}
 
-    const onClickDeploy = (value: string) => {
-        modalTite.value = value
-    }
+const onClickDeploy = (value: string) => {
+  modalTite.value = value
+}
 
-    const formattedText = (text:string) => {
-        return text.replace(/\\n|\n/g, '<br/>');
-    }
-    const formattedText = (text:string) => {
-      return text.replace(/\\n|\n/g, '<br/>');
-    }
-  
+const formattedText = (text:string) => {
+  return text.replace(/\\n|\n/g, '<br/>');
+}
 </script>
 <style>
 @import url('https://rsms.me/inter/inter.css');
-    :root {
-    --tblr-font-sans-serif: 'Inter Var', -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif;
-    }
-    body {
-    font-feature-settings: "cv03", "cv04", "cv11";
-    }
+:root {
+  --tblr-font-sans-serif: 'Inter Var', -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif;
+}
+body {
+  font-feature-settings: "cv03", "cv04", "cv11";
+}
 
-    .btn-grid-list {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        grid-column-gap: 10px;
-        grid-row-gap: 10px;
-    }
+.btn-grid-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-column-gap: 10px;
+  grid-row-gap: 10px;
+}
 </style>
