@@ -380,17 +380,20 @@ const _getClusterName = async () => {
 
 const onChangeNsId = async () => {
   await _getMciName();
-  onChangeForm();
+  if(modalType.value === 'Application Installation')
+    onChangeForm();
 }
 
 const onChangeMci = async () => {
   await _getVmName();
-  onChangeForm();
+  if(modalType.value === 'Application Installation')
+    onChangeForm();
 }
 
 const onSelectNamespace = async () =>{
   await _getClusterName();
-  onChangeForm();
+  if(modalType.value === 'Application Installation')
+    onChangeForm();
 }
 
 const runInstall = async () => {
@@ -498,7 +501,8 @@ const specCheckCallback = async () => {
 
 const selectedCatalogIdx = ref(0 as number)
 const onChangeCatalog = () => {
-  specCheckFlag.value = true
+  if(modalType.value === 'Application Installation')
+    specCheckFlag.value = true
 
   props.catalogList.forEach((catalogInfo) => {
     if (inputApplications.value === catalogInfo.catalogTitle) {
@@ -508,7 +512,8 @@ const onChangeCatalog = () => {
   })
 }
 const onChangeForm = () => {
-  specCheckFlag.value = true
+  if(modalType.value === 'Application Installation')
+    specCheckFlag.value = true
 }
 
 </script>
