@@ -25,7 +25,8 @@
             <select 
               class="form-select" 
               id="infra" 
-              v-model="selectInfra">
+              v-model="selectInfra"
+              @click="onChangeForm">
               <option 
                 v-for="infra in infraList" 
                 :value=infra.value 
@@ -103,7 +104,7 @@
             <div class="mb-3">
               <label class="form-label">Application</label>
               <p class="text-muted">Select the application</p>
-              <select class="form-select" v-model="inputApplications">
+              <select class="form-select" v-model="inputApplications" @change="onChangeCatalog">
                 <option v-for="catalog in props.catalogList" :key="catalog">{{ catalog.catalogTitle }}</option>
               </select>
 
@@ -181,7 +182,7 @@
             <div class="mb-3">
               <label class="form-label">Helm chart</label>
               <p class="text-muted">Select the application</p>
-              <select class="form-select" v-model="inputApplications">
+              <select class="form-select" v-model="inputApplications" @change="onChangeCatalog">
                 <option v-for="catalog in props.catalogList" :key="catalog">{{ catalog.catalogTitle }}</option>
               </select>
               <!-- <input 
@@ -281,15 +282,15 @@ const selectCluster = ref("" as string)
 const inputApplications = ref("" as string)
 const specCheckFlag = ref(true as boolean)
 
-watch(inputApplications, async () => {
-  // TODO :: hpa 데이터 가져오는 API 필요
-  hpaData.value = {
-    hpaMinReplicas: 0,
-    hpaMaxReplicas: 0,
-    hpaCpuUtilization: 0,
-    hpaMemoryUtilization: 0
-  }
-})
+// watch(inputApplications, async () => {
+//   // TODO :: hpa 데이터 가져오는 API 필요
+//   hpaData.value = {
+//     hpaMinReplicas: 0,
+//     hpaMaxReplicas: 0,
+//     hpaCpuUtilization: 0,
+//     hpaMemoryUtilization: 0
+//   }
+// })
 watch(modalTitle, async () => {
   popupTitle.value = changeTitle(props.title);
   modalType.value = props.title;
@@ -379,14 +380,17 @@ const _getClusterName = async () => {
 
 const onChangeNsId = async () => {
   await _getMciName();
+  onChangeForm();
 }
 
 const onChangeMci = async () => {
   await _getVmName();
+  onChangeForm();
 }
 
 const onSelectNamespace = async () =>{
   await _getClusterName();
+  onChangeForm();
 }
 
 const runInstall = async () => {
@@ -472,23 +476,39 @@ const specCheckCallback = async () => {
   let param = "";
 
   if (selectInfra.value === 'VM') {
-    if (selectNsId.value === undefined || selectMci.value === undefined || selectVm.value === undefined || props.catalogIdx === undefined) {
+    console.log('inputApplications.value >> ', inputApplications.value)
+    if (selectNsId.value === undefined || selectMci.value === undefined || selectVm.value === undefined || selectedCatalogIdx.value === undefined) {
       return null;
     }
     runUrl = "/applications/vm/check/application"
-    param = "?namespace=" + selectNsId.value + "&mciName=" + selectMci.value + "&vmName=" + selectVm.value + "&catalogId=" + props.catalogIdx
+    param = "?namespace=" + selectNsId.value + "&mciName=" + selectMci.value + "&vmName=" + selectVm.value + "&catalogId=" + selectedCatalogIdx.value
   }
   else if (selectInfra.value === 'K8S') {
-    if (selectNsId.value === undefined || selectCluster.value === undefined  || props.catalogIdx === undefined) {
+    if (selectNsId.value === undefined || selectCluster.value === undefined  || selectedCatalogIdx.value === undefined) {
       toast.error('Please select all items')
       return;
     }
     runUrl = "/applications/k8s/check/application"
-    param = "?namespace=" + selectNsId.value + "&clusterName=" + selectCluster.value + "&catalogId=" + props.catalogIdx
+    param = "?namespace=" + selectNsId.value + "&clusterName=" + selectCluster.value + "&catalogId=" + selectedCatalogIdx.value
   }
   result = await axios.get(baseUrl + runUrl + param)
 
   return result;
+}
+
+const selectedCatalogIdx = ref(0 as number)
+const onChangeCatalog = () => {
+  specCheckFlag.value = true
+
+  props.catalogList.forEach((catalogInfo) => {
+    if (inputApplications.value === catalogInfo.catalogTitle) {
+      selectedCatalogIdx.value = catalogInfo.catalogIdx
+      return
+    }
+  })
+}
+const onChangeForm = () => {
+  specCheckFlag.value = true
 }
 
 </script>
