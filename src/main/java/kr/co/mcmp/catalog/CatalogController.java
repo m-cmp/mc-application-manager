@@ -2,6 +2,7 @@ package kr.co.mcmp.catalog;
 
 import java.util.List;
 
+import kr.co.mcmp.response.ResponseWrapper;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -42,36 +43,36 @@ public class CatalogController {
     @ApiOperation(value="software catalog list(all)", notes="software catalog 리스트 불러오기")
     @Operation(summary = "get software catalog list")
     @GetMapping
-    public List<CatalogDTO> getCatalogList(@RequestParam(required = false) String title){
+    public ResponseWrapper<List<CatalogDTO>> getCatalogList(@RequestParam(required = false) String title){
         if(StringUtils.isEmpty(title)){
-            return catalogService.getCatalogList();
+            return new ResponseWrapper<>(catalogService.getCatalogList());
         }else {
-            return catalogService.getCatalogListSearch(title);
+            return new ResponseWrapper<>(catalogService.getCatalogListSearch(title));
         }
     }
 
     @Operation(summary = "software catalogd detail(and reference)")
     @ApiOperation(value="software catalog detail", notes="software catalog 내용 확인(연결된 정보들까지)")
     @GetMapping("/{catalogIdx}")
-    public CatalogDTO getCatalog(@PathVariable Integer catalogIdx){
-        return catalogService.getCatalog(catalogIdx);
+    public ResponseWrapper<CatalogDTO> getCatalog(@PathVariable Integer catalogIdx){
+        return new ResponseWrapper<>(catalogService.getCatalog(catalogIdx));
     }
 
     @Operation(summary = "create software catalog", description = "Insert a software catalog with an optional icon file.")
     @ApiOperation(value="software catalog insert", notes="software catalog 등록")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE) 
-    public CatalogDTO createCatalog(
+    public ResponseWrapper<CatalogDTO> createCatalog(
         @RequestPart(value = "catalogDto") CatalogDTO catalogDto, 
         @RequestPart(value ="iconFile", required = false) MultipartFile iconFile)
     {
-        return catalogService.createCatalog(catalogDto, iconFile);
+        return new ResponseWrapper<>(catalogService.createCatalog(catalogDto, iconFile));
     }
 
     @Operation(summary = "delete software catalog")
     @ApiOperation(value="software catalog delete", notes="software catalog 삭제")
     @DeleteMapping("/{catalogIdx}")
-    public boolean deleteCatalog(@PathVariable Integer catalogIdx){
-        return catalogService.deleteCatalog(catalogIdx);
+    public ResponseWrapper<Boolean> deleteCatalog(@PathVariable Integer catalogIdx){
+        return new ResponseWrapper<Boolean>(catalogService.deleteCatalog(catalogIdx));
     }
 
     // @Operation(summary = "update software catalog")
@@ -84,10 +85,10 @@ public class CatalogController {
     @Operation(summary = "update software catalog")
     @ApiOperation(value="software catalog update", notes="software catalog 수정")
     @PutMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public boolean updateCatalog(
+    public ResponseWrapper<Boolean> updateCatalog(
             @RequestPart("catalogDto") CatalogDTO catalogDto,
             @RequestPart(value = "iconFile", required = false) MultipartFile iconFile) {
-            return catalogService.updateCatalog(catalogDto, iconFile);
+            return new ResponseWrapper<>(catalogService.updateCatalog(catalogDto, iconFile));
     }
 
 
