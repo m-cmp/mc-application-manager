@@ -2,6 +2,7 @@ package kr.co.mcmp.catalog.application.controller;
 
 import java.util.List;
 
+import kr.co.mcmp.response.ResponseWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,18 +54,18 @@ public class ApplicationController {
     }
 
     @GetMapping("/vm/check/application")
-    public boolean canInstallApplicationForVM(@RequestParam String namespace,
-    @RequestParam String mciName,
-    @RequestParam String vmName,
-    @RequestParam Integer catalogId) {
-        return applicationService.canInstallApplicationOnVm(namespace, mciName, vmName, catalogId);
+    public ResponseWrapper<Boolean> canInstallApplicationForVM(@RequestParam String namespace,
+                                       @RequestParam String mciName,
+                                       @RequestParam String vmName,
+                                       @RequestParam Integer catalogId) {
+        return new ResponseWrapper<>(applicationService.canInstallApplicationOnVm(namespace, mciName, vmName, catalogId));
     }
 
     @GetMapping("/k8s/check/application")
-    public boolean canInstallApplicationForK8s(@RequestParam String namespace,
+    public ResponseWrapper<Boolean> canInstallApplicationForK8s(@RequestParam String namespace,
     @RequestParam String clusterName,
     @RequestParam Integer catalogId) {
-        return applicationService.canInstallApplicationOnK8s(namespace, clusterName, catalogId);
+        return new ResponseWrapper<>(applicationService.canInstallApplicationOnK8s(namespace, clusterName, catalogId));
     }
     
     

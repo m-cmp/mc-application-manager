@@ -4,6 +4,7 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import kr.co.mcmp.response.ResponseWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,14 +31,14 @@ public class CatalogRefController {
 
     @Operation(summary = "execute catalog reference workflow")
     @PostMapping("/workflow")
-    public String execWorkflow(){
+    public ResponseWrapper<String> execWorkflow(){
         return null;
     }
 
     @Operation(summary = "delete catalog reference workflow")
     @DeleteMapping("/{catalogIdx}/{catalogRefIdx}")
-    public boolean deleteCatalogRefWorkflow(@PathVariable Integer catalogIdx, @PathVariable Integer catalogRefIdx){
-        return false;
+    public ResponseWrapper<Boolean> deleteCatalogRefWorkflow(@PathVariable Integer catalogIdx, @PathVariable Integer catalogRefIdx){
+        return new ResponseWrapper<>(false);
     }
 
     @Operation(summary = "get catalog reference")
