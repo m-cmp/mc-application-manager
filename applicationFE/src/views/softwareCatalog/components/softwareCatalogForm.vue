@@ -3,28 +3,33 @@
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Create New Software catalog</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          <h5 class="modal-title">
+            Create New Software catalog
+          </h5>
+          <button 
+            type="button" 
+            class="btn-close" 
+            data-bs-dismiss="modal" 
+            aria-label="Close" />
         </div>
         <div class="modal-body" style="max-height: calc(100vh - 200px);overflow-y: auto;">
+
+          <!-- Title -->
           <div class="mb-3">
             <label class="form-label">Title</label>
-            <input type="text" class="form-control" id="sc-title" name="title" placeholder="Application name"
-              v-model="catalogDto.catalogTitle" />
+            <input type="text" class="form-control" id="sc-title" name="title" placeholder="Application name" v-model="catalogDto.title" disabled/>
           </div>
+          
+          <!-- Summary -->
           <div class="mb-3">
             <label class="form-label">Summary</label>
-            <input type="text" class="form-control" id="sc-summary" name="summary" placeholder="Application summary"
-              v-model="catalogDto.catalogSummary" />
+            <input type="text" class="form-control" id="sc-summary" name="summary" placeholder="Application summary" v-model="catalogDto.summary" />
           </div>
-          <div class="mb-3">
-            <label class="form-label">Icon</label>
-            <input type="file" class="form-control" id="sc-icon" name="icon" placeholder="Icon File"
-              @change="handleFileChange" />
-          </div>
+
+          <!-- Category -->
           <div class="mb-3">
             <label class="form-label">Category</label>
-            <select class="form-select" id="sc-category" v-model="catalogDto.catalogCategory">
+            <select class="form-select" id="sc-category" v-model="catalogDto.category">
               <option value="SERVER" selected>SERVER</option>
               <option value="WAS">WAS</option>
               <option value="DB">DB</option>
@@ -32,13 +37,163 @@
               <option value="OBSERVABILITY">OBSERVABILITY</option>
             </select>
           </div>
+
+          <!-- Description -->
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <textarea class="form-control" rows="5" id="sc-desc" v-model="catalogDto.catalogDescription"></textarea>
+            <textarea class="form-control" rows="5" id="sc-desc" v-model="catalogDto.description"></textarea>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Recommended Server Spec</label>
-            <div style="display: flex; justify-content: space-between;">
+
+          <!-- Recommend Server Spec -->
+
+<!-- test -->
+          <label class="form-label">Spec</label>
+
+          <div class="mb-5">
+            <div class="accordion" id="accordion">
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="headingRecommendSpec">
+                  <button class="accordion-button required" type="button" data-bs-toggle="collapse" data-bs-target="#recommendedSpec" aria-expanded="true" aria-controls="recommendedSpec">
+                    Recommended Spec
+                  </button>
+                </h2>
+                <div id="recommendedSpec" class="accordion-collapse collapse " show aria-labelledby="headingRecommendSpec" data-bs-parent="#accordion">
+                  <div class="accordion-body">
+                    <div class="d-flex justify-content-between">
+                      <div>
+                        <label class="form-label required">CPU</label>
+                        <input type="number" class="form-control w-90-per" placeholder="2" v-model="catalogDto.recommendedCpu" />
+                      </div>
+                      <div>
+                        <label class="form-label required">MEMORY</label>
+                        <input type="number" class="form-control w-90-per" placeholder="4" v-model="catalogDto.recommendedMemory" />
+                      </div>
+                      <div>
+                        <label class="form-label required">DISK</label>
+                        <input type="number" class="form-control w-90-per" placeholder="20" v-model="catalogDto.recommendedDisk" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="headingMinimumSpec">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#minimumspec" aria-expanded="true" aria-controls="minimumspec">
+                    Minimun Spec
+                  </button>
+                </h2>
+                <div id="minimumspec" class="accordion-collapse collapse " show aria-labelledby="headingMinimumSpec" data-bs-parent="#accordion">
+                  <div class="accordion-body">
+                    <div class="d-flex justify-content-between">
+                      
+                      <div>
+                        <label class="form-label required">CPU</label>
+                        <input type="number" class="form-control w-90-per" placeholder="2" v-model="catalogDto.minCpu" />
+                      </div>
+                      <div>
+                        <label class="form-label required">MEMORY</label>
+                        <input type="number" class="form-control w-90-per" placeholder="4" v-model="catalogDto.minMemory" />
+                      </div>
+                      <div>
+                        <label class="form-label required">DISK</label>
+                        <input type="number" class="form-control w-90-per" placeholder="20" v-model="catalogDto.minDisk" />
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="headingPort">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#port" aria-expanded="true" aria-controls="port">
+                    Port
+                  </button>
+                </h2>
+                <div id="port" class="accordion-collapse collapse " show aria-labelledby="headingPort" data-bs-parent="#accordion">
+                  <div class="accordion-body">
+                    <div>
+                      <label class="form-label required">Port</label>
+
+                      <div class="d-flex justify-content-between mb-3">
+                        <input type="number" class="form-control w-80-per" placeholder="8080" v-model="catalogDto.defaultPort" />
+                        <div class="btn-list">
+                          <button class="btn btn-primary" disabled @click="addPort">
+                            <IconPlus class="icon icon-tabler icon-tabler-plus m-0" size="24"/>
+                          </button>
+                          <button class="btn btn-primary" disabled @click="removePort(0)">
+                            <IconMinus class="icon icon-tabler icon-tabler-plus m-0" size="24"/>
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- <div class="d-flex justify-content-between mb-3" v-for="(defaultPort, idx) in catalogDto.defaultPort" :key="idx">
+                        <input type="number" class="form-control w-80-per" placeholder="8080" v-model="defaultPort[idx]" />
+                        <div class="btn-list">
+                          <button class="btn btn-primary" disabled @click="addPort">
+                            <IconPlus class="icon icon-tabler icon-tabler-plus" size="24" style="margin: 0px !important;"/>
+                          </button>
+                          <button class="btn btn-primary" disabled @click="removePort(idx)">
+                            <IconMinus class="icon icon-tabler icon-tabler-plus" size="24" style="margin: 0px !important;"/>
+                          </button>
+                        </div>
+                      </div> -->
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="headingHpa">
+
+                  <button class="accordion-button d-inline" type="button" data-bs-toggle="collapse" data-bs-target="#hpa" aria-expanded="true" aria-controls="hpa">
+                    HPA (For K8S)
+                    <input class="form-check-input ms-1 mt-1" type="checkbox" v-model="checkedHPA" :disabled="mode === 'update'"/>
+                  </button>
+
+                </h2>
+                <div id="hpa" class="accordion-collapse collapse" aria-labelledby="headingHpa" data-bs-parent="#accordion">
+                  <div class="accordion-body">
+                      <div class="d-flex justify-content-between ">
+                        
+                        <div>
+                          <label class="form-label required">minReplicas</label>
+                          <input type="number" class="form-control w-90-per" placeholder="1" v-model="catalogDto.minReplicas"  :disabled="!checkedHPA"/>
+                        </div>
+                        <div>
+                          <label class="form-label required">maxReplicas</label>
+                          <input type="number" class="form-control w-90-per" placeholder="10" v-model="catalogDto.maxReplicas"  :disabled="!checkedHPA"/>
+                        </div>
+                        <div>
+                          <div>
+                            <label class="form-check-label">CPU (%)</label>
+                          </div>
+                          <input type="number" class="form-control w-80-per d-inline" placeholder="60" v-model="catalogDto.cpuThreshold" :disabled="!checkedHPA"/> %
+                        </div>
+                        <div>
+                          <div>
+                            <label class="form-check-label" >MEMORY (%)</label>
+                          </div>
+                          <input type="number" class="form-control w-80-per d-inline" placeholder="80" v-model="catalogDto.memoryThreshold" :disabled="!checkedHPA"/> %
+                        </div>
+
+                      </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+<!-- test -->
+
+
+          <!-- <div class="mb-3">
+            <label class="form-label required">Recommended Server Spec</label>
+            <div  class="d-flex justify-content-between">
               <div>
                 <label class="form-label required">CPU</label>
                 <input type="number" class="form-control w-90-per" placeholder="2" v-model="catalogDto.recommendedCpu" />
@@ -52,41 +207,66 @@
                 <input type="number" class="form-control w-90-per" placeholder="20" v-model="catalogDto.recommendedDisk" />
               </div>
             </div>
-          </div>
+          </div> -->
 
+          <!-- Minimun Spec -->
           <!-- <div class="mb-3">
-            <label class="form-label">HPA (For K8S)</label>
-            <div style="display: flex; justify-content: space-between;">
+            <label class="form-label required">Minimun Spec</label>
+            <div class="d-flex justify-content-between">
               <div>
-                <label class="form-label required">minReplicas</label>
-                <input type="number" class="form-control w-90-per" placeholder="1" v-model="catalogDto.hpaMinReplicas" />
+                <label class="form-label required">CPU</label>
+                <input type="number" class="form-control w-90-per" placeholder="2" v-model="catalogDto.minCpu" />
               </div>
               <div>
-                <label class="form-label required">maxReplicas</label>
-                <input type="number" class="form-control w-90-per" placeholder="10" v-model="catalogDto.hpaMaxReplicas" />
+                <label class="form-label required">MEMORY</label>
+                <input type="number" class="form-control w-90-per" placeholder="4" v-model="catalogDto.minMemory" />
               </div>
               <div>
-                <div>
-                  <input class="form-check-input mr-5" type="checkbox" v-model="checkedHPACpu" />
-                  <label class="form-check-label d-inline">CPU (%)</label>
-                </div>
-                <input type="number" class="form-control w-80-per d-inline" placeholder="60" v-model="catalogDto.hpaCpuUtilization" :disabled="!checkedHPACpu"/> %
-              </div>
-              <div>
-                <div>
-                  <input class="form-check-input mr-5" type="checkbox" v-model="checkedHPAMemory" />
-                  <label class="form-check-label d-inline" >MEMORY (%)</label>
-                </div>
-                <input type="number" class="form-control w-80-per d-inline" placeholder="80" v-model="catalogDto.hpaMemoryUtilization" :disabled="!checkedHPAMemory"/> %
+                <label class="form-label required">DISK</label>
+                <input type="number" class="form-control w-90-per" placeholder="20" v-model="catalogDto.minDisk" />
               </div>
             </div>
           </div> -->
 
+          <!-- HPA -->
+          <!-- <div class="mb-3">
+            <div class="d-flex justify-content-start">
+              <label class="form-label me-2">HPA (For K8S)</label>
+              <input class="form-check-input" type="checkbox" v-model="checkedHPA" :disabled="mode === 'update'"/>
+            </div>
+            <div class="d-flex justify-content-between">
+              <div>
+                <label class="form-label required">minReplicas</label>
+                <input type="number" class="form-control w-90-per" placeholder="1" v-model="catalogDto.minReplicas"  :disabled="!checkedHPA"/>
+              </div>
+              <div>
+                <label class="form-label required">maxReplicas</label>
+                <input type="number" class="form-control w-90-per" placeholder="10" v-model="catalogDto.maxReplicas"  :disabled="!checkedHPA"/>
+              </div>
+              <div>
+                <div>
+                  <label class="form-check-label">CPU (%)</label>
+                </div>
+                <input type="number" class="form-control w-80-per d-inline" placeholder="60" v-model="catalogDto.cpuThreshold" :disabled="!checkedHPA"/> %
+              </div>
+              <div>
+                <div>
+                  <label class="form-check-label" >MEMORY (%)</label>
+                </div>
+                <input type="number" class="form-control w-80-per d-inline" placeholder="80" v-model="catalogDto.memoryThreshold" :disabled="!checkedHPA"/> %
+              </div>
+            </div>
+          </div> -->
+
+
+          <!-- Reference -->
           <div class="row" id="sc-ref" v-for="(ref, idx) in refData" :key="idx">
             <div class="col-lg-6">
+    
+              <!-- Reference Key -->
               <div class="mb-3">
                 <label class="form-label">Reference</label>
-                <select class="form-select" id="sc-reference-1" v-model="ref.referenceType">
+                <select class="form-select" id="sc-reference-1" v-model="ref.refType">
                   <option value="URL">URL</option>
                   <option value="MANIFEST">MANIFEST</option>
                   <option value="WORKFLOW">WORKFLOW</option>
@@ -97,53 +277,43 @@
                 </select>
               </div>
             </div>
+
+            <!-- Reference Value -->
             <div class="col-lg-6">
               <div class="mb-3">
                 <label class="form-label">&nbsp;</label>
-                <input type="text" class="form-control" id="sc-ref-value-1" name="refValue" placeholder="Ref value"
-                  v-model="ref.referenceValue" />
+                <input type="text" class="form-control" id="sc-ref-value-1" name="refValue" placeholder="Ref value" v-model="ref.refValue" />
               </div>
             </div>
+
+            <!-- Reference Description -->
             <div class="mb-3">
               <div class="input-form">
                 <input type="text" class="form-control w-80-per" id="sc-ref-desc-1" name="refDescription"
-                  placeholder="Ref Description" v-model="ref.referenceDescription" />
+                  placeholder="Ref Description" v-model="ref.refDesc" />
                 <div class="btn-list">
-                  <button class="btn btn-primary" @click="addRef" style="text-align: center !important;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                      class="icon icon-tabler icons-tabler-outline icon-tabler-plus" style="margin: 0 !important;">
-                      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                      <path d="M12 5l0 14" />
-                      <path d="M5 12l14 0" />
-                    </svg>
+                  <button class="btn btn-primary" @click="addRef">
+                    <IconPlus class="icon icon-tabler icon-tabler-plus" size="24" style="margin: 0px !important;"/>
                   </button>
                   <button class="btn btn-primary" @click="removeRef(idx)">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                      class="icon icon-tabler icons-tabler-outline icon-tabler-minus" style="margin: 0 !important;">
-                      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                      <path d="M5 12l14 0" />
-                    </svg>
+                    <IconMinus class="icon icon-tabler icon-tabler-plus" size="24" style="margin: 0px !important;"/>
                   </button>
                 </div>
               </div>
             </div>
+
           </div>
         </div>
+
+        <!-- footer -->
         <div class="modal-footer">
           <a class="btn btn-link link-secondary" data-bs-dismiss="modal" @click="setInit">
             Cancel
           </a>
-          <a class="btn btn-primary ms-auto" data-bs-dismiss="modal" @click="createSoftwareCatalog">
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-plus" width="24" height="24"
-              viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round"
-              stroke-linejoin="round">
-              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-              <path d="M12 5l0 14"></path>
-              <path d="M5 12l14 0"></path>
-            </svg>
-            Create New Software catalog
+          <a class="btn btn-primary ms-auto" data-bs-dismiss="modal" @click="_createSoftwareCatalog">
+            <IconPlus class="icon icon-tabler icon-tabler-plus" size="24" stroke-width="2"/>
+            <span v-if="mode === 'new'">Create New Software catalog</span>
+            <span v-else-if="mode === 'update'">Update Software catalog</span>
           </a>
         </div>
       </div>
@@ -152,88 +322,231 @@
 </template>
 
 <script setup lang="ts">
-import type { Repository } from '../../type/type';
+import { IconPlus, IconMinus } from '@tabler/icons-vue'
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
-import { onMounted, watch, computed } from 'vue';
-import axios from 'axios'
-
-/**
- * @Title Props / Emit
- */
- interface Props {
-  mode: String
-  catalogIdx: Number
-}
+import { watch, computed } from 'vue';
+import { createSoftwareCatalog, getSoftwareCaltalogDetail, updateSoftwareCatalog } from '@/api/softwareCatalog';
 
 const toast = useToast()
+interface Props {
+  mode: string
+  catalogIdx: number | null
+  repositoryApplicationInfo: any
+  repositoryName: string
+}
+const props = defineProps<Props>()
+const emit = defineEmits(['get-list'])
+
+const catalogIdx = computed(() => props.catalogIdx);
+const mode = computed(() => props.mode)
+const repositoryApplicationInfo = computed(()=> props.repositoryApplicationInfo)
+const repositoryName = computed(()=> props.repositoryName)
+
 const catalogDto = ref({} as any);
 const refData = ref([] as any)
-const files = ref([] as any)
+// const files = ref([] as any)
+const checkedHPA = ref(false as boolean)
 
-const checkedHPACpu = ref(false as boolean)
-const checkedHPAMemory = ref(false as boolean)
-
-const splitUrl = window.location.host.split(':');
-const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
-// const baseUrl = "http://15.164.227.13:18084";
-// const baseUrl = "http://192.168.6.30:18084";
-
-
-const emit = defineEmits(['get-list'])
-const props = defineProps<Props>()
-const catalogIdx = computed(() => props.catalogIdx);
-watch(catalogIdx, async () => {
+watch(()=> catalogIdx.value, async () => {
   await setInit();
-});
-onMounted(async () => {
-    await setInit()
-})
+},{ deep: true });
+watch(()=> repositoryApplicationInfo.value, async () => {
+  await setInit();
+},{ deep: true });
 
 const setInit = async () => {
-  if(props.mode == 'update') {
+  if (mode.value === 'update') {
     await _getSoftwareCatalogDetail()
   } else {
-    catalogDto.value = {
-      "catalogIdx": null,
-      "catalogTitle": "",
-      "catalogDescription": "",
-      "catalogSummary": "",
-      "catalogCategory": "",
-      "catalogRefData": [],
-
-      "recommendedCpu": "",
-      "recommendedMemory": "",
-      "recommendedDisk": "",
-
-      "hpaMinReplicas": "",
-      "hpaMaxReplicas": "",
-      "hpaCpuUtilization": "",
-      "hpaMemoryUtilization": "",
-    }
+    if (repositoryName.value === 'dockerhub')
+      setDockerHubToCatalog(repositoryApplicationInfo.value, repositoryName.value)
+    else if (repositoryName.value === 'artifacthub')
+      setArtifactHubToCatalog(repositoryApplicationInfo.value, repositoryName.value)
+    else
+      setInitData()
     refData.value = [];
     refData.value.push(
       {
-        "catalogRefIdx": null,
-        "catalogIdx": null,
-        "referncetIdx": 0,
-        "referenceValue": "",
-        "referenceDescription": "",
-        "referenceType": "URL"
+        "refId": 0,
+        "refValue": "",
+        "refDesc": "",
+        "refType": "",
       }
     )
   }
 }
 
+const setDockerHubToCatalog = (applicationInfo: any, repositoryName: string) => {
+  catalogDto.value = {
+    title: applicationInfo.name,
+    description: applicationInfo.short_description,
+    category: "",
+    summary:  applicationInfo.short_description,
+    sourceType: repositoryName,
+
+    // icon
+    logoUrlLarge: applicationInfo.logo_url.large,
+    logoUrlSmall: applicationInfo.logo_url.small,
+
+    // 최소사양
+    minCpu: 0,
+    minMemory: 0,
+    minDisk: 0,
+
+    // 권장사양
+    recommendedCpu: 0,
+    recommendedMemory: 0,
+    recommendedDisk: 0,
+
+    // 임계치
+    cpuThreshold: 0,
+    memoryThreshold: 0,
+
+    // 최소 / 최대 Replica
+    minReplicas: 0,
+    maxReplicas: 0,
+
+    catalogRefData: [],
+    hpaEnabled: false,
+
+    // port
+    // defaultPort: [0] as Array<number>,
+    defaultPort: 0 as number,
+    
+    // package 정보
+    packageInfo: {
+      packageType: 'DOCKER',
+      packageName: applicationInfo.id,
+      packageVersion: "latest",
+      repositoryUrl: "https://hub.docker.com/_/"+applicationInfo.name,
+      dockerImageId: "",
+      dockerPublisher: applicationInfo.publisher.name,
+      dockerCreatedAt: formatDate(applicationInfo.created_at),
+      dockerUpdatedAt: formatDate(applicationInfo.updated_at),
+      dockerShortDescription: applicationInfo.short_description,
+      dockerSource: applicationInfo.source
+    }
+  }
+}
+
+const setArtifactHubToCatalog = (applicationInfo: any, repositoryName: string) => {
+  catalogDto.value = {
+    title: applicationInfo.name,
+    description: applicationInfo.description,
+    category: "",
+    summary: "",
+    sourceType: repositoryName,
+
+    // icon
+    logoUrlLarge: "",
+    logoUrlSmall: "",
+
+    // 최소사양
+    minCpu: 0,
+    minMemory: 0,
+    minDisk: 0,
+
+    // 권장사양
+    recommendedCpu: 0,
+    recommendedMemory: 0,
+    recommendedDisk: 0,
+
+    // 임계치
+    cpuThreshold: 0,
+    memoryThreshold: 0,
+
+    // 최소 / 최대 Replica
+    minReplicas: 0,
+    maxReplicas: 0,
+
+    catalogRefData: [],
+    hpaEnabled: false,
+
+    // defaultPort: [0],
+    defaultPort: 0,
+
+    // package 정보
+    helmChart: {
+      id: 0,
+      catalogId: 0,
+      chartName: "string",
+      chartVersion: "string",
+      chartRepositoryUrl: "string",
+      valuesFile: "string",
+      packageId: "string",
+      normalizedName: "string",
+      hasValuesSchema: true,
+      repositoryName: "string",
+      repositoryOfficial: true,
+      repositoryDisplayName: "string"
+    }
+  }
+}
+
+const setInitData = () => {
+  catalogDto.value = {
+    title: "",
+    description: "",
+    category: "",
+    summary: "",
+    sourceType: "",
+
+    // icon
+    logoUrlLarge: "",
+    logoUrlSmall: "",
+
+    // 최소사양
+    minCpu: 0,
+    minMemory: 0,
+    minDisk: 0,
+
+    // 권장사양
+    recommendedCpu: 0,
+    recommendedMemory: 0,
+    recommendedDisk: 0,
+
+    // 임계치
+    cpuThreshold: 0,
+    memoryThreshold: 0,
+
+    // 최소 / 최대 Replica
+    minReplicas: 0,
+    maxReplicas: 0,
+
+    // defaultPort: [0],
+    defaultPort: 0,
+
+    catalogRefData: [],
+    hpaEnabled: false,
+  }
+}
+
 const _getSoftwareCatalogDetail = async () => {
   try {
-    await axios.get(baseUrl + '/catalog/software/' + props.catalogIdx).then(({ data }) => {
+    await getSoftwareCaltalogDetail(catalogIdx.value).then(({ data }) => {
       catalogDto.value = data
-      data.catalogRefData.forEach((catalogRef: any) => {
-        if (catalogRef.referenceType !== null)
-          catalogRef.referenceType = catalogRef.referenceType.toUpperCase() 
+      if(catalogDto.value.catalogRefs.length === 0) {
+        catalogDto.value.catalogRefs = 
+        [
+          {
+            "refId": 0,
+            "refValue": "",
+            "refDesc": "",
+            "refType": "",
+          }
+        ]
+      }
+      
+      if(catalogDto.value.hpaEnabled) {
+        checkedHPA.value = true
+      }
+
+      data.catalogRefs.forEach((catalogRef: any) => {
+        if (catalogRef.refType !== null)
+          catalogRef.refType = catalogRef.refType.toUpperCase() 
       })
-      refData.value = data.catalogRefData;
+      refData.value = data.catalogRefs;
     })
   } catch(error) {
       console.log(error)
@@ -241,17 +554,22 @@ const _getSoftwareCatalogDetail = async () => {
   }
 }
 
+const addPort = () => {
+  catalogDto.value.defaultPort.push('')
+}
+const removePort = (idx:number) => {
+  if(catalogDto.value.defaultPort.length !== 1) {
+    catalogDto.value.defaultPort.splice(idx, 1)
+  }
+}
+
 const addRef = () => {
-  console.log("addRef");
   refData.value.push({
-    "catalogRefIdx": null,
-    "catalogIdx": null,
-    "referncetIdx": 0,
-    "referenceValue": "",
-    "referenceDescription": "",
-    "referenceType": "URL"
+    "refId": 0,
+    "refValue": "",
+    "refDesc": "",
+    "refType": "URL"
   })
-  // location.reload()
 }
 const removeRef = (idx:number) => {
   if(refData.value.length !== 1) {
@@ -259,56 +577,60 @@ const removeRef = (idx:number) => {
   }
 }
 
-const handleFileChange = (event: any) => {
-  files.value = event.target.files[0];
-}
+const _createSoftwareCatalog = async () => {
 
-const createSoftwareCatalog = async () => {
-const formData = new FormData();
-formData.append('iconFile', files.value);
-
-catalogDto.value.catalogRefData = refData.value;
-formData.append('catalogDto', new Blob([JSON.stringify(catalogDto.value)], {
-  type: 'application/json'
-}));
-
-if(props.mode == 'new') {     
-  const response = await axios.post(baseUrl + '/catalog/software', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  });
-    
-  if(response.data) {
-    if(response.data.data == null) {
-      toast.error('등록 할 수 없습니다.')
-      setInit();
-    } else {
-      toast.success('등록되었습니다.')
-      emit('get-list')
-    }
-  } else {
-    toast.error('등록 할 수 없습니다.')
-    setInit();
+  if (checkedHPA.value) {
+    catalogDto.value.hpaEnabled = true
   }
 
-} else {
-    const response = await axios.put(baseUrl + '/catalog/software', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
+  catalogDto.value.catalogRefData = refData.value;
+
+  if(mode.value == 'new') {     
+    await createSoftwareCatalog(catalogDto.value).then(({ data })=> {
+      if(data) {
+        if(data === null) {
+          toast.error('Regist Failed')
+          setInit();
+        } else {
+          toast.success('Regist Success')
+          emit('get-list')
+        }
+      } else {
+        toast.error('Regist Failed')
+        setInit();
       }
-    });
-  
-    if(response.data) {
-      toast.success('수정되었습니다.')
-      emit('get-list')
-    } else {
-      toast.error('수정 할 수 없습니다.')
-      setInit();
-    }
+    })
+  } else {
+    await updateSoftwareCatalog(catalogDto.value).then(({ data })=> {
+      if(data) {
+        if(data === null) {
+          toast.error('Update Failed')
+          setInit();
+        } else {
+          toast.success('Update Success')
+          emit('get-list')
+        }
+      } else {
+        toast.error('Update Failed')
+        setInit();
+      }
+    })
   }
 }
 
+const formatDate = (isoString:string) => {
+  const date = new Date(isoString);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작하므로 +1
+  const day = String(date.getDate()).padStart(2, '0');
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
 </script>
 <style scoped>
 .input-form {
@@ -325,8 +647,5 @@ if(props.mode == 'new') {
 }
 .w-90-per {
   width: 90% !important;
-}
-.mr-5 {
-  margin-right: 5px;
 }
 </style>

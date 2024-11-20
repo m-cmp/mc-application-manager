@@ -1,0 +1,97 @@
+$border-color: rgba(72, 110, 149, 0.14);
+$primary:  #0054a6;
+$primary-darker:  #002345;
+$green:  #2fb344;
+
+//Main Theme Variables
+$backgroundColor: transparent; //background color of tabulator
+$borderColor:transparent; //border to tabulator
+$textSize:16px; //table text size
+
+//header theming
+$headerBackgroundColor:transparent; //border to tabulator
+$headerTextColor:inherit; //header text color
+$headerBorderColor: $border-color;  //header border color
+$headerSeparatorColor: $border-color; //header bottom separator color
+$headerMargin:4px; //padding round header
+
+//column header arrows
+$sortArrowHover: #555;
+$sortArrowActive: #666;
+$sortArrowInactive: #bbb;
+
+//row theming
+$rowBackgroundColor:transparent; //table row background color
+$rowAltBackgroundColor:transparent; //table row background color
+$rowBorderColor:transparent; //table border color
+$rowTextColor:inherit; //table text color
+$rowHoverBackground:rgba(0, 0, 0, 0.1); //row background color on hover
+
+// $rowSelectedBackground: $primary; //row background color when selected
+// $rowSelectedBackgroundHover: $primary-darker;//row background color when selected and hovered
+$rowSelectedBackground: rgba(lighten($primary, 40%), 0.5); //row background color when selected
+$rowSelectedBackgroundHover: rgba(0, 0, 0, 0.2);
+
+$editBoxColor:#1D68CD; //border color for edit boxes
+$errorColor:#dd0000; //error indication
+
+//footer theming
+$footerBackgroundColor:transparent; //border to tabulator
+$footerTextColor:inherit; //footer text color
+$footerBorderColor: $border-color; //footer border color
+$footerSeparatorColor: transparent; //footer bottom separator color
+$footerActiveColor: #555; //footer bottom active text color
+
+//range selection
+$rangeBorderColor: $primary; //range border color
+$rangeHandleColor: $rangeBorderColor; //range handle color
+$rangeHeaderSelectedBackground: $primary; //header background color when selected
+$rangeHeaderSelectedTextColor: inherit; //header text color when selected
+$rangeHeaderHighlightBackground: #D6D6D6; //header background color when highlighted
+$rangeHeaderTextHighlightBackground: #000000; //header text color when highlighted
+
+
+// Tabulator 기본 SCSS. 아래서 재 정의.
+@import  "~tabulator-tables/src/scss/tabulator.scss";
+
+// 기본 CSS BS5 일부 참조
+.tabulator .tabulator-header {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    font-size: $textSize*0.8;
+	font-weight: unset;
+    white-space: nowrap;
+    overflow: hidden;
+    outline: none;
+    border-top: 1px solid $border-color;
+}
+
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title{
+	padding: 0 $headerMargin*3 0 $headerMargin*3;
+}
+
+.tabulator-row .tabulator-cell {
+    display: inline-block;
+    position: relative;
+    box-sizing: border-box;
+    padding: $headerMargin*2 $headerMargin*4 $headerMargin*2 $headerMargin*4;
+    border-bottom: 1px solid $border-color;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    outline: none;
+}
+
+.tabulator .tabulator-footer{
+	font-weight: unset;
+    font-size: 60%;
+}
+
+.tabulator-page{
+    &.active{
+        font-weight: bold;
+        background-color: var(--tblr-primary-lt);
+    }
+}

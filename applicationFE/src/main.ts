@@ -27,5 +27,9 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
+import '@/resources/css/tabler.min.css'
+import '@/resources/css/demo.min.css'
+import '@/resources/js/demo-theme.min.js'
+
 app.mount('#app')
 

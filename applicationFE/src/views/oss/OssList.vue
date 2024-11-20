@@ -1,9 +1,21 @@
 <template>
   <div class="card card-flush w-100">
-    <TableHeander :header-title="'OSS'" :new-btn-title="'New OSS'" :popup-flag="true" :popup-target="'#ossForm'"
-                  @click-new-btn="onClickNewBtn" />
-    <Tabulator :columns="columns" :table-data="ossList">
+    <TableHeander 
+      :header-title="'OSS'" 
+      :new-btn-title="'New OSS'" 
+      :popup-flag="true" 
+      :popup-target="'#ossForm'"
+      @click-new-btn="onClickNewBtn" />
+    <Tabulator 
+      :columns="columns" 
+      :table-data="ossList">
     </Tabulator>
+
+
+  <div ref="table-responsive" >
+    <div class="table table-vcenter table-bordered table-nowrap card-table"></div>
+
+  </div>
 
     <OssForm :mode="formMode" :oss-idx="selectOssIdx" @get-oss-list="_getOssList" />
 
@@ -69,6 +81,7 @@ const setColumns = () => {
   columns.value = [
     {
       title: "OSS Name",
+
       field: "ossName",
       width: 400
     },
@@ -110,7 +123,7 @@ const editDeleteButtonFormatter = () => {
   return `
   <div>
     <button
-      class='btn btn-primary d-none d-sm-inline-block mr-5'
+      class='btn btn-primary d-none d-sm-inline-block me-1'
       id='edit-btn'
       data-bs-toggle='modal'
       data-bs-target='#ossForm'>

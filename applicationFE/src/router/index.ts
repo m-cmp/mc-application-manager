@@ -29,9 +29,19 @@ const router = createRouter({
       component: () => import('@/views/repository/RepositoryDetail.vue' as any)
     },
     {
-      path: `/web/softwareCatalog/list`,
-      name: 'softwareCatalogList',
-      component: () => import('@/views/softwareCatalog/SoftwareCatalogList.vue' as any)
+      path: `/web/softwareCatalog`,
+      name: 'softwareCatalog',
+      component: () => import('@/views/softwareCatalog/SoftwareCatalog.vue' as any)
+    },
+    // {
+    //   path: `/web/softwareCatalog/list`,
+    //   name: 'softwareCatalogList',
+    //   component: () => import('@/views/softwareCatalog/SoftwareCatalogList.vue' as any)
+    // },
+    {
+      path: `/web/softwareCatalog/list/test`,
+      name: 'softwareCatalogListTest',
+      component: () => import('@/views/softwareCatalog/SoftwareCatalogListTest.vue' as any)
     },
   ]
 })

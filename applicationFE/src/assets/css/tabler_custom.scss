@@ -1,0 +1,23 @@
+// tabler import : Tabler v1.0.0-beta20
+@import './tabler.css';
+
+// tabler Custom Style below
+
+//sideMenu depth
+.navbar-nav .nav-item {
+  padding: 0 calc(calc(0.625rem * 2) / 2);
+  // justify-content: flex-start; // profile...
+}
+
+//summary font size
+.card-title.summary {
+  font-size: 1.1rem;
+}
+
+// sidebar non-clickable text set
+.hr-text-color {
+  color: var(--tblr-secondary);
+}
+.hr-text-color:hover {
+  color: var(--tblr-secondary);
+}

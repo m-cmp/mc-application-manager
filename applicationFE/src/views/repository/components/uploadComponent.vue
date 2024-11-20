@@ -52,6 +52,7 @@
 import { useToast } from 'vue-toastification';
 import { uploadComponent } from '@/api/repository';
 import { ref } from 'vue';
+// @ts-ignore
 import _ from 'lodash';
 import { onMounted } from 'vue';
 
