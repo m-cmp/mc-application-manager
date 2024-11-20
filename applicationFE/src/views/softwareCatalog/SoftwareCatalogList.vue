@@ -8,7 +8,10 @@
           <div class="row g-2 align-items-center">
             <div class="col d-flex">
               <h2 class="page-title">Software catalog</h2>
-              <!-- <button class="btn btn-success m-3 btn-sm" @click="onClickStatus" data-bs-toggle="modal"
+              <!-- <button 
+                class="btn btn-success m-3 btn-sm" 
+                @click="onClickStatus" 
+                data-bs-toggle="modal"
                 data-bs-target="#status-modal">STATUS</button> -->
             </div>
             <div class="col-auto ms-auto">
@@ -273,36 +276,41 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
-import axios from 'axios'
+// @ts-ignore
 import _ from 'lodash';
 import SoftwareCatalogForm from './components/softwareCatalogForm.vue';
 import SoftwareCatalogLog from './components/softwareCatalogLog.vue';
 import ApplicationInstallationForm from './components/applicationInstallationForm.vue';
-import SoftwareStatus from './components/softwareStatus.vue';
+import SoftwareStatus from './components/softwareStatus_back.vue';
 import '@/resources/css/tabler.min.css'
 import '@/resources/css/demo.min.css'
 import '@/resources/js/demo-theme.min.js'
+import { getSoftwareCatalogList, searchArtifacthubhub, searchDockerhub } from '@/api/softwareCatalog';
   
 const toast = useToast()
 
+interface Props {
+  nsId: string
+}
+const props = defineProps<Props>()
+
+
 const catalogList = ref([] as any)
 const searchKeyword = ref("")
-const splitUrl = window.location.host.split(':');
-const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
-// const baseUrl = "http://15.164.227.13:18084";
-// const baseUrl = "http://192.168.6.30:18084";
 
 const dockerHubSearchList = ref([] as any)
 const artifactHubSearch = ref([] as any)
 const selectCatalogIdx = ref(0 as number)
 const selectJobName = ref("" as string)
 const formMode = ref('new')
-const nsId = ref("" as string)
+// const nsId = ref("" as string)
+const nsId = computed(()=> props.nsId as string)
 const nsName = ref("ns01" as string)
 const modalTite = ref("" as string)
+
 
 /**
 * @Title Life Cycle
@@ -310,12 +318,6 @@ const modalTite = ref("" as string)
 */
 onMounted(async () => {
   searchKeyword.value = ""
-  window.addEventListener("message", async function(event) {
-    const data = event.data;
-    if (data.projectInfo) {
-      nsId.value = data.projectInfo.ns_id;
-    }
-  })
   await _getSoftwareCatalogList()
 })
 
@@ -325,12 +327,15 @@ onMounted(async () => {
 */
 const _getSoftwareCatalogList = async () => {
   try {
-    const response = await axios.get(baseUrl + '/catalog/software/?title=' + searchKeyword.value);
+    const response = await getSoftwareCatalogList(searchKeyword.value)
     _.forEach(response.data, function(item: {
       isShow: boolean;
       refData: any;
       catalogRefData: any; catalogIcon: string; 
     }) {
+      const splitUrl = window.location.host.split(':');
+      const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
+
       item.catalogIcon = baseUrl + item.catalogIcon
       item.refData = groupedData(item.catalogRefData)
       item.isShow = false;
@@ -363,7 +368,7 @@ const searchCatalog = async (e: { keyCode: number; }) => {
 const setDockerHubSearch = async () => {
   dockerHubSearchList.value  = [];
   try {
-    const response = await axios.get(baseUrl + '/search/dockerhub/' + searchKeyword.value);
+    const response = await searchDockerhub(searchKeyword.value)
     
     for(let i=0; i<3; i++) {
       dockerHubSearchList.value.push(response.data.data.results[i])
@@ -378,7 +383,7 @@ const setDockerHubSearch = async () => {
 const setArtifactHubSearch = async () => {
   artifactHubSearch.value = [];
   try {
-    const response = await axios.get(baseUrl + '/search/artifacthub/' + searchKeyword.value);
+    const response = await searchArtifacthubhub(searchKeyword.value)
     for(let i=0; i<3; i++) {
       artifactHubSearch.value.push(response.data.data.packages[i])
     }

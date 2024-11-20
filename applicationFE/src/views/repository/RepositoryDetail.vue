@@ -80,6 +80,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { getRepositoryDetailInfo, getComponentList } from '@/api/repository';
 import { type Repository, type Component } from '@/views/type/type'
 import { useToast } from 'vue-toastification';
+// @ts-ignore
 import _ from 'lodash';
 import Tabulator from '@/components/Table/Tabulator.vue'
 import { type ColumnDefinition } from 'tabulator-tables';
@@ -185,7 +186,7 @@ const downloadDeleteButtonFormatter = () => {
       Delete
     </button>
     <button
-      class='btn btn-primary d-none d-sm-inline-block mr-5'
+      class='btn btn-primary d-none d-sm-inline-block me-1'
       id='download-btn'>
       Download
     </button>

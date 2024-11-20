@@ -230,12 +230,3 @@ const _updateRepository = async () => {
 }
 
 </script>
-
-<!-- <style scoped>
-.d-lb {
-  display: inline-block;
-}
-.mr-5 {
-   margin-right: 5px;
-}
-</style> -->

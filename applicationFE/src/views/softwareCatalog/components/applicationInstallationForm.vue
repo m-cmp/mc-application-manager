@@ -4,7 +4,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">
-            {{ modalType }}
+            {{ modalTitle }}
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @click="setInit"></button>
         </div>
@@ -13,12 +13,12 @@
           <div class="mb-3">
             <label class="form-label">Target Infra</label>
             <p 
-              v-if="modalType == 'Application Installation'" 
+              v-if="modalTitle == 'Application Installation'" 
               class="text-muted">
                 Select the Infra what is the Infra will be installed
             </p>
             <p 
-              v-else-if="modalType == 'Application Uninstallation'" 
+              v-else-if="modalTitle == 'Application Uninstallation'" 
               class="text-muted">
                 Select the Infra what is the Infra will be uninstalled
             </p>
@@ -36,39 +36,62 @@
             </select>
           </div>
 
+          <!-- 
+            ==============================================================================================
+            ============================================= VM =============================================
+            ==============================================================================================
+          -->
           <template v-if="selectInfra == 'VM'">
             <div class="mb-3">
+
+              <!-- VM :: Namespace -->
               <label class="form-label">Namespace</label>
               <p 
-                v-if="modalType == 'Application Installation'" 
+                v-if="modalTitle == 'Application Installation'" 
                 class="text-muted">
                 Select the namespace where the application will be installed</p>
               <p 
-                v-else-if="modalType == 'Application Uninstallation'" 
+                v-else-if="modalTitle == 'Application Uninstallation'" 
                 class="text-muted">
                 Select the namespace where the application will be uninstalled</p>
               
               <template v-if="nsIdList.length > 0">
-                <select class="form-select" id="namesapce" v-model="selectNsId" @change="onChangeNsId">
-                  <option v-for="ns in nsIdList" :value=ns.name :key="ns.name">{{ ns.name }}</option>
+                <select 
+                  class="form-select" 
+                  id="namesapce" 
+                  v-model="selectNsId"
+                  @change="onChangeNsId">
+                  <option 
+                    v-for="ns in nsIdList" 
+                    :value=ns.name 
+                    :key="ns.name">
+                    {{ ns.name }}
+                  </option>
                 </select>
               </template>
               
               <template v-else>
-                <select class="form-select" id="namesapce" v-model="selectNsId" @change="onChangeNsId">
-                  <option value="selectNsId">{{ selectNsId }}</option>
+                <select 
+                  class="form-select" 
+                  id="namesapce" 
+                  v-model="selectNsId" 
+                  @change="onChangeNsId">
+                  <option value="selectNsId">
+                    {{ selectNsId }}
+                  </option>
                 </select>
               </template>
             </div>
 
+            <!-- VM :: MCI Name -->
             <div class="mb-3">
               <label class="form-label">MCI Name</label>
               <p 
-                v-if="modalType == 'Application Installation' && selectInfra == 'VM'" 
+                v-if="modalTitle == 'Application Installation'" 
                 class="text-muted">
                 Select the multi-cloud infrastructure information where the application will be deployed</p>
               <p 
-                v-else-if="modalType == 'Application Uninstallation' && selectInfra == 'VM'" 
+                v-else-if="modalTitle == 'Application Uninstallation'" 
                 class="text-muted">
                 Remove the application and associated resources from the multi-cloud infrastructure</p>
               <select 
@@ -80,9 +103,13 @@
                 <option 
                   v-for="mci in mciList" 
                   :value=mci.id 
-                  :key="mci.name">{{ mci.name }}</option>
+                  :key="mci.name">
+                    {{ mci.name }}
+                  </option>
               </select>
             </div>
+
+            <!-- VM :: VM Name -->
             <div class="mb-3">
               <label class="form-label">VM Name</label>
               <p 
@@ -101,31 +128,46 @@
                 </option>
               </select>
             </div>
+
+            <!-- VM :: Application -->
             <div class="mb-3">
               <label class="form-label">Application</label>
               <p class="text-muted">Select the application</p>
-              <select class="form-select" v-model="inputApplications" @change="onChangeCatalog">
-                <option v-for="catalog in props.catalogList" :key="catalog">{{ catalog.catalogTitle }}</option>
+              <select 
+                class="form-select" 
+                v-model="inputApplications" 
+                @change="onChangeCatalog">
+                <option 
+                  v-for="(catalog, idx) in catalogList" 
+                  :key="idx">
+                  {{ catalog.title }}
+                </option>
               </select>
+            </div>
 
-              <!-- <input 
-                type="text" 
-                class="form-control" 
-                id="sc-title" 
-                name="title" 
-                placeholder="nginx, tomcat ..."
-                v-model="inputApplications" /> -->
+            <!-- VM :: Service Port -->
+            <div class="mb-3">
+              <label class="form-label">Port</label>
+              <p class="text-muted">Please enter a port accessible from the outside</p>
+              <input type="number"  class="form-control" placeholder="8080"  v-model="inputServicePort">
             </div>
           </template>
 
+          <!-- 
+            ==============================================================================================
+            ============================================ K8S =============================================
+            ==============================================================================================
+          -->
           <template v-else-if="selectInfra == 'K8S'">
+            
+            <!-- K8S :: Namespace -->
             <div class="mb-3">
               <label class="form-label">Namespace</label>
               <p 
-                v-if="modalType == 'Application Installation'" 
+                v-if="modalTitle == 'Application Installation'" 
                 class="text-muted">Select the namespace where the application will be installed</p>
               <p 
-                v-else-if="modalType == 'Application Uninstallation'" 
+                v-else-if="modalTitle == 'Application Uninstallation'" 
                 class="text-muted">Select the namespace where the application will be uninstalled</p>
                 
               <template v-if="nsIdList.length > 0">
@@ -157,13 +199,14 @@
               </template>
             </div>
 
+            <!-- K8S :: ClusterName -->
             <div class="mb-3">
               <label class="form-label">ClusterName</label>
               <p 
-                v-if="modalType == 'Application Installation'" 
+                v-if="modalTitle == 'Application Installation'" 
                 class="text-muted">Select the name of the cluster where the application will be deployed</p>
               <p 
-                v-else-if="modalType == 'Application Uninstallation'" 
+                v-else-if="modalTitle == 'Application Uninstallation'" 
                 class="text-muted">Remove the application and associated resources from the multi-cloud infrastructure</p>
 
               <select 
@@ -179,59 +222,95 @@
                 </option>
               </select>
             </div>
+
+            <!-- K8S :: Helm Chart -->
             <div class="mb-3">
               <label class="form-label">Helm chart</label>
               <p class="text-muted">Select the application</p>
               <select class="form-select" v-model="inputApplications" @change="onChangeCatalog">
-                <option v-for="catalog in props.catalogList" :key="catalog">{{ catalog.catalogTitle }}</option>
+                <option v-for="(catalog, idx) in catalogList" :key="idx">{{ catalog.title }}</option>
               </select>
-              <!-- <input 
-                type="text" 
-                class="form-control" 
-                id="sc-title" 
-                name="title" 
-                placeholder="nginx, tomcat ..."
-                v-model="inputApplications" /> -->
             </div>
 
-            <!-- <div class="mb-3" v-if="modalType == 'Application Installation' && selectInfra === 'K8S'" >
+            <!-- K8S :: HPA -->
+            <div class="mb-3" v-if="modalTitle == 'Application Installation'" >
               <label class="form-label">HPA</label>
-              <div style="display: flex; justify-content: space-between;">
+              <div class="d-flex justigy-content-between">
+                <!-- min Replicas -->
                 <div>
-                  <label class="form-label required">minReplicas</label>
-                  <input type="number" class="form-control w-90-per" placeholder="1" v-model="hpaData.hpaMinReplicas" />
+                  <label class="form-label required">
+                    minReplicas
+                  </label>
+                  <input 
+                    type="number" 
+                    class="form-control w-90-per" 
+                    placeholder="1" 
+                    v-model="hpaData.hpaMinReplicas" />
                 </div>
+
+                <!-- max Replicas -->
                 <div>
-                  <label class="form-label required">maxReplicas</label>
-                  <input type="number" class="form-control w-90-per" placeholder="10" v-model="hpaData.hpaMaxReplicas" />
+                  <label class="form-label required">
+                    maxReplicas
+                  </label>
+                  <input 
+                    type="number" 
+                    class="form-control w-90-per" 
+                    placeholder="10" 
+                    v-model="hpaData.hpaMaxReplicas" />
                 </div>
+
+                <!-- CPU -->
                 <div>
-                  <div>
-                    <label class="form-check-label d-inline">CPU (%)</label>
-                  </div>
-                  <input type="number" class="form-control w-80-per d-inline" placeholder="60" v-model="hpaData.hpaCpuUtilization" /> %
+                  <label class="form-check-label mb-2">
+                    CPU (%)
+                  </label>
+                  <input 
+                    type="number" 
+                    class="form-control w-80-per d-inline" 
+                    placeholder="60" 
+                    v-model="hpaData.hpaCpuUtilization" /> %
                 </div>
+
+                <!-- Memory -->
                 <div>
-                  <div>
-                    <label class="form-check-label d-inline" >MEMORY (%)</label>
-                  </div>
-                  <input type="number" class="form-control w-80-per d-inline" placeholder="80" v-model="hpaData.hpaMemoryUtilization" /> %
+                  <label class="form-check-label mb-2">
+                    MEMORY (%)
+                  </label>
+                  <input 
+                    type="number" 
+                    class="form-control w-80-per d-inline" 
+                    placeholder="80" 
+                    v-model="hpaData.hpaMemoryUtilization" /> %
                 </div>
               </div>
-            </div> -->
-            
+            </div>
           </template>
         </div>
-        <div class="modal-footer" style="display: flex; justify-content: space-between;">
-          <a class="btn btn-link link-secondary" data-bs-dismiss="modal" @click="setInit">
+
+        <!-- Footer -->
+        <div 
+          class="modal-footer d-flex justify-content-between">
+          <a 
+            class="btn btn-link link-secondary" 
+            data-bs-dismiss="modal" 
+            @click="setInit">
             Cancel
           </a>
 
           <div>
-            <button v-if="modalType == 'Application Installation'" class="btn btn-danger ms-auto" @click="specCheck" style="margin-right: 5px;" :disabled="!specCheckFlag">
+            <button 
+              v-if="modalTitle == 'Application Installation'" 
+              class="btn btn-danger ms-auto me-1" 
+              @click="specCheck" 
+              :disabled="!specCheckFlag">
               Spec Check
             </button>
-            <button class="btn btn-primary ms-auto" data-bs-dismiss="modal" @click="runInstall" :disabled="specCheckFlag">
+            <button 
+              class="btn btn-primary ms-auto" 
+              data-bs-dismiss="modal" 
+              @click="runInstall" 
+              :disabled="specCheckFlag">
               RUN
             </button>
           </div>
@@ -245,31 +324,26 @@
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
 import { onMounted, watch, computed } from 'vue';
-import axios from 'axios'
+// @ts-ignore
 import _, { slice } from 'lodash';
-
-
-const splitUrl = window.location.host.split(':');
-const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
-// const baseUrl = "http://15.164.227.13:18084";
-// const baseUrl = "http://192.168.6.30:18084";
+import { getNsInfo, getMciInfo, getVmInfo, getClusterInfo } from '@/api/tumblebug'
+import { getSoftwareCatalogList, k8sSpecCheck, runK8SInstall, runK8SUninstall, runVmInstall, runVmUninstall, vmSpecCheck } from '@/api/softwareCatalog'
+import { type SoftwareCatalog } from '@/views/type/type'
 
 interface Props {
   nsId: string
   title: string
-  catalogList: Array<any>
 }
 const toast = useToast()
 
 const props = defineProps<Props>()
 const modalTitle = computed(() => props.title);
-const popupTitle = ref("" as string)
-const modalType = ref("" as string)
 
 const infraList = ref([] as any)
 const nsIdList = ref([] as any)
 const mciList = ref([] as any)
 const vmList = ref([] as any)
+const catalogList = ref([] as Array<SoftwareCatalog>)
 
 const selectInfra = ref("" as string)
 const selectNsId = ref("" as string)
@@ -280,31 +354,41 @@ const hpaData = ref({} as any)
 const clusterList = ref([] as any)
 const selectCluster = ref("" as string)
 const inputApplications = ref("" as string)
+const inputServicePort = ref("" as string)
 const specCheckFlag = ref(true as boolean)
 
-// watch(inputApplications, async () => {
-//   // TODO :: hpa 데이터 가져오는 API 필요
-//   hpaData.value = {
-//     hpaMinReplicas: 0,
-//     hpaMaxReplicas: 0,
-//     hpaCpuUtilization: 0,
-//     hpaMemoryUtilization: 0
-//   }
-// })
-watch(modalTitle, async () => {
-  popupTitle.value = changeTitle(props.title);
-  modalType.value = props.title;
-  await setInit();
-});
+// watch(modalTitle, async () => {
+//   await setInit();
+// });
 onMounted(async () => {
-  await setInit()
+  const modalElement: any = document.getElementById('install-form');
+  // Open Modal Action 
+  modalElement.addEventListener('show.bs.modal', async() => {
+    await setInit()
+    await _getSoftwareCatalogList()
+  });
 })
 
-const changeTitle = (text: string) => {
-  return text.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+const setInit = async () => {
+  selectInfra.value = ""
+  selectNsId.value = ""
+  selectMci.value = ""
+  selectVm.value = ""
+  hpaData.value = {}
+
+  setInfraList()
+  setSpecCheckFlag()
+
+  await _getNsId()
 }
 
-const setInit = async () => {
+const _getSoftwareCatalogList = async () => {
+  await getSoftwareCatalogList("").then(({ data }) => {
+    catalogList.value = data
+  })
+}
+
+const setInfraList = () => {
   infraList.value = [
     {
       key: "VM",
@@ -315,153 +399,172 @@ const setInit = async () => {
       value: "K8S"
     }
   ]
+}
 
-  if(_.isEmpty(props.nsId)) {
-      await _getNsId()
-  } else {
-      selectNsId.value = props.nsId
-  }
-  if (modalType.value === 'Application Uninstallation') specCheckFlag.value = false
-  else specCheckFlag.value = true
+const setSpecCheckFlag = () => {
+  if (modalTitle.value === 'Application Uninstallation')
+    specCheckFlag.value = false
+  else
+    specCheckFlag.value = true
 }
 
 const _getNsId = async () => {
-  const response = await axios.get(baseUrl + '/cbtumblebug/ns');
-  nsIdList.value = response.data;
-  if(nsIdList.value.length > 0) {
-    selectNsId.value = nsIdList.value[0].name;
-    if(modalType.value == 'Application Installation' || modalType.value == 'Application Uninstallation') {
-      await _getMciName()
-    } 
-    else {
-      await _getClusterName()
-    }
-  }
+  await getNsInfo().then(async ({ data })=> {
+    nsIdList.value = data;
 
-  if (!_.isEmpty(selectNsId.value)) {
-    if (selectInfra.value === 'VM') {
-      await _getMciName()
-    } else {
-      await _getClusterName()
+    if (nsIdList.value.length > 0) {
+      // if(!_.isEmpty(props.nsId)) {
+      //   selectNsId.value = props.nsId
+      // }
+      // else
+        selectNsId.value = nsIdList.value[0].name;
     }
-  }
+
+    if (!_.isEmpty(selectNsId.value)) {
+      if (selectInfra.value === 'VM')
+        await _getMciName()
+      else if(selectInfra.value === 'K8S')
+        await _getClusterName()
+    }
+  })
+  
+
 }
 
 const _getMciName = async () => {
-  const response = await axios.get(baseUrl + '/cbtumblebug/ns/' + selectNsId.value + '/mci');
-  mciList.value = response.data;
-  if(mciList.value.length > 0) {
-    selectMci.value = mciList.value[0].name;
-    await _getVmName();
-  } else {
-    selectMci.value = "";
-  }
+  await getMciInfo(selectNsId.value).then(async ({ data }) => {
+    mciList.value = data;
+    if(mciList.value.length > 0) {
+      selectMci.value = mciList.value[0].name;
+      await _getVmName();
+    } else {
+      selectMci.value = "";
+    }  
+  })
 }
 
 const _getVmName = async () => {
-  const response = await axios.get(baseUrl + '/cbtumblebug/ns/' + selectNsId.value + '/mci/' + selectMci.value);
-  vmList.value = response.data.vm;
-  if(mciList.value.length > 0) {
-    selectVm.value = vmList.value[0].name;
-  } else {
-    selectVm.value = "";
+  const params = {
+    nsId: selectNsId.value,
+    mciId: selectMci.value
   }
+  await getVmInfo(params).then(({ data }) => {
+    vmList.value = data.vm;
+    if(mciList.value.length > 0) {
+      selectVm.value = vmList.value[0].name;
+    } else {
+      selectVm.value = "";
+    }
+  })
 }
 
 const _getClusterName = async () => {
-  const response = await axios.get(baseUrl + '/cbtumblebug/ns/' + selectNsId.value + '/k8scluster');
-  clusterList.value = response.data;
-  if(clusterList.value.length > 0) {
-    selectCluster.value = clusterList.value[0].name;
-  } else {
-    selectCluster.value = "";
-  }
+  await getClusterInfo(selectNsId.value).then(({ data }) => {
+    clusterList.value = data;
+    if(clusterList.value.length > 0) {
+      selectCluster.value = clusterList.value[0].name;
+    } else {
+      selectCluster.value = "";
+    }
+  })
 }
 
 const onChangeNsId = async () => {
   await _getMciName();
-  if(modalType.value === 'Application Installation')
-    onChangeForm();
+  onChangeForm();
 }
 
 const onChangeMci = async () => {
   await _getVmName();
-  if(modalType.value === 'Application Installation')
-    onChangeForm();
+  onChangeForm();
 }
 
 const onSelectNamespace = async () =>{
   await _getClusterName();
-  if(modalType.value === 'Application Installation')
-    onChangeForm();
+  onChangeForm();
+}
+
+const onChangeForm = () => {
+  if(modalTitle.value === 'Application Installation')
+    specCheckFlag.value = true
+  
+  else if(modalTitle.value === 'Application Uninstallation')
+    specCheckFlag.value = false
 }
 
 const runInstall = async () => {
-  if(selectInfra.value === 'VM') {
-    let runUrl = "";
-    if(modalType.value == 'Application Installation') {
-      runUrl = "/ape/vm/install"
-    } else {
-      runUrl = "/ape/vm/uninstall"
+  let appList = [] as Array<String>
+  let params = {} as any
+  let res = {} as any
+
+  if (selectInfra.value === 'VM') {
+    // History : 처음 설계와 방향이 달라져 현재는 Application 1개만 보냄 (기존에는 여러개의 APP을 받을 수 있었음)
+    appList = inputApplications.value.split(",").map(item => item.toLowerCase().trim());
+    params = {
+      namespace: selectNsId.value,
+      mciId: selectMci.value,
+      vmId: selectVm.value,
+      catalogId: selectedCatalogIdx.value,
+      servicePort: inputServicePort.value
     }
 
-    const appList = inputApplications.value.split(",").map(item => item.trim());
-    const param = {
-      "namespace": selectNsId.value,
-      "mciName": selectMci.value,
-      "vmName": selectVm.value,
-      "applications": appList
-    }
-    const res = await axios.post(baseUrl + runUrl, param)
-    if(res.data.code == 200 && res.data.message) {
-      toast.success(res.data.message)
+    if (modalTitle.value == 'Application Installation') {
+      res = await runVmInstall(params)
     } else {
-      toast.error(res.data.message)
-    }
-  } else if(selectInfra.value === 'K8S') {
-    let runUrl = "";
-    if(modalType.value == 'Application Installation') {
-      runUrl = "/ape/helm/install"
-    } else {
-      runUrl = "/ape/helm/uninstall"
+      res = await runVmUninstall(params)
     }
 
-    const appList = inputApplications.value.split(",").map(item => item.trim());
-    const param = {
+    if(res.data) {
+      toast.success('SUCCESS')
+    } else {
+      toast.error('FAIL')
+    }
+  }
+
+  else if (selectInfra.value === 'K8S') {
+    // History : 처음 설계와 방향이 달라져 현재는 Application 1개만 보냄 (기존에는 여러개의 APP을 받을 수 있었음)
+    appList = inputApplications.value.split(",").map(item => item.toLowerCase().trim());
+    params = {
       "namespace": selectNsId.value,
       "clusterName": selectCluster.value,
       "helmCharts": appList
     }
-    const res = await axios.post(baseUrl + runUrl, param)
-    if(res.data.code == 200 && res.data.message) {
-      toast.success(res.data.message)
+
+    if(modalTitle.value == 'Application Installation') {
+      res = await runK8SInstall(params)
     } else {
-      toast.error(res.data.message)
+      res = await runK8SUninstall(params)
     }
 
+    if(res.data) {
+      toast.success('SUCCESS')
+    } else {
+      toast.error('FAIL')
+    }
   }
 }
 
 const specCheck = async () => {
+
   if (selectInfra.value === 'VM' || selectInfra.value === 'K8S') {
-    specCheckCallback().then((checkedValue: boolean) => {
+    specCheckCallback().then((checkedValue: boolean | null | undefined) => {
       let data = true;
-      let infraName = "";
+
       if (checkedValue === null) {
         toast.error('Please select all items')
         return;
       }
-      if (!checkedValue) {
-        if (selectInfra.value === 'VM') {
-          infraName = "VM"
-        }
-        else if (selectInfra.value === 'K8S') {
-          infraName = "CLUSTER"
-        }
+
+      else if (checkedValue === false) {
+        let infraName = "";
+
+        if (selectInfra.value === 'VM') infraName = "VM"
+        else if (selectInfra.value === 'K8S') infraName = "CLUSTER"
 
         const comment = 'Your selected ' + infraName + ' has lower specifications than recommended. Would you like to continue with the installation?'
         data = confirm(comment)
       }
+
       if (data) {
         toast.success('Please click RUN')
         specCheckFlag.value = false
@@ -474,66 +577,68 @@ const specCheck = async () => {
 }
 
 const specCheckCallback = async () => {
-  let result = false;
-  let runUrl = "";
-  let param = "";
+  let result = false as boolean;
 
   if (selectInfra.value === 'VM') {
-    console.log('inputApplications.value >> ', inputApplications.value)
-    if (selectNsId.value === undefined || selectMci.value === undefined || selectVm.value === undefined || selectedCatalogIdx.value === undefined) {
+    if (
+      selectNsId.value === "" ||
+      selectMci.value === "" ||
+      selectVm.value === "" ||
+      selectedCatalogIdx.value === 0) {
       return null;
     }
-    runUrl = "/applications/vm/check/application"
-    param = "?namespace=" + selectNsId.value + "&mciName=" + selectMci.value + "&vmName=" + selectVm.value + "&catalogId=" + selectedCatalogIdx.value
+    else {
+      const params = {
+        namespace: selectNsId.value,
+        mciName: selectMci.value,
+        vmName: selectVm.value,
+        catalogId: selectedCatalogIdx.value 
+      }
+
+      await vmSpecCheck(params).then(({ data }) => {
+        result = data
+      })
+    }
   }
   else if (selectInfra.value === 'K8S') {
-    if (selectNsId.value === undefined || selectCluster.value === undefined  || selectedCatalogIdx.value === undefined) {
+    if (
+      selectNsId.value === "" ||
+      selectCluster.value === "" ||
+      selectedCatalogIdx.value === 0) {
       toast.error('Please select all items')
       return;
     }
-    runUrl = "/applications/k8s/check/application"
-    param = "?namespace=" + selectNsId.value + "&clusterName=" + selectCluster.value + "&catalogId=" + selectedCatalogIdx.value
+    const params = {
+      namespace: selectNsId.value,
+      clusterName: selectCluster.value,
+      catalogId: selectedCatalogIdx.value
+    }
+    await k8sSpecCheck(params).then(({ data }) => {
+      result = data
+    })
   }
-  result = await axios.get(baseUrl + runUrl + param)
 
   return result;
 }
 
 const selectedCatalogIdx = ref(0 as number)
 const onChangeCatalog = () => {
-  if(modalType.value === 'Application Installation')
-    specCheckFlag.value = true
+  if(modalTitle.value === 'Application Installation') specCheckFlag.value = true
 
-  props.catalogList.forEach((catalogInfo) => {
-    if (inputApplications.value === catalogInfo.catalogTitle) {
-      selectedCatalogIdx.value = catalogInfo.catalogIdx
-      return
+  catalogList.value.forEach((catalogInfo) => {
+    if (inputApplications.value === catalogInfo.title) {
+      selectedCatalogIdx.value = catalogInfo.id
+      return;
     }
   })
-}
-const onChangeForm = () => {
-  if(modalType.value === 'Application Installation')
-    specCheckFlag.value = true
 }
 
 </script>
 <style scoped>
-.input-form {
-  width: 100% !important;
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-.w-50-per {
-  width: 50% !important;
-}
 .w-80-per {
   width: 80% !important;
 }
 .w-90-per {
   width: 90% !important;
-}
-.mr-5 {
-  margin-right: 5px;
 }
 </style>

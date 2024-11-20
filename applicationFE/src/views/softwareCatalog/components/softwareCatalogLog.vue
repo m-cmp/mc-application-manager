@@ -40,14 +40,13 @@
     </div>
   </template>
   
-  <script setup lang="ts">
-  // import type { Oss, OssType } from '@/views/type/type';
-  import { ref } from 'vue';
-  import { useToast } from 'vue-toastification';
-  import { onMounted } from 'vue';
-  import { computed } from 'vue';
-  import { watch } from 'vue';
-  import axios from 'axios'
+<script setup lang="ts">
+// import type { Oss, OssType } from '@/views/type/type';
+import { ref } from 'vue';
+import { useToast } from 'vue-toastification';
+import { computed } from 'vue';
+import { watch } from 'vue';
+import { getBuildLogList } from '@/api/softwareCatalog';
   
   const toast = useToast()
   /**
@@ -59,11 +58,6 @@
   const props = defineProps<Props>()
   
   const firstLoadData = ref(false as boolean)
-  const splitUrl = window.location.host.split(':');
-  const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
-  // const baseUrl = "http://15.164.227.13:18084";
-  // const baseUrl = "http://192.168.6.30:18084";
-
 
   const jobName = computed(() => props.jobName);
   watch(jobName, async () => {
@@ -79,9 +73,9 @@
   const setInit = async () => {
       buildLogList.value = []
   
-    const response = await axios.get(baseUrl + '/ape/log/' + jobName.value)
-    buildLogList.value = response.data.data;
-    firstLoadData.value = true;
+      const response = await getBuildLogList(jobName.value)
+      buildLogList.value = response.data.data;
+      firstLoadData.value = true;
 
   }
   

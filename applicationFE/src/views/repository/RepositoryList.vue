@@ -131,7 +131,7 @@ const editDeleteButtonFormatter = () => {
   return `
   <div>
     <button
-      class='btn btn-primary d-none d-sm-inline-block mr-5'
+      class='btn btn-primary d-none d-sm-inline-block me-1'
       id='edit-btn'
       data-bs-toggle='modal' 
       data-bs-target='#repositoryForm'>

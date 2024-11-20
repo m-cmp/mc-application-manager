@@ -14,7 +14,7 @@
             <!-- OSS 타입 -->
             <div class="mb-3">
               <!-- <div v-if="ossFormData.ossTypeIdx === 1">
-                <input class="d-lb mr-5" type="checkbox" v-model="createJenkinsJobYn">
+                <input class="d-lb me-1" type="checkbox" v-model="createJenkinsJobYn">
                 <label class="form-label d-lb">등록된 워크플로우 Job 생성 여부</label>
               </div> -->
 
@@ -305,6 +305,7 @@ const _registOss = async () => {
  * @Desc 수정 Callback 함수 / 수정 api 호출
  */
 const _updateOss = async () => {
+  console.log('test')
   const { data } = await updateOss(ossFormData.value)
   if (data)
     toast.success('등록되었습니다.')
@@ -331,12 +332,3 @@ const decriptPassword = (password: string) => {
 }
 
 </script>
-
-<!-- <style scoped>
-.d-lb {
-  display: inline-block;
-}
-.mr-5 {
-   margin-right: 5px;
-}
-</style> -->

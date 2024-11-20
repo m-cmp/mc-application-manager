@@ -1,0 +1,206 @@
+// sequential-workflow-designer import
+@import "~sequential-workflow-designer/css/designer.css";
+@import "~sequential-workflow-designer/css/designer-light.css";
+@import "~sequential-workflow-designer/css/designer-dark.css";
+
+//tabler
+@import "./inter/inter.css"; // font
+@import "./tabler_custom.scss";
+
+// tabulator Custom CSS
+@import "./tabulator_for_tabler.scss";
+
+// tomselect Custom CSS
+@import "./tomselect_for_tabler.scss";
+
+.section {
+  display: none;
+}
+.section.active {
+  display: block;
+}
+
+.sub_section {
+  display: none;
+}
+.sub_section.active {
+  display: block;
+}
+
+.vmStatus-list {
+  max-height: 150px;
+  overflow-y: auto;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.vmStatus-list li {
+  padding: 10px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+  width: calc(100% / 2); /* 기본적으로 한 줄에 2개의 아이템을 배치 */
+  height: 100px;
+  display: inline-block;
+  margin: 10px 0;
+  text-align: center;
+
+  font-size: 16px;
+  border-radius: 15px;
+  // transition: background-color 0.3s; /* 배경색 변화 애니메이션 */
+  cursor: pointer; /* 클릭 가능 커서 */
+  overflow: hidden; /* 또는 overflow: auto; */
+  transition: background-color 0.3s;
+}
+.vmStatus-list li.clicked {
+  background-color: #17a2b8; /* 클릭 시 배경색 변경 */
+}
+
+.removebullet {
+  list-style-type: none;
+  padding-left: 0px;
+  flex-wrap: wrap;
+}
+
+// .dashboard .create_box .new_servers_config.active {
+// 	display: block;
+// }
+
+// .dashboard .create_box .express_servers_config.active {
+// 	display: block;
+// }
+
+/* 화면 폭이 1px 이상 400px 미만일 때 */
+@media (max-width: 399px) {
+  .vmStatus-list li {
+    width: calc(100% / 2); /* 한 줄에 3개의 아이템을 배치 */
+  }
+}
+
+/* 화면 폭이 400px 이상 600px 미만일 때 */
+@media (min-width: 400px) and (max-width: 599px) {
+  .vmStatus-list li {
+    width: calc(100% / 3); /* 한 줄에 3개의 아이템을 배치 */
+  }
+}
+
+/* 화면 폭이 600px 이상 900px 미만일 때 */
+@media (min-width: 600px) and (max-width: 899px) {
+  .vmStatus-list li {
+    width: calc(100% / 4); /* 한 줄에 4개의 아이템을 배치 */
+  }
+}
+
+/* 화면 폭이 900px 이상일 때 */
+@media (min-width: 900px) {
+  .vmStatus-list li {
+    width: calc(100% / 5); /* 한 줄에 5개의 아이템을 배치 */
+  }
+}
+
+// 전체 mci / server 박스 스타일
+.mcilistbox {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px; /* 카드 간의 간격 */
+  width: 100%;
+}
+
+.mci-list {
+  border-radius: 15px;
+  border: 2px solid #ddd;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  float: left;
+  position: relative;
+  width: 252px;
+  height: 259px;
+  overflow: hidden; /* 스크롤 가능 영역 설정 */
+  cursor: pointer; /* 버튼 커서 */
+  transition: background-color 0.3s; /* 호버 시 배경색 전환 효과 */
+}
+
+// 전체 mci / server ul 스타일
+.vm-list {
+  display: flex;
+  flex-wrap: wrap;
+  list-style-type: none; /* 기본 불릿 제거 */
+  padding: 10px;
+  width: 100%;
+  max-height: 150px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+// 전체 mci / server li 스타일
+.vm-item {
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  width: 80px; /* 네모 크기 */
+  height: 65px; /* 네모 크기 */
+  border: 1px solid #ccc; /* 테두리 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 5px; /* 네모들 간의 간격 */
+  text-align: center;
+}
+
+// .vm-item:hover {
+//     background-color: hsl( 80%, 70%); /* 호버 시 배경색 변경 */
+// }
+
+/* 반응형 디자인 */
+@media (max-width: 600px) {
+  .vm-item {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 400px) {
+  .vm-item {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+// server Quantity
+
+.input-number-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  // width: 200px;
+  // margin: 50px auto;
+  // border: 1px solid #ccc;
+  border: var(--tblr-border-width) solid #dadfe5;
+  border-radius: 4px;
+  // border-radius: 1px;
+}
+
+.input-number-container button {
+  // width: 40px;
+  // height: 40px;
+  border: none;
+  // background-color: #dadfe5;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.input-number-container input {
+  // width: 60px;
+  // height: 40px;
+  text-align: center;
+  border: none;
+  // font-size: 18px;
+  outline: none;
+  // -moz-appearance: textfield;
+}
+
+.input-number-container input::-webkit-outer-spin-button,
+.input-number-container input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
