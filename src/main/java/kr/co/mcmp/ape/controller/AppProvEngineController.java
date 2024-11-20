@@ -25,6 +25,10 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/ape")
 @RequiredArgsConstructor
+/**
+ * @deprecated Ape not used
+ */
+@Deprecated
 public class AppProvEngineController {
 
     private final AppProvEngineService appProvEngineService;

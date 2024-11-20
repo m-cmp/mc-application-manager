@@ -14,8 +14,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
@@ -25,8 +28,9 @@ import kr.co.mcmp.ape.cbtumblebug.dto.MciDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciResponse;
 import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceResponse;
+import kr.co.mcmp.ape.cbtumblebug.dto.MciAccessInfoDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.Spec;
-import kr.co.mcmp.ape.cbtumblebug.dto.VmDto;
+import kr.co.mcmp.ape.cbtumblebug.dto.VmAccessInfo;
 import kr.co.mcmp.ape.cbtumblebug.exception.CbtumblebugException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +54,10 @@ public class CbtumblebugRestApi {
 
     private final CbtumblebugRestClient restClient;
 
+    private boolean isTumblebugReady = false;
+    private long lastCheckTime = 0;
+    private static final long CHECK_INTERVAL = 60000; // 1 minute
+
     private HttpHeaders createCommonHeaders() {
         HttpHeaders headers = new HttpHeaders();
         String auth = cbtumblebugId + ":" + cbtumblebugPass;
@@ -66,7 +74,7 @@ public class CbtumblebugRestApi {
 
         return apiUrl;
     }
-
+/* 
     public boolean checkTumblebug() {
         log.info("Checking if Tumblebug is ready");
         String apiUrl = createApiUrl("/tumblebug/readyz");
@@ -79,7 +87,8 @@ public class CbtumblebugRestApi {
             log.error("Tumblebug connection failed", e);
             return false;
         }
-    }
+    } 
+    
     
     private <T> T executeWithConnectionCheck(String operationName, Supplier<T> apiCall) {
         if (!checkTumblebug()) {
@@ -87,8 +96,95 @@ public class CbtumblebugRestApi {
             throw new CbtumblebugException("Tumblebug 연결 실패");
         }
         return apiCall.get();
+    }    
+    */
+
+    public boolean checkTumblebug() {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastCheckTime > CHECK_INTERVAL || !isTumblebugReady) {
+            log.info("Checking if Tumblebug is ready");
+            String apiUrl = createApiUrl("/tumblebug/readyz");
+            HttpHeaders headers = createCommonHeaders();
+            try {
+                ResponseEntity<String> response = restClient.request(apiUrl, headers, null, HttpMethod.GET, new ParameterizedTypeReference<String>() {});
+                isTumblebugReady = response.getStatusCode().is2xxSuccessful();
+                lastCheckTime = currentTime;
+            } catch (Exception e) {
+                log.error("Tumblebug connection failed", e);
+                isTumblebugReady = false;
+            }
+        }
+        return isTumblebugReady;
     }
 
+    public <T> T executeWithConnectionCheck(String operationName, Supplier<T> apiCall) {
+        if (!checkTumblebug()) {
+            throw new CbtumblebugException("Tumblebug is not ready");
+        }
+        return apiCall.get();
+    }
+
+
+    public String executeMciCommand(String nsId, String mciId, String command, String subGroupId, String vmId) {
+        log.info("Executing command on MCI: {}, VM: {}", mciId, vmId);
+        return executeWithConnectionCheck("executeMciCommand", () -> {
+            try {
+                String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/cmd/mci/%s", nsId, mciId));
+                HttpHeaders headers = createCommonHeaders();
+
+                // 요청 본문 생성
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("command", Collections.singletonList(command));
+
+                // 쿼리 파라미터 추가
+                if (subGroupId != null && !subGroupId.isEmpty()) {
+                    apiUrl += "?subGroupId=" + subGroupId;
+                }
+                if (vmId != null && !vmId.isEmpty()) {
+                    apiUrl += (apiUrl.contains("?") ? "&" : "?") + "vmId=" + vmId;
+                }
+
+                String jsonBody = new ObjectMapper().writeValueAsString(requestBody);
+
+                ResponseEntity<String> response = restClient.request(
+                    apiUrl,
+                    headers,
+                    jsonBody,
+                    HttpMethod.POST,
+                    new ParameterizedTypeReference<String>() {}
+                );
+
+                 if (response.getStatusCode().is2xxSuccessful()) {
+                    String responseBody = response.getBody();
+                    log.info("command result: {}", response.getBody());
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode rootNode = mapper.readTree(responseBody);
+                    JsonNode resultsNode = rootNode.path("results");
+                    if (resultsNode.isArray() && resultsNode.size() > 0) {
+                        JsonNode firstResult = resultsNode.get(0);
+                        String stdout = firstResult.path("stdout").path("0").asText();
+                        String stderr = firstResult.path("stderr").path("0").asText();
+                        if (!stderr.isEmpty()) {
+                            log.warn("Command execution produced stderr: {}", stderr);
+                        }
+                        return stdout;
+                    } else {
+                        throw new CbtumblebugException("Unexpected response format");
+                    }
+                } else {
+                    throw new CbtumblebugException("MCI command execution failed. Status code: " + response.getStatusCodeValue());
+                }
+                
+            } catch (JsonProcessingException e) {
+                log.error("Error serializing request body", e);
+                throw new CbtumblebugException("Failed to serialize request body: " + e.getMessage());
+            } catch (RestClientException e) {
+                log.error("Error executing command on MCI", e);
+                throw new CbtumblebugException("Failed to execute command on MCI: " + e.getMessage());
+            }
+        });
+    }
+    
     public List<NamespaceDto> getAllNamespace() {
         log.info("Fetching all namespaces");
         return executeWithConnectionCheck("getAllNamespace", () ->{
@@ -109,15 +205,27 @@ public class CbtumblebugRestApi {
         });
     }
 
-    // public String getK8sClusterInfo(){
-    //     log.info("Fetching all K8sClusterInfo");
-    //     return executeWithConnectionCheck("getK8sClusterInfo", () ->{
-    //         String apiUrl = createApiUrl("/k8sClusterInfo");
-    //         HttpHeaders headers = createCommonHeaders();
-    //         ResponseEntity<String> response = restClient.request(apiUrl, headers, headers, HttpMethod.GET, new ParameterizedTypeReference<String>() {});
-    //         return response.getBody() != null ? response.getBody() : null;
-    //     });
-    // }
+    public MciAccessInfoDto getSSHKeyForMci(String namespace, String mciId) {
+        log.info("Fetching SSH Key for MCI: {} in namespace: {}", mciId, namespace);
+        return executeWithConnectionCheck("getSSHKeyForMci", () -> {
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/mci/%s", namespace, mciId));
+            HttpHeaders headers = createCommonHeaders();
+            
+            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(apiUrl)
+                .queryParam("option", "accessinfo")
+                .queryParam("accessInfoOption", "showSshKey");
+            
+            ResponseEntity<MciAccessInfoDto> response = restClient.request(
+                builder.toUriString(),
+                headers,
+                null,
+                HttpMethod.GET,
+                new ParameterizedTypeReference<MciAccessInfoDto>() {}
+            );
+            
+            return response.getBody();
+        });
+    }   
 
     public List<K8sClusterDto> getAllK8sClusters(String namespace){
         log.info("Fetching K8s Clusters by namespace: {}", namespace);
@@ -179,21 +287,22 @@ public class CbtumblebugRestApi {
                 HttpMethod.GET,
                 new ParameterizedTypeReference<Spec>() {}
             );
+            log.info("Spec : {}" , response.getBody().toString());
             return response.getBody();
         });
     }
 
-    public VmDto getVmInfo(String nsId, String mciId, String vmId) {
+    public VmAccessInfo getVmInfo(String nsId, String mciId, String vmId) {
         log.info("Fetching VM info for VM ID: {}", vmId);
         return executeWithConnectionCheck("getVmInfo", () -> {
             String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/mci/%s/vm/%s", nsId, mciId, vmId));
             HttpHeaders headers = createCommonHeaders();
-            ResponseEntity<VmDto> response = restClient.request(
+            ResponseEntity<VmAccessInfo> response = restClient.request(
                 apiUrl,
                 headers,
                 null,
                 HttpMethod.GET,
-                new ParameterizedTypeReference<VmDto>() {}
+                new ParameterizedTypeReference<VmAccessInfo>() {}
             );
             return response.getBody();
         });
@@ -228,18 +337,5 @@ public class CbtumblebugRestApi {
     
             return response.getBody();
         });
-        // String apiUrl = "http://localhost:1323/tumblebug/lookupSpec";
-        // String requestBody = String.format("{\"connectionName\": \"%s\", \"cspResourceId\": \"%s\"}", connectionName, cspResourceId);
-
-        // HttpHeaders headers = createCommonHeaders();
-        // ResponseEntity<K8sSpec> response = restClient.request(
-        //     apiUrl,
-        //     headers,
-        //     requestBody,
-        //     HttpMethod.POST,
-        //     new ParameterizedTypeReference<K8sSpec>() {}
-        // );
-
-        // return response.getBody();
     }
 }

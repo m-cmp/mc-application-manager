@@ -1,10 +1,12 @@
 package kr.co.mcmp.externalrepo.model;
 
 import lombok.Data;
+import lombok.ToString;
 
 import java.util.List;
 
 @Data
+@ToString
 public class ArtifactHubPackage {
 
     private List<Package> packages;

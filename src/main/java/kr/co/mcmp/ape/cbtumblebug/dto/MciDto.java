@@ -58,10 +58,10 @@ public class MciDto {
     private String description;
 
     @ApiModelProperty(value = "List of VMs")
-    private List<VmDto> vm;
+    private List<VmAccessInfo> vm;
 
     @ApiModelProperty(value = "List of new VMs")
-    private List<VmDto> newVmList;
+    private List<VmAccessInfo> newVmList;
 
     
 }

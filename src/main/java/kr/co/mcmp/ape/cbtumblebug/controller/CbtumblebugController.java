@@ -2,6 +2,7 @@ package kr.co.mcmp.ape.cbtumblebug.controller;
 
 import java.util.List;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,8 +16,8 @@ import kr.co.mcmp.ape.cbtumblebug.dto.MciDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.Spec;
 import kr.co.mcmp.ape.cbtumblebug.service.CbtumblebugService;
+import kr.co.mcmp.response.ResponseWrapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.RequestParam;
 
 
 @Tag(name="tumblebug", description = "Tumblebug API queries")
@@ -29,38 +30,44 @@ public class CbtumblebugController {
 
     @GetMapping("/ns")
     @Operation(summary = "Retrieve all namespaces", description = "Fetches all registered namespaces.")
-    public List<NamespaceDto> getAllNamespaces() {
-        return cbtumblebugService.getAllNamespaces();
+    public ResponseEntity<ResponseWrapper<List<NamespaceDto>>> getAllNamespaces() {
+        List<NamespaceDto> result =  cbtumblebugService.getAllNamespaces();
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
     @GetMapping("/ns/{nsId}/mci")
     @Operation(summary = "Retrieve MCIS for a specific namespace", description = "Fetches all MCIS belonging to the specified namespace.")
-    public List<MciDto> getMicsByNamespace(@Parameter(description = "Namespace ID", required = true)
+    public ResponseEntity<ResponseWrapper<List<MciDto>>> getMicsByNamespace(@Parameter(description = "Namespace ID", required = true)
             @PathVariable String nsId) {
-        return cbtumblebugService.getMcisByNamespace(nsId);
+        List<MciDto> result = cbtumblebugService.getMcisByNamespace(nsId);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     
     @GetMapping("/ns/{nsId}/mci/{mciId}")
     @Operation(summary = "Retrieve a specific MCI", description = "Fetches the specified MCI.")
-    public MciDto getMicByMciId(@PathVariable String nsId, @PathVariable String mciId) {
-        return cbtumblebugService.getMciByMciId(nsId, mciId);
+    public ResponseEntity<ResponseWrapper<MciDto>> getMicByMciId(@PathVariable String nsId, @PathVariable String mciId) {
+        MciDto result =  cbtumblebugService.getMciByMciId(nsId, mciId);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     
     @GetMapping("/ns/{nsId}/k8scluster")
     @Operation(summary = "Retrieve k8sclusters for a specific namespace", description = "Fetches all k8sclusters belonging to the specified namespace.")
-    public List<K8sClusterDto> getK8sCluster(@PathVariable String nsId) {
-        return cbtumblebugService.getAllK8sClusters(nsId);
+    public ResponseEntity<ResponseWrapper<List<K8sClusterDto>>> getK8sCluster(@PathVariable String nsId) {
+        List<K8sClusterDto> result = cbtumblebugService.getAllK8sClusters(nsId);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
     @GetMapping("/ns/{nsId}/k8scluster/{clusterName}")
     @Operation(summary = "Retrieve a specific k8scluster", description = "Fetches the specified k8scluster.")
-    public K8sClusterDto getK8sClusterByName(@PathVariable String nsId, @PathVariable String clusterName) {
-        return cbtumblebugService.getK8sClusterByName(nsId, clusterName);
+    public ResponseEntity<ResponseWrapper<K8sClusterDto>> getK8sClusterByName(@PathVariable String nsId, @PathVariable String clusterName) {
+        K8sClusterDto result =  cbtumblebugService.getK8sClusterByName(nsId, clusterName);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
     @GetMapping("/ns/{nsId}/resources/spec/{specId}")
-    public Spec getMethodName(@PathVariable String nsId, @PathVariable String specId) {
-        return cbtumblebugService.getSpecBySpecId(nsId, specId);
+    public ResponseEntity<ResponseWrapper<Spec>> getMethodName(@PathVariable String nsId, @PathVariable String specId) {
+        Spec result =  cbtumblebugService.getSpecBySpecId(nsId, specId);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     
 

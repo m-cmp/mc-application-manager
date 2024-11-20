@@ -15,11 +15,11 @@ import kr.co.mcmp.ape.cbtumblebug.dto.NamespaceDto;
 import kr.co.mcmp.ape.dto.reqDto.JenkinsJobDto;
 import kr.co.mcmp.ape.dto.resDto.ApeLogResDto;
 import kr.co.mcmp.ape.service.jenkins.service.JenkinsService;
-import kr.co.mcmp.catalog.application.model.ApplicationStatus;
-import kr.co.mcmp.catalog.application.service.ApplicationService;
 import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.oss.dto.OssTypeDto;
 import kr.co.mcmp.oss.service.OssService;
+import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
+import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
@@ -28,9 +28,6 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
 
     @Autowired
     private JenkinsService jenkinsService;
-
-    @Autowired
-    private ApplicationService applicationService;
     
     @Lazy
     @Autowired
@@ -130,15 +127,15 @@ public class AppProvEngineServiceImpl implements AppProvEngineService {
     
     private void logJob(JenkinsJobDto jobDto){
         
-        if (jobDto instanceof JenkinsJobDto.VmApplicationInstall) {
-           applicationService.logVmInstallation((JenkinsJobDto.VmApplicationInstall) jobDto, ApplicationStatus.INSTALL);
-       } else if (jobDto instanceof JenkinsJobDto.VmApplicationUninstall) {
-            applicationService.updateVmApplicationStatus((JenkinsJobDto.VmApplicationUninstall) jobDto, ApplicationStatus.UNINSTALL);
-       } else if (jobDto instanceof JenkinsJobDto.HelmChartInstall) {
-            applicationService.logK8sInstallation((JenkinsJobDto.HelmChartInstall) jobDto, ApplicationStatus.INSTALL);
-       } else if (jobDto instanceof JenkinsJobDto.HelmChartUninstall) {
-            applicationService.updateK8sApplicationStatus((JenkinsJobDto.HelmChartUninstall) jobDto, ApplicationStatus.UNINSTALL);
-       }
+    //     if (jobDto instanceof JenkinsJobDto.VmApplicationInstall) {
+    //        applicationService.logVmInstallation((JenkinsJobDto.VmApplicationInstall) jobDto, ApplicationStatus.INSTALL);
+    //    } else if (jobDto instanceof JenkinsJobDto.VmApplicationUninstall) {
+    //         applicationService.updateVmApplicationStatus((JenkinsJobDto.VmApplicationUninstall) jobDto, ApplicationStatus.UNINSTALL);
+    //    } else if (jobDto instanceof JenkinsJobDto.HelmChartInstall) {
+    //         applicationService.logK8sInstallation((JenkinsJobDto.HelmChartInstall) jobDto, ApplicationStatus.INSTALL);
+    //    } else if (jobDto instanceof JenkinsJobDto.HelmChartUninstall) {
+    //         applicationService.updateK8sApplicationStatus((JenkinsJobDto.HelmChartUninstall) jobDto, ApplicationStatus.UNINSTALL);
+    //    }
     }
 
     private String makeTumblebugUri(String url, String port){
