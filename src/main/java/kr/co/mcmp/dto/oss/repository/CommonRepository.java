@@ -3,20 +3,24 @@ package kr.co.mcmp.dto.oss.repository;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
 @Getter
+@Data
 public class CommonRepository {
 
     @Getter
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
+    @ToString
     public static class RepositoryDto {
 
         @Schema(title = "레포지토리 이름", required = true, example = "repo")
@@ -49,6 +53,7 @@ public class CommonRepository {
         @Builder
         @NoArgsConstructor
         @AllArgsConstructor
+        @ToString
         public static class StorageDto {
 
             @Schema(title = "아티팩트를 저장하는 물리적 저장소 이름", required = true, example = "default")
@@ -68,6 +73,7 @@ public class CommonRepository {
         @Builder
         @NoArgsConstructor
         @AllArgsConstructor
+        @ToString
         public static class DockerDto {
 
             @Schema(title = "도커 registry 버전 지원(false: v2 지원)", required = true)

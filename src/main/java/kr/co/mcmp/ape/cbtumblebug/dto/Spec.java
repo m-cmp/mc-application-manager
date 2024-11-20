@@ -3,10 +3,12 @@ package kr.co.mcmp.ape.cbtumblebug.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.Data;
+import lombok.ToString;
 
 import java.util.List;
 
 @Data
+@ToString
 public class Spec {
 
     private int acceleratorCount;
@@ -64,5 +66,6 @@ public class Spec {
     private int storageGiB;
     private String systemLabel;
     private String uid;
-    private int vCPU;
+    @JsonProperty("vCPU")
+    private Double vCPU;
 }

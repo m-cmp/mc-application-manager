@@ -7,7 +7,7 @@
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
         <hudson.model.StringParameterDefinition>
-          <name>TUMBLEBUG_URI</name>
+          <name>CB_TUMBLEBUG_URI</name>
           <description>Tumblebug API URL</description>
           <defaultValue>http://52.78.129.10:1323/tumblebug</defaultValue>
           <trim>true</trim>

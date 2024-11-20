@@ -3,12 +3,15 @@ package kr.co.mcmp.externalrepo;
 import kr.co.mcmp.externalrepo.model.ArtifactHubPackage;
 import kr.co.mcmp.externalrepo.model.ArtifactHubRespository;
 import kr.co.mcmp.externalrepo.model.DockerHubCatalog;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@Slf4j
 public class ExternalRepoService {
 
     @Autowired
@@ -23,7 +26,9 @@ public class ExternalRepoService {
     }
 
     public ArtifactHubPackage searchArtifactHubPackage(String keyword){
-        return artfInt.searchPackage(keyword, "0");
+        ArtifactHubPackage test = artfInt.searchPackage(keyword, "0");
+        log.info("ArtifactHubPackage : {}", test.toString());
+        return test;
     }
 
     public DockerHubNamespace searchDockerHubNamespace(String keyword){
@@ -31,7 +36,9 @@ public class ExternalRepoService {
     }
 
     public DockerHubCatalog searchDockerHubCatalog(String keyword){
-        return dockerInt.searchCatalog(keyword);
+        DockerHubCatalog catalog = dockerInt.searchCatalog(keyword);
+        log.info("DockerHubCatalog : {}",catalog.toString());
+        return catalog;
         //return null;
     }
 
