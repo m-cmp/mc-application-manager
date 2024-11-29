@@ -77,6 +77,14 @@
                         Apps Status
                       </a>
                     </li>
+
+                    <!-- Repository -->
+                    <li class="nav-item">
+                      <a href="#tabs-repository" class="nav-link" data-bs-toggle="tab">
+                        <IconFolder class="icon me-2" width="24" height="24" stroke-width="2" /> 
+                        Repository
+                      </a>
+                    </li>
                   </ul>
                 </div>
 
@@ -97,6 +105,13 @@
                         <ApplicationStatusList />
                       </div>
                     </div>
+
+                    <!-- Repository -->
+                    <div class="tab-pane" id="tabs-repository">
+                      <div>
+                        <RepositoryList />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -113,10 +128,11 @@
 </template>
 <script setup lang="ts">
 // Components
-import { IconActivityHeartbeat, IconApps } from '@tabler/icons-vue'
+import { IconActivityHeartbeat, IconApps, IconFolder } from '@tabler/icons-vue'
 import ApplicationInstallationForm from '@/views/softwareCatalog/components/applicationInstallationForm.vue';
 import ApplicationStatusList from '@/views/softwareCatalog/components/applicationStatusList.vue';
 import SoftwareCatalogList from '@/views/softwareCatalog/components/softwareCatalogList.vue';
+import RepositoryList from '@/views/repository/RepositoryList.vue';
 
 // ETC
 import { onMounted } from 'vue';

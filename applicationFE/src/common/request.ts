@@ -3,6 +3,7 @@ import { useToast } from "vue-toastification";
 
 const splitUrl = window.location.host.split(':');
 const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
+// const baseUrl = 'http://10.10.20.193:18084'
 const toast = useToast();
 const service = axios.create({
   // baseURL: process.env.VUE_APP_API_URL,
