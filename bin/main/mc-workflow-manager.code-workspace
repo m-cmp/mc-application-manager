@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "../../../../mc-workflow-manager"
+		},
+		{
+			"path": "../../.."
+		}
+	],
+	"settings": {
+		"java.compile.nullAnalysis.mode": "automatic",
+		"java.dependency.packagePresentation": "hierarchical",
+		"java.dependency.syncWithFolderExplorer": true
+	}
+}

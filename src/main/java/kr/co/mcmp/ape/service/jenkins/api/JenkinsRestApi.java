@@ -3,14 +3,9 @@ package kr.co.mcmp.ape.service.jenkins.api;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
-import lombok.RequiredArgsConstructor;
-
-import org.apache.commons.collections4.map.HashedMap;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -25,7 +20,6 @@ import com.cdancy.jenkins.rest.domain.job.JobInfo;
 import com.cdancy.jenkins.rest.domain.job.PipelineNode;
 import com.cdancy.jenkins.rest.domain.job.Workflow;
 import com.cdancy.jenkins.rest.domain.queue.QueueItem;
-import com.cdancy.jenkins.rest.features.CrumbIssuerApi;
 import com.cdancy.jenkins.rest.features.JobsApi;
 import com.cdancy.jenkins.rest.features.QueueApi;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -34,9 +28,9 @@ import kr.co.mcmp.ape.service.jenkins.model.JenkinsBuildDescribeLog;
 import kr.co.mcmp.ape.service.jenkins.model.JenkinsBuildDetailLog;
 import kr.co.mcmp.ape.service.jenkins.model.JenkinsCredential;
 import kr.co.mcmp.ape.service.jenkins.model.JenkinsWorkflow;
-import kr.co.mcmp.util.AES256Util;
 import kr.co.mcmp.util.AES256Utils;
 import kr.co.mcmp.util.Base64Util;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

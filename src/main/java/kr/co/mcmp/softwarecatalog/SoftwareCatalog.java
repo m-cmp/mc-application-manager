@@ -5,9 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.persistence.CascadeType;
-import javax.persistence.CollectionTable;
 import javax.persistence.Column;
-import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -17,6 +15,8 @@ import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
+
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import kr.co.mcmp.softwarecatalog.Ref.CatalogRefEntity;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
@@ -110,12 +110,15 @@ public class SoftwareCatalog {
     private Integer maxReplicas; // 최대 복제 수
 
     @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private List<CatalogRefEntity> catalogRefs = new ArrayList<>();
     
     @OneToOne(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private PackageInfo packageInfo;
 
     @OneToOne(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private HelmChart helmChart;
     
     public void addCatalogRef(CatalogRefEntity catalogRef) {

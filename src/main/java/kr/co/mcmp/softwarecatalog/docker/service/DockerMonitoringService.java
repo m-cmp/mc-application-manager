@@ -11,10 +11,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.github.dockerjava.api.DockerClient;
-
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
+import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
@@ -43,7 +42,7 @@ public class DockerMonitoringService {
     public void monitorContainerHealth() {
         log.info("Starting container health monitoring");
         List<DeploymentHistory> activeDeployments = getActiveDeployments();
-        
+
         for (DeploymentHistory deployment : activeDeployments) {
             try {
                 updateContainerHealth(deployment);
@@ -56,24 +55,24 @@ public class DockerMonitoringService {
 
     private List<DeploymentHistory> getActiveDeployments() {
         return deploymentHistoryRepository.findAll().stream()
-            .collect(Collectors.groupingBy(d -> d.getVmId() != null ? d.getVmId() : d.getClusterName()))
-            .values().stream()
-            .flatMap(deployments -> deployments.stream()
-                .collect(Collectors.groupingBy(DeploymentHistory::getCatalog))
+                .filter(d -> DeploymentType.DOCKER.equals(d.getDeploymentType()))
+                .collect(Collectors.groupingBy(d -> d.getVmId() != null ? d.getVmId() : d.getMciId()))
                 .values().stream()
-                .map(catalogDeployments -> catalogDeployments.stream()
-                    .max(Comparator.comparing(DeploymentHistory::getExecutedAt))
-                    .orElse(null)))
-            .filter(Objects::nonNull)
-            .filter(d -> ("RUN".equalsIgnoreCase(d.getActionType().name()) || "INSTALL".equalsIgnoreCase(d.getActionType().name())) 
-                    && "SUCCESS".equalsIgnoreCase(d.getStatus()))
-            .collect(Collectors.toList());
+                .flatMap(deployments -> deployments.stream()
+                        .collect(Collectors.groupingBy(DeploymentHistory::getCatalog))
+                        .values().stream()
+                        .map(catalogDeployments -> catalogDeployments.stream()
+                                .max(Comparator.comparing(DeploymentHistory::getExecutedAt))
+                                .orElse(null)))
+                .filter(Objects::nonNull)
+                .filter(d -> ("RUN".equalsIgnoreCase(d.getActionType().name())
+                        || "INSTALL".equalsIgnoreCase(d.getActionType().name()))
+                        && "SUCCESS".equalsIgnoreCase(d.getStatus()))
+                .collect(Collectors.toList());
     }
 
-    
     private void updateContainerHealth(DeploymentHistory deployment) {
-        ApplicationStatus status = applicationStatusRepository.findByCatalogId(deployment.getCatalog().getId())
-                .orElse(new ApplicationStatus());
+        ApplicationStatus status = applicationStatusRepository.findTopByCatalogIdOrderByCheckedAtDesc(deployment.getCatalog().getId()).orElse(new ApplicationStatus());
 
         try (var dockerClient = dockerClientFactory.getDockerClient(deployment.getPublicIp())) {
             String catalogTitle = deployment.getCatalog().getTitle().toLowerCase().replaceAll("\\s+", "-");
@@ -102,15 +101,18 @@ public class DockerMonitoringService {
     }
 
     private boolean isThresholdExceeded(SoftwareCatalog catalog, ContainerHealthInfo healthInfo) {
-        if(healthInfo.getCpuUsage() != null && healthInfo.getMemoryUsage() != null){
-            boolean cpuExceeded = catalog.getCpuThreshold() != null && healthInfo.getCpuUsage() > catalog.getCpuThreshold();
-            boolean memoryExceeded = catalog.getMemoryThreshold() != null && healthInfo.getMemoryUsage() > catalog.getMemoryThreshold();
+        if (healthInfo.getCpuUsage() != null && healthInfo.getMemoryUsage() != null) {
+            boolean cpuExceeded = catalog.getCpuThreshold() != null
+                    && healthInfo.getCpuUsage() > catalog.getCpuThreshold();
+            boolean memoryExceeded = catalog.getMemoryThreshold() != null
+                    && healthInfo.getMemoryUsage() > catalog.getMemoryThreshold();
             return cpuExceeded || memoryExceeded;
         }
         return false;
     }
 
-    private void updateApplicationStatus(ApplicationStatus status, DeploymentHistory deployment, ContainerHealthInfo healthInfo) {
+    private void updateApplicationStatus(ApplicationStatus status, DeploymentHistory deployment,
+            ContainerHealthInfo healthInfo) {
         status.setCatalog(deployment.getCatalog());
         status.setStatus(healthInfo.getStatus());
         status.setDeploymentType(deployment.getDeploymentType());

@@ -28,6 +28,7 @@ spring:
     generate-ddl: true
     hibernate:
       ddl-auto: ${DDL_AUTO:update} # ${DDL_AUTO:none}
+    
 # ddl-auto: create # 실행할 때에 테이블을 자동으로 생성시킬것인지 #create-drop, update, validate, none
 # create : SessionFactory 시작시 스키마를 삭제하고 다시 생성
 # create-drop : SessionFactory 종료 시 스키마를 삭제
@@ -39,7 +40,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
         format_sql: true
-        show_sql: true
+        show_sql: false
         hbm2ddl: # 처음에 더미데이터등을 넣기위해 sql을 실행
           #import_files: ./data.sql # 확인필요
           import_files:
@@ -65,11 +66,15 @@ aes:
   key: fb1755281b0ca6184a0ee644e6477ee7
 
 cbtumblebug:
-  url: 52.78.129.10
-  port: 1323
-  id: default
-  pass: default
+  url: ${TUMBLEBUG_URL:210.217.178.130}
+  port: ${TUMBLEBUG_PORT:1323}
+  id: ${TUMBLEBUG_ID:default}
+  pass: ${TUMBLEBUG_PASSWORD:default}
 
+docker:
+  monitoring:
+    interval: 60000  # 밀리초 단위, 기본값은 60000 (1분)
+    
 file:
   upload:
     path:

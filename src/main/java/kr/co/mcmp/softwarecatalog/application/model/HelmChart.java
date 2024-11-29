@@ -11,6 +11,8 @@ import javax.persistence.ManyToOne;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.dto.HelmChartDTO;
 import lombok.AllArgsConstructor;
@@ -33,6 +35,7 @@ public class HelmChart {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "catalog_id", unique = true)
+    @JsonBackReference
     private SoftwareCatalog catalog; // 이 Helm 차트가 속한 소프트웨어 카탈로그
 
     @Column(name = "chart_name", nullable = false)
@@ -50,6 +53,10 @@ public class HelmChart {
     @Column(name = "package_id")
     private String packageId; // ArtifactHub 패키지 ID (ArtifactHub 전용)
 
+    // IMAGE_REPOSITORY
+    @Column(name= "image_repository")
+    private String imageRepository;
+    
     @Column(name = "normalized_name")
     private String normalizedName; // ArtifactHub 정규화된 이름 (ArtifactHub 전용)
 

@@ -37,15 +37,14 @@ public class ApplicationController {
     }
 
     @Operation(summary = "K8s 클러스터에 애플리케이션 배포", description = "특정 K8s 클러스터에 애플리케이션을 배포합니다.")
-    @PostMapping("/k8s/deploy")
+    @GetMapping("/k8s/deploy")
     public ResponseEntity<ResponseWrapper<DeploymentHistory>> deployK8sApplication(
             @RequestParam String namespace,
             @RequestParam String clusterName,
             @RequestParam Long catalogId,
             @RequestParam(required = false) String username) {
-        // DeploymentHistory result = applicationService.deployApplicationToK8s(namespace, clusterName, catalogId, username);
-        // return ResponseEntity.ok(new ResponseWrapper<>(result));
-        return null;
+        DeploymentHistory result = applicationService.deployApplicationToK8s(namespace, clusterName, catalogId, username);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
     @Operation(summary = "VM 리소스 체크", description = "VM에 애플리케이션을 배포하기 위한 리소스가 충분한지 확인합니다.")
@@ -90,8 +89,8 @@ public class ApplicationController {
         return ResponseEntity.ok(new ResponseWrapper<>(status));
     }
     
-    @Operation(summary = "VM 어플리케이션 상태 조회", description = "VM의 어플리케이션 상태를 조회 합니다.")
-    @GetMapping("/vm/groups")
+    @Operation(summary = "VM 어플리케이션 상태 조회", description = "어플리케이션 상태를 조회 합니다.")
+    @GetMapping("/groups")
     public ResponseEntity<ResponseWrapper<List<ApplicationStatusDto>>> getApplicationGroups() {
         List<ApplicationStatusDto> list = applicationService.getApplicationGroups();
         return ResponseEntity.ok(new ResponseWrapper<>(list));
@@ -99,8 +98,15 @@ public class ApplicationController {
 
     @Operation(summary = "VM 어플리케이션 동작", description = "어플리케이션 동작")
     @GetMapping("/vm/action")
-    public ResponseEntity<ResponseWrapper<Map<String, Object>>> performDockerOperation(@RequestParam ActionType operation,@RequestParam Long applicationStatusId) throws Exception {
-        Map<String, Object> result =  applicationService.performDockerOperation(operation, applicationStatusId);
+    public ResponseEntity<ResponseWrapper<Map<String, Object>>> performDockerOperation(@RequestParam ActionType operation,@RequestParam Long applicationStatusId, @RequestParam String reason, @RequestParam(required = false) String username) throws Exception {
+        Map<String, Object> result =  applicationService.performDockerOperation(operation, applicationStatusId,reason,username);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+
+    @Operation(summary = "k8s 어플리케이션 동작", description = "어플리케이션 동작")
+    @GetMapping("/k8s/action")
+    public ResponseEntity<ResponseWrapper<Map<String, Object>>> performDockerOperationForK8s(@RequestParam ActionType operation,@RequestParam Long applicationStatusId, @RequestParam String reason, @RequestParam(required = false) String username) throws Exception {
+        Map<String, Object> result =  applicationService.performDockerOperationForK8s(operation, applicationStatusId,reason,username);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     

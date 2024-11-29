@@ -1,12 +1,16 @@
 package kr.co.mcmp.softwarecatalog.application.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
+import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 
@@ -33,5 +37,5 @@ public interface DeploymentHistoryRepository extends JpaRepository<DeploymentHis
     
     List<DeploymentHistory> findByCatalogIdOrderByExecutedAtDesc(Long catalogId);
     List<DeploymentHistory> findByCatalogIdAndExecutedByOrderByExecutedAtDesc(Long catalogId, User user);
-    
+
 }

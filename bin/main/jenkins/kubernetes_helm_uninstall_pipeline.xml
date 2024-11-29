@@ -7,7 +7,7 @@
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
         <hudson.model.StringParameterDefinition>
-          <name>TUMBLEBUG_URI</name>
+          <name>CB_TUMBLEBUG_URI</name>
           <description>Tumblebug API URL</description>
           <defaultValue>http://52.78.129.10:1323/tumblebug</defaultValue>
           <trim>true</trim>
@@ -35,6 +35,12 @@
           <description>Tumblebug User Password</description>
           <defaultValue>default</defaultValue>
         </hudson.model.PasswordParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>HELM_CHARTS</name>
+          <description>Helm Charts to Uninstall (comma-separated)</description>
+          <defaultValue>nginx,grafana,prometheus,tomcat,redis</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
   </properties>
@@ -53,37 +59,43 @@ pipeline {
     
     environment {
         PATH = "${env.HOME}/bin:${env.PATH}"
+        HELM_INSTALLED = false
+        KUBECTL_INSTALLED = false
     }
     
     stages {
-    
-        stage('Check and Install Tools') {
+        stage('Check and Install kubectl and Helm') {
             steps {
                 script {
-                    // Check and install kubectl if not present
-                    def kubectlInstalled = sh(script: 'command -v kubectl', returnStatus: true) == 0
-                    if (!kubectlInstalled) {
+                    // Check and install kubectl
+                    if (sh(script: "command -v kubectl", returnStatus: true) != 0) {
                         sh '''
                             curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                             chmod +x kubectl
                             mkdir -p $HOME/bin
                             mv kubectl $HOME/bin/
                         '''
+                        env.PATH = "${env.HOME}/bin:${env.PATH}"
+                        env.KUBECTL_INSTALLED = true
                     }
-                    sh 'kubectl version --client'
+                    sh "kubectl version --client"
                     
-                    // Check and install Helm if not present
-                    def helmInstalled = sh(script: 'command -v helm', returnStatus: true) == 0
-                    if (!helmInstalled) {
+                    // Check and install Helm
+                    if (sh(script: "command -v helm", returnStatus: true) != 0) {
                         sh '''
-                            curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+                            curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+                            chmod 700 get_helm.sh
+                            HELM_INSTALL_DIR=$HOME/bin ./get_helm.sh --no-sudo
+                            rm get_helm.sh
                         '''
+                        env.PATH = "${env.HOME}/bin:${env.PATH}"
+                        env.HELM_INSTALLED = true
                     }
-                    sh 'helm version'
+                    sh "helm version"
                 }
             }
-        }
-        
+        }    
+            
         stage('Check Tumblebug Connection') {
             steps {
                 script {
@@ -92,6 +104,7 @@ pipeline {
                         --user '${params.TUMBLEBUG_USERID}:${params.TUMBLEBUG_PASSWORD}' \
                         -H 'accept: application/json'
                     """, returnStdout: true).trim()
+                    echo "Tumblebug Response: ${response}"
                     def json = new JsonSlurper().parseText(response)
                     if (json.message != "CB-Tumblebug is ready") {
                         error "Tumblebug is not ready: ${json.message}"
@@ -117,7 +130,6 @@ pipeline {
                     writeFile file: 'kubeconfig', text: kubeconfig
                     sh "chmod 600 kubeconfig"
                     
-                    
                     def fileExists = fileExists 'kubeconfig'
                     if (!fileExists) {
                         error "Failed to save kubeconfig"
@@ -131,27 +143,26 @@ pipeline {
         stage('Uninstall Helm Charts') {
             steps {
                 script {
-                    def applications = ['nginx', 'tomcat', 'redis', 'grafana', 'prometheus', 'mariadb']
+                    def charts = params.HELM_CHARTS.split(',')
                     
-                    applications.each { app ->
-                        echo "Uninstalling ${app}..."
-                        try {
-                            def releases = sh(script: """
-                                export KUBECONFIG=${WORKSPACE}/kubeconfig
-                                helm list --all-namespaces | grep ${app} | awk '{print \$1}'
-                            """, returnStdout: true).trim().split("\n")
-                            
-                            releases.each { release ->
-                                if (release) {
-                                    sh """
-                                        export KUBECONFIG=${WORKSPACE}/kubeconfig
-                                        helm uninstall ${release} --namespace default
-                                    """
-                                    echo "${release} uninstalled successfully"
-                                }
+                    charts.each { chart ->
+                        chart = chart.trim()
+                        def releaseName = "${chart}-release"
+                        echo "Checking if ${chart} is installed..."
+                        def isInstalled = sh(script: "helm list --kubeconfig ${WORKSPACE}/kubeconfig | grep ${releaseName}", returnStatus: true) == 0
+                        if (isInstalled) {
+                            echo "Uninstalling ${chart}..."
+                            try {
+                                sh """
+                                    export KUBECONFIG=${WORKSPACE}/kubeconfig
+                                    helm uninstall ${releaseName}
+                                """
+                                echo "${chart} uninstalled successfully"
+                            } catch (Exception e) {
+                                echo "Failed to uninstall ${chart}: ${e.message}"
                             }
-                        } catch (Exception e) {
-                            echo "Failed to uninstall ${app}: ${e.message}"
+                        } else {
+                            echo "${chart} is not installed. Skipping."
                         }
                     }
                 }
@@ -164,8 +175,8 @@ pipeline {
                     try {
                         sh """
                             export KUBECONFIG=${WORKSPACE}/kubeconfig
-                            helm list --all-namespaces
                             kubectl get pods,services --all-namespaces
+                            helm list --all-namespaces
                         """
                     } catch (Exception e) {
                         echo "Failed to verify uninstallations: ${e.message}"
@@ -179,6 +190,17 @@ pipeline {
         always {
             sh "rm -f ${WORKSPACE}/kubeconfig"
             echo "Removed kubeconfig file"
+            
+            script {
+                if (env.KUBECTL_INSTALLED == 'true') {
+                    sh "rm -f $HOME/bin/kubectl"
+                    echo "Removed kubectl"
+                }
+                if (env.HELM_INSTALLED == 'true') {
+                    sh "rm -f /usr/local/bin/helm"
+                    echo "Removed Helm"
+                }
+            }
         }
         success {
             echo "Helm charts uninstallation and verification completed successfully!"
