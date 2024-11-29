@@ -113,8 +113,8 @@ const setColumns = () => {
     },
     {
       title: "Infra",
-      field: "vmId",
       width: '15%',
+      formatter: infraFormatter,
     },
     {
       title: "Status",
@@ -171,6 +171,21 @@ const _applicationAction = async (params: {
   applicationStatusId.value = params.applicationStatusId
   deploymentType.value = params.deploymentType
   applicationName.value = params.applicationName
+}
+
+
+const infraFormatter = (cell: any) => {
+  const infraName =
+    cell.getRow().getData().vmName ? cell.getRow().getData().vmName :
+    cell.getRow().getData().clusterName ? cell.getRow().getData().clusterName : '-'
+  return `
+    <div>
+      <p>
+        ${infraName}
+      <p>
+    </div>
+  ` 
+  
 }
 
 /**
