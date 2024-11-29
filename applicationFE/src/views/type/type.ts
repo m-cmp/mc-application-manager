@@ -139,31 +139,3 @@ export interface ApplicationStatus {
   status: string
   checkedAt: Date
 }
-export interface VmApplicationStatus {
-  id: number
-  catalogId: number
-  applicationName: string
-  deploymentType: string
-  namespace: string
-  mciId: string
-  vmId: string
-  clusterName: string
-  status: string
-  cpuUsage: number
-  memoryUsage: number
-  networkIn: number
-  isPortAccessible: true
-  isHealthCheck: true
-  publicIp: string
-  networkOut: number
-  servicePort: number
-  podStatus: string
-  checkedAt: Date
-  executedById: number
-  errorLogs: [
-    string
-  ]
-}
-export interface K8sApplicationStatus {
-
-}

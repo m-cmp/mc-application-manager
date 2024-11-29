@@ -327,7 +327,7 @@ import { onMounted, watch, computed } from 'vue';
 // @ts-ignore
 import _, { slice } from 'lodash';
 import { getNsInfo, getMciInfo, getVmInfo, getClusterInfo } from '@/api/tumblebug'
-import { getSoftwareCatalogList, k8sSpecCheck, runK8SInstall, runK8SUninstall, runVmInstall, runVmUninstall, vmSpecCheck } from '@/api/softwareCatalog'
+import { getSoftwareCatalogList, k8sSpecCheck, runK8SInstall, runK8SAction, runVmInstall, runVmAction, vmSpecCheck } from '@/api/softwareCatalog'
 import { type SoftwareCatalog } from '@/views/type/type'
 
 interface Props {
@@ -511,7 +511,7 @@ const runInstall = async () => {
     if (modalTitle.value == 'Application Installation') {
       res = await runVmInstall(params)
     } else {
-      res = await runVmUninstall(params)
+      res = await runVmAction(params)
     }
 
     if(res.data) {
@@ -525,15 +525,15 @@ const runInstall = async () => {
     // History : 처음 설계와 방향이 달라져 현재는 Application 1개만 보냄 (기존에는 여러개의 APP을 받을 수 있었음)
     appList = inputApplications.value.split(",").map(item => item.toLowerCase().trim());
     params = {
-      "namespace": selectNsId.value,
-      "clusterName": selectCluster.value,
-      "helmCharts": appList
+      namespace: selectNsId.value,
+      clusterName: selectCluster.value,
+      catalogId: selectedCatalogIdx.value,
     }
 
     if(modalTitle.value == 'Application Installation') {
       res = await runK8SInstall(params)
     } else {
-      res = await runK8SUninstall(params)
+      res = await runK8SAction(params)
     }
 
     if(res.data) {

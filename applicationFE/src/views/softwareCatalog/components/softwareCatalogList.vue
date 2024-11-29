@@ -91,13 +91,13 @@
                           <template
                             v-if="catalog.recommendedCpu && catalog.recommendedMemory && catalog.recommendedDisk">
                             <button class="btn btn-sm" style="margin-right: 5px;">
-                              CPU : {{ catalog.recommendedCpu }}
+                              CPU : {{ catalog.recommendedCpu }} Core
                             </button>
                             <button class="btn btn-sm" style="margin-right: 5px;">
-                              MEMORY : {{ catalog.recommendedMemory }}
+                              MEMORY : {{ catalog.recommendedMemory }} GB
                             </button>
                             <button class="btn btn-sm" style="margin-right: 5px;">
-                              DISK : {{ catalog.recommendedDisk }}
+                              DISK : {{ catalog.recommendedDisk }} GB
                             </button>
                           </template>
                         </ul>

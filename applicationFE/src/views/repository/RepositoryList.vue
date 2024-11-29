@@ -81,7 +81,7 @@ const setColumns = () => {
     {
       title: "Name",
       field: "name",
-      width: 400,
+      width: '15%',
       cellClick: function (e, cell) {
         e.stopPropagation();
         selectRepositoryName.value = cell.getRow().getData().name
@@ -91,21 +91,21 @@ const setColumns = () => {
     {
       title: "Format",
       field: "format",
-      width: 300
+      width: '10%'
     },
     {
       title: "URL",
       field: "url",
-      width: 410
+      width: '40%'
     },
     {
       title: "Type(hosted)",
       field: "type",
-      width: 400
+      width: '15%'
     },
     {
       title: "Action",
-      width: 400,
+      width: '20%',
       formatter: editDeleteButtonFormatter,
       cellClick: function (e, cell) {
         const target = e.target as HTMLElement;

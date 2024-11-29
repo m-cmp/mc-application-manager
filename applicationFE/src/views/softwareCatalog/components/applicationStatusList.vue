@@ -6,7 +6,7 @@
         <span class="me-1">
           {{ refreshTime }}
         </span>
-        <IconRefresh class="cursor-pointer" @click="_setApplicationsStatusList"/>
+        <IconRefresh class="cursor-pointer" @click="_getApplicationsStatusList"/>
       </div>
     </div>
     <div class="card card-flush w-100">
@@ -16,16 +16,23 @@
       </Tabulator>
     </div>
   </div>
+  <ApplicationActionConfirm 
+    :title="actionModalTitle" 
+    :applicationStatusId="applicationStatusId" 
+    :type="deploymentType"
+    :applicationName="applicationName"
+    @getApplicationsStatusList="_getApplicationsStatusList"
+    />
 </template>
 <script setup lang="ts">
 import Tabulator from '@/components/Table/Tabulator.vue'
-import { onMounted } from 'vue';
-import { ref } from 'vue';
-import type { ApplicationStatus, VmApplicationStatus, K8sApplicationStatus } from '@/views/type/type'
+import { ref, onMounted } from 'vue';
+import type { ApplicationStatus } from '@/views/type/type'
 import type { ColumnDefinition } from 'tabulator-tables';
 import { useToast } from 'vue-toastification';
-import { getVmApplicationsStatus, getK8sApplicationsStatus, applicationAction } from '@/api/softwareCatalog';
+import { getApplicationsStatus } from '@/api/softwareCatalog';
 import { IconRefresh } from '@tabler/icons-vue'
+import ApplicationActionConfirm from './applicationActionConfirm.vue';
 
 const toast = useToast()
 /**
@@ -35,64 +42,38 @@ const toast = useToast()
  *    columns : 목록의 컬럼 저장
  */
 const applicationsStatusList = ref([] as Array<ApplicationStatus | any>)
-const vmApplicationsStatusList = ref([] as Array<VmApplicationStatus | any>)
-const k8sApplicationsStatusList = ref([] as Array<K8sApplicationStatus | any>)
-
 const columns = ref([] as Array<ColumnDefinition>)
 const refreshTime = ref("" as string)
 
+const actionModalTitle = ref('' as string)
+const applicationStatusId = ref(0 as number)
+const deploymentType = ref('' as string)
+const applicationName = ref('' as string)
 /**
  * @Title Life Cycle
  * @Desc 컬럼 set Callback 함수 호출 / ApplicationStatusList Callback 함수 호출
  */
 onMounted(async () => {
   setColumns()
-  await _setApplicationsStatusList()
+  await _getApplicationsStatusList()
 })
 
-/**_getApplicationsStatusLis
- * @Title _setApplicationsStatusList
+/**_getApplicationsStatusList
+ * @Title _getApplicationsStatusList
  * @Desc ApplicationStatus List Callback 함수 / ApplicationStatus List api 호출
  */
-
-const now = new Date();
-const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false } as any;
-
-const _setApplicationsStatusList = async () => {
+const _getApplicationsStatusList = async () => {
   try {
     initData()
 
-    await setApplicationsStatusListCallback()
+    const { data } = await getApplicationsStatus()
 
-    if (vmApplicationsStatusList.value.length > 0) {
-      const vmAppStatusList = [...vmApplicationsStatusList.value]
-
-      vmAppStatusList.forEach((vmAppStatus: VmApplicationStatus) => {
-        const mappingApplicationStatus = {
-          id: vmAppStatus.id,
-          type: vmAppStatus.deploymentType,
-          appName: vmAppStatus.applicationName,
-          infraInfo: vmAppStatus.vmId,
-          status: vmAppStatus.status,
-          checkedAt: vmAppStatus.checkedAt,
-        }
-        applicationsStatusList.value.push(mappingApplicationStatus)
-      })
+    if (data) {
+      applicationsStatusList.value = data
     }
-    if (k8sApplicationsStatusList.value.length > 0) {
-      const k8sAppStatusList = [...k8sApplicationsStatusList.value]
 
-      k8sAppStatusList.forEach((k8sAppStatus: K8sApplicationStatus) => {
-        const mappingApplicationStatus = {
-          // type: k8sAppStatus.deploymentType,
-          // appName: k8sAppStatus.applicationName,
-          // infraInfo: k8sAppStatus.vmId,
-          // status: k8sAppStatus.status,
-          // checkedAt: k8sAppStatus.checkedAt,
-        }
-
-        applicationsStatusList.value.push(mappingApplicationStatus)
-      })
+    else {
+      applicationsStatusList.value = []
     }
 
   } catch (error) {
@@ -103,35 +84,11 @@ const _setApplicationsStatusList = async () => {
 
 const initData = () => {
   applicationsStatusList.value = []
-  vmApplicationsStatusList.value = []
-  k8sApplicationsStatusList.value = []
+
+  const now = new Date();
+  const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false } as any;
 
   refreshTime.value = now.toLocaleDateString('ko-KR', options)
-}
-
-const setApplicationsStatusListCallback = async() => {
-  await _getVmApplicationStatusList()
-  // await _getK8sApplicationStatusList()
-}
-
-const _getVmApplicationStatusList = async () => {
-
-  const { data } = await getVmApplicationsStatus()
-
-  if(data)
-    vmApplicationsStatusList.value = data
-  else
-    vmApplicationsStatusList.value = []
-}
-
-const _getK8sApplicationStatusList = async () => {
-
-  const { data } = await getK8sApplicationsStatus()
-
-  if(data)
-    k8sApplicationsStatusList.value = data
-  else 
-    k8sApplicationsStatusList.value = []
 }
 
 
@@ -146,22 +103,21 @@ const setColumns = () => {
   columns.value = [
     {
       title: "Type",
-      field: "type",
+      field: "deploymentType",
       width: '10%'
     },
     {
       title: "Application",
-      field: "appName",
+      field: "applicationName",
       width: '20%'
     },
     {
       title: "Infra",
-      field: "infraInfo",
+      field: "vmId",
       width: '15%',
     },
     {
       title: "Status",
-      // field: "status",
       width: '15%',
       formatter: statusFormatter,
     },
@@ -179,34 +135,43 @@ const setColumns = () => {
         const target = e.target as HTMLElement;
         const btnFlag = target?.getAttribute('id')
         const applicationStatusId = cell.getRow().getData().id
+        const deploymentType = cell.getRow().getData().deploymentType
+        const applicationName = cell.getRow().getData().applicationName
 
+        const params = {
+          operation: '' as string,
+          applicationStatusId: applicationStatusId as number,
+          deploymentType: deploymentType as string,
+          applicationName: applicationName as string
+        }
         if (btnFlag === 'restart-btn') {
-          await _applicationAction('RESTART', applicationStatusId)
+          params.operation = 'RESTART'
+          await _applicationAction(params)
         }
         else if (btnFlag === 'stop-btn') {
-          await _applicationAction('STOP', applicationStatusId)
+          params.operation = 'STOP'
+          await _applicationAction(params)
         }
         else if (btnFlag === 'uninstall-btn') {
-          await _applicationAction('UNINSTALL', applicationStatusId)
+          params.operation = 'UNINSTALL'
+          await _applicationAction(params)
         }
       }
     }
   ]
 }
 
-const _applicationAction = async (operation: string, applicationStatusId: number) => {
-  
-  const result = confirm(`Are you sure you want to take ${operation}?`)
-
-  if (result) {
-    const params = {
-      operation: operation,
-      applicationStatusId: applicationStatusId
-    }
-    await applicationAction(params)
-  }
+const _applicationAction = async (params: {
+  operation: string,
+  applicationStatusId: number,
+  deploymentType: string,
+  applicationName: string
+}) => {
+  actionModalTitle.value = params.operation
+  applicationStatusId.value = params.applicationStatusId
+  deploymentType.value = params.deploymentType
+  applicationName.value = params.applicationName
 }
-
 
 /**
  * @Title statusFormatter
@@ -223,7 +188,7 @@ const statusFormatter = (cell: any) => {
         </span>
       </div>`
   }
-  else if (status === 'RESTART' ) {
+  else if (status === 'RESTART' || status === 'IN_PROGRESS' ) {
   return `
     <div>
       <span class="status status-primary">  
@@ -262,22 +227,22 @@ const actionButtonFormatter = () => {
     <button
       class='btn btn-ghost-primary d-none d-sm-inline-block'
       id='restart-btn'
-      data-bs-toggle='modal'
-      data-bs-target='#restartApplication'>
+      data-bs-toggle='modal' 
+      data-bs-target='#action-confirm'>
       Restart
     </button>
     <button
       class='btn btn-ghost-warning d-none d-sm-inline-block'
       id='stop-btn'
-      data-bs-toggle='modal'
-      data-bs-target='#stopApplication'>
+      data-bs-toggle='modal' 
+      data-bs-target='#action-confirm'>
       Stop
     </button>
     <button
       class='btn btn-ghost-danger d-none d-sm-inline-block'
       id='uninstall-btn'
-      data-bs-toggle='modal'
-      data-bs-target='#uninstallApplication'>
+      data-bs-toggle='modal' 
+      data-bs-target='#action-confirm'>
       Uninstall
     </button>
   </div>`;
