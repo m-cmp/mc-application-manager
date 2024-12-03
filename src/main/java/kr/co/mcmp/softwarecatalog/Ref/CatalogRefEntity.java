@@ -5,6 +5,8 @@ import lombok.*;
 
 import javax.persistence.*;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 @Entity
 @Getter
 @Setter
@@ -21,6 +23,7 @@ public class CatalogRefEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "CATALOG_ID")
+    @JsonBackReference
     private SoftwareCatalog catalog; // 이 CatalogRef가 속한 소프트웨어 카탈로그
 
     @Column(columnDefinition="INT DEFAULT 0 NOT NULL", name="REF_IDX")

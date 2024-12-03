@@ -15,6 +15,8 @@ import javax.persistence.ManyToOne;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
@@ -37,6 +39,7 @@ public class PackageInfo {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "catalog_id", unique = true)
+    @JsonBackReference
     private SoftwareCatalog catalog;
 
     @Enumerated(EnumType.STRING)

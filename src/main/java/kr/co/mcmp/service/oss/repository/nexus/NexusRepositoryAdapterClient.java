@@ -136,7 +136,10 @@ public class NexusRepositoryAdapterClient {
     private <T> T exchange(String url, HttpMethod method, HttpEntity<?> requestEntity, ParameterizedTypeReference<T> responseType) {
         RestTemplate template = RestTemplateProvider.get();
         try {
+            System.out.println("url :" + url);
             ResponseEntity<T> response = template.exchange(url, method, requestEntity, responseType);
+            System.out.println(response.getStatusCode());
+            System.out.println("response : " + response.getBody());
             return response.getBody();
         } catch (HttpClientErrorException e) {
             String errorMessage = e.getResponseBodyAsString();

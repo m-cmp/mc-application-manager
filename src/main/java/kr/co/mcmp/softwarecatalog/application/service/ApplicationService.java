@@ -32,14 +32,17 @@ import kr.co.mcmp.softwarecatalog.application.exception.ApplicationException;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
+import kr.co.mcmp.softwarecatalog.application.model.OperationHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentLogRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.OperationHistoryRepository;
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerDeployResult;
 import kr.co.mcmp.softwarecatalog.docker.service.ContainerStatsCollector;
 import kr.co.mcmp.softwarecatalog.docker.service.DockerClientFactory;
 import kr.co.mcmp.softwarecatalog.docker.service.DockerOperationService;
 import kr.co.mcmp.softwarecatalog.docker.service.DockerSetupService;
+import kr.co.mcmp.softwarecatalog.kubernetes.service.KubernetesService;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import kr.co.mcmp.softwarecatalog.users.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -61,8 +64,10 @@ public class ApplicationService {
     private final CbtumblebugRestApi cbtumblebugRestApi;
     private final DockerClientFactory dockerClientFactory;
     private final ContainerStatsCollector containerStatsCollector;
+    private final OperationHistoryRepository operationHistoryRepository;
+    private final KubernetesService kubernetesService;
 
-    public Map<String, Object> performDockerOperation(ActionType operation, Long applicationStatusId) throws Exception {
+    public Map<String, Object> performDockerOperation(ActionType operation, Long applicationStatusId,String reason, String username) throws Exception {
         ApplicationStatus applicationStatus = applicationStatusRepository.findById(applicationStatusId)
             .orElseThrow(() -> new EntityNotFoundException("ApplicationStatus not found with id: " + applicationStatusId));
     
@@ -105,8 +110,8 @@ public class ApplicationService {
                     throw new IllegalArgumentException("Unknown operation: " + operation);
             }
     
-            // 작업 결과에 따라 ApplicationStatus 업데이트
-            updateApplicationStatus(applicationStatus, operation, result);
+            insertOperationHistory(applicationStatus, username, reason, operation);
+            updateApplicationStatus(applicationStatus, operation, result, username);
     
         } catch (Exception e) {
             log.error("Error performing Docker operation: {} on application status: {}", operation, applicationStatusId, e);
@@ -116,7 +121,20 @@ public class ApplicationService {
         return result;
     }
     
-    private void updateApplicationStatus(ApplicationStatus applicationStatus, ActionType operation, Map<String, Object> result) {
+    private void insertOperationHistory(ApplicationStatus applicationStatus, String username, String reason, ActionType actionType){
+        User user = getUserOrNull(username);
+        OperationHistory operationHistory = OperationHistory.builder()
+                    .applicationStatus(applicationStatus)
+                    .reason(reason)
+                    .operationType(actionType.name())
+                    .executedBy(user)
+                    .createdAt(LocalDateTime.now()).build();
+
+        operationHistoryRepository.save(operationHistory);
+    }
+
+    private void updateApplicationStatus(ApplicationStatus applicationStatus, ActionType operation, Map<String, Object> result,String username) {
+        User user = getUserOrNull(username);
         switch (operation.toString().toLowerCase()) {
             case "status":
                 applicationStatus.setStatus((String) result.get("status"));
@@ -124,7 +142,7 @@ public class ApplicationService {
             case "stop":
                 applicationStatus.setStatus(ActionType.STOP.name());
                 break;
-            case "remove":
+            case "uninstall":
                 applicationStatus.setStatus(ActionType.UNINSTALL.name());
                 break;
             case "restart":
@@ -134,6 +152,7 @@ public class ApplicationService {
                 applicationStatus.setStatus((Boolean) result.get("isRunning") ? ActionType.RUN.name() : ActionType.STOP.name());
                 break;
         }
+        applicationStatus.setExecutedBy(user);
         applicationStatus.setCheckedAt(LocalDateTime.now());
         applicationStatusRepository.save(applicationStatus);
     }
@@ -546,17 +565,17 @@ public class ApplicationService {
      */
     public Spec getSpecForVm(String namespace, String mciId, String vmId) {
         log.info("Retrieving spec for VM: namespace={}, mciId={}, vmId={}", namespace, mciId, vmId);
+        VmAccessInfo vmInfo = cbtumblebugRestApi.getVmInfo(namespace, mciId, vmId);
+
         try {
-            VmAccessInfo vmInfo = cbtumblebugRestApi.getVmInfo(namespace, mciId, vmId);
             if (vmInfo == null || StringUtils.isBlank(vmInfo.getSpecId())) {
                 throw new ApplicationException("Failed to retrieve VM info or spec ID is blank");
             }
-            Spec spec = cbtumblebugRestApi.getSpecBySpecId(namespace, vmInfo.getSpecId());
-            log.info("Retrieved spec for VM: {}", spec);
-            return spec;
+            return cbtumblebugRestApi.getSpecBySpecId(namespace, vmInfo.getSpecId());
         } catch (Exception e) {
             log.error("Error retrieving spec for VM: {}", e.getMessage());
-            throw new ApplicationException("Failed to retrieve spec for VM : " + e.getMessage());
+            // throw new ApplicationException("Failed to retrieve spec for VM : " + e.getMessage());
+                return cbtumblebugRestApi.getSpecBySpecId("system", vmInfo.getSpecId());
         }
     }
 
@@ -592,6 +611,49 @@ public class ApplicationService {
             log.error("Error retrieving spec for K8s cluster: {}", e.getMessage());
             throw new ApplicationException("Failed to retrieve spec for K8s cluster : " +  e.getMessage());
         }
+    }
+
+    public DeploymentHistory deployApplicationToK8s(String namespace, String clusterName, Long catalogId,String username) {
+        return kubernetesService.deployApplication(namespace, clusterName, catalogId, username);
+    }
+
+    public Map<String, Object> performDockerOperationForK8s(ActionType operation, Long applicationStatusId,String reason, String username) {
+        ApplicationStatus applicationStatus = applicationStatusRepository.findById(applicationStatusId)
+            .orElseThrow(() -> new EntityNotFoundException("ApplicationStatus not found with id: " + applicationStatusId));
+
+        Long catalogId = applicationStatus.getCatalog().getId();
+        String namespace = applicationStatus.getNamespace();
+        String clusterName = applicationStatus.getClusterName();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("operation", operation);
+        result.put("applicationStatusId", applicationStatusId);
+    
+        try {
+            switch (operation.toString().toLowerCase()) {
+                case "stop":
+                    kubernetesService.stopApplication(namespace, clusterName, catalogId, username);
+                    break;
+                case "uninstall":
+                    kubernetesService.uninstallApplication(namespace, clusterName, catalogId, username);
+                    break;
+                case "restart":
+                    kubernetesService.restartApplication(namespace, clusterName, catalogId, username);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown operation: " + operation);
+            }
+            result.put("result", "SUCCESS");
+            insertOperationHistory(applicationStatus, username, reason, operation);
+            updateApplicationStatus(applicationStatus, operation, result, username);
+    
+        } catch (Exception e) {
+            log.error("Error performing Docker operation: {} on application status: {}", operation, applicationStatusId, e);
+            result.put("error", e.getMessage());
+        }
+    
+        return result;
+        
     }
 
 }

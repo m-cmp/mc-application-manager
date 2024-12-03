@@ -5,10 +5,10 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
-import kr.co.mcmp.softwarecatalog.application.dto.VmGroupDto;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 
@@ -24,4 +24,19 @@ public interface ApplicationStatusRepository extends JpaRepository<ApplicationSt
     List<Object[]> findDistinctVmGroups();
 
     List<ApplicationStatus> findByNamespaceAndMciIdAndVmId(String namespace, String mciId, String vmId);
+    Optional<ApplicationStatus> findTopByCatalogIdOrderByCheckedAtDesc(Long catalogId);
+
+    @Query("SELECT a FROM ApplicationStatus a " +
+    "WHERE a.namespace = :namespace " +
+    "AND a.clusterName = :clusterName " +
+    "AND a.catalog.id = :catalogId " +
+    "AND a.checkedAt = (SELECT MAX(a2.checkedAt) FROM ApplicationStatus a2 " +
+    "                   WHERE a2.namespace = :namespace " +
+    "                   AND a2.clusterName = :clusterName " +
+    "                   AND a2.catalog.id = :catalogId)")
+    Optional<ApplicationStatus> findLatestByNamespaceAndClusterNameAndCatalogId(
+    @Param("namespace") String namespace,
+    @Param("clusterName") String clusterName,
+    @Param("catalogId") Long catalogId
+    );
 }

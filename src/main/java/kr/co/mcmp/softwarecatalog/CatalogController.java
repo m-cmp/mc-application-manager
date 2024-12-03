@@ -15,6 +15,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.co.mcmp.response.ResponseCode;
 import kr.co.mcmp.response.ResponseWrapper;
@@ -53,6 +57,7 @@ public class CatalogController {
         List<SoftwareCatalogDTO> catalogs = catalogService.getAllCatalogs();
         return ResponseEntity.ok(new ResponseWrapper<>(catalogs));
     }
+
 
     @Operation(summary = "카탈로그 업데이트")
     @PutMapping("/{catalogId}")
