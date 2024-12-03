@@ -89,7 +89,7 @@ public class ApplicationController {
         return ResponseEntity.ok(new ResponseWrapper<>(status));
     }
     
-    @Operation(summary = "VM 어플리케이션 상태 조회", description = "어플리케이션 상태를 조회 합니다.")
+    @Operation(summary = "어플리케이션 상태 조회", description = "어플리케이션 상태를 조회 합니다.")
     @GetMapping("/groups")
     public ResponseEntity<ResponseWrapper<List<ApplicationStatusDto>>> getApplicationGroups() {
         List<ApplicationStatusDto> list = applicationService.getApplicationGroups();
