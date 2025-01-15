@@ -73,7 +73,7 @@ public class KubernetesOperationService {
 
     public void uninstallApplication(String namespace, String clusterName, SoftwareCatalog catalog, String username) {
         try {
-            helmChartService.uninstallHelmChart(namespace, catalog);
+            helmChartService.uninstallHelmChart(namespace, catalog,clusterName);
         } catch (Exception e) {
             log.error("애플리케이션 제거 중 오류 발생", e);
             throw new RuntimeException("애플리케이션 제거 실패", e);

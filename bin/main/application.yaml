@@ -66,7 +66,7 @@ aes:
   key: fb1755281b0ca6184a0ee644e6477ee7
 
 cbtumblebug:
-  url: ${TUMBLEBUG_URL:210.217.178.130}
+  url: ${TUMBLEBUG_URL:13.125.215.182}
   port: ${TUMBLEBUG_PORT:1323}
   id: ${TUMBLEBUG_ID:default}
   pass: ${TUMBLEBUG_PASSWORD:default}

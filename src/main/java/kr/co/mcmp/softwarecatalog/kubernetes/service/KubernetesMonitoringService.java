@@ -40,28 +40,22 @@ public class KubernetesMonitoringService {
     @Scheduled(fixedRate = 60000) // 1분마다 실행
     public void monitorKubernetesResources() {
         log.info("Starting Kubernetes resource monitoring");
-        
+
         List<DeploymentHistory> activeDeployments = getActiveK8sDeployments();
-        
+
         for (DeploymentHistory deployment : activeDeployments) {
             String namespace = deployment.getNamespace();
             String clusterName = deployment.getClusterName();
-            
-            KubernetesClient client = null;
-            try {
-                client = clientFactory.getClient(namespace, clusterName);
-                
+
+            try (KubernetesClient client = clientFactory.getClient(namespace, clusterName)) {
+
                 if (!isMetricsServerInstalled(client)) {
                     installMetricsServer(client);
                 }
-                
+
                 updateApplicationStatus(deployment, client);
             } catch (Exception e) {
                 log.error("Error monitoring Kubernetes resources for deployment: {}", deployment.getId(), e);
-            } finally {
-                if (client != null) {
-                    clientFactory.releaseClient(namespace, clusterName);
-                }
             }
         }
     }
@@ -90,15 +84,24 @@ public class KubernetesMonitoringService {
         String appName = deployment.getCatalog().getHelmChart().getChartName();
         Long catalogId = deployment.getCatalog().getId();
         User user = deployment.getExecutedBy();
-        
-        List<Pod> pods = client.pods().inNamespace(namespace)
-            .list()
-            .getItems()
-            .stream()
-            .filter(pod -> pod.getMetadata().getName().startsWith(appName))
-            .collect(Collectors.toList());
 
-        ApplicationStatus status = statusRepository.findTopByCatalogIdOrderByCheckedAtDesc(catalogId).orElse(new ApplicationStatus());
+        List<Pod> pods = client.pods().inNamespace(namespace)
+                .list()
+                .getItems()
+                .stream()
+                .filter(pod -> pod.getMetadata().getName().startsWith(appName))
+                .collect(Collectors.toList());
+                
+        log.info("Pod names in namespace: {}", 
+                client.pods().inNamespace(namespace).list().getItems()
+                    .stream()
+                    .map(pod -> pod.getMetadata().getName())
+                    .collect(Collectors.joining(", "))
+            );
+            
+
+        ApplicationStatus status = statusRepository.findTopByCatalogIdOrderByCheckedAtDesc(catalogId)
+                .orElse(new ApplicationStatus());
 
         long runningPods = pods.stream()
                 .filter(pod -> "Running".equalsIgnoreCase(pod.getStatus().getPhase()))
@@ -109,7 +112,7 @@ public class KubernetesMonitoringService {
         status.setCpuUsage((Double) resourceUsage.get("cpuPercentage"));
         status.setMemoryUsage((Double) resourceUsage.get("memoryPercentage"));
         status.setStatus((String) resourceUsage.get("status"));
-        status.setServicePort((Integer)resourceUsage.get("port"));
+        status.setServicePort((Integer) resourceUsage.get("port"));
         status.setCheckedAt(LocalDateTime.now());
         status.setClusterName(clusterName);
         status.setNamespace(namespace);
@@ -124,7 +127,7 @@ public class KubernetesMonitoringService {
                 .inNamespace("kube-system")
                 .withName("metrics-server")
                 .get();
-    
+
         if (metricsServer == null) {
             log.error("Metrics Server not found. Please install it.");
         } else {
@@ -134,7 +137,7 @@ public class KubernetesMonitoringService {
             } else {
                 log.info("Metrics Server is running with {} ready replicas", readyReplicas);
             }
-       }
+        }
     }
 
     private Map<String, Object> getResourceUsagePercentage(KubernetesClient client, String namespace, String appName) {
@@ -148,19 +151,18 @@ public class KubernetesMonitoringService {
 
         // log.info("appName : " + appName);
         List<GenericKubernetesResource> podMetrics = client.genericKubernetesResources(context)
-            .inNamespace(namespace)
-            // .withLabel("app", appName)
-            .list()
-            .getItems();
+                .inNamespace(namespace)
+                // .withLabel("app", appName)
+                .list()
+                .getItems();
 
         log.info("Found {} pod metrics in namespace {}", podMetrics.size(), namespace);
-    
+
         if (podMetrics.isEmpty()) {
             log.warn("No pod metrics found. Checking if metrics-server is running...");
             checkMetricsServerStatus(client);
             return Map.of("cpu", 0.0, "memory", 0.0, "status", "UNKNOWN");
         }
-    
 
         double totalCpuUsage = 0.0;
         double totalMemoryUsage = 0.0;
@@ -170,8 +172,9 @@ public class KubernetesMonitoringService {
             String podName = podMetric.getMetadata().getName();
             if (podName.startsWith(appName.toLowerCase())) {
                 try {
-    
-                    List<Map<String, Object>> containers = (List<Map<String, Object>>) podMetric.getAdditionalProperties().get("containers");
+
+                    List<Map<String, Object>> containers = (List<Map<String, Object>>) podMetric
+                            .getAdditionalProperties().get("containers");
                     if (containers != null) {
                         for (Map<String, Object> container : containers) {
                             Map<String, Object> usage = (Map<String, Object>) container.get("usage");
@@ -188,32 +191,30 @@ public class KubernetesMonitoringService {
                     log.error("Error processing pod metric: {}", e.getMessage(), e);
                 }
             }
-            }
+        }
 
         double totalCpuCapacity = getTotalCpuCapacity(client);
         double totalMemoryCapacity = getTotalMemoryCapacity(client);
-        
-        
+
         double cpuUsagePercentage = (totalCpuUsage / totalCpuCapacity) * 100;
         double memoryUsagePercentage = (totalMemoryUsage / (totalMemoryCapacity * 1024)) * 100;
 
         // 소수점 2자리까지 반올림
         Double roundedCpuUsage = Math.round(cpuUsagePercentage * 100.0) / 100.0;
         Double roundedMemoryUsage = Math.round(memoryUsagePercentage * 100.0) / 100.0;
-        
+
         // 서비스 포트 정보 수집
         List<Integer> ports = new ArrayList<>();
         client.services().inNamespace(namespace).list().getItems().stream()
-        .filter(service -> service.getMetadata().getName().startsWith(appName.toLowerCase()))
-        .forEach(service -> {
-            service.getSpec().getPorts().forEach(servicePort -> {
-                if (servicePort.getNodePort() != null) {
-                    ports.add(servicePort.getNodePort());
-                }
-            });
-        });
+                .filter(service -> service.getMetadata().getName().startsWith(appName.toLowerCase()))
+                .forEach(service -> {
+                    service.getSpec().getPorts().forEach(servicePort -> {
+                        if (servicePort.getNodePort() != null) {
+                            ports.add(servicePort.getNodePort());
+                        }
+                    });
+                });
         Integer primaryPort = ports.isEmpty() ? null : ports.get(0);
-
 
         Map<String, Object> result = new HashMap<>();
         result.put("cpuPercentage", roundedCpuUsage != null ? roundedCpuUsage : 0.0);
@@ -235,8 +236,6 @@ public class KubernetesMonitoringService {
                 .mapToDouble(node -> parseMemoryUsage(node.getStatus().getCapacity().get("memory").getAmount()))
                 .sum();
     }
-
-
 
     private double parseCpuUsage(String cpuUsage) {
         if (cpuUsage.endsWith("n")) {
@@ -262,14 +261,13 @@ public class KubernetesMonitoringService {
         }
     }
 
-    
     private boolean isMetricsServerInstalled(KubernetesClient client) {
         return client.apps().deployments().inNamespace("kube-system").withName("metrics-server").get() != null;
     }
 
     private void installMetricsServer(KubernetesClient client) throws IOException {
         log.info("Metrics Server not found. Installing...");
-        
+
         String metricsServerYaml = "";
         try {
             metricsServerYaml = downloadMetricsServerYaml();
@@ -277,7 +275,7 @@ public class KubernetesMonitoringService {
             e.printStackTrace();
         }
         client.resourceList(metricsServerYaml).createOrReplace();
-        
+
         log.info("Metrics Server installation completed");
         try {
             waitForMetricsServerReady(client);
@@ -298,8 +296,10 @@ public class KubernetesMonitoringService {
         int maxAttempts = 30;
         int attempt = 0;
         while (attempt < maxAttempts) {
-            Deployment metricsServer = client.apps().deployments().inNamespace("kube-system").withName("metrics-server").get();
-            if (metricsServer != null && metricsServer.getStatus().getReadyReplicas() != null && metricsServer.getStatus().getReadyReplicas() > 0) {
+            Deployment metricsServer = client.apps().deployments().inNamespace("kube-system").withName("metrics-server")
+                    .get();
+            if (metricsServer != null && metricsServer.getStatus().getReadyReplicas() != null
+                    && metricsServer.getStatus().getReadyReplicas() > 0) {
                 log.info("Metrics Server is ready");
                 return;
             }
