@@ -230,7 +230,7 @@ public class CbtumblebugRestApi {
     public List<K8sClusterDto> getAllK8sClusters(String namespace){
         log.info("Fetching K8s Clusters by namespace: {}", namespace);
         return executeWithConnectionCheck("getK8sClustersByNamespace", () -> {
-            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/k8scluster", namespace));
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/k8sCluster", namespace));
             HttpHeaders headers = createCommonHeaders();
             ResponseEntity<K8sClusterResponse> response = restClient.request(
                 apiUrl, 
@@ -246,7 +246,7 @@ public class CbtumblebugRestApi {
     public K8sClusterDto getK8sClusterByName(String namespace, String clusterName){
         log.info("Fetching K8s Cluster by name: {} in namespace: {}", clusterName, namespace);
         return executeWithConnectionCheck("getK8sClusterByName", () -> {
-            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/k8scluster/%s", namespace, clusterName));
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/k8sCluster/%s", namespace, clusterName));
             HttpHeaders headers = createCommonHeaders();
             ResponseEntity<K8sClusterDto> response = restClient.request(
                 apiUrl, 

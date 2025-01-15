@@ -55,7 +55,7 @@ public class DockerMonitoringService {
 
     private List<DeploymentHistory> getActiveDeployments() {
         return deploymentHistoryRepository.findAll().stream()
-                .filter(d -> DeploymentType.DOCKER.equals(d.getDeploymentType()))
+                .filter(d -> DeploymentType.VM.equals(d.getDeploymentType()))
                 .collect(Collectors.groupingBy(d -> d.getVmId() != null ? d.getVmId() : d.getMciId()))
                 .values().stream()
                 .flatMap(deployments -> deployments.stream()
