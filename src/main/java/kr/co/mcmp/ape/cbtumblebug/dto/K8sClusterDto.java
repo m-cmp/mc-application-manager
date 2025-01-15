@@ -1,16 +1,19 @@
 package kr.co.mcmp.ape.cbtumblebug.dto;
+import java.util.List;
+import java.util.Map;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
+
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
-import java.util.Map;
+import lombok.ToString;
 
 @Data
 @NoArgsConstructor
+@ToString
 @AllArgsConstructor
 @ApiModel(description = "K8s Cluster 정보")
 public class K8sClusterDto {
@@ -69,6 +72,7 @@ public class K8sClusterDto {
 
     @Data
     @NoArgsConstructor
+    @ToString
     @AllArgsConstructor
     public static class ConnectionConfig {
         @JsonProperty("configName")
@@ -105,6 +109,7 @@ public class K8sClusterDto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @ToString
     public static class RegionZoneInfo {
         @JsonProperty("assignedRegion")
         private String assignedRegion;
@@ -116,6 +121,7 @@ public class K8sClusterDto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @ToString
     public static class RegionDetail {
         @JsonProperty("regionId")
         private String regionId;
@@ -136,6 +142,7 @@ public class K8sClusterDto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @ToString
     public static class Location {
         @JsonProperty("display")
         private String display;
@@ -150,6 +157,7 @@ public class K8sClusterDto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @ToString
     public static class CspViewK8sClusterDetail {
         @JsonProperty("IId")
         private IID iid;
@@ -180,6 +188,7 @@ public class K8sClusterDto {
     }
 
     @Data
+    @ToString
     @NoArgsConstructor
     @AllArgsConstructor
     public static class IID {
@@ -191,6 +200,7 @@ public class K8sClusterDto {
     }
 
     @Data
+    @ToString
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Network {
@@ -210,6 +220,7 @@ public class K8sClusterDto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @ToString
     public static class NodeGroup {
         @JsonProperty("IId")
         private IID iid;
@@ -254,6 +265,7 @@ public class K8sClusterDto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @ToString
     public static class AccessInfo {
         @JsonProperty("Endpoint")
         private String endpoint;
@@ -265,6 +277,7 @@ public class K8sClusterDto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @ToString
     public static class Addons {
         @JsonProperty("KeyValueList")
         private List<KeyValue> keyValueList;
@@ -273,6 +286,7 @@ public class K8sClusterDto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @ToString
     public static class KeyValue {
         @JsonProperty("key")
         private String key;
