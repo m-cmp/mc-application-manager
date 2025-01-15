@@ -40,7 +40,7 @@ public class HelmChartService {
                     .withKubeConfig(tempConfigFile)
                     .withName(catalog.getHelmChart().getChartName())
                     .withNamespace(namespace)
-                    .withVersion(catalog.getHelmChart().getChartVersion())
+                    // .withVersion(catalog.getHelmChart().getChartVersion())
                     .set("replicaCount", catalog.getMinReplicas())
                     .set("image.repository", catalog.getHelmChart().getImageRepository())
                     .set("image.tag", "latest")
@@ -53,7 +53,7 @@ public class HelmChartService {
                     .set("persistence.enabled", false)
                     .set("securityContext.enabled", false)
                     .set("serviceAccount.create", true)
-                    .withTimeout(300)
+                    // .with(300)
                     .waitReady();
 
             if (Boolean.TRUE.equals(catalog.getHpaEnabled())) {
