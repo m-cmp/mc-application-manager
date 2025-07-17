@@ -2,10 +2,11 @@
   <div class="card w-100" ref="workflowForm">
     <div class="card-header">
       <div class="card-title">
-        <h1>YAML GENERATE</h1>
+        <h1>YAML Generator</h1>
       </div>
     </div>
-    <div class="page-body">
+    <div class="card-body">
+      <div class="card">
       <div class="card-header">
         <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs">
           <li class="nav-item">
@@ -32,6 +33,7 @@
           <ServiceForm />
           <HpaForm />
           <ConfigmapForm />
+          </div>
         </div>
       </div>
     </div>

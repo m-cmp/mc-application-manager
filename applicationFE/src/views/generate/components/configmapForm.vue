@@ -2,7 +2,7 @@
   <div class="tab-pane" id="tabs-configMap">
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Metadata 영역</h3>
+        <h3 class="card-title">Metadata Section</h3>
       </div>
       <div class="card-body">
         <div class="mb-3">
@@ -40,7 +40,7 @@
 
     <div class="card mt-4">
       <div class="card-header">
-        <h3 class="card-title">Spec 영역</h3>
+        <h3 class="card-title">Spec Section</h3>
       </div>
       <div class="card-body">
         <div class="mb-3">
@@ -69,24 +69,28 @@
     </div>
 
     <div class="btn-list justify-content-end mt-4">
-      <a class="btn btn-primary" @click="onClickDeploy" data-bs-toggle='modal' data-bs-target='#modal-config-map'>GENERATE</a>
+      <a class="btn btn-primary" :class="{ 'disabled': !isFormValid }" @click="isFormValid ? onClickDeploy() : null" data-bs-toggle='modal' data-bs-target='#modal-config-map'>GENERATE</a>
     </div>
     <YamlModal :yaml-data="yamlData" :title="title" />
   </div>
+  
   
   
 
 </template>
 
 <script setup lang="ts">
+// @ts-ignore
 import type { ConfigMap } from '@/views/type/type';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { onMounted } from 'vue';
-import { generateYamlConfigmap } from '@/api/yaml.ts';
+// @ts-ignore
+import { generateYamlConfigmap } from '@/api/yaml';
 import { useToast } from 'vue-toastification';
 import YamlModal from './configMapModal.vue';
 
 const toast = useToast()
+
 /**
  * @Title formData 
  * @Desc ConfigMap 데이터
@@ -97,6 +101,23 @@ const toast = useToast()
  const configMapLabels = ref([] as any)
  const configMapData = ref([] as any)
  const yamlData = ref("" as string)
+
+/**
+ * @Title Form Validation
+ * @Desc 필수값이 모두 입력되었는지 확인하는 computed 속성
+ */
+const isFormValid = computed(() => {
+  // Metadata validation
+  if (!metadata.value.name || metadata.value.name.trim() === '') {
+    return false;
+  }
+  
+  if (!metadata.value.namespace || metadata.value.namespace.trim() === '') {
+    return false;
+  }
+  
+  return true;
+});
 
  onMounted(async () => {
   await setInit();
@@ -114,6 +135,24 @@ const setInit = () => {
 }
 
 const onClickDeploy = async () => {
+  // ================= Validation ==================
+  // Metadata validation
+  if (!metadata.value.name || metadata.value.name.trim() === '') {
+    toast.error('Please enter ConfigMap name.');
+    // Focus on name input
+    const nameInput = document.querySelector('input[v-model="metadata.name"]') as HTMLInputElement;
+    nameInput?.focus();
+    return;
+  }
+  
+  if (!metadata.value.namespace || metadata.value.namespace.trim() === '') {
+    toast.error('Please enter namespace.');
+    // Focus on namespace input
+    const namespaceInput = document.querySelector('input[v-model="metadata.namespace"]') as HTMLInputElement;
+    namespaceInput?.focus();
+    return;
+  }
+
   const transformedObject = configMapLabels.value.reduce((acc: { [x: string]: any; }, item: { key: string | number; value: any; }) => {
     acc[item.key] = item.value;
     return acc;

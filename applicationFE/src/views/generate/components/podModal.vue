@@ -33,7 +33,12 @@ interface Props {
 const props = defineProps<Props>()
 const yamlData = computed(() => props.yamlData)
 watch(yamlData, async () => {
-  await setData();
+
+  if(yamlData.value) {
+    await setData();
+  } else {
+    
+  }
 });
 
 const data = ref("" as string)

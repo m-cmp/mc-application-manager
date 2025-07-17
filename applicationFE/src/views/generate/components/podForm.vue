@@ -2,7 +2,7 @@
   <div class="tab-pane active show" id="tabs-pod">
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Metadata 영역</h3>
+        <h3 class="card-title">Metadata Section</h3>
       </div>
       <div class="card-body">
         <div class="mb-3">
@@ -40,7 +40,7 @@
 
     <div class="card mt-4">
       <div class="card-header">
-        <h3 class="card-title">Spec 영역</h3>
+        <h3 class="card-title">Spec Section</h3>
       </div>
       <div class="card-body">
         <div class="mt-4" v-for="(container, idx) in containers" :key="idx">
@@ -173,7 +173,7 @@
     </div>
 
     <div class="btn-list justify-content-end mt-4">
-      <a class="btn btn-primary" @click="onClickPod" data-bs-toggle='modal' data-bs-target='#modal-pod'>GENERATE</a>
+      <a class="btn btn-primary" :class="{ 'disabled': !isFormValid }" @click="isFormValid ? onClickPod() : null" data-bs-toggle='modal' data-bs-target='#modal-pod'>GENERATE</a>
     </div>
     <YamlModal :yaml-data="yamlData" :title="title" />
   </div>
@@ -183,12 +183,16 @@
 </template>
 
 <script setup lang="ts">
+// @ts-ignore
 import type { Pod } from '@/views/type/type';
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
-import { generateYamlPod } from '@/api/yaml.ts';
+// @ts-ignore
+import { generateYamlPod } from '@/api/yaml';
 import YamlModal from './podModal.vue';
+
+const toast = useToast()
 
 /**
  * @Title formData 
@@ -201,6 +205,34 @@ import YamlModal from './podModal.vue';
  const spec = ref({} as any)
  const containers = ref([] as any)
  const yamlData = ref("" as string)
+
+/**
+ * @Title Form Validation
+ * @Desc 필수값이 모두 입력되었는지 확인하는 computed 속성
+ */
+const isFormValid = computed(() => {
+  // Metadata validation
+  if (!metadata.value.name || metadata.value.name.trim() === '') {
+    return false;
+  }
+  
+  if (!metadata.value.namespace || metadata.value.namespace.trim() === '') {
+    return false;
+  }
+  
+  // Container validation
+  for (const container of containers.value) {
+    if (!container.name || container.name.trim() === '') {
+      return false;
+    }
+    
+    if (!container.image || container.image.trim() === '') {
+      return false;
+    }
+  }
+  
+  return true;
+});
 
  onMounted(async () => {
   await setInit();
@@ -236,6 +268,49 @@ const setInit = () => {
 }
 
 const onClickPod = async () => {
+  // ================= Validation ==================
+  // Metadata validation
+  if (!metadata.value.name || metadata.value.name.trim() === '') {
+    toast.error('Please enter pod name.');
+    // Focus on name input
+    const nameInput = document.querySelector('input[v-model="metadata.name"]') as HTMLInputElement;
+    nameInput?.focus();
+    return;
+  }
+  
+  if (!metadata.value.namespace || metadata.value.namespace.trim() === '') {
+    toast.error('Please enter namespace.');
+    // Focus on namespace input
+    const namespaceInput = document.querySelector('input[v-model="metadata.namespace"]') as HTMLInputElement;
+    namespaceInput?.focus();
+    return;
+  }
+  
+  // Container validation
+  for (let i = 0; i < containers.value.length; i++) {
+    const container = containers.value[i];
+    
+    if (!container.name || container.name.trim() === '') {
+      toast.error(`Please enter container name for container ${i + 1}.`);
+      // Focus on container name input
+      const containerNameInputs = document.querySelectorAll('input[v-model="container.name"]') as NodeListOf<HTMLInputElement>;
+      if (containerNameInputs[i]) {
+        containerNameInputs[i].focus();
+      }
+      return;
+    }
+    
+    if (!container.image || container.image.trim() === '') {
+      toast.error(`Please enter container image for container ${i + 1}.`);
+      // Focus on container image input
+      const containerImageInputs = document.querySelectorAll('input[v-model="container.image"]') as NodeListOf<HTMLInputElement>;
+      if (containerImageInputs[i]) {
+        containerImageInputs[i].focus();
+      }
+      return;
+    }
+  }
+
   const transformedObject = podLabels.value.reduce((acc: { [x: string]: any; }, item: { key: string|number; value: any; }) => {
     acc[item.key] = item.value;
     return acc;
