@@ -1,5 +1,5 @@
 <template>
-  <div class="modal" id="deleteOss" tabindex="-1">
+  <div class="modal fade" id="deleteOss" tabindex="-1">
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
 
@@ -51,9 +51,9 @@ const emit = defineEmits(['get-oss-list'])
 const onClickDelete = async () => {
   const { data } = await deleteOss(props.ossIdx)
   if (data)
-    toast.success('삭제되었습니다.')
+    toast.success('Deleted successfully.')
   else
-    toast.error('삭제하지 못했습니다.')
+    toast.error('Failed to delete.')
   emit('get-oss-list')
 }
 </script>

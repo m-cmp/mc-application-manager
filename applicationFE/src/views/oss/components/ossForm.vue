@@ -1,5 +1,5 @@
 <template>
-  <div class="modal" id="ossForm" tabindex="-1">
+  <div class="modal fade" id="ossForm" tabindex="-1" ref="modalElement">
     <div class="modal-dialog modal-xl" role="document">
       <div class="modal-content">
 
@@ -81,12 +81,12 @@
         </div>
 
         <div class="modal-footer">
-          <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal" @click="setInit()">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal" @click="setInit()">
             Cancel
-          </a>
-          <a href="#" class="btn btn-primary ms-auto" data-bs-dismiss="modal" @click="onClickSubmit()">
-            {{ props.mode === 'new' ? 'Regist' : 'Edit' }}
-          </a>
+          </button>
+          <button type="button" ref="submitBtn" class="btn btn-primary ms-auto"  @click="onClickSubmit()">
+            {{props.mode === 'new' ? 'Regist' : 'Edit'}}
+          </button>
         </div>
 
       </div>
@@ -102,6 +102,10 @@ import { getOssTypeList, getOssTypeFilteredList, duplicateCheck, getOssDetailInf
 import { onMounted } from 'vue';
 import { computed } from 'vue';
 import { watch } from 'vue';
+import { Modal } from 'bootstrap'
+
+const modalElement = ref<HTMLElement>()
+const modalInstance = ref<Modal>()
 
 const toast = useToast()
 /**
@@ -126,7 +130,11 @@ watch(() => props.mode, async () => {
   await _getOssTypeList(props.mode)
 })
 
-onMounted(async () => {
+onMounted(async () => {  
+  // Modal 인스턴스 초기화
+  if (modalElement.value) {
+    modalInstance.value = new Modal(modalElement.value)
+  }
   await _getOssTypeList('init')
   await setInit()
 })
@@ -219,11 +227,11 @@ const onClickDuplicatOssName = async () => {
   }
   const { data } = await duplicateCheck(param)
   if (!data) {
-    toast.success('사용 가능한 이름입니다.')
+    toast.success('The name is available.')
     duplicatedOss.value = true
   }
   else
-    toast.error('이미 사용중인 이름입니다.')
+    toast.error('The name is already in use.')
 }
 
 /**
@@ -242,11 +250,11 @@ const onClickConnectionCheckOss = async () => {
   }
   const { data } = await ossConnectionChecked(param)
   if (data) {
-    toast.success('사용 가능한 OSS입니다.')
+    toast.success('The OSS is available.')
     connectionCheckedOss.value = true
   }
   else
-    toast.error('사용 불가능한 OSS입니다.')
+    toast.error('The OSS is unavailable.')
 }
 
 /**
@@ -275,42 +283,112 @@ const initConnectionCheckBtn = () => {
  *     2. 부모로 부터 받은 mode값에 따라서 생성/수정 Callback 함수 호출후 부모에게 oss목록 api 호출
  */
 const onClickSubmit = async () => {
-  ossFormData.value.ossPassword = encriptPassword(ossFormData.value.ossPassword)
-  if (props.mode === 'new') {
-    await _registOss().then(() => {
-      emit('get-oss-list')
-    })
+  // ================= Validation ==================
+  if (!ossFormData.value.ossTypeIdx || ossFormData.value.ossTypeIdx === 0) {
+    toast.error('Please select OSS Type.');
+    return;
   }
-  else
-    await _updateOss().then(() => {
-      emit('get-oss-list')
-    })
-  setInit()
+  if (!ossFormData.value.ossName) {
+    toast.error('Please enter OSS Name.');
+    return;
+  }
+  if (!ossFormData.value.ossDesc) {
+    toast.error('Please enter OSS Description.');
+    return;
+  }
+  if (!ossFormData.value.ossUrl) {
+    toast.error('Please enter URL.');
+    return;
+  }
+  if (!ossFormData.value.ossUsername) {
+    toast.error('Please enter OSS ID.');
+    return;
+  }
+  if (!ossFormData.value.ossPassword) {
+    toast.error('Please enter OSS Password.');
+    return;
+  }
+
+  if (!duplicatedOss.value) {
+    toast.error('Please perform duplicate check.');
+    return;
+  }
+
+  if (!connectionCheckedOss.value) {
+    toast.error('Please perform connection check.');
+    return;
+  }
+
+  ossFormData.value.ossPassword = encriptPassword(ossFormData.value.ossPassword)
+  
+  let success = false;
+  
+  if (props.mode === 'new') {
+    success = await _registOss();
+  } else {
+    success = await _updateOss();
+  }
+  
+  // 성공적으로 처리된 경우에만 모달 닫기
+  if (success) {
+    emit('get-oss-list');
+    setInit();
+    
+    console.log(modalInstance.value)
+
+    // 모달 닫기
+    if (modalInstance.value) {
+      modalInstance.value.hide()
+      // 백드롭이 남아있을 경우 강제 제거
+      setTimeout(() => {
+        document.body.classList.remove('modal-open')
+        const backdrop = document.querySelector('.modal-backdrop')
+        backdrop?.remove()
+      }, 150)
+    }
+  }
 }
+
+
 
 /**
  * @Title _registOss
  * @Desc 생성 Callback 함수 / 생성 api 호출
  */
-const _registOss = async () => {
-  const { data } = await registOss(ossFormData.value)
-  if (data)
-    toast.success('등록되었습니다.')
-  else
-    toast.error('등록 할 수 없습니다.')
+const _registOss = async (): Promise<boolean> => {
+  try {
+    const { data } = await registOss(ossFormData.value)
+    if (data) {
+      toast.success('Regist SUCCESS.')
+      return true
+    } else {
+      toast.error('Regist FAIL.')
+      return false
+    }
+  } catch (error) {
+    toast.error('Regist FAIL.')
+    return false
+  }
 }
 
 /**
  * @Title _updateOss
  * @Desc 수정 Callback 함수 / 수정 api 호출
  */
-const _updateOss = async () => {
-  console.log('test')
-  const { data } = await updateOss(ossFormData.value)
-  if (data)
-    toast.success('등록되었습니다.')
-  else
-    toast.error('등록 할 수 없습니다.')
+const _updateOss = async (): Promise<boolean> => {
+  try {
+    const { data } = await updateOss(ossFormData.value)
+    if (data) {
+      toast.success('Update SUCCESS.')
+      return true
+    } else {
+      toast.error('Update FAIL.')
+      return false
+    }
+  } catch (error) {
+    toast.error('Update FAIL.')
+    return false
+  }
 }
 
 /**
