@@ -45,7 +45,7 @@
                         />
                     </a>
                     <div class="dropdown-menu dropdown-menu-end">
-                      <a class="dropdown-item" @click="onClickUpdate(catalogInfo.catalogIdx)" data-bs-toggle="modal"
+                      <a class="dropdown-item" @click="onClickUpdate(catalogInfo.catalogIdx || 0)" data-bs-toggle="modal"
                         data-bs-target="#modal-form">Update</a>
                     </div>
                   </div>
@@ -57,16 +57,16 @@
           <div class="pt-0">
             <div class="mb-5" 
               style="white-space: pre-wrap;" 
-              v-html="formattedText(catalogInfo.catalogDescription)" />
+              v-html="formattedText(catalogInfo.catalogDescription || '')" />
 
               <div class="datagrid">
                 <div class="datagrid-item mb-5">
                   <div class="datagrid-title">Ref Information</div>
                   <div class="datagrid-content">
                     <template v-if="hasProperty(catalogInfo.refData, 'HOMEPAGE')">
-                      <template v-for="homepage in catalogInfo.refData.HOMEPAGE" :key="homepage">
+                      <template v-for="homepage in catalogInfo.refData?.HOMEPAGE" :key="homepage">
                         <div>
-                          <a @click="goToPage(homepage.referenceValue)" class="btn">{{ homepage.referenceValue }}</a>
+                          <a @click="goToPage(homepage)" class="btn">{{ homepage }}</a>
                         </div>
                       </template>
                     </template>
@@ -77,9 +77,9 @@
                   <div class="datagrid-title">TAGS</div>
                   <div class="datagrid-content">
                       <div v-if="hasProperty(catalogInfo.refData, 'TAG')">
-                        <div class="d-inline" v-for="tag in catalogInfo.refData.TAG" :key="tag">
+                        <div class="d-inline" v-for="tag in catalogInfo.refData?.TAG" :key="tag">
                           <div class="d-inline">
-                            <span>#{{ tag.referenceValue }} &nbsp;</span>
+                            <span>#{{ tag }} &nbsp;</span>
                           </div>
                         </div>
                       </div>
@@ -158,7 +158,7 @@ onMounted(async () => {
 })
 
 const getCatalogDatail = async (catalogIdx : number | string) => {
-  await getSoftwareCaltalogDetail(catalogIdx).then(({ data }) => {
+  await getSoftwareCaltalogDetail(Number(catalogIdx)).then(({ data }) => {
 
     const splitUrl = window.location.host.split(':');
     const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'

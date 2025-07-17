@@ -1,5 +1,5 @@
 <template>
-  <div class="modal" id="modal-form" tabindex="-1">
+  <div class="modal fade" id="modal-form" tabindex="-1">
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
         <div class="modal-header">
@@ -80,7 +80,7 @@
               <div class="accordion-item">
                 <h2 class="accordion-header" id="headingMinimumSpec">
                   <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#minimumspec" aria-expanded="true" aria-controls="minimumspec">
-                    Minimun Spec
+                    Minimum Spec
                   </button>
                 </h2>
                 <div id="minimumspec" class="accordion-collapse collapse " show aria-labelledby="headingMinimumSpec" data-bs-parent="#accordion">
@@ -524,7 +524,7 @@ const setInitData = () => {
 
 const _getSoftwareCatalogDetail = async () => {
   try {
-    await getSoftwareCaltalogDetail(catalogIdx.value).then(({ data }) => {
+    await getSoftwareCaltalogDetail(Number(catalogIdx.value)).then(({ data }) => {
       catalogDto.value = data
       if(catalogDto.value.catalogRefs.length === 0) {
         catalogDto.value.catalogRefs = 
@@ -550,7 +550,7 @@ const _getSoftwareCatalogDetail = async () => {
     })
   } catch(error) {
       console.log(error)
-      toast.error('데이터를 가져올 수 없습니다.')
+      toast.error('Unable to fetch data.')
   }
 }
 
@@ -589,10 +589,10 @@ const _createSoftwareCatalog = async () => {
     await createSoftwareCatalog(catalogDto.value).then(({ data })=> {
       if(data) {
         if(data === null) {
-          toast.error('Regist Failed')
+          toast.error('Registration Failed')
           setInit();
         } else {
-          toast.success('Regist Success')
+          toast.success('Registration Success')
           emit('get-list')
         }
       } else {

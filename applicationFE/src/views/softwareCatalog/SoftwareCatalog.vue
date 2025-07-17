@@ -8,7 +8,17 @@
           <div class="row g-2 align-items-center">
             <!-- Title -->
             <div class="col d-flex">
-              <h2 class="page-title">Software catalog</h2>
+              <h2 class="page-title">Software Catalog</h2>
+            </div>
+            <!-- Install Button relocated into header -->
+            <div class="col-auto ms-auto">
+              <button 
+                class="btn btn-primary" 
+                data-bs-toggle='modal' 
+                data-bs-target='#install-form'
+                @click="onClickDeploy('Application Installation')">
+                INSTALL
+              </button>
             </div>
             <!-- New Button -->
             <!-- 
@@ -40,21 +50,7 @@
         <div class="container-xxl">
           <div class="row">
             <div class="col-lg-12">
-              <!-- INSTALL / UNINSTALL Button -->
-              <div class="col-auto me-auto fs-3">
-                <div class="d-flex justify-content-end">
-                  <button 
-                    class="btn btn-primary me-md-2 mb-2" 
-                    data-bs-toggle='modal' 
-                    data-bs-target='#install-form'
-                    @click="onClickDeploy('Application Installation')">INSTALL</button>
-                  <!-- <button 
-                    class="btn btn-danger me-md-2 mb-2" 
-                    data-bs-toggle='modal' 
-                    data-bs-target='#install-form'
-                    @click="onClickDeploy('Application Uninstallation')">UNINSTALL</button> -->
-                </div>
-              </div>
+              <!-- INSTALL button moved to header; body space gained -->
 
               <div class="card">
 

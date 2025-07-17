@@ -113,10 +113,10 @@
 
                             <br />
                             <br />
-                            <strong>관련 정보</strong>
+                            <strong>Related Information</strong>
                             <ul :id="`${idx}-entity-ul`">
                               <template v-if="hasProperty(catalog.refData, 'HOMEPAGE')">
-                                <template v-for="homepage in catalog.refData.HOMEPAGE">
+                                <template v-for="homepage in catalog.refData.HOMEPAGE" :key="homepage.referenceValue">
                                   <li>
                                     <a @click="goToPage(homepage.referenceValue)" class="btn">{{ homepage.referenceValue
                                       }}</a>
@@ -128,7 +128,7 @@
                             <strong>TAGS</strong>
                             <ul :id="`${idx}-tag-ul`">
                               <template v-if="hasProperty(catalog.refData, 'TAG')">
-                                <template v-for="tag in catalog.refData.TAG">
+                                <template v-for="tag in catalog.refData.TAG" :key="tag.referenceValue">
                                   <span>#{{ tag.referenceValue }} &nbsp;</span>
                                 </template>
                               </template>
@@ -162,8 +162,8 @@
                 v-model="searchKeyword" id="inputCatalogSearch">
               <div> <br /></div>
               <h3 class="mb-3">dockerHub search</h3>
-              <div class="col-md-6 col-lg-12" id="resultDockerHubEmpty" v-if="dockerHubSearchList.length == 0">검색된 관련
-                ContainerImage가 없습니다.</div>
+              <div class="col-md-6 col-lg-12" id="resultDockerHubEmpty" v-if="dockerHubSearchList.length == 0">No related
+                Container Images found.</div>
               <div class="row row-cards" id="resultDockerHubSearch">
                 <!-- <div class="progress progress-sm"> <div class="progress-bar progress-bar-indeterminate"></div> </div> -->
                 <div class="col-md-6 col-lg-12" v-for="(result, idx) in dockerHubSearchList" :key="idx">
@@ -196,13 +196,13 @@
                           </a>
                           <div class="dropdown-menu dropdown-menu-end">
                             <a class="dropdown-item" @click="onClickDockerHubSearch">
-                              해당 페이지로 이동
+                              Go to Page
                             </a>
                             <a class="dropdown-item" href="#">
-                              softwareCatalog로 내용 입력
+                              Input to Software Catalog
                             </a>
                             <a class="dropdown-item" href="#">
-                              file/image를 nexus로 복제
+                              Copy to Nexus
                             </a>
                           </div>
                         </div>
@@ -213,8 +213,8 @@
               </div>
               <div style="margin-bottom:20px;">&nbsp;</div>
               <h3 class="mb-3">artifactHub search</h3>
-              <div class="col-md-6 col-lg-12" id="resultArtifactHubEmpty" v-if="artifactHubSearch.length == 0">검색된 관련
-                HelmChart가 없습니다.</div>
+              <div class="col-md-6 col-lg-12" id="resultArtifactHubEmpty" v-if="artifactHubSearch.length == 0">No related
+                Helm Charts found.</div>
               <div class="row row-cards" id="resultArtifactHubSearch">
                 <!-- <div class="progress progress-sm"> <div class="progress-bar progress-bar-indeterminate"></div> </div> -->
                 <div class="col-md-6 col-lg-12" v-for="(result, idx) in artifactHubSearch" :key="idx">
@@ -246,13 +246,13 @@
                           </a>
                           <div class="dropdown-menu dropdown-menu-end">
                             <a class="dropdown-item" @click="onClickArtifactHub">
-                              해당 페이지로 이동
+                              Go to Page
                             </a>
                             <a class="dropdown-item" href="#">
-                              softwareCatalog로 내용 입력
+                              Input to Software Catalog
                             </a>
                             <a class="dropdown-item" href="#">
-                              file/image를 nexus로 복제
+                              Copy to Nexus
                             </a>
                           </div>
                         </div>
@@ -266,8 +266,14 @@
         </div>
       </div>
     </div>
-    <SoftwareStatus :ns-name="nsName" />
-    <SoftwareCatalogForm :mode="formMode" :catalog-idx="selectCatalogIdx" @get-list="_getSoftwareCatalogList" />
+    <!-- <SoftwareStatus :ns-name="nsName" :list="catalogList" /> -->
+    <!-- <SoftwareCatalogForm
+      :mode="formMode"
+      :catalog-idx="selectCatalogIdx"
+      :repository-application-info="repositoryApplicationInfo"
+      :repository-name="repositoryName"
+      @get-list="_getSoftwareCatalogList"
+    /> -->
     <SoftwareCatalogLog :job-name="selectJobName" />
     <ApplicationInstallationForm 
       :ns-id="nsId" 
@@ -284,7 +290,7 @@ import _ from 'lodash';
 import SoftwareCatalogForm from './components/softwareCatalogForm.vue';
 import SoftwareCatalogLog from './components/softwareCatalogLog.vue';
 import ApplicationInstallationForm from './components/applicationInstallationForm.vue';
-import SoftwareStatus from './components/softwareStatus_back.vue';
+// import SoftwareStatus from './components/softwareStatus.vue';
 import '@/resources/css/tabler.min.css'
 import '@/resources/css/demo.min.css'
 import '@/resources/js/demo-theme.min.js'
@@ -343,7 +349,7 @@ const _getSoftwareCatalogList = async () => {
     catalogList.value = response.data;
   } catch(error) {
     console.log(error)
-    toast.error('데이터를 가져올 수 없습니다.')
+    toast.error('Unable to fetch data.')
   }
 }
 
@@ -376,7 +382,7 @@ const setDockerHubSearch = async () => {
     // dockerHubSearchList.value = response.data.data.results
   } catch(error) {
     console.log(error)
-    toast.error('데이터를 가져올 수 없습니다.')
+    toast.error('Unable to fetch data.')
   }
 }
 
@@ -390,7 +396,7 @@ const setArtifactHubSearch = async () => {
     // artifactHubSearch.value = response.data.data.packages
   } catch(error) {
     console.log(error)
-    toast.error('데이터를 가져올 수 없습니다.')
+    toast.error('Unable to fetch data.')
   }
 }
 

@@ -183,8 +183,7 @@
         </div>
       </div>
     </div>
-    <!-- <SoftwareStatus :ns-name="nsName" /> -->
-    <SoftwareCatalogForm :mode="formMode" :catalog-idx="selectCatalogIdx+1" @get-list="_getSoftwareCatalogList" />
+    <!-- <SoftwareCatalogForm :mode="formMode" :catalog-idx="selectCatalogIdx+1" @get-list="_getSoftwareCatalogList" /> -->
     <SoftwareCatalogLog :job-name="selectJobName" />
     <ApplicationInstallationForm 
       :ns-id="nsId" 
@@ -209,7 +208,6 @@ import _ from 'lodash';
 import SoftwareCatalogForm from './components/softwareCatalogForm.vue';
 import SoftwareCatalogLog from './components/softwareCatalogLog.vue';
 import ApplicationInstallationForm from './components/applicationInstallationForm.vue';
-import SoftwareStatus from './components/softwareStatus_back.vue';
 import '@/resources/css/tabler.min.css'
 import '@/resources/css/demo.min.css'
 import '@/resources/js/demo-theme.min.js'

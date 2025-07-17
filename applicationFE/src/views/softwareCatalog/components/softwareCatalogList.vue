@@ -34,10 +34,10 @@
                 <!-- Dots -->
                 <div class="col-auto lh-1">
                   <div class="dropdown">
-                    <a href="#" class="link-secondary" data-bs-toggle="dropdown">
+                    <a href="#" class="link-secondary" @click="toggleDropdown(`dropdown-${catalog.id}`)">
                       <IconDots class="icon" width="24" height="24" stroke-width="2" />
                     </a>
-                    <div class="dropdown-menu dropdown-menu-end">
+                    <div :id="`dropdown-${catalog.id}`" class="dropdown-menu dropdown-menu-end" :class="{ 'show': activeDropdown === `dropdown-${catalog.id}` }">
                       <a 
                         class="dropdown-item" 
                         @click="onClickUpdate(catalog.id)" 
@@ -177,13 +177,13 @@
                     <a 
                       href="#" 
                       class="link-secondary" 
-                      data-bs-toggle="dropdown">
+                      @click="toggleDropdown(`dockerhub-dropdown-${idx}`)">
                       <IconDots 
                         class="icon" 
                         size="24"
                         stroke-width="2"/>
                     </a>
-                    <div class="dropdown-menu dropdown-menu-end">
+                    <div :id="`dockerhub-dropdown-${idx}`" class="dropdown-menu dropdown-menu-end" :class="{ 'show': activeDropdown === `dockerhub-dropdown-${idx}` }">
                       <a 
                         class="dropdown-item" 
                         @click="onClickMovePageDockerHub">
@@ -242,10 +242,13 @@
                   </div>
                   <div class="col-auto lh-1">
                     <div class="dropdown">
-                      <a href="#" class="link-secondary" data-bs-toggle="dropdown">
+                      <a 
+                        href="#" 
+                        class="link-secondary" 
+                        @click="toggleDropdown(`artifacthub-dropdown-${idx}`)">
                         <IconDots class="icon" width="24" height="24" stroke-width="2"/>
                       </a>
-                      <div class="dropdown-menu dropdown-menu-end">
+                      <div :id="`artifacthub-dropdown-${idx}`" class="dropdown-menu dropdown-menu-end" :class="{ 'show': activeDropdown === `artifacthub-dropdown-${idx}` }">
                         <a class="dropdown-item" @click="onClickMovePageArtifactHub">
                           Go to the page
                         </a>
@@ -305,13 +308,36 @@ const searchKeyword = ref("")
 const dockerHubSearchList = ref([] as any)
 const artifactHubSearchList = ref([] as any)
 
+// Dropdown 제어를 위한 상태
+const activeDropdown = ref("")
+
 /**
-* @Title Life Cycle
-* @Desc SearchKeyword 변수 초기화 / catalogList set Method call
-*/
+ * @Title Dropdown 제어
+ * @Desc dropdown을 토글하는 메서드
+ */
+const toggleDropdown = (dropdownId: string) => {
+  if (activeDropdown.value === dropdownId) {
+    activeDropdown.value = ""
+  } else {
+    activeDropdown.value = dropdownId
+  }
+}
+
+/**
+ * @Title Life Cycle
+ * @Desc SearchKeyword 변수 초기화 / catalogList set Method call
+ */
 onMounted(async () => {
   searchKeyword.value = ""
   _getSoftwareCatalogList()
+  
+  // 클릭 이벤트 리스너 추가 (dropdown 외부 클릭 시 닫기)
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement
+    if (!target.closest('.dropdown')) {
+      activeDropdown.value = ""
+    }
+  })
 })
 
 /**

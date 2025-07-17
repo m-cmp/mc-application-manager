@@ -1,5 +1,5 @@
 <template>
-    <div class="modal" id="softwareCatalogLog" tabindex="-1">
+    <div class="modal fade" id="softwareCatalogLog" tabindex="-1">
       <div class="modal-dialog modal-xl" role="document">
         <div class="modal-content">
   
