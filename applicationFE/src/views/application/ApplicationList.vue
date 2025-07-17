@@ -3,6 +3,8 @@
     <TableHeander 
       :header-title="'Workflow'"
       :new-btn-title="'New Workflow'"
+      :popup-flag="false"
+      :popup-target="''"
       @click-new-btn="onClickNewBtn"
     />
     <Tabulator 
@@ -64,8 +66,9 @@ const setColumns = () => {
       title: "Action",
       width: 400,
       formatter: editButtonFormatter,
-      cellClick: function (e, cell) {
-        const btnFlag = e.target?.getAttribute('id')
+      cellClick: function (e: Event, cell: any) {
+        const target = e.target as HTMLElement;
+        const btnFlag = target?.getAttribute('id')
         if (btnFlag === 'edit-btn') {
           const workflowId = cell.getRow().getData().workflowId
           router.push('edit/' + workflowId)
@@ -85,6 +88,6 @@ const onClickNewBtn = () => {
 }
 
 const editButtonFormatter = () => {
-  return "<div><button class='btn btn-primary d-none d-sm-inline-block' id='edit-btn' style='margin-right: 5px'>수정</button><button class='btn btn-primary d-none d-sm-inline-block' id='delete-btn'>삭제</button></div>";
+  return "<div><button class='btn btn-primary d-none d-sm-inline-block' id='edit-btn' style='margin-right: 5px'>Edit</button><button class='btn btn-danger d-none d-sm-inline-block' id='delete-btn'>Delete</button></div>";
 }
 </script>

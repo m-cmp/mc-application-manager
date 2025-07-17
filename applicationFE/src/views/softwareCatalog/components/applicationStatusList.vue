@@ -1,20 +1,23 @@
 <template>
-  <div>
-    <div class="d-flex justify-content-between">
-      <h2>Apps Status</h2>
-      <div>
-        <span class="me-1">
-          {{ refreshTime }}
-        </span>
-        <IconRefresh class="cursor-pointer" @click="_getApplicationsStatusList"/>
+  <div class="card card-flush w-100">
+    <div class="page-header page-wrapper">
+      <div class="row align-items-center">
+        <div class="card-header d-flex" style="justify-content: space-between;">
+          <h3 class="card-title"><strong>Apps Status</strong></h3>
+          <div class="btn-list">
+            <span class="me-2">{{ refreshTime }}</span>
+            <a class="btn btn-outline-primary d-none d-sm-inline-block" @click="_getApplicationsStatusList">
+              <IconRefresh class="icon icon-tabler" :size="20" stroke-width="1" />
+              Refresh
+            </a>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="card card-flush w-100">
       <Tabulator 
         :columns="columns" 
         :table-data="applicationsStatusList">
       </Tabulator>
-    </div>
   </div>
   <ApplicationActionConfirm 
     :title="actionModalTitle" 
@@ -104,32 +107,32 @@ const setColumns = () => {
     {
       title: "Type",
       field: "deploymentType",
-      width: '10%'
+      width: '8%'
     },
     {
       title: "Application",
       field: "applicationName",
-      width: '20%'
+      width: '25%'
     },
     {
       title: "Infra",
-      width: '15%',
+      width: '12%',
       formatter: infraFormatter,
     },
     {
       title: "Status",
-      width: '15%',
+      width: '12%',
       formatter: statusFormatter,
     },
     
     {
       title: "CheckedAt",
       field: "checkedAt",
-      width: '20%'
+      width: '18%'
     },
     {
       title: "Action",
-      width: '20%',
+      width: '25%',
       formatter: actionButtonFormatter,
       cellClick: async function (e, cell) {
         const target = e.target as HTMLElement;

@@ -1,5 +1,5 @@
 <template>
-  <div class="modal" id="install-form" tabindex="-1">
+  <div class="modal fade" id="install-form" tabindex="-1">
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
         <div class="modal-header">

@@ -2,7 +2,7 @@
   <div class="card w-100">
     <div class="card-header">
       <div class="card-title">
-        <h1>Workflow {{ mode === "new" ? "등록" : "수정" }}</h1>
+        <h1>Workflow {{ mode === 'new' ? 'Create' : 'Update' }}</h1>
       </div>
     </div>
 
@@ -11,17 +11,17 @@
         
         <!-- 워크플로우 명 -->
         <div class="mb-3">
-          <label class="form-label required">워크 플로우 명</label>
+          <label class="form-label required">Workflow Name</label>
           <div class="grid gap-0 column-gap-3">
-            <input type="text" class="form-control p-2 g-col-11" placeholder="워크플로우 명을 입력하세요" />
-            <button v-if="!duplicatedWorkflow" class="btn btn-primary" @click="onClickDuplicatWorkflowName">중복 체크</button>
-            <button v-else class="btn btn-success">중복 체크</button>
+            <input type="text" class="form-control p-2 g-col-11" placeholder="Enter workflow name" />
+            <button v-if="!duplicatedWorkflow" class="btn btn-primary" @click="onClickDuplicatWorkflowName">Check Duplicate</button>
+            <button v-else class="btn btn-success">Check Duplicate</button>
           </div>
         </div>
 
         <!-- 목적 -->
         <div class="mb-3">
-          <label class="form-label required">목적</label>
+          <label class="form-label required">Purpose</label>
           <div class="grid gap-0 column-gap-3">
             <select class="form-select p-2 g-col-12">
               <option v-for="(purpose, idx) in workflowPurposeList" :value="purpose.value" :key="idx">
@@ -33,7 +33,7 @@
 
         <!-- 젠킨스 주소 -->
         <div class="mb-3">
-          <label class="form-label required">젠킨스 주소</label>
+          <label class="form-label required">Jenkins URL</label>
           <div class="grid gap-0 column-gap-3">
             <input type="text" class="form-control p-2 g-col-12" placeholder="젠킨스 주소" :value="jenkinsUrl" disabled/>
           </div>
@@ -42,8 +42,8 @@
         <!-- 파이프 라인 -->
         <div class="mb-3">
           <div class="grid gap-0 column-gap-3 border-bottom pb-5 pt-5">
-            <label class="form-label required p-2 g-col-11">파이프 라인</label>
-            <button class="btn btn-primary">스크립트 생성</button>
+            <label class="form-label required p-2 g-col-11">Pipeline</label>
+            <button class="btn btn-primary">Generate Script</button>
           </div>
           <div class="grid gap-0">
 
@@ -160,19 +160,19 @@ const workflowPurposeList = ref([] as Array<WorkflowPurpose>)
 const setWorkflowPurposeList = () => {
   workflowPurposeList.value = [
     {
-      name: "배포용",
+      name: "Deploy",
       value: "deploy"
     },
     {
-      name: "실행용",
+      name: "Run",
       value: "run"
     },
       {
-      name: "테스트용",
+      name: "Test",
       value: "test"
     },
       {
-      name: "웹훅용",
+      name: "Webhook",
       value: "webhook"
     },
   ]
@@ -183,7 +183,7 @@ const jenkinsUrl = ref('')
 const setJenkinsInfo = async () => {
   try {
     const { data } = await getOssList()
-    jenkinsUrl.value = data ? data[0].ossUrl : '젠킨스 정보가 없습니다.'
+    jenkinsUrl.value = data ? data[0].ossUrl : 'No Jenkins information.'
     console.log(data.ossUrl)
     console.log(data)
   } catch (error) {
