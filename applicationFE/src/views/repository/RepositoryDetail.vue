@@ -53,7 +53,7 @@
           <div class="col-auto ms-auto">
             <div class="btn-list">
               <button class="btn btn-right border" @click="onClickList">
-                목록으로
+                Back to List
               </button>
             </div>
           </div>
@@ -120,17 +120,17 @@ const setColumns = () => {
     {
       title: "File Name",
       field: "name",
-      width: 400
+      width: '25%'
     },
     {
       title: "File Format",
       field: "format",
-      width: 300
+      width: '15%'
     },
     {
       title: "File URL(Path)",
       field: "assets",
-      width: 800,
+      width: '35%',
       formatter: function(cell) {
         const assets = cell.getValue();
         if (assets && assets.length > 0) {
@@ -143,7 +143,7 @@ const setColumns = () => {
     {
       title: "File Size",
       field: "assets",
-      width: 400,
+      width: '15%',
       formatter: function(cell) {
         const assets = cell.getValue();
         if (assets && assets.length > 0) {
@@ -155,7 +155,7 @@ const setColumns = () => {
     },
     {
       title: "Action",
-      width: 400,
+      width: '10%',
       formatter: downloadDeleteButtonFormatter,
       cellClick: function (e, cell) {
         const target = e.target as HTMLElement;

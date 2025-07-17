@@ -1,22 +1,19 @@
 <template>
-  <div class="modal" id="repositoryForm" tabindex="-1">
+  <div class="modal fade" id="repositoryForm" tabindex="-1" ref="modalElement">
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
 
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        <div class="modal-body text-left py-4">
-          <!-- Repository Title -->
-          <h3 class="mb-5">
-            Repository {{ props.mode === 'new' ? '생성' : '수정'}}
-          </h3>
+        <div class="modal-header">
+          <h3 class="modal-title">Repository {{ props.mode === 'new' ? 'Create' : 'Update'}}</h3>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
 
+        <div class="modal-body py-4">
           <div>
             <!-- Repository 명 -->
             <div class="row mb-3">
               <label class="form-label required">Name</label>
-              <div class="grid gap-0 column-gap-3">
-                <input type="text" class="form-control p-2 g-col-11" v-model="repositoryFormData.name" :disabled="props.mode != 'new'" />
-              </div>
+              <input type="text" class="form-control p-2 g-col-11" v-model="repositoryFormData.name" :disabled="props.mode != 'new'" placeholder="Enter repository name" />
             </div>
             
             <!-- Format -->
@@ -75,21 +72,21 @@
             <div class="mb-3">
               <label class="form-label required">Storage</label>
               <div class="grid gap-0 column-gap-3">
-                <input type="text" class="form-control p-2 g-col-11" value="defalut" disabled />
+                <input type="text" class="form-control p-2 g-col-11" value="default" disabled />
               </div>
             </div>
 
             <div class="mb-3">
               <label class="form-label required">Http</label>
               <div class="grid gap-0 column-gap-3">
-                <input type="text" class="form-control p-2 g-col-11" v-model="httpPort" :disabled="repositoryFormData.format != 'docker'" />
+                <input type="number" class="form-control p-2 g-col-11" v-model="httpPort" :disabled="repositoryFormData.format != 'docker'" placeholder="Enter HTTP port" />
               </div>
             </div>
 
             <div class="mb-3">
               <label class="form-label required">Https</label>
               <div class="grid gap-0 column-gap-3">
-                <input type="text" class="form-control p-2 g-col-11" v-model="httpsPort" :disabled="repositoryFormData.format != 'docker'" />
+                <input type="number" class="form-control p-2 g-col-11" v-model="httpsPort" :disabled="repositoryFormData.format != 'docker'" placeholder="Enter HTTPS port" />
               </div>
             </div>
 
@@ -97,12 +94,12 @@
         </div>
 
       <div class="modal-footer">
-        <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal" @click="setInit()">
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal" @click="setInit()">
           Cancel
-        </a>
-        <a href="#" class="btn btn-primary ms-auto" data-bs-dismiss="modal"  @click="onClickSubmit()">
-          {{props.mode === 'new' ? '생성' : '수정'}}
-        </a>
+        </button>
+        <button type="button" ref="submitBtn" class="btn btn-primary ms-auto" @click="onClickSubmit()">
+          {{props.mode === 'new' ? 'Create' : 'Update'}}
+        </button>
       </div>
 
       </div>
@@ -111,15 +108,25 @@
 </template>
 
 <script setup lang="ts">
+// @ts-ignore
 import type { Repository } from '../../type/type';
-import { ref } from 'vue';
+import { ref, onMounted as vueOnMounted } from 'vue';
 import { useToast } from 'vue-toastification';
+// @ts-ignore
 import { registRepository, getRepositoryDetailInfo, updateRepository } from '@/api/repository';
 import { onMounted } from 'vue';
 import { computed } from 'vue';
 import { watch } from 'vue';
+import { Modal } from 'bootstrap'
 
 const toast = useToast()
+
+/**
+ * @Title Modal 관리
+ */
+const modalElement = ref<HTMLElement>()
+const modalInstance = ref<Modal>()
+
 /**
  * @Title Props / Emit
  */
@@ -135,6 +142,11 @@ watch(repositoryName, async () => {
 });
 
 onMounted(async () => {
+  // Modal 인스턴스 초기화
+  if (modalElement.value) {
+    modalInstance.value = new Modal(modalElement.value)
+  }
+  
   await setInit();
 })
 
@@ -165,13 +177,47 @@ const setInit = async () => {
   }
 }
 
-/**x
+/**
  * @Title onClickSubmit
  * @Desc 
  *     1. 생성 / 수정 버튼 클릭시 동작
  *     2. 부모로 부터 받은 mode값에 따라서 생성/수정 Callback 함수 호출후 부모에게 repository 목록 api 호출  
  */
 const onClickSubmit = async () => {
+  // ================= Validation ==================
+  if (!repositoryFormData.value.name || repositoryFormData.value.name.trim() === '') {
+    toast.error('Please enter repository name.');
+    return;
+  }
+  
+  if (!repositoryFormData.value.format) {
+    toast.error('Please select format.');
+    return;
+  }
+  
+  if (!writePolicy.value) {
+    toast.error('Please select allow policy.');
+    return;
+  }
+  
+  if (repositoryFormData.value.online === undefined || repositoryFormData.value.online === null) {
+    toast.error('Please select online/offline status.');
+    return;
+  }
+  
+  // Docker format인 경우 포트 검증
+  if (repositoryFormData.value.format === 'docker') {
+    if (!httpPort.value || httpPort.value <= 0) {
+      toast.error('Please enter valid HTTP port.');
+      return;
+    }
+    
+    if (!httpsPort.value || httpsPort.value <= 0) {
+      toast.error('Please enter valid HTTPS port.');
+      return;
+    }
+  }
+
   repositoryFormData.value.storage = {
     "blobStoreName": "default",
     "strictContentTypeValidation": true,
@@ -179,7 +225,7 @@ const onClickSubmit = async () => {
   }
 
   if(repositoryFormData.value.format != "docker") {
-    repositoryFormData.value.docker = null
+    repositoryFormData.value.docker = {}
   } else {
     repositoryFormData.value.docker = {
       "v1Enabled": true,
@@ -190,43 +236,70 @@ const onClickSubmit = async () => {
     }
   }
 
+  let success = false;
+  
   if (props.mode === 'new') {
-    await _registRepository().then(() => {
-      emit('get-repository-list')
-      setInit()
-    })
-  }
-  else {
-    await _updateRepository().then(() => {
-      emit('get-repository-list')
-      setInit()
-    })  
+    success = await _registRepository();
+  } else {
+    success = await _updateRepository();
   }
   
+  // 성공적으로 처리된 경우에만 모달 닫기
+  if (success) {
+    emit('get-repository-list');
+    setInit();
+    
+    // 모달 닫기
+    if (modalInstance.value) {
+      modalInstance.value.hide()
+      // 백드롭이 남아있을 경우 강제 제거
+      setTimeout(() => {
+        document.body.classList.remove('modal-open')
+        const backdrop = document.querySelector('.modal-backdrop')
+        backdrop?.remove()
+      }, 150)
+    }
+  }
 }
 
 /**
  * @Title _registRepository
  * @Desc 생성 Callback 함수 / 생성 api 호출
  */
-const _registRepository = async () => {
-  const { data } = await registRepository("nexus", repositoryFormData.value)
-  if (data)
-    toast.success('등록되었습니다.')
-  else
-    toast.error('등록 할 수 없습니다.')
+const _registRepository = async (): Promise<boolean> => {
+  try {
+    const { data } = await registRepository("nexus", repositoryFormData.value)
+    if (data) {
+      toast.success('Repository created successfully.')
+      return true
+    } else {
+      toast.error('Failed to create repository.')
+      return false
+    }
+  } catch (error) {
+    toast.error('Failed to create repository.')
+    return false
+  }
 }
 
 /**
- * @Title updateRepository
+ * @Title _updateRepository
  * @Desc 수정 Callback 함수 / 수정 api 호출
  */
-const _updateRepository = async () => {
-  const { data } = await updateRepository("nexus", repositoryFormData.value)
-  if (data)
-    toast.success('등록되었습니다.')
-  else
-    toast.error('등록 할 수 없습니다.')
+const _updateRepository = async (): Promise<boolean> => {
+  try {
+    const { data } = await updateRepository("nexus", repositoryFormData.value)
+    if (data) {
+      toast.success('Repository updated successfully.')
+      return true
+    } else {
+      toast.error('Failed to update repository.')
+      return false
+    }
+  } catch (error) {
+    toast.error('Failed to update repository.')
+    return false
+  }
 }
 
 </script>

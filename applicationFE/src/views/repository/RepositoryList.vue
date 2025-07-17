@@ -65,7 +65,7 @@ const _getRepositoryList = async () => {
     repositoryList.value = data
   } catch(error) {
     console.log(error)
-    toast.error('데이터를 가져올 수 없습니다.')
+    toast.error('Unable to fetch data.')
   }
 }
 
