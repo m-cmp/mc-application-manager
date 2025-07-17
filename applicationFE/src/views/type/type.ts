@@ -13,6 +13,34 @@ export interface OssType {
   ossTypeDesc: string
 }
 
+export interface EventListener {
+  id: number
+  name: string
+  type: string
+  status: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface Workflow {
+  id: number
+  name: string
+  description: string
+  status: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface WorkflowStage {
+  id: number
+  workflowId: number
+  name: string
+  order: number
+  status: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 export interface Pod {
   metadata: {}
   spec: {}
@@ -90,6 +118,18 @@ export interface SoftwareCatalog {
   updatedAt: Date
 
   isShow: boolean
+
+  // 추가된 속성들
+  catalogIcon?: string
+  catalogCategory?: string
+  catalogTitle?: string
+  catalogSummary?: string
+  catalogDescription?: string
+  catalogIdx?: number
+  refData?: {
+    HOMEPAGE?: string[]
+    TAG?: string[]
+  }
 }
 
 export interface CatalogRefData {

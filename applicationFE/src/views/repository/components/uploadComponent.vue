@@ -1,5 +1,5 @@
 <template>
-  <div class="modal" id="uploadComponent" tabindex="-1">
+  <div class="modal fade" id="uploadComponent" tabindex="-1">
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
 
@@ -82,12 +82,12 @@ const handleFileChange = (event: any) => {
 const fileUpload = async () => {
 
   if(props.format == "raw" && _.isEmpty(directory.value)) {
-    toast.error('Path를 입력해주세요.');
+    toast.error('Please enter the path.');
     return;
   }
 
   if(files.value.length == 0) {
-    toast.error('등록 요청한 파일이 없습니다.');
+    toast.error('No file selected.');
     return;
   }
   const formData = new FormData();
@@ -96,9 +96,9 @@ const fileUpload = async () => {
 
   const { data } = await uploadComponent("nexus", props.repositoryName, formData);
   if (data)
-    toast.success('등록되었습니다.')
+    toast.success('Uploaded successfully.')
   else
-    toast.error('등록 할 수 없습니다.')
+    toast.error('Failed to upload.')
   emit('get-detail')
 }
 

@@ -24,7 +24,7 @@ export function registEventListener(param: EventListener) {
 
 // Event Listener 수정
 export function updateEventListener(param: EventListener) {
-  return request.patch(`/eventlistener/${param.eventListenerIdx}`, param)
+  return request.patch(`/eventlistener/${param.id}`, param)
 }
 
 // Event Listener 삭제

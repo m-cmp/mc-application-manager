@@ -3,9 +3,8 @@
 </template>
 
 <script setup lang="ts">
-import {ref, onMounted, watch} from 'vue';
+import {ref, watch} from 'vue';
 import {TabulatorFull as Tabulator, type ColumnDefinition, type OptionsData} from 'tabulator-tables';
-import { type Workflow } from '@/views/type/type'
 
 interface Props {
   columns: Array<ColumnDefinition>
@@ -34,6 +33,7 @@ const makeTable = () => {
     data: props.tableData,
     reactiveData:true,
     columns: props.columns,
+    height: "auto", // 테이블 높이를 데이터 양에 맞게 자동 조절
     pagination: true,
     paginationSize:6,
     paginationSizeSelector:[3, 6, 8, 10],
@@ -77,9 +77,13 @@ const makeTable = () => {
 	font-weight: unset;
 }
 
-.tabulator-page{
-  &.active{
+/* 페이지네이션 활성 페이지 굵게 표시 */
+.tabulator-page.active{
     font-weight: bold;
   }
+
+/* 데이터 양 만큼 테이블이 늘어나도록 고정 높이 해제 */
+.tabulator{
+  height: auto !important;
 }
 </style>

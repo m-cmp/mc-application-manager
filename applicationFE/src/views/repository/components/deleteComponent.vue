@@ -1,5 +1,5 @@
 <template>
-  <div class="modal" id="deleteComponent" tabindex="-1">
+  <div class="modal fade" id="deleteComponent" tabindex="-1">
     <div class="modal-dialog modal-lg" role="document">
       <div class="modal-content">
 
@@ -8,10 +8,10 @@
         <div class="modal-body text-left py-4">
           <!-- OSS Title -->
           <h3 class="mb-5">
-            Component 삭제
+            Delete Component
           </h3>
 
-          <h4>{{ props.componentName }}을(를) 정말 삭제하시겠습니까?</h4>
+          <h4>Are you sure you want to delete {{ props.componentName }}?</h4>
 
         </div>
 
@@ -20,7 +20,7 @@
             Cancel
           </a>
           <a href="#" class="btn btn-primary ms-auto" data-bs-dismiss="modal"  @click="onClickDelete()">
-            삭제
+            Delete
           </a>
         </div>
 
@@ -51,9 +51,9 @@ const emit = defineEmits(['get-detail'])
 const onClickDelete = async () => {
   const { data } = await deleteComponent("nexus", props.componentId)
   if (data)
-    toast.success('삭제되었습니다.')
+    toast.success('Deleted successfully.')
   else
-    toast.error('삭제하지 못했습니다.')
+    toast.error('Failed to delete.')
     emit('get-detail')
 }
 </script>

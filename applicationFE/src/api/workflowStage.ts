@@ -29,7 +29,7 @@ export function registWorkflowStage(param: WorkflowStage) {
 
 // Workflow Stage 수정
 export function updateWorkflowStage(param: WorkflowStage) {
-  return request.patch(`/workflowStage/${param.workflowStageIdx}`, param)
+  return request.patch(`/workflowStage/${param.id}`, param)
 }
 
 // Workflow Stage 삭제
