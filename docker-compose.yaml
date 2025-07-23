@@ -78,7 +78,7 @@ services:
       NEXUS_SECURITY_RANDOMPASSWORD: 'false'
       NEXUS_SECURITY_INITIAL_PASSWORD: 123456 # Please CHANGE ME
     healthcheck: # for application-manager
-      test: [ "CMD", "curl", "-f", "http://localhost:8081/login" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8081" ]
       interval: 1m
       timeout: 5s
       retries: 3
