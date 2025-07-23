@@ -18,7 +18,7 @@ services:
       - external_network
     ports:
       - target: 8080
-        published: 9800
+        published: 9900
         protocol: tcp
     volumes:
       - ~/:/var/jenkins_home # -v $HOME/mcmp/oss/jenkins:/var/jenkins_home
@@ -55,7 +55,7 @@ services:
       interval: 1m
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
 
   # sonatype nexus - for application manager
   sonatype-nexus:
@@ -82,7 +82,7 @@ services:
       interval: 1m
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
 
   # application-manager
   mc-application-manager:
@@ -110,4 +110,4 @@ services:
       interval: 1m
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
