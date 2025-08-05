@@ -1,7 +1,7 @@
 package kr.co.mcmp.externalrepo;
 
 import kr.co.mcmp.externalrepo.model.ArtifactHubPackage;
-import kr.co.mcmp.externalrepo.model.ArtifactHubRespository;
+import kr.co.mcmp.externalrepo.model.ArtifactHubRepository;
 import kr.co.mcmp.externalrepo.model.DockerHubCatalog;
 import lombok.extern.slf4j.Slf4j;
 
@@ -20,7 +20,7 @@ public class ExternalRepoService {
     @Autowired
     private DockerHubInterface dockerInt;
 
-    public List<ArtifactHubRespository> searchArtifactHubRepository(String keyword){
+    public List<ArtifactHubRepository> searchArtifactHubRepository(String keyword){
         return artfInt.searchRepository(keyword);
 
     }

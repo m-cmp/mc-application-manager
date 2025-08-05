@@ -34,7 +34,7 @@ public class KubernetesDeployService {
             // KubernetesClient client = clientFactory.getClient(namespace, clusterName);
             namespaceService.ensureNamespaceExists(client, namespace);
 
-            Release result = helmChartService.deployHelmChart(client, namespace, catalog, clusterName);
+            Release result = helmChartService.deployHelmChart(client, namespace, catalog);
 
             String podStatus = KubernetesUtils.getPodStatus(client, namespace, catalog.getHelmChart().getChartName());
             Integer servicePort = KubernetesUtils.getServicePort(client, namespace,
@@ -68,7 +68,7 @@ public class KubernetesDeployService {
         try {
             KubernetesClient client = clientFactory.getClient(namespace, clusterName);
 
-            helmChartService.uninstallHelmChart(namespace, catalog, clusterName);
+            helmChartService.uninstallHelmChart(namespace, catalog);
 
             String podStatus = KubernetesUtils.getPodStatus(client, namespace, catalog.getHelmChart().getChartName());
             Integer servicePort = KubernetesUtils.getServicePort(client, namespace,
