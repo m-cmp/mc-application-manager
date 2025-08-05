@@ -3,7 +3,7 @@ package kr.co.mcmp.externalrepo.model;
 import lombok.Data;
 
 @Data
-public class ArtifactHubRespository {
+public class ArtifactHubRepository {
 
     public String repository_id;
     public String name;

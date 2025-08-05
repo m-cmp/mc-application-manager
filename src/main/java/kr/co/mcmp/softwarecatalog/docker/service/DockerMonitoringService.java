@@ -65,9 +65,7 @@ public class DockerMonitoringService {
                                 .max(Comparator.comparing(DeploymentHistory::getExecutedAt))
                                 .orElse(null)))
                 .filter(Objects::nonNull)
-                .filter(d -> ("RUN".equalsIgnoreCase(d.getActionType().name())
-                        || "INSTALL".equalsIgnoreCase(d.getActionType().name()))
-                        && "SUCCESS".equalsIgnoreCase(d.getStatus()))
+                .filter(d -> ("RUN".equalsIgnoreCase(d.getActionType().name()) || "INSTALL".equalsIgnoreCase(d.getActionType().name())) && "SUCCESS".equalsIgnoreCase(d.getStatus()))
                 .collect(Collectors.toList());
     }
 
@@ -102,17 +100,14 @@ public class DockerMonitoringService {
 
     private boolean isThresholdExceeded(SoftwareCatalog catalog, ContainerHealthInfo healthInfo) {
         if (healthInfo.getCpuUsage() != null && healthInfo.getMemoryUsage() != null) {
-            boolean cpuExceeded = catalog.getCpuThreshold() != null
-                    && healthInfo.getCpuUsage() > catalog.getCpuThreshold();
-            boolean memoryExceeded = catalog.getMemoryThreshold() != null
-                    && healthInfo.getMemoryUsage() > catalog.getMemoryThreshold();
+            boolean cpuExceeded = catalog.getCpuThreshold() != null && healthInfo.getCpuUsage() > catalog.getCpuThreshold();
+            boolean memoryExceeded = catalog.getMemoryThreshold() != null && healthInfo.getMemoryUsage() > catalog.getMemoryThreshold();
             return cpuExceeded || memoryExceeded;
         }
         return false;
     }
 
-    private void updateApplicationStatus(ApplicationStatus status, DeploymentHistory deployment,
-            ContainerHealthInfo healthInfo) {
+    private void updateApplicationStatus(ApplicationStatus status, DeploymentHistory deployment, ContainerHealthInfo healthInfo) {
         status.setCatalog(deployment.getCatalog());
         status.setStatus(healthInfo.getStatus());
         status.setDeploymentType(deployment.getDeploymentType());
