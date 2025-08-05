@@ -335,8 +335,8 @@ VALUES
 -- Insert into oss
 INSERT INTO oss (oss_idx, oss_type_idx, oss_name, oss_desc, oss_url, oss_username, oss_password)
 VALUES
-    (1, 1, 'NEXUS', 'Application Repository', 'http://sample.com', null, null);
+    (1, 1, 'NEXUS', 'Application Repository', 'http://mc-application-manager-sonatype-nexus:8081', admin, 123456);
 INSERT INTO oss (oss_idx, oss_type_idx, oss_name, oss_desc, oss_url, oss_username, oss_password)
 VALUES
-    (2, 2, 'Ape', 'Application Provisioning Engine', 'http://sample.com', null, null);
+    (2, 2, 'Ape', 'Application Provisioning Engine', 'http://mc-application-manager-jenkins:8080', admin, 123456);
 
