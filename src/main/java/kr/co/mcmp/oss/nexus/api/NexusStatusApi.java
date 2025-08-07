@@ -15,7 +15,7 @@ public class NexusStatusApi {
 	private NexusRestClient client;
 
 	public HttpStatus statusEndpoint(OssDto nexus) {
-		final String path = "service/rest/v1/status";
+		final String path = "v1/status";
 		String url = client.getUriBuilder(nexus.getOssUrl(), path).build().toUriString();
 		log.debug("endpoint url : {}", url);
 		
