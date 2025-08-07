@@ -43,10 +43,8 @@ public class CommonRepository {
         @NotNull
         private Boolean online;
 
-        @Valid
         private StorageDto storage;
 
-        @Valid
         private DockerDto docker;
 
         @Getter
@@ -57,15 +55,12 @@ public class CommonRepository {
         public static class StorageDto {
 
             @Schema(title = "아티팩트를 저장하는 물리적 저장소 이름", required = true, example = "default")
-            @NotBlank
             private String blobStoreName;
 
             @Schema(title = "저장되는 아티팩트 유형 일치 여부 검증", required = true)
-            @NotNull
             private Boolean strictContentTypeValidation;
 
             @Schema(title = "레포지토리 읽기/쓰기 설정", required = true, example = "allow, allow_once, deny")
-            @NotBlank
             private String writePolicy;
         }
 
@@ -77,11 +72,9 @@ public class CommonRepository {
         public static class DockerDto {
 
             @Schema(title = "도커 registry 버전 지원(false: v2 지원)", required = true)
-            @NotNull
             private Boolean v1Enabled;
 
             @Schema(title = "도커 클라이언트가 레포지토리에 접근할 때 기본 인증 사용 여부", required = true)
-            @NotNull
             private Boolean forceBasicAuth;
 
             @Schema(title = "도커 레포지토리에 접근할 때 사용할 http 포트", example = "8080")
