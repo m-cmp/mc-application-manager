@@ -6,6 +6,7 @@ import '@tabler/core/dist/css/tabler.min.css'
 import 'tabulator-tables/dist/css/tabulator_bootstrap4.min.css'
 import axios from 'axios'
 import './permission'
+import './styles/global.css'
 
 const app = createApp(App)
 

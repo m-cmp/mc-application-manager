@@ -62,7 +62,7 @@ public class JenkinsRestApi {
 
             JenkinsClient jenkinsClient = JenkinsClient.builder().endPoint(url)
                     									.credentials(id + ":" + plainTextPassword).build();
-            
+
             String jenkinsSessionStr = jenkinsClient.api().systemApi().systemInfo().jenkinsSession();
             log.info("jenkinsSessionStr >>> {}", jenkinsSessionStr);
             if (!jenkinsSessionStr.equals("-1") && !jenkinsSessionStr.isEmpty()) {
