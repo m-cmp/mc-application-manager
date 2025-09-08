@@ -15,10 +15,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.co.mcmp.response.ResponseCode;
 import kr.co.mcmp.response.ResponseWrapper;
@@ -89,112 +85,59 @@ public class CatalogController {
         CombinedCatalogDTO combinedCatalog = catalogService.getCatalogWithNexusInfo(catalogId);
         return ResponseEntity.ok(new ResponseWrapper<>(combinedCatalog));
     }
-
-/* 
-    @Operation(summary = "카탈로그 생성")
-    @PostMapping
-    public ResponseEntity<ResponseWrapper<SoftwareCatalogDTO>> createCatalog(
-            @RequestParam String source,
-            @RequestBody String jsonData,
-            @RequestParam String username,
-            @RequestBody SoftwareCatalogDTO catalogDTO) {
-        SoftwareCatalogDTO createdCatalog = catalogService.createCatalog(source, jsonData, username, catalogDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(new ResponseWrapper<>(createdCatalog));
+    
+    // ===== 넥서스 연동 API 엔드포인트 (카탈로그 관리용) =====
+    
+    @Operation(summary = "넥서스에 이미지 존재 확인", description = "넥서스에 이미지가 존재하는지 확인합니다.")
+    @GetMapping("/nexus/image/exists")
+    public ResponseEntity<ResponseWrapper<Boolean>> checkImageExistsInNexus(
+            @RequestParam String imageName,
+            @RequestParam String tag) {
+        boolean result = catalogService.checkImageExistsInNexus(imageName, tag);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-
-    @Operation(summary = "카탈로그 조회")
-    @GetMapping("/{catalogId}")
-    public ResponseEntity<ResponseWrapper<SoftwareCatalogDTO>> getCatalog(@PathVariable Long catalogId) {
-        SoftwareCatalogDTO catalog = catalogService.getCatalog(catalogId);
-        return ResponseEntity.ok(new ResponseWrapper<>(catalog));
+    
+    @Operation(summary = "넥서스에 이미지 푸시", description = "넥서스에 이미지를 푸시합니다.")
+    @PostMapping("/nexus/image/push")
+    public ResponseEntity<ResponseWrapper<Object>> pushImageToNexus(
+            @RequestParam String imageName,
+            @RequestParam String tag,
+            @RequestBody byte[] imageData) {
+        Object result = catalogService.pushImageToNexus(imageName, tag, imageData);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-
-    @Operation(summary = "모든 카탈로그 조회")
-    @GetMapping
-    public ResponseEntity<ResponseWrapper<List<SoftwareCatalogDTO>>> getAllCatalogs() {
-        List<SoftwareCatalogDTO> catalogs = catalogService.getAllCatalogs();
-        return ResponseEntity.ok(new ResponseWrapper<>(catalogs));
+    
+    @Operation(summary = "넥서스에서 이미지 풀", description = "넥서스에서 이미지를 풀합니다.")
+    @PostMapping("/nexus/image/pull")
+    public ResponseEntity<ResponseWrapper<Object>> pullImageFromNexus(
+            @RequestParam String imageName,
+            @RequestParam String tag) {
+        Object result = catalogService.pullImageFromNexus(imageName, tag);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-
-    @Operation(summary = "카탈로그 업데이트")
-    @PutMapping("/{catalogId}")
-    public ResponseEntity<ResponseWrapper<SoftwareCatalogDTO>> updateCatalog(
-            @PathVariable Long catalogId,
-            @RequestParam String source,
-            @RequestBody String jsonData,
-            @RequestParam String username,
-            @RequestBody SoftwareCatalogDTO catalogDTO) {
-        SoftwareCatalogDTO updatedCatalog = catalogService.updateCatalog(catalogId, source, jsonData, username, catalogDTO);
-        return ResponseEntity.ok(new ResponseWrapper<>(updatedCatalog));
+    
+    @Operation(summary = "카탈로그 ID로 이미지 풀", description = "카탈로그 ID를 통해 넥서스에서 이미지를 풀합니다.")
+    @PostMapping("/nexus/image/pull/{catalogId}")
+    public ResponseEntity<ResponseWrapper<Object>> pullImageByCatalogId(@PathVariable Long catalogId) {
+        Object result = catalogService.pullImageByCatalogId(catalogId);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-
-    @Operation(summary = "카탈로그 삭제")
-    @DeleteMapping("/{catalogId}")
-    public ResponseEntity<ResponseWrapper<Void>> deleteCatalog(@PathVariable Long catalogId) {
-        catalogService.deleteCatalog(catalogId);
-        return ResponseEntity.ok(new ResponseWrapper<>(ResponseCode.OK));
+    
+    @Operation(summary = "넥서스에서 이미지 태그 조회", description = "넥서스에서 특정 이미지의 태그 목록을 조회합니다.")
+    @GetMapping("/nexus/image/{imageName}/tags")
+    public ResponseEntity<ResponseWrapper<List<String>>> getImageTagsFromNexus(@PathVariable String imageName) {
+        List<String> result = catalogService.getImageTagsFromNexus(imageName);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-
-    @Operation(summary = "Nexus 정보를 포함한 모든 카탈로그 조회")
-    @GetMapping("/combined")
-    public ResponseEntity<ResponseWrapper<List<CombinedCatalogDTO>>> getAllCatalogsWithNexusInfo() {
-        List<CombinedCatalogDTO> combinedCatalogs = catalogService.getAllCatalogsWithNexusInfo();
-        return ResponseEntity.ok(new ResponseWrapper<>(combinedCatalogs));
+    
+    @Operation(summary = "이미지 푸시 및 카탈로그 등록", description = "넥서스에 이미지를 푸시하고 카탈로그에 등록합니다.")
+    @PostMapping("/nexus/image/push-and-register")
+    public ResponseEntity<ResponseWrapper<Object>> pushImageAndRegisterCatalog(
+            @RequestBody SoftwareCatalogDTO catalog,
+            @RequestParam(required = false) String username) {
+        Object result = catalogService.pushImageAndRegisterCatalog(catalog, username);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-
-    @Operation(summary = "Nexus 정보를 포함한 특정 카탈로그 조회")
-    @GetMapping("/{catalogId}/combined")
-    public ResponseEntity<ResponseWrapper<CombinedCatalogDTO>> getCatalogWithNexusInfo(@PathVariable Long catalogId) {
-        CombinedCatalogDTO combinedCatalog = catalogService.getCatalogWithNexusInfo(catalogId);
-        return ResponseEntity.ok(new ResponseWrapper<>(combinedCatalog));
-    }
-     */
-    // @ApiOperation(value="software catalog list(all)", notes="software catalog 리스트 불러오기")
-    // @Operation(summary = "get software catalog list")
-    // @GetMapping
-    // public List<SoftwareCatalogDTO> getCatalogList(@RequestParam(required = false) String title){
-    //     if(StringUtils.isEmpty(title)){
-    //         return catalogService.getCatalogList();
-    //     }else {
-    //         return catalogService.getCatalogListSearch(title);
-    //     }
-    // }
-
-    // @Operation(summary = "software catalogd detail(and reference)")
-    // @ApiOperation(value="software catalog detail", notes="software catalog 내용 확인(연결된 정보들까지)")
-    // @GetMapping("/{catalogIdx}")
-    // public SoftwareCatalogDTO getCatalog(@PathVariable Long catalogIdx){
-    //     return catalogService.getCatalog(catalogIdx);
-    // }
-
-    // @Operation(summary = "create software catalog", description = "Insert a software catalog with an optional icon file.")
-    // @ApiOperation(value="software catalog insert", notes="software catalog 등록")
-    // @PostMapping() 
-    // public SoftwareCatalogDTO createCatalog(
-    //     @RequestPart(value = "catalogDto") SoftwareCatalogDTO catalogDto)
-    // {
-    //     return catalogService.createCatalog(catalogDto);
-    // }
-
-    // @Operation(summary = "delete software catalog")
-    // @ApiOperation(value="software catalog delete", notes="software catalog 삭제")
-    // @DeleteMapping("/{catalogIdx}")
-    // public boolean deleteCatalog(@PathVariable Long catalogIdx){
-    //     return catalogService.deleteCatalog(catalogIdx);
-    // }
-
-    // // @Operation(summary = "update software catalog")
-    // // @ApiOperation(value="software catalog update", notes="software catalog 수정")
-    // // @PutMapping
-    // // public boolean updateCatalog(@RequestBody CatalogDTO catalogDto, ){
-    // //     return catalogService.updateCatalog(catalogDto);
-    // // }
-
-    // @Operation(summary = "update software catalog")
-    // @ApiOperation(value="software catalog update", notes="software catalog 수정")
-    // public SoftwareCatalogDTO updateCatalog(@RequestPart("catalogDto") SoftwareCatalogDTO catalogDto){
-    //         return catalogService.updateCatalog(catalogDto);
-    // }
 
 
 }

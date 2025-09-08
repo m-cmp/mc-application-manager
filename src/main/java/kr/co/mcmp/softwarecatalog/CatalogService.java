@@ -24,6 +24,7 @@ import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
+import kr.co.mcmp.softwarecatalog.application.service.NexusIntegrationService;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ public class CatalogService {
     private final HelmChartRepository helmChartRepository;
     private final UserRepository userRepository;
     private final CommonModuleRepositoryService moduleRepositoryService;
+    private final NexusIntegrationService nexusIntegrationService;
 
 
     @Transactional
@@ -48,6 +50,28 @@ public class CatalogService {
         if (StringUtils.isNotBlank(username)) {
             user = getUserByUsername(username);
         }
+        
+        // 1. 내부 DB에 카탈로그 등록
+        SoftwareCatalogDTO result = createCatalogInternal(catalogDTO, user);
+        
+        // 2. 넥서스에 애플리케이션 등록
+        try {
+            nexusIntegrationService.registerToNexus(result);
+            log.info("Application registered to Nexus successfully: {}", result.getTitle());
+        } catch (Exception e) {
+            log.warn("Failed to register application to Nexus: {}", result.getTitle(), e);
+            // 넥서스 등록 실패해도 DB 등록은 유지
+        }
+        
+        log.info("Software catalog registered successfully with ID: {}", result.getId());
+        return result;
+    }
+    
+    /**
+     * 내부 DB에만 카탈로그를 등록합니다 (넥서스 연동 없이)
+     */
+    @Transactional
+    public SoftwareCatalogDTO createCatalogInternal(SoftwareCatalogDTO catalogDTO, User user) {
         
         SoftwareCatalog catalog = catalogDTO.toEntity();
         catalog.setRegisteredBy(user);
@@ -146,10 +170,22 @@ public class CatalogService {
         SoftwareCatalog catalog = catalogRepository.findById(catalogId)
                 .orElseThrow(() -> new EntityNotFoundException("Catalog not found"));
 
+        // 1. 넥서스에서 애플리케이션 삭제
+        try {
+            nexusIntegrationService.deleteFromNexus(catalog.getTitle());
+            log.info("Application deleted from Nexus successfully: {}", catalog.getTitle());
+        } catch (Exception e) {
+            log.warn("Failed to delete application from Nexus: {}", catalog.getTitle(), e);
+            // 넥서스 삭제 실패해도 DB 삭제는 진행
+        }
+
+        // 2. 내부 DB에서 카탈로그 삭제
         catalogRefRepository.deleteAllByCatalogId(catalogId);
         packageInfoRepository.deleteByCatalogId(catalogId);
         helmChartRepository.deleteByCatalogId(catalogId);
         catalogRepository.delete(catalog);
+        
+        log.info("Software catalog deleted successfully with ID: {}", catalogId);
     }
 
     private void updateCatalogFromDTO(SoftwareCatalog catalog, SoftwareCatalogDTO dto, User user) {
@@ -268,6 +304,108 @@ public class CatalogService {
                 .ifPresent(helmChart -> dto.setHelmChart(HelmChartDTO.fromEntity(helmChart)));
 
         return dto;
+    }
+    
+    // ===== 넥서스 연동 관련 메서드 (카탈로그 관리용) =====
+    
+    /**
+     * 넥서스에 이미지를 푸시하고 카탈로그에 등록합니다.
+     * 
+     * @param catalog 소프트웨어 카탈로그 정보
+     * @param username 사용자명
+     * @return 등록 결과
+     */
+    @Transactional
+    public Map<String, Object> pushImageAndRegisterCatalog(SoftwareCatalogDTO catalog, String username) {
+        log.info("Pushing image and registering catalog: {}", catalog.getTitle());
+        
+        // 1. 이미지 푸시 및 넥서스 등록
+        Map<String, Object> nexusResult = nexusIntegrationService.pushImageAndRegisterCatalog(catalog);
+        
+        // 2. DB에 카탈로그 등록
+        User user = null;
+        if (StringUtils.isNotBlank(username)) {
+            user = getUserByUsername(username);
+        }
+        
+        SoftwareCatalogDTO result = createCatalogInternal(catalog, user);
+        
+        // 3. 결과 통합
+        Map<String, Object> finalResult = new java.util.HashMap<>();
+        finalResult.put("success", true);
+        finalResult.put("message", "Image pushed and catalog registered successfully");
+        finalResult.put("catalog", result);
+        finalResult.put("nexusResult", nexusResult);
+        
+        return finalResult;
+    }
+    
+    /**
+     * 넥서스에 이미지가 존재하는지 확인합니다.
+     * 
+     * @param imageName 이미지 이름
+     * @param tag 이미지 태그
+     * @return 존재 여부
+     */
+    public boolean checkImageExistsInNexus(String imageName, String tag) {
+        return nexusIntegrationService.checkImageExistsInNexus(imageName, tag);
+    }
+    
+    /**
+     * 넥서스에 이미지를 푸시합니다.
+     * 
+     * @param imageName 이미지 이름
+     * @param tag 이미지 태그
+     * @param imageData 이미지 데이터
+     * @return 푸시 결과
+     */
+    public Map<String, Object> pushImageToNexus(String imageName, String tag, byte[] imageData) {
+        return nexusIntegrationService.pushImageToNexus(imageName, tag, imageData);
+    }
+    
+    /**
+     * 넥서스에서 이미지를 풀합니다.
+     * 
+     * @param imageName 이미지 이름
+     * @param tag 이미지 태그
+     * @return 풀 결과
+     */
+    public Map<String, Object> pullImageFromNexus(String imageName, String tag) {
+        return nexusIntegrationService.pullImageFromNexus(imageName, tag);
+    }
+    
+    /**
+     * 카탈로그 ID로 이미지를 풀합니다.
+     * 
+     * @param catalogId 카탈로그 ID
+     * @return 풀 결과
+     */
+    public Map<String, Object> pullImageByCatalogId(Long catalogId) {
+        log.info("Pulling image by catalog ID: {}", catalogId);
+        
+        // 카탈로그 정보 조회
+        SoftwareCatalogDTO catalog = getCatalog(catalogId);
+        
+        if (catalog.getPackageInfo() == null) {
+            throw new IllegalArgumentException("PackageInfo is not available for catalog ID: " + catalogId);
+        }
+        
+        String imageName = catalog.getPackageInfo().getPackageName();
+        String tag = catalog.getPackageInfo().getPackageVersion();
+        
+        log.info("Pulling image for catalog '{}': {}:{}", catalog.getTitle(), imageName, tag);
+        
+        return nexusIntegrationService.pullImageFromNexus(imageName, tag);
+    }
+    
+    /**
+     * 넥서스에서 이미지 태그 목록을 조회합니다.
+     * 
+     * @param imageName 이미지 이름
+     * @return 태그 목록
+     */
+    public List<String> getImageTagsFromNexus(String imageName) {
+        return nexusIntegrationService.getImageTagsFromNexus(imageName);
     }
 
 }
