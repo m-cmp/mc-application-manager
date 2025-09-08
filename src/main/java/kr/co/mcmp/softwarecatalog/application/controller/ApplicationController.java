@@ -20,11 +20,7 @@ import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOrchestrationService;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
-import kr.co.mcmp.softwarecatalog.SoftwareCatalogDTO;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -120,49 +116,8 @@ public class ApplicationController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     
-    // ===== 애플리케이션 등록/수정 관련 엔드포인트 =====
     
-    @Operation(summary = "소프트웨어 카탈로그 등록", description = "새로운 소프트웨어 카탈로그를 등록합니다.")
-    @PostMapping("/catalog")
-    public ResponseEntity<ResponseWrapper<SoftwareCatalogDTO>> registerSoftwareCatalog(
-            @RequestBody SoftwareCatalogDTO catalog,
-            @RequestParam(required = false) String username) {
-        SoftwareCatalogDTO result = applicationService.registerSoftwareCatalog(catalog, username);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
-    @Operation(summary = "소프트웨어 카탈로그 수정", description = "기존 소프트웨어 카탈로그를 수정합니다.")
-    @PutMapping("/catalog/{catalogId}")
-    public ResponseEntity<ResponseWrapper<SoftwareCatalogDTO>> updateSoftwareCatalog(
-            @PathVariable Long catalogId, 
-            @RequestBody SoftwareCatalogDTO catalog,
-            @RequestParam(required = false) String username) {
-        SoftwareCatalogDTO result = applicationService.updateSoftwareCatalog(catalogId, catalog, username);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
-    @Operation(summary = "소프트웨어 카탈로그 삭제", description = "소프트웨어 카탈로그를 삭제합니다.")
-    @DeleteMapping("/catalog/{catalogId}")
-    public ResponseEntity<ResponseWrapper<Void>> deleteSoftwareCatalog(@PathVariable Long catalogId) {
-        applicationService.deleteSoftwareCatalog(catalogId);
-        return ResponseEntity.ok(new ResponseWrapper<>(null));
-    }
-    
-    @Operation(summary = "소프트웨어 카탈로그 조회", description = "특정 소프트웨어 카탈로그를 조회합니다.")
-    @GetMapping("/catalog/{catalogId}")
-    public ResponseEntity<ResponseWrapper<SoftwareCatalogDTO>> getSoftwareCatalog(@PathVariable Long catalogId) {
-        SoftwareCatalogDTO result = applicationService.getSoftwareCatalog(catalogId);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
-    @Operation(summary = "모든 소프트웨어 카탈로그 조회", description = "모든 소프트웨어 카탈로그를 조회합니다.")
-    @GetMapping("/catalog")
-    public ResponseEntity<ResponseWrapper<List<SoftwareCatalogDTO>>> getAllSoftwareCatalogs() {
-        List<SoftwareCatalogDTO> result = applicationService.getAllSoftwareCatalogs();
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
-    // ===== 넥서스 연동 API 엔드포인트 =====
+    // ===== 넥서스 연동 API 엔드포인트 (애플리케이션 배포/운영용) =====
     
     @Operation(summary = "넥서스에서 애플리케이션 조회", description = "넥서스에서 특정 애플리케이션을 조회합니다.")
     @GetMapping("/nexus/application/{applicationName}")
@@ -194,22 +149,6 @@ public class ApplicationController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "카탈로그 ID로 이미지 풀", description = "카탈로그 ID를 통해 넥서스에서 이미지를 풀합니다.")
-    @PostMapping("/nexus/image/pull/{catalogId}")
-    public ResponseEntity<ResponseWrapper<Object>> pullImageByCatalogId(@PathVariable Long catalogId) {
-        Object result = applicationService.pullImageByCatalogId(catalogId);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
-    @Operation(summary = "넥서스에 이미지 푸시", description = "넥서스에 이미지를 푸시합니다.")
-    @PostMapping("/nexus/image/push")
-    public ResponseEntity<ResponseWrapper<Object>> pushImageToNexus(
-            @RequestParam String imageName,
-            @RequestParam String tag,
-            @RequestBody byte[] imageData) {
-        Object result = applicationService.pushImageToNexus(imageName, tag, imageData);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
     
     
 }

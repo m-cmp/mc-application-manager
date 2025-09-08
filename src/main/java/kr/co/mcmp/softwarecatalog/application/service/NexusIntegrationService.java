@@ -68,4 +68,29 @@ public interface NexusIntegrationService {
      * @return 태그 목록
      */
     List<String> getImageTagsFromNexus(String imageName);
+    
+    /**
+     * 넥서스에 이미지가 존재하는지 확인합니다.
+     * 
+     * @param imageName 이미지 이름
+     * @param tag 이미지 태그
+     * @return 이미지 존재 여부
+     */
+    boolean checkImageExistsInNexus(String imageName, String tag);
+    
+    /**
+     * 넥서스에 이미지를 푸시하고 카탈로그에 등록합니다.
+     * 
+     * @param catalog 소프트웨어 카탈로그 정보
+     * @return 등록 결과
+     */
+    Map<String, Object> pushImageAndRegisterCatalog(SoftwareCatalogDTO catalog);
+    
+    /**
+     * 넥서스에 Docker Repository가 있는지 확인하고, 없으면 생성합니다.
+     * 
+     * @param repositoryName Repository 이름
+     * @return Repository 생성/확인 결과
+     */
+    Map<String, Object> ensureDockerRepositoryExists(String repositoryName);
 }

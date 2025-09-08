@@ -104,19 +104,38 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
      */
     private Map<String, Object> registerToInternalNexus(SoftwareCatalogDTO catalog) {
         try {
-            // 넥서스 레포지토리 DTO 생성
+            // 1. 먼저 Docker Repository가 존재하는지 확인하고, 없으면 생성
+            String repositoryName = catalog.getTitle().toLowerCase().replaceAll("[^a-z0-9-]", "-");
+            Map<String, Object> repositoryResult = ensureDockerRepositoryExists(repositoryName);
+            
+            if (!(Boolean) repositoryResult.get("success")) {
+                log.error("Failed to ensure Docker repository exists: {}", repositoryName);
+                Map<String, Object> result = new HashMap<>();
+                result.put("success", false);
+                result.put("message", "Failed to ensure Docker repository exists: " + repositoryResult.get("message"));
+                result.put("repositoryName", repositoryName);
+                result.put("sourceType", "NEXUS");
+                return result;
+            }
+            
+            log.info("Docker repository ensured: {} (action: {})", repositoryName, repositoryResult.get("action"));
+            
+            // 2. 넥서스 레포지토리 DTO 생성
             CommonRepository.RepositoryDto repositoryDto = createRepositoryDto(catalog);
             
-            // 넥서스에 레포지토리 생성
+            // 3. 넥서스에 레포지토리 생성 (이미 존재하면 무시됨)
             moduleRepositoryService.createRepository("nexus", repositoryDto);
             
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("message", "Application registered to internal Nexus successfully");
-            result.put("repositoryName", catalog.getTitle());
+            result.put("repositoryName", repositoryName);
             result.put("sourceType", "NEXUS");
+            result.put("repositoryAction", repositoryResult.get("action"));
+            result.put("repositoryMessage", repositoryResult.get("message"));
             
-            log.info("Application registered to internal Nexus successfully: {}", catalog.getTitle());
+            log.info("Application registered to internal Nexus successfully: {} (repository action: {})", 
+                    catalog.getTitle(), repositoryResult.get("action"));
             return result;
             
         } catch (Exception e) {
@@ -376,47 +395,83 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // 넥서스 형식의 이미지 이름 구성
             String nexusImageName = dockerRegistryUrl + "/" + dockerRepositoryName + "/" + imageName + ":" + tag;
             
-            // 넥서스 REST API를 통해 실제 이미지 정보 등록
-            String componentUrl = nexusInfo.getOssUrl() + "/service/rest/v1/components";
-            
-            // 이미지 컴포넌트 정보 구성
-            Map<String, Object> componentData = new HashMap<>();
-            componentData.put("repository", dockerRepositoryName);
-            componentData.put("format", "docker");
-            componentData.put("name", imageName);
-            componentData.put("version", tag);
-            componentData.put("docker", Map.of(
-                "imageName", imageName,
-                "imageTag", tag,
-                "registry", dockerRegistryUrl
-            ));
-            
-            // 넥서스에 컴포넌트 등록 시도
+            // 넥서스 Repository에 파일 업로드 방식으로 이미지 등록
             try {
-                ProcessBuilder curlProcess = new ProcessBuilder(
+                log.info("Uploading image to Nexus repository: {}:{}", imageName, tag);
+                
+                // 1. 소스 이미지 풀
+                log.info("Pulling source image: {}:{}", imageName, tag);
+                ProcessBuilder pullProcess = new ProcessBuilder(
+                    "docker", "pull", imageName + ":" + tag
+                );
+                Process pullProc = pullProcess.start();
+                int pullExitCode = pullProc.waitFor();
+                
+                if (pullExitCode != 0) {
+                    log.error("Failed to pull source image: {}:{}", imageName, tag);
+                    result.put("success", false);
+                    result.put("message", "Failed to pull source image: " + imageName + ":" + tag);
+                    return result;
+                }
+                
+                // 2. 이미지를 tar 파일로 저장
+                String tarFileName = imageName.replace("/", "_") + "_" + tag + ".tar";
+                log.info("Saving image to tar file: {}", tarFileName);
+                ProcessBuilder saveProcess = new ProcessBuilder(
+                    "docker", "save", "-o", tarFileName, imageName + ":" + tag
+                );
+                Process saveProc = saveProcess.start();
+                int saveExitCode = saveProc.waitFor();
+                
+                if (saveExitCode != 0) {
+                    log.error("Failed to save image to tar file: {}", tarFileName);
+                    result.put("success", false);
+                    result.put("message", "Failed to save image to tar file: " + tarFileName);
+                    return result;
+                }
+                
+                // 3. 넥서스에 파일 업로드
+                String uploadUrl = nexusInfo.getOssUrl() + "/service/rest/v1/components?repository=" + dockerRepositoryName;
+                log.info("Uploading tar file to Nexus: {}", uploadUrl);
+                
+                ProcessBuilder uploadProcess = new ProcessBuilder(
                     "curl", "-X", "POST", "-s",
                     "-u", username + ":" + password,
-                    "-H", "Content-Type: application/json",
-                    "-d", "{\"repository\":\"" + dockerRepositoryName + "\",\"format\":\"docker\",\"name\":\"" + imageName + "\",\"version\":\"" + tag + "\"}",
-                    componentUrl
+                    "-H", "Content-Type: multipart/form-data",
+                    "-F", "docker.asset=" + tarFileName,
+                    "-F", "docker.asset.filename=" + tarFileName,
+                    "-F", "docker.asset.extension=tar",
+                    "-F", "docker.asset.contentType=application/x-tar",
+                    uploadUrl
                 );
                 
-                Process curlProc = curlProcess.start();
-                int exitCode = curlProc.waitFor();
+                Process uploadProc = uploadProcess.start();
+                int uploadExitCode = uploadProc.waitFor();
                 
-                if (exitCode == 0) {
-                    log.info("Successfully registered image component to Nexus: {}:{}", imageName, tag);
-                    result.put("success", true);
-                    result.put("message", "Image component successfully registered to Nexus");
-                } else {
-                    log.warn("Failed to register image component to Nexus (exit code: {})", exitCode);
-                    result.put("success", true);
-                    result.put("message", "Image information prepared for Nexus (component registration failed)");
+                // 4. 임시 tar 파일 삭제
+                try {
+                    ProcessBuilder deleteProcess = new ProcessBuilder("rm", "-f", tarFileName);
+                    deleteProcess.start().waitFor();
+                } catch (Exception e) {
+                    log.warn("Failed to delete temporary tar file: {}", tarFileName);
                 }
+                
+                if (uploadExitCode == 0) {
+                    log.info("Successfully uploaded image to Nexus: {}:{}", imageName, tag);
+                    result.put("success", true);
+                    result.put("message", "Image successfully uploaded to Nexus repository");
+                } else {
+                    log.error("Failed to upload image to Nexus: {}:{}", imageName, tag);
+                    result.put("success", false);
+                    result.put("message", "Failed to upload image to Nexus: " + imageName + ":" + tag);
+                    return result;
+                }
+                
             } catch (Exception e) {
-                log.warn("Failed to register image component to Nexus: {}", e.getMessage());
-                result.put("success", true);
-                result.put("message", "Image information prepared for Nexus (component registration failed)");
+                log.error("Error during image upload to Nexus", e);
+                result.put("success", false);
+                result.put("message", "Error during image upload: " + e.getMessage());
+                return result;
             }
             
             result.put("imageName", imageName);
@@ -609,8 +664,153 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     }
     
     /**
+     * 넥서스에 Docker Repository가 있는지 확인하고, 없으면 생성합니다.
+     *
+     * @param repositoryName Repository 이름
+     * @return Repository 생성/확인 결과
+     */
+    @Override
+    public Map<String, Object> ensureDockerRepositoryExists(String repositoryName) {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // DB에서 넥서스 정보 가져오기
+            OssDto nexusInfo = getNexusInfoFromDB();
+            String nexusUrl = nexusInfo.getOssUrl();
+            String username = nexusInfo.getOssUsername();
+            String password = Base64Utils.base64Decoding(nexusInfo.getOssPassword());
+            
+            log.info("Checking if Docker repository exists: {}", repositoryName);
+            
+            // 1. 먼저 Repository가 존재하는지 확인
+            if (isDockerRepositoryExists(repositoryName, nexusUrl, username, password)) {
+                log.info("Docker repository already exists: {}", repositoryName);
+                result.put("success", true);
+                result.put("message", "Docker repository already exists: " + repositoryName);
+                result.put("repositoryName", repositoryName);
+                result.put("action", "exists");
+                return result;
+            }
+            
+            // 2. Repository가 없으면 생성
+            log.info("Creating Docker repository: {}", repositoryName);
+            boolean created = createDockerRepository(repositoryName, nexusUrl, username, password);
+            
+            if (created) {
+                log.info("Successfully created Docker repository: {}", repositoryName);
+                result.put("success", true);
+                result.put("message", "Docker repository created successfully: " + repositoryName);
+                result.put("repositoryName", repositoryName);
+                result.put("action", "created");
+            } else {
+                log.error("Failed to create Docker repository: {}", repositoryName);
+                result.put("success", false);
+                result.put("message", "Failed to create Docker repository: " + repositoryName);
+                result.put("repositoryName", repositoryName);
+                result.put("action", "failed");
+            }
+            
+        } catch (Exception e) {
+            log.error("Error ensuring Docker repository exists: {}", repositoryName, e);
+            result.put("success", false);
+            result.put("message", "Error ensuring Docker repository exists: " + e.getMessage());
+            result.put("repositoryName", repositoryName);
+            result.put("action", "error");
+            result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Docker Repository가 존재하는지 확인합니다.
+     *
+     * @param repositoryName Repository 이름
+     * @param nexusUrl 넥서스 URL
+     * @param username 넥서스 사용자명
+     * @param password 넥서스 비밀번호
+     * @return Repository 존재 여부
+     */
+    private boolean isDockerRepositoryExists(String repositoryName, String nexusUrl, String username, String password) {
+        try {
+            String repositoriesUrl = nexusUrl + "/service/rest/v1/repositories";
+            
+            ProcessBuilder curlProcess = new ProcessBuilder(
+                "curl", "-s", "-u", username + ":" + password, repositoriesUrl
+            );
+            
+            Process curlProc = curlProcess.start();
+            StringBuilder response = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(curlProc.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+            }
+            
+            int exitCode = curlProc.waitFor();
+            if (exitCode != 0) {
+                log.error("Failed to query Nexus repositories (exit code: {})", exitCode);
+                return false;
+            }
+            
+            String responseStr = response.toString();
+            return responseStr.contains("\"name\":\"" + repositoryName + "\"") && 
+                   responseStr.contains("\"format\":\"docker\"");
+            
+        } catch (Exception e) {
+            log.error("Error checking if Docker repository exists: {}", repositoryName, e);
+            return false;
+        }
+    }
+    
+    /**
+     * Docker Repository를 생성합니다.
+     *
+     * @param repositoryName Repository 이름
+     * @param nexusUrl 넥서스 URL
+     * @param username 넥서스 사용자명
+     * @param password 넥서스 비밀번호
+     * @return 생성 성공 여부
+     */
+    private boolean createDockerRepository(String repositoryName, String nexusUrl, String username, String password) {
+        try {
+            String createUrl = nexusUrl + "/service/rest/v1/repositories/docker/hosted";
+            
+            // Docker Repository 생성 JSON
+            String repositoryConfig = String.format(
+                "{\"name\":\"%s\",\"online\":true,\"storage\":{\"blobStoreName\":\"default\",\"strictContentTypeValidation\":true,\"writePolicy\":\"allow_once\"},\"docker\":{\"v1Enabled\":false,\"forceBasicAuth\":true,\"httpPort\":5000}}",
+                repositoryName
+            );
+            
+            ProcessBuilder curlProcess = new ProcessBuilder(
+                "curl", "-X", "POST", "-s",
+                "-u", username + ":" + password,
+                "-H", "Content-Type: application/json",
+                "-d", repositoryConfig,
+                createUrl
+            );
+            
+            Process curlProc = curlProcess.start();
+            int exitCode = curlProc.waitFor();
+            
+            if (exitCode == 0) {
+                log.info("Docker repository created successfully: {}", repositoryName);
+                return true;
+            } else {
+                log.error("Failed to create Docker repository (exit code: {})", exitCode);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error creating Docker repository: {}", repositoryName, e);
+            return false;
+        }
+    }
+
+    /**
      * OSS에서 조회한 넥서스 정보를 바탕으로 Docker 타입의 레포지토리를 동적으로 조회합니다.
-     * 
+     *
      * @return Docker 타입 레포지토리 이름
      * @throws RuntimeException Docker 레포지토리를 찾을 수 없는 경우
      */
@@ -860,5 +1060,114 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 .storage(storageDto)
                 .docker(dockerDto)
                 .build();
+    }
+    
+    /**
+     * 넥서스에 이미지가 존재하는지 확인합니다.
+     * 
+     * @param imageName 이미지 이름
+     * @param tag 이미지 태그
+     * @return 이미지 존재 여부
+     */
+    @Override
+    public boolean checkImageExistsInNexus(String imageName, String tag) {
+        log.info("Checking if image exists in Nexus: {}:{}", imageName, tag);
+        
+        try {
+            // DB에서 넥서스 정보 가져오기
+            OssDto nexusInfo = getNexusInfoFromDB();
+            String dockerRepositoryName = getDockerRepositoryName();
+            
+            // 넥서스 검색 API 호출
+            String searchUrl = nexusInfo.getOssUrl() + "/service/rest/v1/search?repository=" + dockerRepositoryName + "&name=" + imageName;
+            log.info("Searching for image in Nexus: {}", searchUrl);
+            
+            ProcessBuilder searchProcess = new ProcessBuilder(
+                "curl", "-s", "-u", 
+                nexusInfo.getOssUsername() + ":" + Base64Utils.base64Decoding(nexusInfo.getOssPassword()),
+                searchUrl
+            );
+            
+            Process searchProc = searchProcess.start();
+            int exitCode = searchProc.waitFor();
+            
+            if (exitCode == 0) {
+                // 응답에서 해당 태그가 있는지 확인
+                String response = new String(searchProc.getInputStream().readAllBytes());
+                log.info("Nexus search response: {}", response);
+                
+                // JSON 응답에서 태그 확인
+                return response.contains("\"version\":\"" + tag + "\"") || 
+                       response.contains("\"name\":\"" + imageName + "\"");
+            } else {
+                log.warn("Failed to search Nexus for image: {}:{}", imageName, tag);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error checking image existence in Nexus: {}:{}", imageName, tag, e);
+            return false;
+        }
+    }
+    
+    /**
+     * 넥서스에 이미지를 푸시하고 카탈로그에 등록합니다.
+     * 
+     * @param catalog 소프트웨어 카탈로그 정보
+     * @return 등록 결과
+     */
+    @Override
+    public Map<String, Object> pushImageAndRegisterCatalog(SoftwareCatalogDTO catalog) {
+        log.info("Pushing image and registering catalog: {}", catalog.getTitle());
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // 1. 이미지 정보 추출
+            String imageName = catalog.getPackageInfo().getPackageName();
+            String tag = catalog.getPackageInfo().getPackageVersion();
+            
+            // 2. 이미지가 이미 넥서스에 있는지 확인
+            boolean imageExists = checkImageExistsInNexus(imageName, tag);
+            
+            if (imageExists) {
+                log.info("Image already exists in Nexus: {}:{}", imageName, tag);
+                result.put("imagePushRequired", false);
+                result.put("message", "Image already exists in Nexus, proceeding with catalog registration");
+            } else {
+                log.info("Image not found in Nexus, pushing image: {}:{}", imageName, tag);
+                
+                // 3. 이미지 푸시
+                Map<String, Object> pushResult = pushImageToNexus(imageName, tag, null);
+                
+                if (!(Boolean) pushResult.get("success")) {
+                    result.put("success", false);
+                    result.put("message", "Failed to push image to Nexus: " + pushResult.get("message"));
+                    return result;
+                }
+                
+                result.put("imagePushRequired", true);
+                result.put("imagePushResult", pushResult);
+            }
+            
+            // 4. 카탈로그 등록
+            Map<String, Object> catalogResult = registerToNexus(catalog);
+            
+            if ((Boolean) catalogResult.get("success")) {
+                result.put("success", true);
+                result.put("message", "Image and catalog successfully registered to Nexus");
+                result.put("catalogResult", catalogResult);
+            } else {
+                result.put("success", false);
+                result.put("message", "Failed to register catalog to Nexus: " + catalogResult.get("message"));
+            }
+            
+        } catch (Exception e) {
+            log.error("Error pushing image and registering catalog: {}", catalog.getTitle(), e);
+            result.put("success", false);
+            result.put("message", "Error during image push and catalog registration: " + e.getMessage());
+        }
+        
+        return result;
     }
 }
