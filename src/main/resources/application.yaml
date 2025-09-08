@@ -66,10 +66,22 @@ aes:
   key: fb1755281b0ca6184a0ee644e6477ee7
 
 cbtumblebug:
-  url: ${TUMBLEBUG_URL:mc-infra-manager}
+  url: ${TUMBLEBUG_URL:210.217.178.130}
   port: ${TUMBLEBUG_PORT:1323}
   id: ${TUMBLEBUG_ID:default}
   pass: ${TUMBLEBUG_PASSWORD:default}
+
+nexus:
+  url: ${NEXUS_URL:nexus-repository}
+  port: ${NEXUS_PORT:8081}
+  docker-port: ${NEXUS_DOCKER_PORT:5000}
+  username: ${NEXUS_USERNAME:admin}
+  password: ${NEXUS_PASSWORD:123456}
+  docker-repository: ${NEXUS_DOCKER_REPOSITORY:docker-hosted}
+  helm-repository: ${NEXUS_HELM_REPOSITORY:helm-hosted}
+  hybrid-mode: ${NEXUS_HYBRID_MODE:true}
+  use-external-docker-hub: ${NEXUS_USE_EXTERNAL_DOCKER_HUB:true}
+  use-external-artifact-hub: ${NEXUS_USE_EXTERNAL_ARTIFACT_HUB:true}
 
 docker:
   monitoring:

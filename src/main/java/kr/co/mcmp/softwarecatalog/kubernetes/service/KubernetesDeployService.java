@@ -37,8 +37,7 @@ public class KubernetesDeployService {
             Release result = helmChartService.deployHelmChart(client, namespace, catalog);
 
             String podStatus = KubernetesUtils.getPodStatus(client, namespace, catalog.getHelmChart().getChartName());
-            Integer servicePort = KubernetesUtils.getServicePort(client, namespace,
-                    catalog.getHelmChart().getChartName());
+            Integer servicePort = KubernetesUtils.getServicePort(client, namespace, catalog.getHelmChart().getChartName());
 
             return createDeploymentHistory(
                     namespace,
@@ -71,8 +70,7 @@ public class KubernetesDeployService {
             helmChartService.uninstallHelmChart(namespace, catalog);
 
             String podStatus = KubernetesUtils.getPodStatus(client, namespace, catalog.getHelmChart().getChartName());
-            Integer servicePort = KubernetesUtils.getServicePort(client, namespace,
-                    catalog.getHelmChart().getChartName());
+            Integer servicePort = KubernetesUtils.getServicePort(client, namespace, catalog.getHelmChart().getChartName());
 
             return createDeploymentHistory(
                     namespace,

@@ -149,6 +149,7 @@ replay_pid*
 build/
 
 
+bin/
 # End of https://www.toptal.com/developers/gitignore/api/java,intellij
 
 

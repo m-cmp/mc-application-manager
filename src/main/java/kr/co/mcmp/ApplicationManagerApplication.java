@@ -17,10 +17,7 @@ import java.security.GeneralSecurityException;
 public class ApplicationManagerApplication {
 
     public static void main(String[] args) throws GeneralSecurityException, UnsupportedEncodingException {
-        System.out.println("========= boot start test string console =========");
         SpringApplication.run(ApplicationManagerApplication.class, args);
-        System.out.println("========= boot start test string console =========");
-
     }
 
 

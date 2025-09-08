@@ -18,4 +18,5 @@ public interface OssService {
     Boolean deleteOss(Long ossIdx);
     Boolean checkConnection(OssDto ossDto);
     OssDto detailOss(Long ossIdx);
+    OssDto detailOssByOssNameIgnoreCase(String ossName);
 }
