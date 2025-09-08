@@ -16,6 +16,7 @@ import kr.co.mcmp.softwarecatalog.application.exception.ApplicationException;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationHistoryService;
 import kr.co.mcmp.softwarecatalog.application.service.DeploymentService;
+import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerDeployResult;
 import kr.co.mcmp.softwarecatalog.docker.service.DockerOperationService;
 import kr.co.mcmp.softwarecatalog.docker.service.DockerSetupService;
@@ -38,6 +39,7 @@ public class DockerDeploymentService implements DeploymentService {
     private final CbtumblebugRestApi cbtumblebugRestApi;
     private final ApplicationHistoryService applicationHistoryService;
     private final UserService userService;
+    private final NexusConfig nexusConfig;
     
     @Override
     public DeploymentHistory deployApplication(DeploymentRequest request) {
@@ -105,12 +107,25 @@ public class DockerDeploymentService implements DeploymentService {
         
         Integer containerPort = catalog.getDefaultPort() != null ? catalog.getDefaultPort() : servicePort;
         
+        // 소스 타입에 따라 적절한 이미지 URL 사용
+        String imageUrl = buildImageUrl(catalog);
+        
         return DeploymentParameters.builder()
                 .name(catalog.getTitle().toLowerCase().replaceAll("\\s+", "-"))
-                .image(catalog.getPackageInfo().getPackageName().toLowerCase() + ":" + 
-                       catalog.getPackageInfo().getPackageVersion().toLowerCase())
+                .image(imageUrl)
                 .portBindings(servicePort + ":" + containerPort)
                 .build();
+    }
+    
+    /**
+     * 소스 타입에 따라 적절한 이미지 URL을 생성합니다.
+     */
+    private String buildImageUrl(SoftwareCatalogDTO catalog) {
+        String imageName = catalog.getPackageInfo().getPackageName().toLowerCase();
+        String imageTag = catalog.getPackageInfo().getPackageVersion().toLowerCase();
+        String sourceType = catalog.getSourceType();
+        
+        return nexusConfig.getImageUrlBySourceType(imageName, imageTag, sourceType);
     }
     
     private Map<String, String> convertToMap(DeploymentParameters params) {

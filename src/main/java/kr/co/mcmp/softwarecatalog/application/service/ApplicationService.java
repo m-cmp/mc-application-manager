@@ -1,116 +1,208 @@
 package kr.co.mcmp.softwarecatalog.application.service;
 
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
-import kr.co.mcmp.softwarecatalog.application.dto.ApplicationStatusDto;
-import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
-import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
-import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
-import kr.co.mcmp.ape.cbtumblebug.dto.K8sSpec;
-import kr.co.mcmp.ape.cbtumblebug.dto.Spec;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalogDTO;
-
-
+import kr.co.mcmp.softwarecatalog.CatalogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 애플리케이션 서비스 - 기존 호환성을 위한 래퍼 클래스
- * @deprecated 새로운 ApplicationOrchestrationService를 사용하세요
+ * 애플리케이션 등록 및 수정을 담당하는 서비스
+ * 배포 및 운영 작업은 ApplicationOrchestrationService를 사용하세요
  */
 @Service
 @Transactional
 @Slf4j
 @RequiredArgsConstructor
-@Deprecated
 public class ApplicationService {
 
-    private final ApplicationOrchestrationService applicationOrchestrationService;
+    private final CatalogService catalogService;
+    private final kr.co.mcmp.softwarecatalog.application.service.NexusIntegrationService nexusIntegrationService;
 
-    public Map<String, Object> performDockerOperation(ActionType operation, Long applicationStatusId, String reason, String username) throws Exception {
-        log.debug("performDockerOperation is deprecated. Use ApplicationOrchestrationService.performOperation instead.");
-        return applicationOrchestrationService.performOperation(operation, applicationStatusId, reason, username);
-    }
-
-    @Transactional
-    public DeploymentHistory deployApplication(String namespace, String mciId, String vmId, Long catalogId, Integer servicePort, String username) {
-        log.debug("deployApplication is deprecated. Use ApplicationOrchestrationService.deployApplication instead.");
-        DeploymentRequest request = DeploymentRequest.forVm(namespace, mciId, vmId, catalogId, servicePort, username);
-        return applicationOrchestrationService.deployApplication(request);
-    }
-
-    @Deprecated
-    public Map<String, String> buildDeployParameters(SoftwareCatalogDTO catalog, Integer servicePort) {
-        log.debug("buildDeployParameters is deprecated. This functionality is now handled by DockerDeploymentService.");
-        // 호환성을 위한 간단한 구현
-        if (catalog.getPackageInfo() == null) {
-            throw new IllegalArgumentException("PackageInfo is not available for deployment");
+    /**
+     * 소프트웨어 카탈로그를 등록합니다.
+     * 
+     * @param catalog 등록할 소프트웨어 카탈로그 정보
+     * @param username 사용자명
+     * @return 등록된 소프트웨어 카탈로그 DTO
+     */
+    public SoftwareCatalogDTO registerSoftwareCatalog(SoftwareCatalogDTO catalog, String username) {
+        log.info("Registering software catalog: {}", catalog.getTitle());
+        
+        // 1. 내부 DB에 카탈로그 등록
+        SoftwareCatalogDTO result = catalogService.createCatalog(catalog, username);
+        
+        // 2. 넥서스에 애플리케이션 등록
+        try {
+            nexusIntegrationService.registerToNexus(result);
+            log.info("Application registered to Nexus successfully: {}", result.getTitle());
+        } catch (Exception e) {
+            log.warn("Failed to register application to Nexus: {}", result.getTitle(), e);
+            // 넥서스 등록 실패해도 DB 등록은 유지
         }
-        Integer containerPort = catalog.getDefaultPort() != null ? catalog.getDefaultPort() : servicePort;
-        Map<String, String> params = new java.util.HashMap<>();
-        params.put("name", catalog.getTitle().toLowerCase().replaceAll("\\s+", "-"));
-        params.put("image", catalog.getPackageInfo().getPackageName().toLowerCase() + ":" + 
-                   catalog.getPackageInfo().getPackageVersion().toLowerCase());
-        params.put("portBindings", servicePort + ":" + containerPort);
-        return params;
+        
+        log.info("Software catalog registered successfully with ID: {}", result.getId());
+        return result;
     }
     
-
-    public List<ApplicationStatusDto> getApplicationGroups() {
-        log.debug("getApplicationGroups is deprecated. Use ApplicationOrchestrationService.getApplicationGroups instead.");
-        return applicationOrchestrationService.getApplicationGroups();
+    /**
+     * 소프트웨어 카탈로그를 수정합니다.
+     * 
+     * @param catalogId 수정할 카탈로그 ID
+     * @param catalog 수정할 소프트웨어 카탈로그 정보
+     * @param username 사용자명
+     * @return 수정된 소프트웨어 카탈로그 DTO
+     */
+    public SoftwareCatalogDTO updateSoftwareCatalog(Long catalogId, SoftwareCatalogDTO catalog, String username) {
+        log.info("Updating software catalog with ID: {}", catalogId);
+        
+        SoftwareCatalogDTO result = catalogService.updateCatalog(catalogId, catalog, username);
+        
+        log.info("Software catalog updated successfully with ID: {}", result.getId());
+        return result;
     }
     
-
-    public List<DeploymentHistory> getDeploymentHistories(Long catalogId, String username) {
-        log.debug("getDeploymentHistories is deprecated. Use ApplicationOrchestrationService.getDeploymentHistories instead.");
-        return applicationOrchestrationService.getDeploymentHistories(catalogId, username);
+    /**
+     * 소프트웨어 카탈로그를 삭제합니다.
+     * 
+     * @param catalogId 삭제할 카탈로그 ID
+     */
+    public void deleteSoftwareCatalog(Long catalogId) {
+        log.info("Deleting software catalog with ID: {}", catalogId);
+        
+        // 1. 카탈로그 정보 조회 (넥서스 삭제를 위해)
+        SoftwareCatalogDTO catalog = catalogService.getCatalog(catalogId);
+        
+        // 2. 내부 DB에서 카탈로그 삭제
+        catalogService.deleteCatalog(catalogId);
+        
+        // 3. 넥서스에서 애플리케이션 삭제
+        try {
+            nexusIntegrationService.deleteFromNexus(catalog.getTitle());
+            log.info("Application deleted from Nexus successfully: {}", catalog.getTitle());
+        } catch (Exception e) {
+            log.warn("Failed to delete application from Nexus: {}", catalog.getTitle(), e);
+            // 넥서스 삭제 실패해도 DB 삭제는 유지
+        }
+        
+        log.info("Software catalog deleted successfully with ID: {}", catalogId);
     }
-
-    public List<DeploymentLog> getDeploymentLogs(Long deploymentId, String username) {
-        log.debug("getDeploymentLogs is deprecated. Use ApplicationOrchestrationService.getDeploymentLogs instead.");
-        return applicationOrchestrationService.getDeploymentLogs(deploymentId, username);
+    
+    /**
+     * 소프트웨어 카탈로그를 조회합니다.
+     * 
+     * @param catalogId 조회할 카탈로그 ID
+     * @return 소프트웨어 카탈로그 DTO
+     */
+    public SoftwareCatalogDTO getSoftwareCatalog(Long catalogId) {
+        log.debug("Retrieving software catalog with ID: {}", catalogId);
+        
+        return catalogService.getCatalog(catalogId);
     }
-
-    public ApplicationStatusDto getLatestApplicationStatus(String username) {
-        log.debug("getLatestApplicationStatus is deprecated. Use ApplicationOrchestrationService.getLatestApplicationStatus instead.");
-        return applicationOrchestrationService.getLatestApplicationStatus(username);
+    
+    /**
+     * 모든 소프트웨어 카탈로그를 조회합니다.
+     * 
+     * @return 소프트웨어 카탈로그 DTO 목록
+     */
+    public List<SoftwareCatalogDTO> getAllSoftwareCatalogs() {
+        log.debug("Retrieving all software catalogs");
+        
+        return catalogService.getAllCatalogs();
     }
-
-    public boolean checkSpecForVm(String namespace, String mciId, String vmId, Long catalogId) {
-        log.debug("checkSpecForVm is deprecated. Use ApplicationOrchestrationService.checkSpecForVm instead.");
-        return applicationOrchestrationService.checkSpecForVm(namespace, mciId, vmId, catalogId);
+    
+    // ===== 넥서스 연동 관련 메서드 =====
+    
+    /**
+     * 넥서스에서 애플리케이션을 조회합니다.
+     * 
+     * @param applicationName 애플리케이션 이름
+     * @return 넥서스 애플리케이션 정보
+     */
+    public Object getApplicationFromNexus(String applicationName) {
+        log.debug("Getting application from Nexus: {}", applicationName);
+        
+        return nexusIntegrationService.getFromNexus(applicationName);
     }
-
-    public boolean checkSpecForK8s(String namespace, String clusterName, Long catalogId) {
-        log.debug("checkSpecForK8s is deprecated. Use ApplicationOrchestrationService.checkSpecForK8s instead.");
-        return applicationOrchestrationService.checkSpecForK8s(namespace, clusterName, catalogId);
+    
+    /**
+     * 넥서스에서 모든 애플리케이션을 조회합니다.
+     * 
+     * @return 넥서스 애플리케이션 목록
+     */
+    public List<Object> getAllApplicationsFromNexus() {
+        log.debug("Getting all applications from Nexus");
+        
+        @SuppressWarnings("unchecked")
+        List<Object> result = (List<Object>) (List<?>) nexusIntegrationService.getAllFromNexus();
+        return result;
     }
-
-    public Spec getSpecForVm(String namespace, String mciId, String vmId) {
-        log.debug("getSpecForVm is deprecated. Use ApplicationOrchestrationService.getSpecForVm instead.");
-        return applicationOrchestrationService.getSpecForVm(namespace, mciId, vmId);
+    
+    /**
+     * 넥서스에서 이미지 태그 목록을 조회합니다.
+     * 
+     * @param imageName 이미지 이름
+     * @return 태그 목록
+     */
+    public List<String> getImageTagsFromNexus(String imageName) {
+        log.debug("Getting image tags from Nexus: {}", imageName);
+        
+        return nexusIntegrationService.getImageTagsFromNexus(imageName);
     }
-
-    public K8sSpec getSpecForK8s(String namespace, String clusterName) {
-        log.debug("getSpecForK8s is deprecated. Use ApplicationOrchestrationService.getSpecForK8s instead.");
-        return applicationOrchestrationService.getSpecForK8s(namespace, clusterName);
+    
+    /**
+     * 넥서스에서 이미지를 풀합니다.
+     * 
+     * @param imageName 이미지 이름
+     * @param tag 태그
+     * @return 풀 결과
+     */
+    public Object pullImageFromNexus(String imageName, String tag) {
+        log.info("Pulling image from Nexus: {}:{}", imageName, tag);
+        
+        return nexusIntegrationService.pullImageFromNexus(imageName, tag);
     }
-
-    public DeploymentHistory deployApplicationToK8s(String namespace, String clusterName, Long catalogId, String username) {
-        log.debug("deployApplicationToK8s is deprecated. Use ApplicationOrchestrationService.deployApplication instead.");
-        DeploymentRequest request = DeploymentRequest.forKubernetes(namespace, clusterName, catalogId, username);
-        return applicationOrchestrationService.deployApplication(request);
+    
+    /**
+     * 카탈로그 ID로 이미지를 풀합니다.
+     * 
+     * @param catalogId 카탈로그 ID
+     * @return 풀 결과
+     */
+    public Object pullImageByCatalogId(Long catalogId) {
+        log.info("Pulling image by catalog ID: {}", catalogId);
+        
+        // 카탈로그 정보 조회애차차
+        SoftwareCatalogDTO catalog = catalogService.getCatalog(catalogId);
+        
+        if (catalog.getPackageInfo() == null) {
+            throw new IllegalArgumentException("PackageInfo is not available for catalog ID: " + catalogId);
+        }
+        
+        String imageName = catalog.getPackageInfo().getPackageName();
+        String tag = catalog.getPackageInfo().getPackageVersion();
+        
+        log.info("Pulling image for catalog '{}': {}:{}", catalog.getTitle(), imageName, tag);
+        
+        return nexusIntegrationService.pullImageFromNexus(imageName, tag);
     }
-
-    public Map<String, Object> performDockerOperationForK8s(ActionType operation, Long applicationStatusId, String reason, String username) {
-        log.debug("performDockerOperationForK8s is deprecated. Use ApplicationOrchestrationService.performOperation instead.");
-        return applicationOrchestrationService.performOperation(operation, applicationStatusId, reason, username);
+    
+    /**
+     * 넥서스에 이미지를 푸시합니다.
+     * 
+     * @param imageName 이미지 이름
+     * @param tag 태그
+     * @param imageData 이미지 데이터
+     * @return 푸시 결과
+     */
+    public Object pushImageToNexus(String imageName, String tag, byte[] imageData) {
+        log.info("Pushing image to Nexus: {}:{}", imageName, tag);
+        
+        return nexusIntegrationService.pushImageToNexus(imageName, tag, imageData);
     }
 
 }

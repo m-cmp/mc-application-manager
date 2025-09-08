@@ -71,6 +71,18 @@ cbtumblebug:
   id: ${TUMBLEBUG_ID:default}
   pass: ${TUMBLEBUG_PASSWORD:default}
 
+nexus:
+  url: ${NEXUS_URL:nexus-repository}
+  port: ${NEXUS_PORT:8081}
+  docker-port: ${NEXUS_DOCKER_PORT:5000}
+  username: ${NEXUS_USERNAME:admin}
+  password: ${NEXUS_PASSWORD:123456}
+  docker-repository: ${NEXUS_DOCKER_REPOSITORY:docker-hosted}
+  helm-repository: ${NEXUS_HELM_REPOSITORY:helm-hosted}
+  hybrid-mode: ${NEXUS_HYBRID_MODE:true}
+  use-external-docker-hub: ${NEXUS_USE_EXTERNAL_DOCKER_HUB:true}
+  use-external-artifact-hub: ${NEXUS_USE_EXTERNAL_ARTIFACT_HUB:true}
+
 docker:
   monitoring:
     interval: 60000  # 밀리초 단위, 기본값은 60000 (1분)

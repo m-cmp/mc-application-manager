@@ -18,6 +18,7 @@ import com.marcnuri.helm.Release;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
+import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,6 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class HelmChartService {
+
+    private final NexusConfig nexusConfig;
 
 
 
@@ -66,8 +69,8 @@ public class HelmChartService {
                     .withNamespace(namespace)
                     .withVersion(catalog.getHelmChart().getChartVersion())
                     .set("replicaCount", catalog.getMinReplicas())
-                    .set("image.repository", catalog.getHelmChart().getImageRepository())
-                    .set("image.tag", "latest")
+                    .set("image.repository", buildImageRepository(catalog))
+                    .set("image.tag", catalog.getHelmChart().getChartVersion())
                     .set("image.pullPolicy", "Always")
                     .set("service.port", catalog.getDefaultPort())
                     .set("resources.requests.cpu", catalog.getMinCpu().toString())
@@ -132,17 +135,15 @@ public class HelmChartService {
     }
 
     private void addHelmRepository(SoftwareCatalog catalog) throws Exception {
+        String chartRepositoryUrl = getHelmChartRepositoryUrl(catalog);
         Helm.repo().add()
                 .withName(catalog.getHelmChart().getRepositoryName())
-                .withUrl(URI.create(catalog.getHelmChart().getChartRepositoryUrl()))
+                .withUrl(URI.create(chartRepositoryUrl))
                 .call();
         Helm.repo().update();
     }
 
-    // kubeconfig 형식이 유효한지 확인하는 메서드
-    private boolean isValidKubeconfig(String kubeconfig) {
-        return kubeconfig.contains("apiVersion") && kubeconfig.contains("kind");
-    }
+
 
     // 임시 kubeconfig 파일 생성
     private Path createTempKubeconfigFile(String kubeconfig) throws IOException {
@@ -154,5 +155,28 @@ public class HelmChartService {
     // 임시 kubeconfig 파일 삭제
     private void deleteTempFile(Path tempFile) throws IOException {
         Files.deleteIfExists(tempFile);
+    }
+    
+    /**
+     * 소스 타입에 따라 적절한 이미지 레포지토리 URL을 생성합니다.
+     */
+    private String buildImageRepository(SoftwareCatalog catalog) {
+        String imageName = catalog.getHelmChart().getImageRepository();
+        if (imageName == null || imageName.isEmpty()) {
+            imageName = catalog.getTitle().toLowerCase().replaceAll("\\s+", "-");
+        }
+        
+        String sourceType = catalog.getSourceType();
+        return nexusConfig.getImageUrlBySourceType(imageName, "latest", sourceType).replace(":latest", "");
+    }
+    
+    /**
+     * 소스 타입에 따라 적절한 Helm 차트 레포지토리 URL을 반환합니다.
+     */
+    private String getHelmChartRepositoryUrl(SoftwareCatalog catalog) {
+        String sourceType = catalog.getSourceType();
+        String originalUrl = catalog.getHelmChart().getChartRepositoryUrl();
+        
+        return nexusConfig.getHelmChartUrlBySourceType(originalUrl, sourceType);
     }
 }
