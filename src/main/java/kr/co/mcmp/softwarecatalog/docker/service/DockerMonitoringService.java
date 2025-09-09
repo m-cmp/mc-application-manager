@@ -73,8 +73,8 @@ public class DockerMonitoringService {
         ApplicationStatus status = applicationStatusRepository.findTopByCatalogIdOrderByCheckedAtDesc(deployment.getCatalog().getId()).orElse(new ApplicationStatus());
 
         try (var dockerClient = dockerClientFactory.getDockerClient(deployment.getPublicIp())) {
-            String catalogTitle = deployment.getCatalog().getTitle().toLowerCase().replaceAll("\\s+", "-");
-            String containerId = containerStatsCollector.getContainerId(dockerClient, catalogTitle);
+            String catalogName = deployment.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");
+            String containerId = containerStatsCollector.getContainerId(dockerClient, catalogName);
             log.debug("containerId: {}", containerId);
 
             if (containerId == null) {

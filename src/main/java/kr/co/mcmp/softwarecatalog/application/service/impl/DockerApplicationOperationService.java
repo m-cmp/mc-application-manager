@@ -42,7 +42,7 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
     
         String host = applicationStatus.getPublicIp();
         DockerClient dockerClient = dockerClientFactory.getDockerClient(host);
-        String containerName = applicationStatus.getCatalog().getTitle().toLowerCase().replaceAll("\\s+", "-");
+        String containerName = applicationStatus.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");
         String containerId = containerStatsCollector.getContainerId(dockerClient, containerName);
 
         if (containerId == null) {

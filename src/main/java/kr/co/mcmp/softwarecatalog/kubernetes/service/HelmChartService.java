@@ -163,7 +163,7 @@ public class HelmChartService {
     private String buildImageRepository(SoftwareCatalog catalog) {
         String imageName = catalog.getHelmChart().getImageRepository();
         if (imageName == null || imageName.isEmpty()) {
-            imageName = catalog.getTitle().toLowerCase().replaceAll("\\s+", "-");
+            imageName = catalog.getName().toLowerCase().replaceAll("\\s+", "-");
         }
         
         String sourceType = catalog.getSourceType();

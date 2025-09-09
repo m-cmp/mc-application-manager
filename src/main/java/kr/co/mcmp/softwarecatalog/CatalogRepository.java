@@ -13,11 +13,11 @@ public interface CatalogRepository extends JpaRepository<SoftwareCatalog, Long> 
 
     // void deleteById(Integer catalogIdx);
 
-    // List<SoftwareCatalog> findByTitleLikeIgnoreCase(String title);
+    // List<SoftwareCatalog> findByNameLikeIgnoreCase(String name);
 
-    // Optional<CatalogEntity> findByTitleAndVersion(String title, String version);
+    // Optional<CatalogEntity> findByNameAndVersion(String name, String version);
 
-    // List<CatalogEntity> findByTitleContainingIgnoreCaseAndVersion(String title, String version);
+    // List<CatalogEntity> findByNameContainingIgnoreCaseAndVersion(String name, String version);
 
     @Query("SELECT sc FROM SoftwareCatalog sc LEFT JOIN FETCH sc.catalogRefs")
     List<SoftwareCatalog> findAllWithCatalogRefs();
@@ -25,6 +25,6 @@ public interface CatalogRepository extends JpaRepository<SoftwareCatalog, Long> 
     @Query("SELECT sc FROM SoftwareCatalog sc LEFT JOIN FETCH sc.catalogRefs WHERE sc.id = :id")
     Optional<SoftwareCatalog> findByIdWithCatalogRefs(@Param("id") Long id);
 
-    @Query("SELECT sc FROM SoftwareCatalog sc LEFT JOIN FETCH sc.catalogRefs WHERE LOWER(sc.title) LIKE LOWER(CONCAT('%', :keyword, '%'))")
-    List<SoftwareCatalog> findByTitleContainingIgnoreCaseWithCatalogRefs(@Param("keyword") String keyword);
+    @Query("SELECT sc FROM SoftwareCatalog sc LEFT JOIN FETCH sc.catalogRefs WHERE LOWER(sc.name) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    List<SoftwareCatalog> findByNameContainingIgnoreCaseWithCatalogRefs(@Param("keyword") String keyword);
 }

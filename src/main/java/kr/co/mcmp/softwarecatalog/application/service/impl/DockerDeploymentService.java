@@ -111,7 +111,7 @@ public class DockerDeploymentService implements DeploymentService {
         String imageUrl = buildImageUrl(catalog);
         
         return DeploymentParameters.builder()
-                .name(catalog.getTitle().toLowerCase().replaceAll("\\s+", "-"))
+                .name(catalog.getName().toLowerCase().replaceAll("\\s+", "-"))
                 .image(imageUrl)
                 .portBindings(servicePort + ":" + containerPort)
                 .build();

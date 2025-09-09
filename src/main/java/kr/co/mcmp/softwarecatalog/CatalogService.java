@@ -57,9 +57,9 @@ public class CatalogService {
         // 2. 넥서스에 애플리케이션 등록
         try {
             nexusIntegrationService.registerToNexus(result);
-            log.info("Application registered to Nexus successfully: {}", result.getTitle());
+            log.info("Application registered to Nexus successfully: {}", result.getName());
         } catch (Exception e) {
-            log.warn("Failed to register application to Nexus: {}", result.getTitle(), e);
+            log.warn("Failed to register application to Nexus: {}", result.getName(), e);
             // 넥서스 등록 실패해도 DB 등록은 유지
         }
         
@@ -172,10 +172,10 @@ public class CatalogService {
 
         // 1. 넥서스에서 애플리케이션 삭제
         try {
-            nexusIntegrationService.deleteFromNexus(catalog.getTitle());
-            log.info("Application deleted from Nexus successfully: {}", catalog.getTitle());
+            nexusIntegrationService.deleteFromNexus(catalog.getName());
+            log.info("Application deleted from Nexus successfully: {}", catalog.getName());
         } catch (Exception e) {
-            log.warn("Failed to delete application from Nexus: {}", catalog.getTitle(), e);
+            log.warn("Failed to delete application from Nexus: {}", catalog.getName(), e);
             // 넥서스 삭제 실패해도 DB 삭제는 진행
         }
 
@@ -189,7 +189,7 @@ public class CatalogService {
     }
 
     private void updateCatalogFromDTO(SoftwareCatalog catalog, SoftwareCatalogDTO dto, User user) {
-        catalog.setTitle(dto.getTitle());
+        catalog.setName(dto.getName());
         catalog.setDescription(dto.getDescription());
         catalog.setCategory(dto.getCategory());
         catalog.setSourceType(dto.getSourceType());
@@ -260,7 +260,7 @@ public class CatalogService {
                     CombinedCatalogDTO combinedDTO = new CombinedCatalogDTO();
                     combinedDTO.setSoftwareCatalogDTO(getSoftwareCatalogDTO(catalog));
                     
-                    CommonRepository.RepositoryDto nexusRepo = nexusRepoMap.get(catalog.getTitle());
+                    CommonRepository.RepositoryDto nexusRepo = nexusRepoMap.get(catalog.getName());
                     if (nexusRepo != null) {
                         combinedDTO.setRepositoryDTO(nexusRepo);
                     }
@@ -278,7 +278,7 @@ public class CatalogService {
 
         List<CommonRepository.RepositoryDto> nexusRepositories = moduleRepositoryService.getRepositoryList("nexus");
         CommonRepository.RepositoryDto nexusRepo = nexusRepositories.stream()
-                .filter(repo -> repo.getName().equals(catalog.getTitle()))
+                .filter(repo -> repo.getName().equals(catalog.getName()))
                 .findFirst()
                 .orElse(null);
 
@@ -317,7 +317,7 @@ public class CatalogService {
      */
     @Transactional
     public Map<String, Object> pushImageAndRegisterCatalog(SoftwareCatalogDTO catalog, String username) {
-        log.info("Pushing image and registering catalog: {}", catalog.getTitle());
+        log.info("Pushing image and registering catalog: {}", catalog.getName());
         
         // 1. 이미지 푸시 및 넥서스 등록
         Map<String, Object> nexusResult = nexusIntegrationService.pushImageAndRegisterCatalog(catalog);
@@ -393,7 +393,7 @@ public class CatalogService {
         String imageName = catalog.getPackageInfo().getPackageName();
         String tag = catalog.getPackageInfo().getPackageVersion();
         
-        log.info("Pulling image for catalog '{}': {}:{}", catalog.getTitle(), imageName, tag);
+        log.info("Pulling image for catalog '{}': {}:{}", catalog.getName(), imageName, tag);
         
         return nexusIntegrationService.pullImageFromNexus(imageName, tag);
     }

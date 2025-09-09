@@ -43,7 +43,7 @@ public class SoftwareCatalog {
     private Long id;         // 소프트웨어 카탈로그 고유 식별자
 
     @Column(columnDefinition="VARCHAR(200) NOT NULL DEFAULT ''", name="TITLE")
-    private String title;       // 소프트웨어 이름
+    private String name;       // 소프트웨어 이름
 
     @Column(columnDefinition="VARCHAR(15) NOT NULL DEFAULT ''", name="CATEGORY")
     private String category;    // 소프트웨어 카탈로그 (예 : DB, WAS 등)
@@ -110,6 +110,9 @@ public class SoftwareCatalog {
     private Integer maxReplicas; // 최대 복제 수
 
     @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PortMapping> ports = new ArrayList<>();
+
+    @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<CatalogRefEntity> catalogRefs = new ArrayList<>();
     
@@ -129,5 +132,15 @@ public class SoftwareCatalog {
     public void removeCatalogRef(CatalogRefEntity catalogRef) {
         this.catalogRefs.remove(catalogRef);
         catalogRef.setCatalog(null);
+    }
+
+    public void addPort(PortMapping port) {
+        this.ports.add(port);
+        port.setCatalog(this);
+    }
+
+    public void removePort(PortMapping port) {
+        this.ports.remove(port);
+        port.setCatalog(null);
     }
 }

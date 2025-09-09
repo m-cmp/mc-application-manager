@@ -42,7 +42,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
      */
     @Override
     public Map<String, Object> registerToNexus(SoftwareCatalogDTO catalog) {
-        log.info("Registering application to Nexus: {} (Source: {})", catalog.getTitle(), catalog.getSourceType());
+        log.info("Registering application to Nexus: {} (Source: {})", catalog.getName(), catalog.getSourceType());
         
         try {
             Map<String, Object> result = new HashMap<>();
@@ -83,11 +83,11 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 result = registerToInternalNexus(catalog);
             }
             
-            log.info("Application registration completed: {}", catalog.getTitle());
+            log.info("Application registration completed: {}", catalog.getName());
             return result;
             
         } catch (Exception e) {
-            log.error("Failed to register application: {}", catalog.getTitle(), e);
+            log.error("Failed to register application: {}", catalog.getName(), e);
             
             Map<String, Object> result = new HashMap<>();
             result.put("success", false);
@@ -105,7 +105,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private Map<String, Object> registerToInternalNexus(SoftwareCatalogDTO catalog) {
         try {
             // 1. 먼저 Docker Repository가 존재하는지 확인하고, 없으면 생성
-            String repositoryName = catalog.getTitle().toLowerCase().replaceAll("[^a-z0-9-]", "-");
+            String repositoryName = catalog.getName().toLowerCase().replaceAll("[^a-z0-9-]", "-");
             Map<String, Object> repositoryResult = ensureDockerRepositoryExists(repositoryName);
             
             if (!(Boolean) repositoryResult.get("success")) {
@@ -135,11 +135,11 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             result.put("repositoryMessage", repositoryResult.get("message"));
             
             log.info("Application registered to internal Nexus successfully: {} (repository action: {})", 
-                    catalog.getTitle(), repositoryResult.get("action"));
+                    catalog.getName(), repositoryResult.get("action"));
             return result;
             
         } catch (Exception e) {
-            log.error("Failed to register application to internal Nexus: {}", catalog.getTitle(), e);
+            log.error("Failed to register application to internal Nexus: {}", catalog.getName(), e);
             throw e;
         }
     }
@@ -1040,7 +1040,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 .forceBasicAuth(true)
                 .httpPort(8080)
                 .httpsPort(8443)
-                .subdomain("/" + catalog.getTitle().toLowerCase().replaceAll("\\s+", "-"))
+                .subdomain("/" + catalog.getName().toLowerCase().replaceAll("\\s+", "-"))
                 .build();
         
         // Storage 설정
@@ -1052,7 +1052,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         
         // 레포지토리 DTO 생성
         return CommonRepository.RepositoryDto.builder()
-                .name(catalog.getTitle())
+                .name(catalog.getName())
                 .format("docker")
                 .type("hosted")
                 .url("") // 등록시에는 빈값
@@ -1118,7 +1118,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
      */
     @Override
     public Map<String, Object> pushImageAndRegisterCatalog(SoftwareCatalogDTO catalog) {
-        log.info("Pushing image and registering catalog: {}", catalog.getTitle());
+        log.info("Pushing image and registering catalog: {}", catalog.getName());
         
         Map<String, Object> result = new HashMap<>();
         
@@ -1163,7 +1163,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             }
             
         } catch (Exception e) {
-            log.error("Error pushing image and registering catalog: {}", catalog.getTitle(), e);
+            log.error("Error pushing image and registering catalog: {}", catalog.getName(), e);
             result.put("success", false);
             result.put("message", "Error during image push and catalog registration: " + e.getMessage());
         }

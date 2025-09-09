@@ -48,7 +48,7 @@ public class ApplicationStatusDto {
         return ApplicationStatusDto.builder()
                 .id(entity.getId())
                 .catalogId(entity.getCatalog() != null ? entity.getCatalog().getId() : null)
-                .applicationName(entity.getCatalog() != null ? entity.getCatalog().getTitle() : null)
+                .applicationName(entity.getCatalog() != null ? entity.getCatalog().getName() : null)
                 .deploymentType(entity.getDeploymentType())
                 .namespace(entity.getNamespace())
                 .mciId(entity.getMciId())
