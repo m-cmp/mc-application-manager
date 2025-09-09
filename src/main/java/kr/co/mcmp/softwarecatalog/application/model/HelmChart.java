@@ -53,6 +53,9 @@ public class HelmChart {
     @Column(name = "package_id")
     private String packageId; // ArtifactHub 패키지 ID (ArtifactHub 전용)
 
+    @Column(name = "category")
+    private String category; // 카테고리
+
     // IMAGE_REPOSITORY
     @Column(name= "image_repository")
     private String imageRepository;

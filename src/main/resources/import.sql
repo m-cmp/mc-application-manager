@@ -129,8 +129,8 @@ INSERT INTO PACKAGE_INFO (
  '50M+', 235);
 
 -- HelmChart 데이터 (ArtifactHub 기반)
-INSERT INTO HELM_CHART (CATALOG_ID, CHART_NAME, CHART_VERSION, CHART_REPOSITORY_URL, VALUES_FILE, HAS_VALUES_SCHEMA, REPOSITORY_NAME, REPOSITORY_OFFICIAL, REPOSITORY_DISPLAY_NAME , IMAGE_REPOSITORY ) VALUES
-((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'Grafana'), 'grafana', '6.59.0', 'https://grafana.github.io/helm-charts', 'https://artifacthub.io/packages/helm/grafana/grafana/values.yaml', true, 'grafana', true, 'Grafana', 'docker.io/grafana/grafana');
+INSERT INTO HELM_CHART (CATALOG_ID, CATEGORY, CHART_NAME, CHART_VERSION, CHART_REPOSITORY_URL, VALUES_FILE, HAS_VALUES_SCHEMA, REPOSITORY_NAME, REPOSITORY_OFFICIAL, REPOSITORY_DISPLAY_NAME , IMAGE_REPOSITORY ) VALUES
+((SELECT ID FROM SOFTWARE_CATALOG WHERE TITLE = 'Grafana'), 'MONITORING_AND_LOGGING', 'grafana', '6.59.0', 'https://grafana.github.io/helm-charts', 'https://artifacthub.io/packages/helm/grafana/grafana/values.yaml', true, 'grafana', true, 'Grafana', 'docker.io/grafana/grafana');
 
 -- SOFTWARE_CATALOG_REF 데이터
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE)
