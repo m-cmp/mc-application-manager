@@ -1,8 +1,12 @@
 package kr.co.mcmp.softwarecatalog.application.repository;
 
+import java.util.List;
 import java.util.Optional;
 
+import feign.Param;
+import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
@@ -15,4 +19,14 @@ public interface HelmChartRepository extends JpaRepository<HelmChart, Long> {
     Optional<HelmChart> findByCatalogId(Long catalogId);
     void deleteByCatalog(SoftwareCatalog catalog);
     void deleteByCatalogId(Long catalogId);
+
+
+    @Query("SELECT DISTINCT hc.category FROM HelmChart hc")
+    List<String> findDistinctCategories();
+
+
+    List<HelmChart> findByCategory(String category);
+
+    @Query("SELECT DISTINCT hc.chartVersion FROM HelmChart hc WHERE hc.chartName = :chartName")
+    List<String> findDistinctPackageVersionByChartName(String chartName);
 }

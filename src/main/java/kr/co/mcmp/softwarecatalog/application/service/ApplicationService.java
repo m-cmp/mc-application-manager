@@ -1,5 +1,10 @@
 package kr.co.mcmp.softwarecatalog.application.service;
 
+import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
+import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
+import kr.co.mcmp.softwarecatalog.catetory.dto.KeyValueDTO;
+import kr.co.mcmp.softwarecatalog.catetory.dto.SoftwareCatalogRequestDTO;
+
 import java.util.List;
 
 /**
@@ -41,4 +46,10 @@ public interface ApplicationService {
      * @return 풀 결과
      */
     Object pullImageFromNexus(String imageName, String tag);
+
+    List<KeyValueDTO> getCategoriesFromDB(SoftwareCatalogRequestDTO.SearchCatalogListDTO request);
+
+    List<KeyValueDTO> getPackageInfoFromDB(SoftwareCatalogRequestDTO.SearchPackageListDTO request);
+
+    List<KeyValueDTO> getPackageVersionFromDB(SoftwareCatalogRequestDTO.SearchPackageVersionListDTO request);
 }

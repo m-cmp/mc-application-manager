@@ -2,6 +2,10 @@ package kr.co.mcmp.softwarecatalog;
 
 import java.util.List;
 
+import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
+import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
+import kr.co.mcmp.softwarecatalog.catetory.dto.KeyValueDTO;
+import kr.co.mcmp.softwarecatalog.catetory.dto.SoftwareCatalogRequestDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,6 +34,7 @@ public class CatalogController {
 
 
    private final CatalogService catalogService;
+   private final ApplicationService applicationService;
 
     @Operation(summary = "카탈로그 생성")
     @PostMapping
@@ -87,7 +92,7 @@ public class CatalogController {
     }
     
     // ===== 넥서스 연동 API 엔드포인트 (카탈로그 관리용) =====
-    
+
     @Operation(summary = "넥서스에 이미지 존재 확인", description = "넥서스에 이미지가 존재하는지 확인합니다.")
     @GetMapping("/nexus/image/exists")
     public ResponseEntity<ResponseWrapper<Boolean>> checkImageExistsInNexus(
@@ -139,5 +144,26 @@ public class CatalogController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
+    // ==== Nexus에 등록된 Application DB 조회====
 
+    @Operation(summary = "DB에 저장된 Application Category 조회", description = "Nexus 등록시 DB에 저장된 Application Category를 조회합니다.")
+    @PostMapping("/category")
+    public ResponseEntity<ResponseWrapper<List<KeyValueDTO>>> getCatalogCategory(@RequestBody SoftwareCatalogRequestDTO.SearchCatalogListDTO requestDto) {
+        List<KeyValueDTO> dto = applicationService.getCategoriesFromDB(requestDto);
+        return ResponseEntity.ok(new ResponseWrapper<>(dto));
+    }
+
+    @Operation(summary = "", description = "")
+    @PostMapping("/package")
+    public ResponseEntity<ResponseWrapper<List<KeyValueDTO>>> getAllApplications(@RequestBody SoftwareCatalogRequestDTO.SearchPackageListDTO requestDto) {
+        List<KeyValueDTO> dto = applicationService.getPackageInfoFromDB(requestDto);
+        return ResponseEntity.ok(new ResponseWrapper<>(dto));
+    }
+
+    @Operation(summary = "", description = "")
+    @PostMapping("/package/version")
+    public ResponseEntity<ResponseWrapper<List<KeyValueDTO>>> getPackageVersion(@RequestBody SoftwareCatalogRequestDTO.SearchPackageVersionListDTO requestDto) {
+        List<KeyValueDTO> dto = applicationService.getPackageVersionFromDB(requestDto);
+        return ResponseEntity.ok(new ResponseWrapper<>(dto));
+    }
 }

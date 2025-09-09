@@ -52,18 +52,25 @@ public class CatalogService {
         }
         
         // 1. 내부 DB에 카탈로그 등록
-        SoftwareCatalogDTO result = createCatalogInternal(catalogDTO, user);
-        
-        // 2. 넥서스에 애플리케이션 등록
-        try {
-            nexusIntegrationService.registerToNexus(result);
-            log.info("Application registered to Nexus successfully: {}", result.getName());
-        } catch (Exception e) {
-            log.warn("Failed to register application to Nexus: {}", result.getName(), e);
-            // 넥서스 등록 실패해도 DB 등록은 유지
-        }
-        
-        log.info("Software catalog registered successfully with ID: {}", result.getId());
+        SoftwareCatalog catalog = catalogDTO.toEntity();
+        catalog.setRegisteredBy(user);
+        catalog.setCreatedAt(LocalDateTime.now());
+        catalog.setUpdatedAt(LocalDateTime.now());
+
+        catalog = catalogRepository.save(catalog);
+        SoftwareCatalogDTO result = SoftwareCatalogDTO.fromEntity(catalog);
+//        SoftwareCatalogDTO result = createCatalogInternal(catalogDTO, user);
+//
+//        // 2. 넥서스에 애플리케이션 등록
+//        try {
+//            nexusIntegrationService.registerToNexus(result);
+//            log.info("Application registered to Nexus successfully: {}", result.getName());
+//        } catch (Exception e) {
+//            log.warn("Failed to register application to Nexus: {}", result.getName(), e);
+//            // 넥서스 등록 실패해도 DB 등록은 유지
+//        }
+//
+//        log.info("Software catalog registered successfully with ID: {}", result.getId());
         return result;
     }
     

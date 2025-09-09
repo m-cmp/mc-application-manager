@@ -45,7 +45,7 @@ public class SoftwareCatalog {
     @Column(columnDefinition="VARCHAR(200) NOT NULL DEFAULT ''", name="TITLE")
     private String name;       // 소프트웨어 이름
 
-    @Column(columnDefinition="VARCHAR(15) NOT NULL DEFAULT ''", name="CATEGORY")
+    @Column(columnDefinition="VARCHAR(255) NOT NULL DEFAULT ''", name="CATEGORY")
     private String category;    // 소프트웨어 카탈로그 (예 : DB, WAS 등)
 
     @Column(name = "source_type", nullable = true)
