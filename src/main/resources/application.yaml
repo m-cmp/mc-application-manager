@@ -86,6 +86,13 @@ nexus:
 docker:
   monitoring:
     interval: 60000  # 밀리초 단위, 기본값은 60000 (1분)
+  push:
+    timeout-seconds: 600  # 10분
+    max-retries: 3
+    retry-delay-seconds: 5
+  validation:
+    check-daemon: true
+
     
 file:
   upload:
@@ -93,3 +100,5 @@ file:
       windows: C:/mcmp/uploads/
       linux: /home/mcmp/uploads/
     allowed-extensions: jpg,jpeg,png,gif
+
+  

@@ -2,6 +2,7 @@ package kr.co.mcmp.softwarecatalog;
 
 import java.util.List;
 
+import kr.co.mcmp.softwarecatalog.application.dto.DockerHubImageRegistrationRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
 import kr.co.mcmp.softwarecatalog.catetory.dto.KeyValueDTO;
@@ -166,4 +167,35 @@ public class CatalogController {
         List<KeyValueDTO> dto = applicationService.getPackageVersionFromDB(requestDto);
         return ResponseEntity.ok(new ResponseWrapper<>(dto));
     }
+
+    // ===== Docker Hub 연동 API 엔드포인트 =====
+    
+    @Operation(summary = "Docker Hub에서 이미지 검색", description = "Docker Hub에서 이미지를 검색합니다.")
+    @GetMapping("/dockerhub/search")
+    public ResponseEntity<ResponseWrapper<Object>> searchDockerHubImages(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        Object result = catalogService.searchDockerHubImages(query, page, pageSize);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+    
+    @Operation(summary = "Docker Hub 이미지 상세 정보 조회", description = "Docker Hub에서 특정 이미지의 상세 정보를 조회합니다.")
+    @GetMapping("/dockerhub/image/{imageName}")
+    public ResponseEntity<ResponseWrapper<Object>> getDockerHubImageDetails(
+            @PathVariable String imageName,
+            @RequestParam(required = false) String tag) {
+        Object result = catalogService.getDockerHubImageDetails(imageName, tag);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+    
+    @Operation(summary = "Docker Hub 이미지를 카탈로그에 등록", description = "Docker Hub 이미지를 카탈로그에 등록하고 넥서스에 푸시합니다.")
+    @PostMapping("/dockerhub/register")
+    public ResponseEntity<ResponseWrapper<Object>> registerDockerHubImage(
+            @RequestBody DockerHubImageRegistrationRequest request,
+            @RequestParam(required = false) String username) {
+        Object result = catalogService.registerDockerHubImage(request, username);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+
 }
