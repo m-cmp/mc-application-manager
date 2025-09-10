@@ -4,8 +4,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -19,6 +24,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import kr.co.mcmp.dto.oss.repository.CommonRepository;
 import kr.co.mcmp.service.oss.repository.CommonModuleRepositoryService;
@@ -50,6 +56,86 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     @Value("${docker.registry.port:5500}")
     private int dockerRegistryPort;
     
+    @Value("${docker.push.timeout-seconds:600}")
+    private long dockerTimeoutSeconds;
+    
+    @Value("${docker.push.max-retries:3}")
+    private int maxRetries;
+    
+    @Value("${docker.registry.secure:false}")
+    private boolean dockerRegistrySecure;
+    
+    @Value("${docker.push.retry-delay-seconds:5}")
+    private long retryDelaySeconds;
+    
+    @Value("${docker.validation.check-daemon:true}")
+    private boolean checkDockerDaemon;
+    
+    /**
+     * Docker 명령어 실행 결과를 담는 클래스
+     */
+    private static class DockerCommandResult {
+        private final int exitCode;
+        private final String stdout;
+        private final String stderr;
+        
+        public DockerCommandResult(int exitCode, String stdout, String stderr) {
+            this.exitCode = exitCode;
+            this.stdout = stdout;
+            this.stderr = stderr;
+        }
+        
+        public boolean isSuccess() {
+            return exitCode == 0;
+        }
+        
+        public String getErrorAnalysis() {
+            if (isSuccess()) return null;
+            
+            String errorOutput = stderr.toLowerCase();
+            if (errorOutput.contains("unauthorized") || errorOutput.contains("authentication")) {
+                return "인증 실패: Docker 로그인 정보를 확인하세요";
+            } else if (errorOutput.contains("insecure registry")) {
+                return "Insecure registry 설정이 필요합니다";
+            } else if (errorOutput.contains("network") || errorOutput.contains("timeout")) {
+                return "네트워크 연결 오류가 발생했습니다";
+            } else if (errorOutput.contains("denied") || errorOutput.contains("forbidden")) {
+                return "권한 거부: 저장소에 대한 푸시 권한을 확인하세요";
+            } else if (errorOutput.contains("not found")) {
+                return "이미지 또는 저장소를 찾을 수 없습니다";
+            }
+            return "알 수 없는 오류: " + stderr;
+        }
+        
+        // Getters
+        public int getExitCode() { return exitCode; }
+        public String getStdout() { return stdout; }
+        public String getStderr() { return stderr; }
+    }
+    
+    /**
+     * Docker 레지스트리 정보를 담는 클래스
+     */
+    private static class DockerRegistryInfo {
+        private final String registryUrl;
+        private final boolean isSecure;
+        private final String host;
+        private final int port;
+        
+        public DockerRegistryInfo(String registryUrl, boolean isSecure, String host, int port) {
+            this.registryUrl = registryUrl;
+            this.isSecure = isSecure;
+            this.host = host;
+            this.port = port;
+        }
+        
+        // Getters
+        public String getRegistryUrl() { return registryUrl; }
+        public boolean isSecure() { return isSecure; }
+        public String getHost() { return host; }
+        public int getPort() { return port; }
+    }
+    
     /**
      * 소프트웨어 카탈로그를 넥서스에 등록합니다.
      * 
@@ -63,7 +149,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         try {
             Map<String, Object> result = new HashMap<>();
             
-            // 하이브리드 모드에서 소스 타입에 따라 처리
+            // 하이브리드 모드에서 소스 타입에 따라 처리미너ㄹㄹ
             if (nexusConfig.isHybridMode()) {
                 switch (catalog.getSourceType().toUpperCase()) {
                     case "DOCKERHUB":
@@ -388,129 +474,69 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
      * @return 등록 결과 (성공/실패, 메시지, 이미지 URL, 넥서스 레지스트리, 인증 정보, 소스)
      */
     private Map<String, Object> executeDockerPush(String imageName, String tag, String fullImageName) {
-            Map<String, Object> result = new HashMap<>();
+        log.info("=== Starting enhanced Docker Hub to Nexus push ===");
+        log.info("Image: {}:{}", imageName, tag);
         
         try {
-            // DB에서 실제 넥서스 정보 가져오기
-            OssDto nexusInfo = getNexusInfoFromDB();
-            log.info("Retrieved Nexus info from DB: URL={}, Username={}", 
-                    nexusInfo.getOssUrl(), nexusInfo.getOssUsername());
-            
-            // 5500포트로 Docker Registry URL 구성
-            String dockerRegistryUrl = nexusInfo.getOssUrl().replace("http://", "").replace(":8081", ":" + dockerRegistryPort);
-            String username = nexusInfo.getOssUsername();
-            String password = Base64Utils.base64Decoding(nexusInfo.getOssPassword());
-            
-            log.info("Docker registry URL: {}, Port: {}", dockerRegistryUrl, dockerRegistryPort);
-            
-            // 동적으로 Docker 레포지토리 이름 조회
-            String dockerRepositoryName = getDockerRepositoryName();
-            log.info("Docker repository name: {}", dockerRepositoryName);
-            
-            // 넥서스 형식의 이미지 이름 구성
-            String nexusImageName = dockerRegistryUrl + "/" + dockerRepositoryName + "/" + imageName + ":" + tag;
-            
-            // 넥서스 Repository에 파일 업로드 방식으로 이미지 등록
-            try {
-                log.info("Uploading image to Nexus repository: {}:{}", imageName, tag);
-                
-                // 1. 소스 이미지 풀
-                log.info("Pulling source image: {}:{}", imageName, tag);
-                ProcessBuilder pullProcess = new ProcessBuilder(
-                    "docker", "pull", imageName + ":" + tag
-                );
-                Process pullProc = pullProcess.start();
-                int pullExitCode = pullProc.waitFor();
-                
-                if (pullExitCode != 0) {
-                    log.error("Failed to pull source image: {}:{}", imageName, tag);
-                    result.put("success", false);
-                    result.put("message", "Failed to pull source image: " + imageName + ":" + tag);
-                    return result;
-                }
-                
-                // 2. 이미지를 tar 파일로 저장
-                String tarFileName = imageName.replace("/", "_") + "_" + tag + ".tar";
-                log.info("Saving image to tar file: {}", tarFileName);
-                ProcessBuilder saveProcess = new ProcessBuilder(
-                    "docker", "save", "-o", tarFileName, imageName + ":" + tag
-                );
-                Process saveProc = saveProcess.start();
-                int saveExitCode = saveProc.waitFor();
-                
-                if (saveExitCode != 0) {
-                    log.error("Failed to save image to tar file: {}", tarFileName);
-                    result.put("success", false);
-                    result.put("message", "Failed to save image to tar file: " + tarFileName);
-                    return result;
-                }
-                
-                // 3. 넥서스에 파일 업로드
-                String uploadUrl = nexusInfo.getOssUrl() + "/service/rest/v1/components?repository=" + dockerRepositoryName;
-                log.info("Uploading tar file to Nexus: {}", uploadUrl);
-                
-                ProcessBuilder uploadProcess = new ProcessBuilder(
-                    "curl", "-X", "POST", "-s",
-                    "-u", username + ":" + password,
-                    "-H", "Content-Type: multipart/form-data",
-                    "-F", "docker.asset=" + tarFileName,
-                    "-F", "docker.asset.filename=" + tarFileName,
-                    "-F", "docker.asset.extension=tar",
-                    "-F", "docker.asset.contentType=application/x-tar",
-                    uploadUrl
-                );
-                
-                Process uploadProc = uploadProcess.start();
-                int uploadExitCode = uploadProc.waitFor();
-                
-                // 4. 임시 tar 파일 삭제
-                try {
-                    ProcessBuilder deleteProcess = new ProcessBuilder("rm", "-f", tarFileName);
-                    deleteProcess.start().waitFor();
-                } catch (Exception e) {
-                    log.warn("Failed to delete temporary tar file: {}", tarFileName);
-                }
-                
-                if (uploadExitCode == 0) {
-                    log.info("Successfully uploaded image to Nexus: {}:{}", imageName, tag);
-                    result.put("success", true);
-                    result.put("message", "Image successfully uploaded to Nexus repository");
-                } else {
-                    log.error("Failed to upload image to Nexus: {}:{}", imageName, tag);
-                    result.put("success", false);
-                    result.put("message", "Failed to upload image to Nexus: " + imageName + ":" + tag);
-                    return result;
-                }
-                
-            } catch (Exception e) {
-                log.error("Error during image upload to Nexus", e);
-                result.put("success", false);
-                result.put("message", "Error during image upload: " + e.getMessage());
-                return result;
+            // 1. OSS 정보 가져오기
+            OssDto ossInfo = getNexusInfoFromDB();
+            if (ossInfo == null) {
+                return createErrorResult("OSS 정보를 데이터베이스에서 가져올 수 없습니다.");
             }
             
+            // 2. Docker 환경 검증
+            if (checkDockerDaemon && !validateDockerEnvironment()) {
+                return createErrorResult("Docker 환경 검증에 실패했습니다. Docker가 실행 중인지 확인하세요.");
+            }
+            
+            // 3. Nexus URL 파싱 및 검증
+            DockerRegistryInfo registryInfo;
+            try {
+                registryInfo = parseNexusUrl(ossInfo.getOssUrl());
+            } catch (IllegalArgumentException e) {
+                return createErrorResult("Nexus URL 형식이 올바르지 않습니다: " + e.getMessage());
+            }
+            
+            // 4. insecure registry 설정 확인 (HTTP의 경우)
+            if (!registryInfo.isSecure()) {
+                boolean isConfigured = validateInsecureRegistryConfiguration(registryInfo.getRegistryUrl());
+                if (!isConfigured) {
+                    return createErrorResult(
+                        String.format("Insecure registry 설정이 필요합니다.\n" +
+                                     "Docker Desktop 설정에서 다음 URL을 insecure-registries에 추가하세요: %s\n" +
+                                     "또는 daemon.json 파일에 \"insecure-registries\": [\"%s\"]를 추가하세요.",
+                                     registryInfo.getRegistryUrl(), registryInfo.getRegistryUrl()));
+                }
+            }
+            
+            // 5. 이미지 푸시 실행
+            boolean success = executeEnhancedDockerPush(imageName, tag, ossInfo, registryInfo);
+            
+            Map<String, Object> result = new HashMap<>();
+            if (success) {
+                String repositoryName = getDockerRepositoryName();
+                result.put("success", true);
+                result.put("message", "이미지가 성공적으로 Nexus에 푸시되었습니다.");
             result.put("imageName", imageName);
             result.put("tag", tag);
-            result.put("fullImageUrl", nexusImageName);
-            result.put("nexusRegistry", dockerRegistryUrl);
-            result.put("nexusCredentials", username + ":***");
+                result.put("fullImageUrl", registryInfo.getRegistryUrl() + "/" + repositoryName + "/" + imageName + ":" + tag);
+                result.put("nexusRegistry", registryInfo.getRegistryUrl());
+                result.put("nexusCredentials", ossInfo.getOssUsername() + ":***");
             result.put("source", "Internal Nexus (Development Server)");
-            result.put("repository", dockerRepositoryName);
-            result.put("webUrl", nexusInfo.getOssUrl() + "/#browse/browse:" + dockerRepositoryName);
-            result.put("note", "이미지 컴포넌트가 넥서스에 등록되었습니다. 실제 이미지 데이터는 Docker 명령어로 업로드하세요.");
-            result.put("dockerCommands", createDockerCommands(nexusImageName, username, password, dockerRegistryUrl, imageName, tag));
-            
-            log.info("Image information registered to Nexus: {}:{} in repository: {}", 
-                    imageName, tag, dockerRepositoryName);
-            
-        } catch (Exception e) {
-            log.error("Error registering image information to Nexus", e);
+                result.put("repository", repositoryName);
+                result.put("webUrl", ossInfo.getOssUrl() + "/#browse/browse:" + repositoryName);
+                result.put("note", "이미지가 Docker 명령어를 통해 Nexus에 성공적으로 푸시되었습니다.");
+            } else {
             result.put("success", false);
-            result.put("message", "Error registering image information: " + e.getMessage());
-            result.put("error", e.getClass().getSimpleName() + ": " + e.getMessage());
+                result.put("message", "이미지 푸시에 실패했습니다. 로그를 확인하세요.");
         }
         
         return result;
+            
+        } catch (Exception e) {
+            log.error("Unexpected error during image push", e);
+            return createErrorResult("예상치 못한 오류가 발생했습니다: " + e.getMessage());
+        }
     }
     
     /**
@@ -1017,8 +1043,8 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         CommonRepository.RepositoryDto.DockerDto dockerDto = CommonRepository.RepositoryDto.DockerDto.builder()
                 .v1Enabled(false)
                 .forceBasicAuth(true)
-                .httpPort(8080)
-                .httpsPort(8443)
+                .httpPort(dockerRegistryPort)
+                .httpsPort(dockerRegistryPort + 100)
                 .subdomain("/" + catalog.getName().toLowerCase().replaceAll("\\s+", "-"))
                 .build();
         
@@ -1336,5 +1362,1455 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             log.error("Error uploading file to Nexus: {}", uploadUrl, e);
             return false;
         }
+    }
+    
+    /**
+     * 개선된 Docker 푸시 실행
+     */
+    private boolean executeEnhancedDockerPush(String imageName, String tag, OssDto ossInfo, 
+                                            DockerRegistryInfo registryInfo) {
+        log.info("=== Starting enhanced Docker push process ===");
+        
+        try {
+            String repositoryName = getDockerRepositoryName();
+            String username = ossInfo.getOssUsername();
+            String password = Base64Utils.base64Decoding(ossInfo.getOssPassword());
+            
+            // 1. Nexus에 로그인 (DinD 컨테이너 시작 포함)
+            if (!loginToNexus(registryInfo.getRegistryUrl(), username, password)) {
+                return false;
+            }
+            
+            // 2. DinD 컨테이너 내부에서 Docker Hub에서 이미지 풀
+            if (!pullImageFromDockerHub(imageName, tag)) {
+                return false;
+            }
+            
+            // 3. 이미지 태그 생성
+            String sourceImage = getSourceImageName(imageName, tag);
+            String nexusImage = getNexusImageName(registryInfo.getRegistryUrl(), repositoryName, imageName, tag);
+            if (!tagImageForNexus(sourceImage, nexusImage)) {
+                return false;
+            }
+            
+            // 4. Nexus에 푸시
+            if (!pushImageToRegistry(nexusImage)) {
+                return false;
+            }
+            
+            log.info("=== Enhanced Docker push process completed successfully ===");
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Error in enhanced Docker push process", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Docker Hub에서 이미지 풀 (재시도 로직 포함)
+     */
+    private boolean pullImageFromDockerHub(String imageName, String tag) {
+        log.info("Step 1/4: Pulling image from Docker Hub...");
+        
+        String sourceImage = getSourceImageName(imageName, tag);
+        
+        // DinD 컨테이너 내부에서 pull 실행
+        String containerName = "dind-210-217-178-130-5500"; // 하드코딩된 컨테이너 이름 사용
+        
+        ProcessBuilder pullProcess = new ProcessBuilder(
+            "docker", "exec", "-i", containerName,
+            "docker", "pull", sourceImage
+        );
+        
+        // DinD 컨테이너 내부 환경 설정
+        pullProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+        pullProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+        
+        return executeDockerCommandWithRetry(pullProcess, "Docker Pull", dockerTimeoutSeconds);
+    }
+    
+    /**
+     * Nexus에 로그인 (재시도 로직 포함) - --password-stdin 사용
+     */
+    private boolean loginToNexus(String registryUrl, String username, String password) {
+        log.info("Step 2/4: Logging into Nexus...");
+        
+        // 프로토콜 제거한 URL 사용
+        String cleanRegistryUrl = registryUrl.replaceFirst("^https?://", "");
+        
+        // Docker daemon을 insecure registry로 시작하는 방법 시도
+        if (tryLoginWithInsecureRegistry(cleanRegistryUrl, username, password)) {
+            return true;
+        }
+        
+        // 기본 방법으로 시도
+        ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", cleanRegistryUrl, "-u", username, "--password-stdin");
+        
+        // Docker 환경 변수 설정
+        loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+        loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+        loginProcess.environment().put("DOCKER_BUILDKIT", "0");
+        
+        // insecure registry 설정을 환경 변수로 추가
+        String insecureRegistries = System.getenv("DOCKER_INSECURE_REGISTRIES");
+        if (insecureRegistries == null || !insecureRegistries.contains(cleanRegistryUrl)) {
+            String newInsecureRegistries = insecureRegistries == null ? cleanRegistryUrl : insecureRegistries + "," + cleanRegistryUrl;
+            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", newInsecureRegistries);
+            log.info("Set DOCKER_INSECURE_REGISTRIES environment variable: {}", newInsecureRegistries);
+        }
+        
+        return executeDockerCommandWithRetryAndStdin(loginProcess, "Docker Login", 30, password);
+    }
+    
+    /**
+     * insecure registry로 Docker 로그인 시도
+     */
+    private boolean tryLoginWithInsecureRegistry(String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting login with insecure registry configuration: {}", registryUrl);
+            
+            // 1. Docker-in-Docker 전략 시도
+            if (tryDockerInDockerStrategy(registryUrl, username, password)) {
+                return true;
+            }
+            
+            // 2. Docker client 설정 파일 동적 생성
+            if (createDockerClientConfig(registryUrl)) {
+                // 3. 환경 변수로 insecure registry 설정
+                return tryLoginWithEnvironmentVariables(registryUrl, username, password);
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.error("Error trying login with insecure registry: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker-in-Docker 전략으로 로그인 시도
+     */
+    private boolean tryDockerInDockerStrategy(String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting Docker-in-Docker strategy for insecure registry: {}", registryUrl);
+            
+            // 1. DinD 컨테이너에서 insecure registry로 Docker daemon 시작
+            if (startDinDWithInsecureRegistry(registryUrl)) {
+                // 2. DinD 컨테이너 내부에서 로그인 시도
+                return loginInDinDContainer(registryUrl, username, password);
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.error("Error in Docker-in-Docker strategy: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * DinD 컨테이너에서 insecure registry로 Docker daemon 시작
+     */
+    private boolean startDinDWithInsecureRegistry(String registryUrl) {
+        try {
+            log.info("Starting DinD container with insecure registry: {}", registryUrl);
+            
+            // 컨테이너 이름 생성 (레지스트리 URL 기반)
+            String containerName = "dind-" + registryUrl.replaceAll("[:.]", "-");
+            
+            // 기존 DinD 컨테이너 정리
+            cleanupDinDContainers(containerName);
+            
+            // DinD 컨테이너 실행 명령어 (사용자 제안 방식)
+            ProcessBuilder dindProcess = new ProcessBuilder(
+                "docker", "run", "-d",
+                "--name", containerName,
+                "--privileged",
+                "-e", "DOCKER_TLS_CERTDIR=",
+                "-e", "DOCKER_INSECURE_REGISTRIES=" + registryUrl,
+                "docker:dind",
+                "dockerd-entrypoint.sh",
+                "--insecure-registry=" + registryUrl,
+                "--host=0.0.0.0:2376",
+                "--storage-driver=overlay2"
+            );
+            
+            Process dindProc = dindProcess.start();
+            int exitCode = dindProc.waitFor();
+            
+            if (exitCode == 0) {
+                log.info("DinD container '{}' started successfully", containerName);
+                
+                // DinD 컨테이너의 Docker daemon이 완전히 준비될 때까지 대기
+                if (waitForDinDDaemonReady(containerName)) {
+                    log.info("DinD container '{}' is running and ready", containerName);
+                    return true;
+                } else {
+                    log.error("DinD container '{}' daemon failed to start properly", containerName);
+                    return false;
+                }
+            } else {
+                log.error("Failed to start DinD container '{}', exit code: {}", containerName, exitCode);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error starting DinD container: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * DinD 컨테이너가 실행 중인지 확인
+     */
+    private boolean isDinDContainerRunning(String containerName) {
+        try {
+            ProcessBuilder checkProcess = new ProcessBuilder(
+                "docker", "ps", "--filter", "name=" + containerName, "--format", "{{.Status}}"
+            );
+            Process checkProc = checkProcess.start();
+            int exitCode = checkProc.waitFor();
+            
+            if (exitCode == 0) {
+                String output = new String(checkProc.getInputStream().readAllBytes()).trim();
+                boolean isRunning = output.contains("Up");
+                log.info("DinD container '{}' status: {}", containerName, output);
+                return isRunning;
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.error("Error checking DinD container status: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * DinD 컨테이너의 Docker daemon이 준비될 때까지 대기
+     */
+    private boolean waitForDinDDaemonReady(String containerName) {
+        try {
+            log.info("Waiting for DinD daemon to be ready: {}", containerName);
+            
+            int maxAttempts = 30; // 30초 대기
+            int attempt = 0;
+            
+            while (attempt < maxAttempts) {
+                attempt++;
+                log.info("Checking DinD daemon readiness (attempt {}/{}): {}", attempt, maxAttempts, containerName);
+                
+                // 컨테이너가 실행 중인지 확인
+                if (!isDinDContainerRunning(containerName)) {
+                    log.warn("DinD container '{}' is not running, waiting...", containerName);
+                    Thread.sleep(1000);
+                    continue;
+                }
+                
+                // DinD 컨테이너 내부에서 docker info 실행하여 daemon 준비 상태 확인
+                ProcessBuilder infoProcess = new ProcessBuilder(
+                    "docker", "exec", containerName,
+                    "docker", "info"
+                );
+                
+                Process infoProc = infoProcess.start();
+                int exitCode = infoProc.waitFor();
+                
+                if (exitCode == 0) {
+                    String output = new String(infoProc.getInputStream().readAllBytes());
+                    log.info("DinD daemon is ready: {}", output);
+                    
+                    // insecure registries 설정 확인
+                    boolean hasInsecureRegistry = output.contains("Insecure Registries:") && 
+                                               output.contains("210.217.178.130:5500");
+                    
+                    if (hasInsecureRegistry) {
+                        log.info("DinD daemon has insecure registry configured: 210.217.178.130:5500");
+                        return true;
+                    } else {
+                        log.warn("DinD daemon does not have insecure registry configured, waiting...");
+                    }
+                } else {
+                    log.warn("DinD daemon not ready yet (exit code: {}), waiting...", exitCode);
+                }
+                
+                Thread.sleep(1000);
+            }
+            
+            log.error("DinD daemon failed to become ready within {} seconds", maxAttempts);
+            return false;
+            
+        } catch (Exception e) {
+            log.error("Error waiting for DinD daemon to be ready: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * DinD 컨테이너 내부에서 로그인 시도
+     */
+    private boolean loginInDinDContainer(String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting login inside DinD container: {}", registryUrl);
+            
+            // 컨테이너 이름 생성 (레지스트리 URL 기반)
+            String containerName = "dind-" + registryUrl.replaceAll("[:.]", "-");
+            
+            // DinD 컨테이너 내부에서 Docker 명령어 실행 (interactive 플래그 추가)
+            ProcessBuilder loginProcess = new ProcessBuilder(
+                "docker", "exec", "-i", containerName,
+                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
+            );
+            
+            // DinD 컨테이너 내부 환경 설정
+            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+            
+            return executeDockerCommandWithRetryAndStdin(loginProcess, "DinD Docker Login", 30, password);
+            
+        } catch (Exception e) {
+            log.error("Error logging in DinD container: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 기존 DinD 컨테이너 정리
+     */
+    private void cleanupDinDContainers(String containerName) {
+        try {
+            log.info("Cleaning up DinD container: {}", containerName);
+            
+            // 기존 DinD 컨테이너 정리
+            ProcessBuilder cleanupProcess = new ProcessBuilder(
+                "docker", "rm", "-f", containerName
+            );
+            Process cleanupProc = cleanupProcess.start();
+            int exitCode = cleanupProc.waitFor();
+            
+            if (exitCode == 0) {
+                log.info("Successfully cleaned up DinD container: {}", containerName);
+            } else {
+                log.debug("DinD container '{}' may not have existed", containerName);
+            }
+        } catch (Exception e) {
+            log.debug("Error cleaning up DinD container '{}': {}", containerName, e.getMessage());
+        }
+    }
+    
+    /**
+     * Docker client 설정 파일 동적 생성
+     */
+    private boolean createDockerClientConfig(String registryUrl) {
+        try {
+            log.info("Creating Docker client configuration for insecure registry: {}", registryUrl);
+            
+            // Docker client 설정 디렉토리 생성
+            String dockerConfigDir = System.getProperty("user.home") + "/.docker";
+            java.io.File configDir = new java.io.File(dockerConfigDir);
+            if (!configDir.exists()) {
+                configDir.mkdirs();
+            }
+            
+            // config.json 파일 생성
+            String configPath = dockerConfigDir + "/config.json";
+            java.io.File configFile = new java.io.File(configPath);
+            
+            // 기존 설정 읽기
+            String existingConfig = "{}";
+            if (configFile.exists()) {
+                existingConfig = new String(java.nio.file.Files.readAllBytes(configFile.toPath()));
+            }
+            
+            // JSON 파싱 및 수정
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode configNode = mapper.readTree(existingConfig);
+            ObjectNode config = (ObjectNode) configNode;
+            
+            // insecure registries 설정 추가
+            ObjectNode httpHeaders = config.has("httpHeaders") ? (ObjectNode) config.get("httpHeaders") : config.putObject("httpHeaders");
+            httpHeaders.put("X-Docker-Insecure-Registry", "true");
+            
+            // 설정 저장
+            mapper.writerWithDefaultPrettyPrinter().writeValue(configFile, config);
+            
+            log.info("Docker client configuration created: {}", configPath);
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Error creating Docker client configuration: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 환경 변수로 insecure registry 설정하여 로그인 시도
+     */
+    private boolean tryLoginWithEnvironmentVariables(String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting login with environment variables: {}", registryUrl);
+            
+            // 1. Docker daemon에 직접 연결하는 방법 시도
+            if (tryDirectDockerDaemonConnection(registryUrl, username, password)) {
+                return true;
+            }
+            
+            // 2. Docker 명령어에 직접 플래그 추가하는 방법 시도
+            if (tryDockerCommandWithFlags(registryUrl, username, password)) {
+                return true;
+            }
+            
+            // 3. 기본 환경 변수 방법 - HTTP 프로토콜 명시적 사용
+            ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin");
+            
+            // 모든 가능한 환경 변수 설정
+            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
+            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
+            loginProcess.environment().put("DOCKER_REGISTRY_INSECURE", "true");
+            loginProcess.environment().put("DOCKER_DAEMON_INSECURE_REGISTRIES", registryUrl);
+            
+            // HTTP 프로토콜 강제 사용
+            loginProcess.environment().put("DOCKER_HTTP_HOST", "http://" + registryUrl);
+            loginProcess.environment().put("DOCKER_HTTPS_HOST", "");
+            loginProcess.environment().put("DOCKER_REGISTRY_URL", "http://" + registryUrl);
+            
+            // Docker daemon 설정
+            loginProcess.environment().put("DOCKER_HOST", "unix:///var/run/docker.sock");
+            
+            log.info("Set multiple Docker environment variables for insecure registry with HTTP protocol");
+            
+            return executeDockerCommandWithRetryAndStdin(loginProcess, "Docker Login (Environment)", 30, password);
+            
+        } catch (Exception e) {
+            log.error("Error trying login with environment variables: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker daemon에 직접 연결하여 로그인 시도
+     */
+    private boolean tryDirectDockerDaemonConnection(String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting direct Docker daemon connection: {}", registryUrl);
+            
+            // Docker daemon socket 경로 확인
+            String dockerSocket = System.getenv("DOCKER_HOST");
+            if (dockerSocket == null) {
+                dockerSocket = "unix:///var/run/docker.sock";
+            }
+            
+            // Docker daemon에 직접 HTTP 요청으로 로그인
+            String loginUrl = "http://" + registryUrl + "/v2/";
+            log.info("Attempting direct HTTP connection to: {}", loginUrl);
+            
+            // 간단한 HTTP 연결 테스트
+            java.net.URL url = new java.net.URL(loginUrl);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            
+            int responseCode = conn.getResponseCode();
+            log.info("Direct HTTP connection response code: {}", responseCode);
+            
+            if (responseCode == 200 || responseCode == 401) {
+                // 연결 성공, 이제 Docker 명령어로 로그인 시도
+                return tryDockerLoginWithDirectConnection(registryUrl, username, password);
+            }
+            
+            return false;
+            
+        } catch (Exception e) {
+            log.error("Error in direct Docker daemon connection: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 직접 연결로 Docker 로그인 시도
+     */
+    private boolean tryDockerLoginWithDirectConnection(String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting Docker login with direct connection: {}", registryUrl);
+            
+            ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", registryUrl, "-u", username, "--password-stdin");
+            
+            // Docker daemon 설정
+            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
+            
+            // insecure registry 설정
+            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
+            loginProcess.environment().put("DOCKER_REGISTRY_INSECURE", "true");
+            
+            // Docker daemon host 설정
+            loginProcess.environment().put("DOCKER_HOST", "tcp://localhost:2375");
+            
+            return executeDockerCommandWithRetryAndStdin(loginProcess, "Docker Login (Direct)", 30, password);
+            
+        } catch (Exception e) {
+            log.error("Error in Docker login with direct connection: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker 명령어에 직접 플래그 추가하여 로그인 시도
+     */
+    private boolean tryDockerCommandWithFlags(String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting Docker login with command flags: {}", registryUrl);
+            
+            // Docker 명령어에 직접 insecure registry 플래그 추가 (지원되지 않으므로 제거)
+            ProcessBuilder loginProcess = new ProcessBuilder(
+                "docker", "login", 
+                registryUrl, 
+                "-u", username, 
+                "--password-stdin"
+            );
+            
+            // 기본 환경 변수 설정
+            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
+            
+            return executeDockerCommandWithRetryAndStdin(loginProcess, "Docker Login (Flags)", 30, password);
+            
+        } catch (Exception e) {
+            log.error("Error in Docker login with command flags: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 이미지 태그 생성
+     */
+    private boolean tagImageForNexus(String sourceImage, String nexusImage) {
+        log.info("Step 3/4: Tagging image for Nexus...");
+        
+        // DinD 컨테이너 내부에서 tag 실행
+        String cleanRegistryUrl = nexusImage.split("/")[0];
+        String containerName = "dind-" + cleanRegistryUrl.replaceAll("[:.]", "-");
+        
+        ProcessBuilder tagProcess = new ProcessBuilder(
+            "docker", "exec", "-i", containerName,
+            "docker", "tag", sourceImage, nexusImage
+        );
+        
+        return executeDockerCommandWithRetry(tagProcess, "Docker Tag", 30);
+    }
+    
+    /**
+     * 이미지를 레지스트리에 푸시
+     */
+    private boolean pushImageToRegistry(String nexusImage) {
+        log.info("Step 4/4: Pushing image to Nexus...");
+        
+        // DinD 컨테이너 내부에서 push 실행
+        String cleanRegistryUrl = nexusImage.split("/")[0];
+        String containerName = "dind-" + cleanRegistryUrl.replaceAll("[:.]", "-");
+        
+        ProcessBuilder pushProcess = new ProcessBuilder(
+            "docker", "exec", "-i", containerName,
+            "docker", "push", nexusImage
+        );
+        
+        // DinD 컨테이너 내부 환경 설정
+        pushProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+        pushProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+        
+        return executeDockerCommandWithRetry(pushProcess, "Docker Push", dockerTimeoutSeconds);
+    }
+    
+    /**
+     * 재시도 로직이 포함된 Docker 명령어 실행
+     */
+    private boolean executeDockerCommandWithRetry(ProcessBuilder processBuilder, String stepName, long timeoutSeconds) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                log.info("Executing {} (attempt {}/{})", stepName, attempt, maxRetries);
+                
+                // 적응형 타임아웃 (재시도할수록 더 오래 기다림)
+                long currentTimeout = timeoutSeconds + (timeoutSeconds * (attempt - 1) / 2);
+                
+                DockerCommandResult result = executeDockerCommand(processBuilder, stepName, currentTimeout);
+                
+                if (result.isSuccess()) {
+                    log.info("{} completed successfully on attempt {}", stepName, attempt);
+                    return true;
+                } else {
+                    String errorAnalysis = result.getErrorAnalysis();
+                    log.warn("{} failed on attempt {}: {}", stepName, attempt, errorAnalysis);
+                    
+                    // 재시도 불가능한 에러의 경우 즉시 중단
+                    if (isNonRetryableError(result.getStderr())) {
+                        log.error("Non-retryable error detected, stopping retries: {}", errorAnalysis);
+                        return false;
+                    }
+                }
+                
+                // 마지막 시도가 아니면 대기
+                if (attempt < maxRetries) {
+                    long delay = retryDelaySeconds * attempt * 1000;
+                    log.info("Waiting {} ms before retry...", delay);
+                    Thread.sleep(delay);
+                }
+                
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Docker command execution interrupted", e);
+                return false;
+            } catch (Exception e) {
+                log.error("Error during {} (attempt {}): {}", stepName, attempt, e.getMessage());
+            }
+        }
+        
+        log.error("{} failed after {} attempts", stepName, maxRetries);
+        return false;
+    }
+    
+    /**
+     * Docker 명령어 실행
+     */
+    private DockerCommandResult executeDockerCommand(ProcessBuilder processBuilder, String commandDescription, long timeoutSeconds) {
+        try {
+            // Docker 명령어에 insecure registry 설정 적용
+            applyInsecureRegistryToDockerCommand(processBuilder, "210.217.178.130:5500");
+            
+            Process process = processBuilder.start();
+            
+            StringBuilder stdout = new StringBuilder();
+            StringBuilder stderr = new StringBuilder();
+            
+            // 비동기적으로 출력 스트림 읽기
+            CompletableFuture<Void> stdoutFuture = CompletableFuture.runAsync(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        stdout.append(line).append("\n");
+                        log.info("[{}] STDOUT: {}", commandDescription, line);
+                    }
+                } catch (IOException e) {
+                    log.error("Error reading stdout: {}", e.getMessage());
+                }
+            });
+            
+            CompletableFuture<Void> stderrFuture = CompletableFuture.runAsync(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        stderr.append(line).append("\n");
+                        log.warn("[{}] STDERR: {}", commandDescription, line);
+                    }
+                } catch (IOException e) {
+                    log.error("Error reading stderr: {}", e.getMessage());
+                }
+            });
+            
+            boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+            if (!finished) {
+                log.error("{} timed out after {} seconds", commandDescription, timeoutSeconds);
+                process.destroyForcibly();
+                return new DockerCommandResult(-1, "", "Command timed out after " + timeoutSeconds + " seconds");
+            }
+            
+            int exitCode = process.exitValue();
+            
+            // 출력 스트림 읽기 완료 대기
+            stdoutFuture.get(5, TimeUnit.SECONDS);
+            stderrFuture.get(5, TimeUnit.SECONDS);
+            
+            return new DockerCommandResult(exitCode, stdout.toString(), stderr.toString());
+            
+        } catch (Exception e) {
+            log.error("Error executing Docker command [{}]: {}", commandDescription, e.getMessage());
+            return new DockerCommandResult(-1, "", "Exception: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 재시도 불가능한 에러인지 확인
+     */
+    private boolean isNonRetryableError(String stderr) {
+        String errorOutput = stderr.toLowerCase();
+        return errorOutput.contains("unauthorized") || 
+               errorOutput.contains("forbidden") ||
+               errorOutput.contains("not found") ||
+               errorOutput.contains("invalid") ||
+               errorOutput.contains("bad request");
+    }
+    
+    /**
+     * Docker 환경 검증
+     */
+    private boolean validateDockerEnvironment() {
+        log.info("Validating Docker environment...");
+        
+        try {
+            ProcessBuilder checkDocker = new ProcessBuilder("docker", "version", "--format", "{{.Server.Version}}");
+            Process proc = checkDocker.start();
+            
+            boolean finished = proc.waitFor(10, TimeUnit.SECONDS);
+            if (finished && proc.exitValue() == 0) {
+                log.info("Docker daemon is running");
+                return true;
+            } else {
+                log.error("Docker daemon is not accessible or not running");
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("Error validating Docker environment: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Insecure registry 설정 검증 및 동적 추가
+     */
+    private boolean validateInsecureRegistryConfiguration(String registryUrl) {
+        log.info("Validating insecure registry configuration for: {}", registryUrl);
+        
+        try {
+            // 1. 현재 Docker daemon 설정 확인
+            if (isInsecureRegistryConfigured(registryUrl)) {
+                log.info("Insecure registry already configured for: {}", registryUrl);
+                return true;
+            }
+            
+            // 2. 런타임에 Docker daemon 설정 시도
+            log.info("Insecure registry not configured, attempting runtime configuration: {}", registryUrl);
+            if (configureInsecureRegistryAtRuntime(registryUrl)) {
+                log.info("Successfully configured insecure registry at runtime: {}", registryUrl);
+                return true;
+            }
+            
+            // 3. 설정 파일 수정 시도
+            log.info("Runtime configuration failed, attempting to modify configuration files: {}", registryUrl);
+            return addInsecureRegistryDynamically(registryUrl);
+            
+        } catch (Exception e) {
+            log.error("Error validating insecure registry configuration: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 런타임에 Docker daemon에 insecure registry 설정
+     */
+    private boolean configureInsecureRegistryAtRuntime(String registryUrl) {
+        try {
+            String cleanUrl = registryUrl.replaceFirst("^https?://", "");
+            log.info("Attempting runtime configuration for insecure registry: {}", cleanUrl);
+            
+            // 1. Docker daemon 설정 파일을 즉시 수정
+            if (updateDockerDaemonConfigImmediately(cleanUrl)) {
+                log.info("Successfully updated Docker daemon configuration");
+                return true;
+            }
+            
+            // 2. Docker daemon API를 통한 설정 (실험적)
+            if (tryDockerDaemonApiConfiguration(cleanUrl)) {
+                return true;
+            }
+            
+            // 3. Docker 명령어를 통한 설정
+            if (tryDockerCommandConfiguration(cleanUrl)) {
+                return true;
+            }
+            
+            return false;
+            
+        } catch (Exception e) {
+            log.error("Error configuring insecure registry at runtime: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker daemon 설정을 즉시 수정하고 적용
+     */
+    private boolean updateDockerDaemonConfigImmediately(String registryUrl) {
+        try {
+            log.info("Attempting immediate Docker daemon configuration update: {}", registryUrl);
+            
+            // Windows 환경에서 Docker Desktop 설정 업데이트
+            if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+                return updateWindowsDockerConfigImmediately(registryUrl);
+            } else {
+                // Linux/macOS 환경에서 설정 업데이트
+                return updateUnixDockerConfigImmediately(registryUrl);
+            }
+            
+        } catch (Exception e) {
+            log.error("Error updating Docker daemon configuration immediately: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Windows Docker Desktop 설정을 즉시 업데이트
+     */
+    private boolean updateWindowsDockerConfigImmediately(String registryUrl) {
+        try {
+            // Windows Docker Desktop의 설정 파일 경로들
+            String[] possiblePaths = {
+                System.getProperty("user.home") + "/.docker/daemon.json",
+                System.getProperty("user.home") + "/AppData/Roaming/Docker/settings.json",
+                "C:/Users/" + System.getProperty("user.name") + "/.docker/daemon.json"
+            };
+            
+            for (String path : possiblePaths) {
+                java.io.File daemonFile = new java.io.File(path);
+                if (daemonFile.exists()) {
+                    log.info("Found Windows Docker daemon config file: {}", path);
+                    if (updateDaemonJsonFile(daemonFile, registryUrl)) {
+                        // Docker Desktop 재시작 시도
+                        return restartDockerDesktop();
+                    }
+                }
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.error("Error updating Windows Docker config immediately: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Unix 계열 시스템에서 Docker 설정을 즉시 업데이트
+     */
+    private boolean updateUnixDockerConfigImmediately(String registryUrl) {
+        try {
+            // Linux/macOS Docker daemon.json 경로들
+            String[] possiblePaths = {
+                "/etc/docker/daemon.json",
+                System.getProperty("user.home") + "/.docker/daemon.json"
+            };
+            
+            for (String path : possiblePaths) {
+                java.io.File daemonFile = new java.io.File(path);
+                if (daemonFile.exists() && daemonFile.canWrite()) {
+                    log.info("Found Unix Docker daemon config file: {}", path);
+                    if (updateDaemonJsonFile(daemonFile, registryUrl)) {
+                        // Docker daemon 재시작 시도
+                        return restartDockerDaemon();
+                    }
+                }
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.error("Error updating Unix Docker config immediately: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker Desktop 재시작 시도 (Windows)
+     */
+    private boolean restartDockerDesktop() {
+        try {
+            log.info("Attempting to restart Docker Desktop...");
+            
+            // Docker Desktop 프로세스 찾기 및 재시작
+            ProcessBuilder tasklistBuilder = new ProcessBuilder("tasklist", "/FI", "IMAGENAME eq Docker Desktop.exe");
+            Process tasklistProc = tasklistBuilder.start();
+            
+            boolean finished = tasklistProc.waitFor(5, TimeUnit.SECONDS);
+            if (finished && tasklistProc.exitValue() == 0) {
+                // Docker Desktop이 실행 중이면 종료 후 재시작
+                ProcessBuilder killBuilder = new ProcessBuilder("taskkill", "/F", "/IM", "Docker Desktop.exe");
+                Process killProc = killBuilder.start();
+                killProc.waitFor(10, TimeUnit.SECONDS);
+                
+                // 잠시 대기
+                Thread.sleep(5000);
+                
+                // Docker Desktop 재시작
+                ProcessBuilder startBuilder = new ProcessBuilder("C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe");
+                Process startProc = startBuilder.start();
+                
+                // 재시작 대기
+                Thread.sleep(10000);
+                
+                // Docker가 정상적으로 실행되는지 확인
+                return validateDockerEnvironment();
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.error("Error restarting Docker Desktop: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker daemon API를 통한 설정 시도
+     */
+    private boolean tryDockerDaemonApiConfiguration(String registryUrl) {
+        try {
+            // Docker daemon API는 일반적으로 insecure registry 설정을 지원하지 않음
+            // 하지만 일부 환경에서는 가능할 수 있음
+            log.debug("Docker daemon API configuration not supported for insecure registries");
+            return false;
+        } catch (Exception e) {
+            log.debug("Docker daemon API configuration failed: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker 명령어를 통한 설정 시도
+     */
+    private boolean tryDockerCommandConfiguration(String registryUrl) {
+        try {
+            // Docker daemon을 재시작하여 설정 파일을 다시 로드
+            if (restartDockerDaemon()) {
+                log.info("Docker daemon restarted, checking if insecure registry is now available");
+                Thread.sleep(3000); // 재시작 대기
+                return isInsecureRegistryConfigured("http://" + registryUrl);
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.debug("Docker command configuration failed: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker 명령어에 직접 insecure registry 설정 적용
+     */
+    private void applyInsecureRegistryToDockerCommand(ProcessBuilder processBuilder, String registryUrl) {
+        try {
+            String cleanUrl = registryUrl.replaceFirst("^https?://", "");
+            
+            // Docker 명령어에 --insecure-registry 플래그 추가 (지원되는 경우)
+            List<String> command = new ArrayList<>(processBuilder.command());
+            
+            // docker login이나 docker push 명령어인 경우
+            if (command.contains("login") || command.contains("push")) {
+                // 환경 변수로 insecure registry 설정
+                processBuilder.environment().put("DOCKER_INSECURE_REGISTRIES", cleanUrl);
+                processBuilder.environment().put("DOCKER_TLS_VERIFY", "0");
+                
+                log.info("Applied insecure registry settings to Docker command: {}", cleanUrl);
+            }
+            
+        } catch (Exception e) {
+            log.warn("Failed to apply insecure registry settings to Docker command: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Docker daemon에서 insecure registry가 설정되어 있는지 확인
+     */
+    private boolean isInsecureRegistryConfigured(String registryUrl) {
+        try {
+            ProcessBuilder infoBuilder = new ProcessBuilder("docker", "info", "--format", "{{.RegistryConfig.InsecureRegistryCIDRs}}");
+            Process infoProc = infoBuilder.start();
+            
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(infoProc.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line);
+                }
+            }
+            
+            boolean finished = infoProc.waitFor(10, TimeUnit.SECONDS);
+            if (finished && infoProc.exitValue() == 0) {
+                String registries = output.toString();
+                // 프로토콜 제거한 URL로 확인
+                String cleanUrl = registryUrl.replaceFirst("^https?://", "");
+                boolean isConfigured = registries.contains(cleanUrl) || registries.contains("127.0.0.0/8");
+                
+                if (isConfigured) {
+                    log.info("Insecure registry configuration found for: {}", cleanUrl);
+                } else {
+                    log.warn("Insecure registry not configured for: {}", cleanUrl);
+                    log.warn("Docker info output: {}", registries);
+                }
+                
+                return isConfigured;
+            } else {
+                log.warn("Failed to get Docker info for insecure registry validation");
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("Error checking insecure registry configuration: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker daemon 설정에 insecure registry를 동적으로 추가
+     */
+    private boolean addInsecureRegistryDynamically(String registryUrl) {
+        try {
+            String cleanUrl = registryUrl.replaceFirst("^https?://", "");
+            log.info("Attempting to add insecure registry dynamically: {}", cleanUrl);
+            
+            // Docker 컨테이너 환경인지 먼저 확인
+            if (isRunningInDockerContainer()) {
+                log.warn("Running inside Docker container - attempting alternative configuration methods");
+                
+                // Docker-in-Docker 환경에서 호스트 설정 시도
+                if (tryConfigureHostDockerFromContainer(cleanUrl)) {
+                    return true;
+                }
+                
+                log.warn("Cannot modify host Docker daemon configuration from container");
+                log.info("Please configure insecure registry on the host system manually:");
+                log.info("Add '{}' to insecure-registries in /etc/docker/daemon.json on the host", cleanUrl);
+                log.info("Then restart Docker daemon: sudo systemctl restart docker");
+                return false;
+            }
+            
+            // 운영체제별로 다른 방법 사용
+            String osName = System.getProperty("os.name").toLowerCase();
+            
+            if (osName.contains("windows")) {
+                return updateWindowsDockerConfig(cleanUrl);
+            } else if (osName.contains("linux")) {
+                return updateLinuxDockerConfig(cleanUrl);
+            } else if (osName.contains("mac")) {
+                return updateMacDockerConfig(cleanUrl);
+            } else {
+                log.warn("Unsupported operating system: {}, manual configuration required for: {}", osName, cleanUrl);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error adding insecure registry dynamically: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Windows Docker 설정 업데이트
+     */
+    private boolean updateWindowsDockerConfig(String registryUrl) {
+        try {
+            // Windows Docker Desktop의 daemon.json 경로들
+            String[] possiblePaths = {
+                System.getProperty("user.home") + "/.docker/daemon.json",
+                System.getProperty("user.home") + "/AppData/Roaming/Docker/settings.json",
+                "C:/Users/" + System.getProperty("user.name") + "/.docker/daemon.json"
+            };
+            
+            for (String path : possiblePaths) {
+                java.io.File daemonFile = new java.io.File(path);
+                if (daemonFile.exists()) {
+                    log.info("Found Windows Docker daemon config file: {}", path);
+                    return updateDaemonJsonFile(daemonFile, registryUrl);
+                }
+            }
+            
+            log.warn("Windows Docker daemon.json file not found in common locations");
+            return false;
+            
+        } catch (Exception e) {
+            log.error("Error updating Windows Docker config: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Linux Docker 설정 업데이트
+     */
+    private boolean updateLinuxDockerConfig(String registryUrl) {
+        try {
+            // Linux Docker daemon.json 경로들
+            String[] possiblePaths = {
+                "/etc/docker/daemon.json",
+                System.getProperty("user.home") + "/.docker/daemon.json",
+                "/var/lib/docker/daemon.json"
+            };
+            
+            for (String path : possiblePaths) {
+                java.io.File daemonFile = new java.io.File(path);
+                if (daemonFile.exists() && daemonFile.canWrite()) {
+                    log.info("Found Linux Docker daemon config file: {}", path);
+                    return updateDaemonJsonFile(daemonFile, registryUrl);
+                }
+            }
+            
+            // daemon.json이 없으면 생성
+            java.io.File defaultDaemonFile = new java.io.File("/etc/docker/daemon.json");
+            if (defaultDaemonFile.getParentFile().exists() && defaultDaemonFile.getParentFile().canWrite()) {
+                log.info("Creating new Linux Docker daemon.json file: {}", defaultDaemonFile.getAbsolutePath());
+                return updateDaemonJsonFile(defaultDaemonFile, registryUrl);
+            }
+            
+            log.warn("Linux Docker daemon.json file not found or not writable");
+            return false;
+            
+        } catch (Exception e) {
+            log.error("Error updating Linux Docker config: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * macOS Docker 설정 업데이트
+     */
+    private boolean updateMacDockerConfig(String registryUrl) {
+        try {
+            // macOS Docker Desktop의 daemon.json 경로들
+            String[] possiblePaths = {
+                System.getProperty("user.home") + "/.docker/daemon.json",
+                System.getProperty("user.home") + "/Library/Group Containers/group.com.docker/settings.json"
+            };
+            
+            for (String path : possiblePaths) {
+                java.io.File daemonFile = new java.io.File(path);
+                if (daemonFile.exists()) {
+                    log.info("Found macOS Docker daemon config file: {}", path);
+                    return updateDaemonJsonFile(daemonFile, registryUrl);
+                }
+            }
+            
+            log.warn("macOS Docker daemon.json file not found in common locations");
+            return false;
+            
+        } catch (Exception e) {
+            log.error("Error updating macOS Docker config: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * daemon.json 파일을 업데이트하여 insecure registry 추가
+     */
+    private boolean updateDaemonJsonFile(java.io.File daemonFile, String registryUrl) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
+            
+            // 기존 설정 읽기
+            Map<String, Object> daemonConfig = new HashMap<>();
+            if (daemonFile.exists() && daemonFile.length() > 0) {
+                try {
+                    daemonConfig = objectMapper.readValue(daemonFile, Map.class);
+                } catch (Exception e) {
+                    log.warn("Failed to parse existing daemon.json, creating new config");
+                }
+            }
+            
+            // insecure-registries 설정 추가/업데이트
+            @SuppressWarnings("unchecked")
+            List<String> insecureRegistries = (List<String>) daemonConfig.get("insecure-registries");
+            if (insecureRegistries == null) {
+                insecureRegistries = new ArrayList<>();
+                daemonConfig.put("insecure-registries", insecureRegistries);
+            }
+            
+            if (!insecureRegistries.contains(registryUrl)) {
+                insecureRegistries.add(registryUrl);
+                log.info("Added insecure registry to daemon.json: {}", registryUrl);
+                
+                // 파일에 쓰기
+                objectMapper.writeValue(daemonFile, daemonConfig);
+                
+                // 운영체제별 재시작 안내 및 자동 재시작 시도
+                String osName = System.getProperty("os.name").toLowerCase();
+                if (osName.contains("windows")) {
+                    log.info("Insecure registry added to daemon.json. Please restart Docker Desktop for changes to take effect.");
+                } else if (osName.contains("linux")) {
+                    log.info("Insecure registry added to daemon.json. Attempting to restart Docker daemon...");
+                    if (restartDockerDaemon()) {
+                        log.info("Docker daemon restarted successfully");
+                    } else {
+                        log.warn("Failed to restart Docker daemon automatically. Please run: sudo systemctl restart docker");
+                    }
+                } else if (osName.contains("mac")) {
+                    log.info("Insecure registry added to daemon.json. Please restart Docker Desktop for changes to take effect.");
+                } else {
+                    log.info("Insecure registry added to daemon.json. Please restart Docker for changes to take effect.");
+                }
+                return true;
+            } else {
+                log.info("Insecure registry already exists in daemon.json: {}", registryUrl);
+                return true;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error updating daemon.json file: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Linux에서 Docker daemon 재시작 시도 (컨테이너 환경 고려)
+     */
+    private boolean restartDockerDaemon() {
+        try {
+            // Docker 컨테이너 환경인지 확인
+            if (isRunningInDockerContainer()) {
+                log.warn("Running inside Docker container - cannot restart Docker daemon");
+                log.info("Please restart the Docker daemon manually on the host: sudo systemctl restart docker");
+                return false;
+            }
+            
+            log.info("Attempting to restart Docker daemon...");
+            
+            // systemctl을 사용하여 Docker 서비스 재시작
+            ProcessBuilder restartBuilder = new ProcessBuilder("sudo", "systemctl", "restart", "docker");
+            Process restartProc = restartBuilder.start();
+            
+            boolean finished = restartProc.waitFor(30, TimeUnit.SECONDS);
+            if (finished && restartProc.exitValue() == 0) {
+                log.info("Docker daemon restart command completed successfully");
+                
+                // 재시작 후 Docker가 정상적으로 실행되는지 확인
+                Thread.sleep(5000); // 5초 대기
+                return validateDockerEnvironment();
+            } else {
+                log.error("Failed to restart Docker daemon (exit code: {})", restartProc.exitValue());
+                return false;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error restarting Docker daemon: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker 컨테이너 내에서 실행 중인지 확인
+     */
+    private boolean isRunningInDockerContainer() {
+        try {
+            // /.dockerenv 파일 존재 여부 확인
+            java.io.File dockerEnvFile = new java.io.File("/.dockerenv");
+            if (dockerEnvFile.exists()) {
+                log.info("Detected Docker container environment");
+                return true;
+            }
+            
+            // cgroup에서 docker 확인
+            java.io.File cgroupFile = new java.io.File("/proc/1/cgroup");
+            if (cgroupFile.exists()) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(new java.io.FileInputStream(cgroupFile)))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.contains("docker") || line.contains("containerd")) {
+                            log.info("Detected Docker container environment via cgroup");
+                            return true;
+                        }
+                    }
+                }
+            }
+            
+            // 환경 변수 확인
+            String containerEnv = System.getenv("container");
+            if ("docker".equals(containerEnv) || "podman".equals(containerEnv)) {
+                log.info("Detected container environment via environment variable: {}", containerEnv);
+                return true;
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.debug("Error checking Docker container environment: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Docker 컨테이너에서 호스트 Docker 설정을 시도
+     */
+    private boolean tryConfigureHostDockerFromContainer(String registryUrl) {
+        try {
+            log.info("Attempting to configure host Docker from container...");
+            
+            // Docker 소켓이 마운트되어 있는지 확인
+            java.io.File dockerSocket = new java.io.File("/var/run/docker.sock");
+            if (!dockerSocket.exists()) {
+                log.warn("Docker socket not found - cannot configure host Docker from container");
+                return false;
+            }
+            
+            // 호스트의 daemon.json 파일 경로들 시도
+            String[] hostPaths = {
+                "/host/etc/docker/daemon.json",
+                "/host/var/lib/docker/daemon.json",
+                "/etc/docker/daemon.json" // 컨테이너 내에서 호스트 경로가 마운트된 경우
+            };
+            
+            for (String path : hostPaths) {
+                java.io.File hostDaemonFile = new java.io.File(path);
+                if (hostDaemonFile.exists() && hostDaemonFile.canWrite()) {
+                    log.info("Found host Docker daemon config file: {}", path);
+                    return updateDaemonJsonFile(hostDaemonFile, registryUrl);
+                }
+            }
+            
+            log.warn("Cannot access host Docker daemon configuration files from container");
+            return false;
+            
+        } catch (Exception e) {
+            log.error("Error configuring host Docker from container: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Nexus URL 파싱
+     */
+    private DockerRegistryInfo parseNexusUrl(String nexusUrl) throws IllegalArgumentException {
+        try {
+            URI uri = new URI(nexusUrl);
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            int port = uri.getPort();
+            
+            if (host == null) {
+                throw new IllegalArgumentException("Invalid URL: missing host");
+            }
+            
+            // Docker Registry 포트를 설정 파일에서 가져오기
+            boolean isSecure = dockerRegistrySecure;
+            int dockerPort = dockerRegistryPort;
+            // HTTP 프로토콜을 명시적으로 사용 (insecure registry)
+            String registryUrl = "http://" + host.replace("http://", "") + ":" + dockerPort;
+            
+            log.info("Parsed Nexus URL - Host: {}, Port: {}, Secure: {}, Registry URL: {}", host, port, isSecure, registryUrl);
+            
+            return new DockerRegistryInfo(registryUrl, isSecure, host, port);
+            
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid Nexus URL format: " + nexusUrl, e);
+        }
+    }
+    
+    /**
+     * 소스 이미지 이름 생성
+     */
+    private String getSourceImageName(String imageName, String tag) {
+        String fullImageName = imageName.contains("/") ? imageName : "library/" + imageName;
+        return fullImageName + ":" + tag;
+    }
+    
+    /**
+     * Nexus 이미지 이름 생성
+     */
+    private String getNexusImageName(String registryUrl, String repositoryName, String imageName, String tag) {
+        String fullImageName = imageName.contains("/") ? imageName : imageName;
+        // 프로토콜 제거 (http:// 또는 https://)
+        String cleanRegistryUrl = registryUrl.replaceFirst("^https?://", "");
+        return cleanRegistryUrl + "/" + repositoryName + "/" + fullImageName + ":" + tag;
+    }
+    
+    /**
+     * 에러 결과 생성
+     */
+    private Map<String, Object> createErrorResult(String message) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        result.put("message", message);
+        return result;
+    }
+    
+    /**
+     * 표준 입력을 사용한 Docker 명령어 실행 (재시도 로직 포함)
+     */
+    private boolean executeDockerCommandWithRetryAndStdin(ProcessBuilder processBuilder, String commandName, 
+                                                         long timeoutSeconds, String stdinInput) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            log.info("Executing {} (attempt {}/{})", commandName, attempt, maxRetries);
+            
+            try {
+                Process process = processBuilder.start();
+                
+                // 표준 입력으로 비밀번호 전달
+                try (var writer = new java.io.OutputStreamWriter(process.getOutputStream())) {
+                    writer.write(stdinInput);
+                    writer.flush();
+                }
+                
+                // 비동기로 출력 읽기
+                CompletableFuture<String> outputFuture = CompletableFuture.supplyAsync(() -> {
+                    StringBuilder output = new StringBuilder();
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            output.append(line).append("\n");
+                            log.info("[{}] STDOUT: {}", commandName, line);
+                        }
+                    } catch (IOException e) {
+                        log.error("Error reading {} output", commandName, e);
+                    }
+                    return output.toString();
+                });
+                
+                CompletableFuture<String> errorFuture = CompletableFuture.supplyAsync(() -> {
+                    StringBuilder error = new StringBuilder();
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            error.append(line).append("\n");
+                            log.warn("[{}] STDERR: {}", commandName, line);
+                        }
+                    } catch (IOException e) {
+                        log.error("Error reading {} error stream", commandName, e);
+                    }
+                    return error.toString();
+                });
+                
+                // 프로세스 완료 대기
+                boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+                if (!finished) {
+                    process.destroyForcibly();
+                    log.error("{} timed out after {} seconds", commandName, timeoutSeconds);
+                    if (attempt < maxRetries) {
+                        long waitTime = attempt * 5000L;
+                        log.info("Waiting {} ms before retry...", waitTime);
+                        Thread.sleep(waitTime);
+                        continue;
+                    }
+                    return false;
+                }
+                
+                int exitCode = process.exitValue();
+                String output = outputFuture.get();
+                String error = errorFuture.get();
+                
+                log.info("{} command completed with exit code: {}", commandName, exitCode);
+                log.info("{} full output:\n{}", commandName, output);
+                
+                if (exitCode == 0) {
+                    log.info("{} completed successfully on attempt {}", commandName, attempt);
+                    return true;
+                } else {
+                    log.warn("{} failed on attempt {}: {}", commandName, attempt, error);
+                    if (attempt < maxRetries) {
+                        long waitTime = attempt * 5000L;
+                        log.info("Waiting {} ms before retry...", waitTime);
+                        Thread.sleep(waitTime);
+                    }
+                }
+                
+            } catch (Exception e) {
+                log.error("Error executing {} on attempt {}", commandName, attempt, e);
+                if (attempt < maxRetries) {
+                    try {
+                        long waitTime = attempt * 5000L;
+                        log.info("Waiting {} ms before retry...", waitTime);
+                        Thread.sleep(waitTime);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                }
+            }
+        }
+        
+        log.error("{} failed after {} attempts", commandName, maxRetries);
+        return false;
     }
 }

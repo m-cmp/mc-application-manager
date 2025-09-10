@@ -108,9 +108,8 @@ public class CatalogController {
     @PostMapping("/nexus/image/push")
     public ResponseEntity<ResponseWrapper<Object>> pushImageToNexus(
             @RequestParam String imageName,
-            @RequestParam String tag,
-            @RequestBody byte[] imageData) {
-        Object result = catalogService.pushImageToNexus(imageName, tag, imageData);
+            @RequestParam String tag) {
+        Object result = catalogService.pushImageToNexus(imageName, tag, null);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     
