@@ -132,7 +132,7 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         // VM
         if(PackageType.valueOf("DOCKER").equals(dto.getTarget())) {
-            List<PackageInfo> packageInfoList = packageInfoRepository.findByCategoriesAndCatalogIsNull(dto.getCategory());
+            List<PackageInfo> packageInfoList = packageInfoRepository.findByCategories(dto.getCategory());
             result = packageInfoList.stream()
                     .filter(Objects::nonNull)
                     .map(packageInfo -> KeyValueDTO.builder()
@@ -144,7 +144,7 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         // K8S
         else if(PackageType.valueOf("HELM").equals(dto.getTarget())) {
-            List<HelmChart> helmChartList = helmChartRepository.findByCategoryAndCatalogIsNull(dto.getCategory());
+            List<HelmChart> helmChartList = helmChartRepository.findByCategory(dto.getCategory());
             result = helmChartList.stream()
                     .map(helmChart -> KeyValueDTO.builder()
                             .key(helmChart.getChartName())
