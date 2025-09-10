@@ -62,19 +62,29 @@ public class CatalogService {
         catalog.setUpdatedAt(LocalDateTime.now());
 
         catalog = catalogRepository.save(catalog);
+
+        // 2. catalogRefs 저장 (catalog id와 함께)
+        if (catalogDTO.getCatalogRefs() != null && !catalogDTO.getCatalogRefs().isEmpty()) {
+            for (CatalogRefDTO refDTO : catalogDTO.getCatalogRefs()) {
+                CatalogRefEntity refEntity = refDTO.toEntity();
+                refEntity.setCatalog(catalog); // catalog id 설정
+                catalogRefRepository.save(refEntity);
+            }
+        }
+
+        // 3. sourceType에 따라 기존 데이터 조회하고 catalogId 업데이트
+        if (catalogDTO.getSourceType() != null) {
+            if ("DOCKERHUB".equalsIgnoreCase(catalogDTO.getSourceType()) ) {
+                // DOCKERHUB인 경우 PACKAGE_INFO 테이블에서 조회 후 catalogId 업데이트
+                updatePackageInfoCatalogId(catalog, catalogDTO);
+            } else if ("ARTIFACTHUB".equalsIgnoreCase(catalogDTO.getSourceType())) {
+                // ARTIFACTHUB인 경우 HELM_CHART 테이블에서 조회 후 catalogId 업데이트  
+                updateHelmChartCatalogId(catalog, catalogDTO);
+            }
+        }
+
         SoftwareCatalogDTO result = SoftwareCatalogDTO.fromEntity(catalog);
-//        SoftwareCatalogDTO result = createCatalogInternal(catalogDTO, user);
-//
-//        // 2. 넥서스에 애플리케이션 등록
-//        try {
-//            nexusIntegrationService.registerToNexus(result);
-//            log.info("Application registered to Nexus successfully: {}", result.getName());
-//        } catch (Exception e) {
-//            log.warn("Failed to register application to Nexus: {}", result.getName(), e);
-//            // 넥서스 등록 실패해도 DB 등록은 유지
-//        }
-//
-//        log.info("Software catalog registered successfully with ID: {}", result.getId());
+
         return result;
     }
     
@@ -702,6 +712,78 @@ public class CatalogService {
                 imageData.get("repository_type"), 
                 imageData.get("status"), 
                 imageData.get("is_private"));
+    }
+
+    /**
+     * DOCKERHUB 소스타입인 경우 PACKAGE_INFO 테이블에서 기존 데이터를 조회하고 catalogId만 업데이트합니다.
+     */
+    private void updatePackageInfoCatalogId(SoftwareCatalog catalog, SoftwareCatalogDTO catalogDTO) {
+        try {
+            String category = catalogDTO.getCategory();
+            String packageName = catalogDTO.getPackageName();
+            String packageVersion = catalogDTO.getVersion();
+            
+            log.info("Searching for existing PackageInfo with category: {}, name: {}, version: {}", 
+                    category, packageName, packageVersion);
+            
+            // category, packageName, packageVersion으로 기존 PackageInfo 조회 (catalog_id가 null인 것)
+            List<PackageInfo> existingPackageInfos = packageInfoRepository.findByCategoriesAndCatalogIsNull(category);
+            
+            PackageInfo targetPackageInfo = existingPackageInfos.stream()
+                    .filter(pkg -> packageName.equals(pkg.getPackageName()) && 
+                                  packageVersion.equals(pkg.getPackageVersion()))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (targetPackageInfo != null) {
+                // catalogId만 업데이트 (기존 데이터는 그대로 유지)
+                targetPackageInfo.setCatalog(catalog);
+                packageInfoRepository.save(targetPackageInfo);
+                log.info("Updated PackageInfo catalogId only: {} -> {}", targetPackageInfo.getId(), catalog.getId());
+            } else {
+                log.warn("No matching PackageInfo found for category: {}, name: {}, version: {}", 
+                        category, packageName, packageVersion);
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to update PackageInfo catalogId", e);
+        }
+    }
+
+    /**
+     * ARTIFACTHUB 소스타입인 경우 HELM_CHART 테이블에서 기존 데이터를 조회하고 catalogId만 업데이트합니다.
+     */
+    private void updateHelmChartCatalogId(SoftwareCatalog catalog, SoftwareCatalogDTO catalogDTO) {
+        try {
+            String category = catalogDTO.getCategory();
+            String chartName = catalogDTO.getPackageName();
+            String chartVersion = catalogDTO.getVersion();
+            
+            log.info("Searching for existing HelmChart with category: {}, name: {}, version: {}", 
+                    category, chartName, chartVersion);
+            
+            // category, chartName, chartVersion으로 기존 HelmChart 조회 (catalog_id가 null인 것)
+            List<HelmChart> existingHelmCharts = helmChartRepository.findByCategoryAndCatalogIsNull(category);
+            
+            HelmChart targetHelmChart = existingHelmCharts.stream()
+                    .filter(chart -> chartName.equals(chart.getChartName()) && 
+                                    chartVersion.equals(chart.getChartVersion()))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (targetHelmChart != null) {
+                // catalogId만 업데이트 (기존 데이터는 그대로 유지)
+                targetHelmChart.setCatalog(catalog);
+                helmChartRepository.save(targetHelmChart);
+                log.info("Updated HelmChart catalogId only: {} -> {}", targetHelmChart.getId(), catalog.getId());
+            } else {
+                log.warn("No matching HelmChart found for category: {}, name: {}, version: {}", 
+                        category, chartName, chartVersion);
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to update HelmChart catalogId", e);
+        }
     }
 
 

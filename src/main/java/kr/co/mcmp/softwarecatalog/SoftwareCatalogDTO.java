@@ -23,6 +23,9 @@ public class SoftwareCatalogDTO {
     // 화면 기준
     // 0. Common
     private Long id;
+    // Regist / Update
+    private String packageName;
+    private String version;
 
     // 1. Package
     private String sourceType;  // EX) DOCKERHUB / ARTIFACTHUB / ...ETC (FIXED_VALUE)
