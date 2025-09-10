@@ -61,9 +61,9 @@
                     <!-- Catalog -->
                     <li class="nav-item">
                       <a href="#tabs-catalog" class="nav-link active" data-bs-toggle="tab">
-                        <IconApps class="icon me-2" width="24" height="24" stroke-width="2" /> 
-                        Catalog
-                      </a>
+                      <IconApps class="icon me-2" width="24" height="24" stroke-width="2" /> 
+                      Catalog
+                    </a>
                     </li>
 
                     <!-- Status -->

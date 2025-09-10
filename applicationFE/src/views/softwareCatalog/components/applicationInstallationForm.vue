@@ -140,7 +140,7 @@
                 <option 
                   v-for="(catalog, idx) in catalogList" 
                   :key="idx">
-                  {{ catalog.title }}
+                  {{ catalog.name }}
                 </option>
               </select>
             </div>
@@ -228,7 +228,7 @@
               <label class="form-label">Helm chart</label>
               <p class="text-muted">Select the application</p>
               <select class="form-select" v-model="inputApplications" @change="onChangeCatalog">
-                <option v-for="(catalog, idx) in catalogList" :key="idx">{{ catalog.title }}</option>
+                <option v-for="(catalog, idx) in catalogList" :key="idx">{{ catalog.name }}</option>
               </select>
             </div>
 
@@ -626,7 +626,7 @@ const onChangeCatalog = () => {
   if(modalTitle.value === 'Application Installation') specCheckFlag.value = true
 
   catalogList.value.forEach((catalogInfo) => {
-    if (inputApplications.value === catalogInfo.title) {
+    if (inputApplications.value === catalogInfo.name) {
       selectedCatalogIdx.value = catalogInfo.id
       return;
     }

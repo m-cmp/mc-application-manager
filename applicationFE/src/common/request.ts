@@ -15,7 +15,7 @@ const service = axios.create({
 // request interceptor
 service.interceptors.request.use(
   config => {
-    console.log("##[", "api", "]##", "request", config.url, config);
+    // console.log("##[", "api", "]##", "request", config.url, config);
     return config;
   },
   error => {

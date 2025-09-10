@@ -87,7 +87,7 @@ export interface Component {
 
 export interface SoftwareCatalog {
   id: number
-  title: string
+  name: string
   description: string
   summary: string
   category: string
@@ -178,4 +178,28 @@ export interface ApplicationStatus {
   infraInfo: string
   status: string
   checkedAt: Date
+}
+
+export interface PackageInfoDTO {
+  id: number;
+  catalogId: number;
+  packageType: string;
+  packageName: string;
+  packageVersion: string;
+  repositoryUrl: string;
+  dockerImageId: string | null;
+  dockerPublisher: string;
+  dockerCreatedAt: string;
+  dockerUpdatedAt: string;
+  dockerShortDescription: string;
+  dockerSource: string;
+  starCount: number;
+  pullCount: string;
+  isOfficial: boolean;
+  isAutomated: boolean;
+  lastPulledAt: string;
+  isArchived: boolean;
+  operatingSystems: string;
+  architectures: string;
+  categories: string;
 }

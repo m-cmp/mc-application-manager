@@ -4,6 +4,11 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
+      path: '/',
+      name: 'home',
+      redirect: '/web/softwareCatalog'
+    },
+    {
       path: '/web',
       name: 'rootOssList',
       component: () => import('@/views/oss/OssList.vue' as any)

@@ -1,6 +1,16 @@
 <template>
   <div ref="sofwareCatalog">
-    <h2>Catalog</h2>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="mb-0">Catalog</h2>
+      <button 
+        class="btn btn-primary" 
+        style="margin-right: 315px;" 
+        data-bs-toggle="modal" 
+        data-bs-target="#modal-wizard"
+        @click="onClickRegist">
+        Regist
+      </button>
+    </div>
     <!-- Navbar -->
     <div class="row">
       <div class="col-lg-9">
@@ -13,12 +23,13 @@
               <div class="row g-2 align-items-center">
                 <!-- <div class="col-auto fs-3">{{ idx + 1 }}</div> -->
                 <div class="col-auto me-3">
-                  <img :src="catalog.logoUrlLarge" class="rounded" alt="Catalog Icon" width="40" height="40">
+                  <img v-if="catalog.logoUrlLarge" :src="catalog.logoUrlLarge" class="rounded" alt="Catalog Icon" width="40" height="40">
+                  <img v-else src="https://artifacthub.io/static/media/placeholder_pkg_helm.png" class="rounded" alt="Catalog Icon" width="40" height="40">
                 </div>
                 
-                <!-- Catalog Title -->
+                <!-- Catalog Name -->
                 <div class="col" @click="showSoftwareCatalogDetail(idx)">
-                  {{ catalog.title }}
+                  {{ catalog.name }}
                   
                   <!-- Catalog Summary -->
                   <div class="text-muted">
@@ -34,7 +45,7 @@
                 <!-- Dots -->
                 <div class="col-auto lh-1">
                   <div class="dropdown">
-                    <a href="#" class="link-secondary" @click="toggleDropdown(`dropdown-${catalog.id}`)">
+                    <a href="javascript:void(0);" class="link-secondary" @click="toggleDropdown(`dropdown-${catalog.id}`)">
                       <IconDots class="icon" width="24" height="24" stroke-width="2" />
                     </a>
                     <div :id="`dropdown-${catalog.id}`" class="dropdown-menu dropdown-menu-end" :class="{ 'show': activeDropdown === `dropdown-${catalog.id}` }">
@@ -42,8 +53,14 @@
                         class="dropdown-item" 
                         @click="onClickUpdate(catalog.id)" 
                         data-bs-toggle="modal"
-                        data-bs-target="#modal-form">
+                        data-bs-target="#modal-wizard">
                         Update
+                      </a>
+                      <a 
+                        class="dropdown-item" 
+                        @click="onClickDelete(catalog)"
+                        href="javascript:void(0);">
+                        Delete
                       </a>
                     </div>
                   </div>
@@ -273,24 +290,42 @@
       </div>
     </div>
   </div>
-  <SoftwareCatalogForm 
+  
+  <DeleteConfirmModal 
+    ref="deleteConfirmModal"
+    :target-catalog="deleteTargetCatalog"
+    @deleted="onCatalogDeleted"
+    @close="onDeleteModalClose" />
+    
+  <SoftwareCatalogWizard 
+    :mode="wizardMode"
+    :catalog-id="selectCatalogId"
+    :catalog-info="selectCatalogInfo"
+    @created="_getSoftwareCatalogList"
+    @updated="_getSoftwareCatalogList" />
+  <!-- <SoftwareCatalogForm 
     :mode="formMode" 
     :catalog-idx="selectCatalogIdx" 
     :repository-application-info="repositoryApplicationInfo"
     :repository-name="repositoryName"
-    @get-list="_getSoftwareCatalogList" />
+    @get-list="_getSoftwareCatalogList" /> -->
 </template>
 <script setup lang="ts">
 // Component
 import { IconDots } from '@tabler/icons-vue'
-import SoftwareCatalogForm from '@/views/softwareCatalog/components/softwareCatalogForm.vue';
+// @ts-ignore
+import SoftwareCatalogForm from './softwareCatalogForm.vue';
+// @ts-ignore
+import SoftwareCatalogWizard from './softwareCatalogWizard.vue';
+// @ts-ignore
+import DeleteConfirmModal from './DeleteConfirmModal.vue';
 
 // API
-import { getSoftwareCatalogList, searchArtifacthubhub, searchDockerhub } from '@/api/softwareCatalog';
+import { getSoftwareCatalogList, searchArtifacthubhub, searchDockerhub } from '../../../api/softwareCatalog';
 
 // ETC
 import { computed, onMounted, ref } from 'vue';
-import type { SoftwareCatalog } from '@/views/type/type';
+import type { SoftwareCatalog } from '../../type/type';
 import { useToast } from 'vue-toastification';
 // @ts-ignore
 import _ from 'lodash';
@@ -299,10 +334,17 @@ const toast = useToast()
 
 const catalogList = ref([] as Array<SoftwareCatalog | any>)
 const selectCatalogIdx = ref(null as number | null)
+const selectCatalogId = ref(null as number | null)
+const selectCatalogInfo = ref({} as any)
 
-const formMode = ref('new')
+// const formMode = ref('new')
+const wizardMode = ref('new')
 const repositoryApplicationInfo = ref({} as any)
 const repositoryName = ref("" as string)
+
+// 삭제 관련 상태
+const deleteTargetCatalog = ref({} as any)
+const deleteConfirmModal = ref<any>(null)
 
 const searchKeyword = ref("")
 const dockerHubSearchList = ref([] as any)
@@ -339,6 +381,16 @@ onMounted(async () => {
     }
   })
 })
+
+const onClickRegist = () => {
+  wizardMode.value = 'new'
+  selectCatalogId.value = null
+  selectCatalogInfo.value = {}
+  // formMode.value = 'new'
+  selectCatalogIdx.value = 0;
+  repositoryApplicationInfo.value = {}
+  repositoryName.value = ""
+}
 
 /**
 * @Method _getSoftwareCatalogList
@@ -425,7 +477,7 @@ const setArtifactHubSearchList = async () => {
 * @Desc Regist SoftwareCatalog Popup set
 */
 const onClickCreate = (repoName: string, result: any) => {
-  formMode.value = 'new'
+  // formMode.value = 'new'
   selectCatalogIdx.value = 0;
   repositoryApplicationInfo.value = result
   repositoryName.value = repoName
@@ -435,9 +487,36 @@ const onClickCreate = (repoName: string, result: any) => {
 * @Method onClickUpdate
 * @Desc Update SoftwareCatalog Popup set
 */
-const onClickUpdate = (idx: number) => {
-  formMode.value = 'update'
-  selectCatalogIdx.value = idx;
+const onClickUpdate = (catalogId: number) => {
+  // 선택된 catalog 찾기
+  const selectedCatalog = catalogList.value.find(catalog => catalog.id === catalogId)
+  
+  selectCatalogId.value = catalogId
+  selectCatalogInfo.value = selectedCatalog || {}
+  wizardMode.value = 'update'
+  // formMode.value = 'update'
+}
+
+const onClickDelete = (catalog: any) => {
+  console.log('Delete catalog:', catalog)
+  deleteTargetCatalog.value = catalog
+  
+  // 모달 컴포넌트 열기
+  if (deleteConfirmModal.value) {
+    deleteConfirmModal.value.show()
+  }
+}
+
+// 삭제 완료 이벤트 핸들러
+const onCatalogDeleted = async (catalogId: number) => {
+  console.log('Catalog deleted:', catalogId)
+  // 목록 새로고침
+  await _getSoftwareCatalogList()
+}
+
+// 모달 닫기 이벤트 핸들러
+const onDeleteModalClose = () => {
+  deleteTargetCatalog.value = {}
 }
 
 /**

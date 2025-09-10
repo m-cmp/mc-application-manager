@@ -2,8 +2,8 @@ import router from "./router/index";
 import { useUserStore } from '@/stores/user'
 
 router.beforeEach(async (to, from, next) => {
-  console.log('## to ### : ', to)
-  console.log('## from ### : ', from)
+  // console.log('## to ### : ', to)
+  // console.log('## from ### : ', from)
 
   window.addEventListener("message", async function (event) {
     let data

@@ -2,8 +2,8 @@ import request from "../common/request";
 import type { SoftwareCatalog } from "@/views/type/type";
 
 // software catalog list
-export const getSoftwareCatalogList = (title:string) => {
-  return request.get(`/catalog/software/?title=${title}`)
+export const getSoftwareCatalogList = (name:string) => {
+  return request.get(`/catalog/software?name=${name}`)
 }
 
 export const getSoftwareCaltalogDetail = (catalogIdx :number | null) => {
@@ -86,7 +86,11 @@ export function createSoftwareCatalog(params: any) {
 }
 
 export function updateSoftwareCatalog(params: any) {
-  return request.put(`/catalog/software`, params)
+  return request.put(`/catalog/software/${params.id}`, params)
+}
+
+export function deleteSoftwareCatalog(catalogId: number) {
+  return request.delete(`/catalog/software/${catalogId}`)
 }
 
 export function getApplicationsStatus() {
@@ -100,4 +104,22 @@ export function applicationAction(
   applicationStatusId: number
 }) {
   return request.get(`/applications/vm/action?operation=${params.operation}&applicationStatusId=${params.applicationStatusId}`)
+}
+
+
+// wizard
+export function getCategoryList(params: { target: string }) {
+  return request.post(`/catalog/software/category`, params)
+}
+
+export function getPackageList(params: { target: string, category: string }) {
+  return request.post(`/catalog/software/package`, params)
+}
+
+export function getVersionList(params: { target: string, packageName: string }) {
+  const _params = {
+    target: params.target,
+    applicationName: params.packageName
+  }
+  return request.post(`/catalog/software/package/version`, _params)
 }

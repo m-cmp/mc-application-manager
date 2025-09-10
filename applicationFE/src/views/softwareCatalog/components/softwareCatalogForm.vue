@@ -17,7 +17,7 @@
           <!-- Title -->
           <div class="mb-3">
             <label class="form-label">Title</label>
-            <input type="text" class="form-control" id="sc-title" name="title" placeholder="Application name" v-model="catalogDto.title" disabled/>
+            <input type="text" class="form-control" id="sc-title" name="title" placeholder="Application name" v-model="catalogDto.name" disabled/>
           </div>
           
           <!-- Summary -->
