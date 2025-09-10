@@ -103,9 +103,20 @@ public interface NexusIntegrationService {
     OssDto getNexusInfoFromDB();
     
     /**
-     * Nexus에서 Docker Repository 이름을 동적으로 가져옵니다.
+     * Nexus에서 특정 format의 Repository 이름을 동적으로 가져옵니다.
      * 
-     * @return Docker Repository 이름
+     * @param format Repository format (예: "docker", "helm", "maven" 등)
+     * @return Repository 이름
      */
-    String getDockerRepositoryName();
+    String getRepositoryNameByFormat(String format);
+    
+    /**
+     * 파일을 Nexus에 업로드합니다.
+     * 
+     * @param file 업로드할 파일
+     * @param uploadUrl 업로드 URL
+     * @param nexusInfo Nexus 정보
+     * @return 업로드 성공 여부
+     */
+    boolean uploadFileToNexus(java.io.File file, String uploadUrl, kr.co.mcmp.oss.dto.OssDto nexusInfo);
 }

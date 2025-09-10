@@ -65,6 +65,22 @@ public class SoftwareCatalog {
 
     @Column(columnDefinition="VARCHAR(200) NOT NULL DEFAULT ''", name="SUMMARY")
     private String summary;
+    
+    // 추가 필드들
+    @Column(name = "version")
+    private String version;
+    
+    @Column(name = "license")
+    private String license;
+    
+    @Column(name = "homepage")
+    private String homepage;
+    
+    @Column(name = "repository_url")
+    private String repositoryUrl;
+    
+    @Column(name = "documentation_url")
+    private String documentationUrl;
       
     @ManyToOne
     @JoinColumn(name = "registered_by")
@@ -142,5 +158,16 @@ public class SoftwareCatalog {
     public void removePort(PortMapping port) {
         this.ports.remove(port);
         port.setCatalog(null);
+    }
+    
+    public void updateFromDTO(SoftwareCatalogDTO dto) {
+        if (dto.getName() != null) this.name = dto.getName();
+        if (dto.getDescription() != null) this.description = dto.getDescription();
+        if (dto.getVersion() != null) this.version = dto.getVersion();
+        if (dto.getCategory() != null) this.category = dto.getCategory();
+        if (dto.getLicense() != null) this.license = dto.getLicense();
+        if (dto.getHomepage() != null) this.homepage = dto.getHomepage();
+        if (dto.getRepositoryUrl() != null) this.repositoryUrl = dto.getRepositoryUrl();
+        if (dto.getDocumentationUrl() != null) this.documentationUrl = dto.getDocumentationUrl();
     }
 }

@@ -7,8 +7,18 @@ import java.util.Map;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import kr.co.mcmp.dto.oss.repository.CommonRepository;
 import kr.co.mcmp.service.oss.repository.CommonModuleRepositoryService;
@@ -19,7 +29,8 @@ import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.oss.service.OssService;
 import kr.co.mcmp.util.Base64Utils;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 내부 넥서스와 연동하는 서비스 구현체
@@ -27,12 +38,17 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @Transactional
 @RequiredArgsConstructor
-@Slf4j
 public class NexusIntegrationServiceImpl implements NexusIntegrationService {
+    
+    private static final Logger log = LoggerFactory.getLogger(NexusIntegrationServiceImpl.class);
     
     private final CommonModuleRepositoryService moduleRepositoryService;
     private final NexusConfig nexusConfig;
     private final OssService ossService;
+    private final RestTemplate restTemplate;
+    
+    @Value("${docker.registry.port:5500}")
+    private int dockerRegistryPort;
     
     /**
      * 소프트웨어 카탈로그를 넥서스에 등록합니다.
@@ -380,13 +396,12 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             log.info("Retrieved Nexus info from DB: URL={}, Username={}", 
                     nexusInfo.getOssUrl(), nexusInfo.getOssUsername());
             
-            // 동적으로 Docker 레지스트리 포트 조회
-            int dockerPort = getDockerRegistryPort();
-            String dockerRegistryUrl = nexusInfo.getOssUrl().replace("http://", "").replace(":8081", ":" + dockerPort);
+            // 5500포트로 Docker Registry URL 구성
+            String dockerRegistryUrl = nexusInfo.getOssUrl().replace("http://", "").replace(":8081", ":" + dockerRegistryPort);
             String username = nexusInfo.getOssUsername();
             String password = Base64Utils.base64Decoding(nexusInfo.getOssPassword());
             
-            log.info("Docker registry URL: {}, Port: {}", dockerRegistryUrl, dockerPort);
+            log.info("Docker registry URL: {}, Port: {}", dockerRegistryUrl, dockerRegistryPort);
             
             // 동적으로 Docker 레포지토리 이름 조회
             String dockerRepositoryName = getDockerRepositoryName();
@@ -609,7 +624,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             String password = Base64Utils.base64Decoding(nexusInfo.getOssPassword());
             
             // 동적으로 Docker 레포지토리 이름 조회
-            String dockerRepositoryName = getDockerRepositoryName();
+            String dockerRepositoryName = getRepositoryNameByFormat("docker");
             
             log.info("Querying tags for image '{}' in repository '{}' from Nexus: {}", 
                     imageName, dockerRepositoryName, nexusUrl);
@@ -617,27 +632,28 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // 넥서스 검색 API 호출
             String searchUrl = nexusUrl + "/service/rest/v1/search?repository=" + dockerRepositoryName + "&name=" + imageName;
             
-            // HTTP 요청을 위한 ProcessBuilder 사용
-            ProcessBuilder curlProcess = new ProcessBuilder(
-                "curl", "-s", "-u", username + ":" + password, searchUrl
+            // RestTemplate을 사용하여 HTTP 요청
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            String auth = username + ":" + password;
+            String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+            headers.set("Authorization", "Basic " + encodedAuth);
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            ResponseEntity<String> response = restTemplate.exchange(
+                searchUrl, 
+                HttpMethod.GET, 
+                entity, 
+                String.class
             );
             
-            Process curlProc = curlProcess.start();
-            StringBuilder response = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(curlProc.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
-                }
-            }
-            
-            int exitCode = curlProc.waitFor();
-            if (exitCode != 0) {
-                log.error("Failed to query Nexus API (exit code: {}) for image: {}", exitCode, imageName);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                log.error("Failed to query Nexus API (status: {}) for image: {}", response.getStatusCode(), imageName);
                 return new ArrayList<>(); // 빈 목록 반환
             }
             
-            String responseStr = response.toString();
+            String responseStr = response.getBody();
             if (responseStr.trim().isEmpty()) {
                 log.warn("Empty response from Nexus API for image: {}", imageName);
                 return new ArrayList<>(); // 빈 목록 반환
@@ -808,6 +824,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         }
     }
 
+    
     /**
      * OSS에서 조회한 넥서스 정보를 바탕으로 Docker 타입의 레포지토리를 동적으로 조회합니다.
      *
@@ -902,8 +919,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             
             int exitCode = curlProc.waitFor();
             if (exitCode != 0) {
-                log.warn("Failed to query Nexus status, using default port");
-                return 8081;
+                throw new RuntimeException("Failed to query Nexus status");
             }
             
             // JSON 응답에서 Docker 레지스트리 포트 찾기
@@ -913,66 +929,15 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 log.info("Found Docker registry port: {}", dockerPort);
                 return dockerPort;
             } else {
-                log.warn("No Docker registry port found, using default");
-                return 8081;
+                throw new RuntimeException("No Docker registry port found in Nexus");
             }
             
         } catch (Exception e) {
             log.error("Failed to get Docker registry port", e);
-            return 8081;
+            throw new RuntimeException("Failed to get Docker registry port: " + e.getMessage());
         }
     }
     
-    /**
-     * 넥서스 API 응답에서 Docker 타입의 레포지토리 이름을 파싱합니다.
-     * 
-     * @param jsonResponse 넥서스 API JSON 응답
-     * @return Docker 레포지토리 이름 (찾지 못하면 null)
-     */
-    private String parseDockerRepositoryFromResponse(String jsonResponse) {
-        try {
-            log.debug("Parsing Docker repository from response: {}", jsonResponse);
-            
-            // JSON에서 "format":"docker"인 레포지토리 찾기
-            // 더 정확한 정규식 패턴 사용
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
-                "\\{[^}]*\"name\"\\s*:\\s*\"([^\"]+)\"[^}]*\"format\"\\s*:\\s*\"docker\"[^}]*\\}"
-            );
-            java.util.regex.Matcher matcher = pattern.matcher(jsonResponse);
-            
-            if (matcher.find()) {
-                String repositoryName = matcher.group(1);
-                log.info("Successfully parsed Docker repository: {}", repositoryName);
-                return repositoryName;
-            }
-            
-            // 정규식이 실패하면 다른 방법으로 시도
-            log.warn("Regex pattern failed, trying alternative parsing method");
-            
-            // 대안: "format":"docker"가 포함된 라인에서 "name" 찾기
-            String[] lines = jsonResponse.split("\\{");
-            for (String line : lines) {
-                if (line.contains("\"format\"") && line.contains("docker")) {
-                    int nameStart = line.indexOf("\"name\":\"");
-                    if (nameStart > 0) {
-                        int nameEnd = line.indexOf("\"", nameStart + 8);
-                        if (nameEnd > nameStart) {
-                            String repositoryName = line.substring(nameStart + 8, nameEnd);
-                            log.info("Found Docker repository using alternative method: {}", repositoryName);
-                            return repositoryName;
-                        }
-                    }
-                }
-            }
-            
-            log.error("No Docker repository found in response");
-            return null;
-            
-        } catch (Exception e) {
-            log.error("Failed to parse Docker repository from response: {}", e.getMessage());
-            return null;
-        }
-    }
     
     /**
      * 넥서스 API 응답에서 Docker 레지스트리 포트를 파싱합니다.
@@ -983,8 +948,21 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private int parseDockerPortFromResponse(String jsonResponse) {
         try {
             // JSON에서 Docker 레지스트리 포트 정보 찾기
-            // 실제 구현에서는 넥서스 설정에 따라 다를 수 있음
-            // 현재는 기본값 반환
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode rootNode = objectMapper.readTree(jsonResponse);
+            
+            // Nexus status API에서 Docker registry 포트 찾기
+            if (rootNode.has("data")) {
+                JsonNode dataNode = rootNode.get("data");
+                if (dataNode.has("docker")) {
+                    JsonNode dockerNode = dataNode.get("docker");
+                    if (dockerNode.has("port")) {
+                        return dockerNode.get("port").asInt();
+                    }
+                }
+            }
+            
+            // 기본적으로 8081 포트 사용 (Docker registry 기본 포트)
             return 8081;
         } catch (Exception e) {
             log.warn("Failed to parse Docker port from response: {}", e.getMessage());
@@ -1003,18 +981,19 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         List<String> tags = new ArrayList<>();
         
         try {
-            // 간단한 JSON 파싱 (실제로는 Jackson ObjectMapper 사용 권장)
-            // "version" 필드에서 태그 추출
-            String[] lines = jsonResponse.split("\n");
-            for (String line : lines) {
-                if (line.contains("\"version\"")) {
-                    // "version":"tag" 형태에서 태그 추출
-                    int start = line.indexOf("\"version\":\"") + 11;
-                    int end = line.indexOf("\"", start);
-                    if (start > 10 && end > start) {
-                        String tag = line.substring(start, end);
-                        if (!tags.contains(tag)) {
-                            tags.add(tag);
+            // Jackson ObjectMapper를 사용하여 JSON 파싱
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode rootNode = objectMapper.readTree(jsonResponse);
+            
+            if (rootNode.has("items")) {
+                JsonNode itemsNode = rootNode.get("items");
+                if (itemsNode.isArray()) {
+                    for (JsonNode item : itemsNode) {
+                        if (item.has("version")) {
+                            String version = item.get("version").asText();
+                            if (!tags.contains(version)) {
+                                tags.add(version);
+                            }
                         }
                     }
                 }
@@ -1076,31 +1055,37 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         try {
             // DB에서 넥서스 정보 가져오기
             OssDto nexusInfo = getNexusInfoFromDB();
-            String dockerRepositoryName = getDockerRepositoryName();
+            String dockerRepositoryName = getRepositoryNameByFormat("docker");
             
             // 넥서스 검색 API 호출
             String searchUrl = nexusInfo.getOssUrl() + "/service/rest/v1/search?repository=" + dockerRepositoryName + "&name=" + imageName;
             log.info("Searching for image in Nexus: {}", searchUrl);
             
-            ProcessBuilder searchProcess = new ProcessBuilder(
-                "curl", "-s", "-u", 
-                nexusInfo.getOssUsername() + ":" + Base64Utils.base64Decoding(nexusInfo.getOssPassword()),
-                searchUrl
+            // RestTemplate을 사용하여 HTTP 요청
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            String auth = nexusInfo.getOssUsername() + ":" + Base64Utils.base64Decoding(nexusInfo.getOssPassword());
+            String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+            headers.set("Authorization", "Basic " + encodedAuth);
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            ResponseEntity<String> response = restTemplate.exchange(
+                searchUrl, 
+                HttpMethod.GET, 
+                entity, 
+                String.class
             );
             
-            Process searchProc = searchProcess.start();
-            int exitCode = searchProc.waitFor();
-            
-            if (exitCode == 0) {
-                // 응답에서 해당 태그가 있는지 확인
-                String response = new String(searchProc.getInputStream().readAllBytes());
-                log.info("Nexus search response: {}", response);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                String responseBody = response.getBody();
+                log.info("Nexus search response: {}", responseBody);
                 
                 // JSON 응답에서 태그 확인
-                return response.contains("\"version\":\"" + tag + "\"") || 
-                       response.contains("\"name\":\"" + imageName + "\"");
+                return responseBody.contains("\"version\":\"" + tag + "\"") || 
+                       responseBody.contains("\"name\":\"" + imageName + "\"");
             } else {
-                log.warn("Failed to search Nexus for image: {}:{}", imageName, tag);
+                log.warn("Failed to search Nexus for image: {}:{}, Status: {}", imageName, tag, response.getStatusCode());
                 return false;
             }
             
@@ -1169,5 +1154,187 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         }
         
         return result;
+    }
+    
+    /**
+     * Nexus에서 특정 format의 Repository 이름을 동적으로 가져옵니다.
+     * 
+     * @param format Repository format (예: "docker", "helm", "maven" 등)
+     * @return Repository 이름
+     */
+    @Override
+    public String getRepositoryNameByFormat(String format) {
+        try {
+            // DB에서 넥서스 정보 가져오기
+            OssDto nexusInfo = getNexusInfoFromDB();
+            String nexusUrl = nexusInfo.getOssUrl();
+            String username = nexusInfo.getOssUsername();
+            String password = Base64Utils.base64Decoding(nexusInfo.getOssPassword());
+            
+            log.info("Querying Nexus repositories from: {} for format: {}", nexusUrl, format);
+            
+            // 넥서스에서 모든 레포지토리 목록 조회
+            String repositoriesUrl = nexusUrl + "/service/rest/v1/repositories";
+            
+            // RestTemplate을 사용하여 HTTP 요청
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            String auth = username + ":" + password;
+            String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+            headers.set("Authorization", "Basic " + encodedAuth);
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            ResponseEntity<String> response = restTemplate.exchange(
+                repositoriesUrl, 
+                HttpMethod.GET, 
+                entity, 
+                String.class
+            );
+            
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                log.error("Failed to query Nexus repositories: {}", response.getStatusCode());
+                throw new RuntimeException("Failed to query Nexus repositories: " + response.getStatusCode());
+            }
+            
+            String responseStr = response.getBody();
+            log.debug("Nexus repositories response: {}", responseStr);
+            
+            // JSON 응답에서 지정된 format의 레포지토리 찾기
+            String repositoryName = parseRepositoryByFormatFromResponse(responseStr, format);
+            
+            if (repositoryName != null && !repositoryName.isEmpty()) {
+                log.info("Successfully found {} repository: {}", format, repositoryName);
+                return repositoryName;
+            } else {
+                log.error("No {} repository found in Nexus. Available repositories: {}", format, responseStr);
+                throw new RuntimeException("No " + format + " repository found in Nexus");
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to get {} repository name from Nexus", format, e);
+            throw new RuntimeException("Failed to get " + format + " repository name: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 넥서스 API 응답에서 Docker 타입의 레포지토리 이름을 파싱합니다.
+     * 
+     * @param jsonResponse 넥서스 API JSON 응답
+     * @return Docker 레포지토리 이름 (찾지 못하면 null)
+     */
+    private String parseDockerRepositoryFromResponse(String jsonResponse) {
+        try {
+            log.debug("Parsing Docker repository from response: {}", jsonResponse);
+            
+            // JSON에서 "format":"docker"인 레포지토리 찾기
+            // 더 정확한 정규식 패턴 사용
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                "\\{[^}]*\"name\"\\s*:\\s*\"([^\"]+)\"[^}]*\"format\"\\s*:\\s*\"docker\"[^}]*\\}"
+            );
+            java.util.regex.Matcher matcher = pattern.matcher(jsonResponse);
+            
+            if (matcher.find()) {
+                String repositoryName = matcher.group(1);
+                log.info("Successfully parsed Docker repository: {}", repositoryName);
+                return repositoryName;
+            }
+            
+            // 정규식이 실패하면 다른 방법으로 시도
+            log.warn("Regex pattern failed, trying alternative parsing method");
+            
+            // 대안: "format":"docker"가 포함된 라인에서 "name" 찾기
+            String[] lines = jsonResponse.split("\\{");
+            for (String line : lines) {
+                if (line.contains("\"format\"") && line.contains("docker")) {
+                    int nameStart = line.indexOf("\"name\":\"");
+                    if (nameStart > 0) {
+                        int nameEnd = line.indexOf("\"", nameStart + 8);
+                        if (nameEnd > nameStart) {
+                            String repositoryName = line.substring(nameStart + 8, nameEnd);
+                            log.info("Found Docker repository using alternative method: {}", repositoryName);
+                            return repositoryName;
+                        }
+                    }
+                }
+            }
+            
+            log.error("No Docker repository found in response");
+            return null;
+            
+        } catch (Exception e) {
+            log.error("Failed to parse Docker repository from response: {}", e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * JSON 응답에서 특정 format의 repository를 찾습니다.
+     * 
+     * @param responseStr JSON 응답 문자열
+     * @param format 찾을 format
+     * @return repository 이름 또는 null
+     */
+    private String parseRepositoryByFormatFromResponse(String responseStr, String format) {
+        try {
+            // JSON 파싱을 위한 ObjectMapper 사용
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode rootNode = objectMapper.readTree(responseStr);
+            
+            if (rootNode.isArray()) {
+                for (JsonNode repository : rootNode) {
+                    JsonNode formatNode = repository.get("format");
+                    if (formatNode != null && format.equals(formatNode.asText())) {
+                        JsonNode nameNode = repository.get("name");
+                        if (nameNode != null) {
+                            return nameNode.asText();
+                        }
+                    }
+                }
+            }
+            
+            return null;
+        } catch (Exception e) {
+            log.error("Error parsing repository response for format: {}", format, e);
+            return null;
+        }
+    }
+    
+    /**
+     * 파일을 Nexus에 업로드합니다.
+     */
+    @Override
+    public boolean uploadFileToNexus(java.io.File file, String uploadUrl, kr.co.mcmp.oss.dto.OssDto nexusInfo) {
+        try {
+            // Basic Auth 헤더 설정
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            String auth = nexusInfo.getOssUsername() + ":" + nexusInfo.getOssPassword();
+            String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+            headers.set("Authorization", "Basic " + encodedAuth);
+            
+            // 파일을 바이트 배열로 읽기
+            byte[] fileBytes = java.nio.file.Files.readAllBytes(file.toPath());
+            HttpEntity<byte[]> entity = new HttpEntity<>(fileBytes, headers);
+            
+            ResponseEntity<String> uploadResponse = restTemplate.exchange(
+                uploadUrl,
+                HttpMethod.PUT,
+                entity,
+                String.class
+            );
+            
+            if (!uploadResponse.getStatusCode().is2xxSuccessful()) {
+                log.error("Failed to upload file to Nexus: {}, Status: {}", uploadUrl, uploadResponse.getStatusCode());
+                return false;
+            }
+            
+            log.info("Successfully uploaded file to Nexus: {}", uploadUrl);
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Error uploading file to Nexus: {}", uploadUrl, e);
+            return false;
+        }
     }
 }

@@ -75,6 +75,16 @@ public class HelmChart {
     @Column(name = "repository_display_name")
     private String repositoryDisplayName; // ArtifactHub 저장소 표시 이름 (ArtifactHub 전용)
 
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description; // Helm 차트 설명
+
+    @Column(name = "home_url")
+    private String homeUrl; // Helm 차트 홈페이지 URL
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private kr.co.mcmp.softwarecatalog.users.Entity.User user; // 등록한 사용자
+
     
 
     public void updateFromDTO(HelmChartDTO helmChart) {

@@ -2,6 +2,7 @@ server:
   port: 18084
 config:
   config-string: application,manager,m-cmp
+
 spring:
   mvc:
     pathmatch:
@@ -83,17 +84,6 @@ nexus:
   use-external-docker-hub: ${NEXUS_USE_EXTERNAL_DOCKER_HUB:true}
   use-external-artifact-hub: ${NEXUS_USE_EXTERNAL_ARTIFACT_HUB:true}
 
-docker:
-  monitoring:
-    interval: 60000  # 밀리초 단위, 기본값은 60000 (1분)
-  push:
-    timeout-seconds: 600  # 10분
-    max-retries: 3
-    retry-delay-seconds: 5
-  validation:
-    check-daemon: true
-
-    
 file:
   upload:
     path:
