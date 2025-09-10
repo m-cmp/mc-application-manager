@@ -192,8 +192,8 @@ public class CatalogService {
 
         // 2. 내부 DB에서 카탈로그 삭제
         catalogRefRepository.deleteAllByCatalogId(catalogId);
-        packageInfoRepository.deleteByCatalogId(catalogId);
-        helmChartRepository.deleteByCatalogId(catalogId);
+//        packageInfoRepository.deleteByCatalogId(catalogId);
+//        helmChartRepository.deleteByCatalogId(catalogId);
         catalogRepository.delete(catalog);
         
         log.info("Software catalog deleted successfully with ID: {}", catalogId);
