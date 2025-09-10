@@ -23,6 +23,7 @@ public interface PackageInfoRepository extends JpaRepository<PackageInfo, Long> 
     List<String> findDistinctCategories();
 
     List<PackageInfo> findByCategories(String categories);
+    List<PackageInfo> findByCategoriesAndCatalogIsNull(String categories);
 
     @Query("SELECT DISTINCT p.packageVersion FROM PackageInfo p WHERE p.packageName = :packageName")
     List<String> findDistinctPackageVersionByPackageName(String packageName);
