@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import kr.co.mcmp.dto.oss.repository.CommonRepository;
+import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalogDTO;
 
 /**
@@ -93,4 +94,18 @@ public interface NexusIntegrationService {
      * @return Repository 생성/확인 결과
      */
     Map<String, Object> ensureDockerRepositoryExists(String repositoryName);
+    
+    /**
+     * DB에서 Nexus OSS 정보를 가져옵니다.
+     * 
+     * @return Nexus OSS 정보
+     */
+    OssDto getNexusInfoFromDB();
+    
+    /**
+     * Nexus에서 Docker Repository 이름을 동적으로 가져옵니다.
+     * 
+     * @return Docker Repository 이름
+     */
+    String getDockerRepositoryName();
 }

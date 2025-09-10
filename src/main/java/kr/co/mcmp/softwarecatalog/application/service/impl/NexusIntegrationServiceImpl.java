@@ -531,7 +531,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
      * @return 넥서스 OSS 정보 (URL, 사용자명, 비밀번호)
      * @throws RuntimeException DB에서 NEXUS 정보를 찾을 수 없는 경우
      */
-    private OssDto getNexusInfoFromDB() {
+    public OssDto getNexusInfoFromDB() {
         try {
             // DB에서 NEXUS OSS 정보 조회
             List<OssDto> ossList = ossService.getAllOssList();
@@ -575,11 +575,11 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // 실제 넥서스에서 태그를 찾지 못한 경우에만 기본 태그 제공
             if (tags.isEmpty()) {
                 log.info("No tags found in Nexus for image '{}', providing default tags", imageName);
-                tags.add("latest");
-                tags.add("stable");
-                tags.add("v1.0.0");
-                tags.add("v1.1.0");
-                tags.add("v2.0.0");
+                    tags.add("latest");
+                    tags.add("stable");
+                    tags.add("v1.0.0");
+                    tags.add("v1.1.0");
+                    tags.add("v2.0.0");
             }
             
             log.debug("Retrieved {} tags for image: {} from Nexus", tags.size(), imageName);
@@ -814,7 +814,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
      * @return Docker 타입 레포지토리 이름
      * @throws RuntimeException Docker 레포지토리를 찾을 수 없는 경우
      */
-    private String getDockerRepositoryName() {
+    public String getDockerRepositoryName() {
         try {
             // DB에서 넥서스 정보 가져오기
             OssDto nexusInfo = getNexusInfoFromDB();
