@@ -69,8 +69,11 @@ services:
       - target: 8081
         published: 8081
         protocol: tcp
-      - target: 5000 # container-repository
-        published: 5000
+      - target: 5500 # container-repository
+        published: 5500
+        protocol: tcp
+      - target: 5600 # container-repository
+        published: 5600
         protocol: tcp
     volumes:
       - ~/:/nexus-data/blobs/
