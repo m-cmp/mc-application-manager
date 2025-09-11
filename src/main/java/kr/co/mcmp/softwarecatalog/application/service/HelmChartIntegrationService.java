@@ -20,13 +20,6 @@ public interface HelmChartIntegrationService {
      */
     Map<String, Object> searchHelmCharts(String query, int page, int pageSize);
     
-    /**
-     * ArtifactHub에서 Helm Chart 상세 정보를 조회합니다.
-     * 
-     * @param packageId 패키지 ID
-     * @return 상세 정보
-     */
-    Map<String, Object> getHelmChartDetails(String packageId);
     
     /**
      * ArtifactHub에서 Helm Chart 버전 목록을 조회합니다.

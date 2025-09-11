@@ -67,47 +67,6 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
         return result;
     }
     
-    /**
-     * ArtifactHub에서 Helm Chart 상세 정보를 조회합니다.
-     * 검색 결과에서 해당 패키지를 찾아 반환합니다.
-     */
-    @Override
-    public Map<String, Object> getHelmChartDetails(String packageId) {
-        log.info("Getting ArtifactHub Helm chart details: packageId={}", packageId);
-        
-        Map<String, Object> result = new HashMap<>();
-        
-        try {
-            // 1. "helm" 검색으로 시작 (가장 일반적인 검색어)
-            log.info("Searching with term: helm");
-            if (searchPackageInPages(packageId, "helm", result)) {
-                return result;
-            }
-            
-            // 2. "chart" 검색 시도
-            log.info("Searching with term: chart");
-            if (searchPackageInPages(packageId, "chart", result)) {
-                return result;
-            }
-            
-            // 3. "kubernetes" 검색 시도
-            log.info("Searching with term: kubernetes");
-            if (searchPackageInPages(packageId, "kubernetes", result)) {
-                return result;
-            }
-            
-            result.put("success", false);
-            result.put("message", "Package not found: " + packageId);
-            log.warn("Package not found in search results: {}", packageId);
-            
-        } catch (Exception e) {
-            log.error("Error getting ArtifactHub Helm chart details: {}", e.getMessage());
-            result.put("success", false);
-            result.put("message", "Error getting ArtifactHub Helm chart details: " + e.getMessage());
-        }
-        
-        return result;
-    }
     
     /**
      * 여러 페이지에서 패키지를 검색하는 헬퍼 메서드
@@ -183,7 +142,8 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
         
         try {
             // 먼저 패키지 상세 정보를 조회하여 repository 정보를 얻습니다
-            Map<String, Object> chartDetails = getHelmChartDetails(packageId);
+            // Map<String, Object> chartDetails = getHelmChartDetails(packageId);
+            Map<String, Object> chartDetails = new HashMap<>();
             if (!(Boolean) chartDetails.get("success")) {
                 log.warn("Failed to get chart details for packageId: {}", packageId);
                 return versions;
