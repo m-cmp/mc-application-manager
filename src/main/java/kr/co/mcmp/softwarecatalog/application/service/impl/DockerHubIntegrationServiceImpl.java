@@ -48,6 +48,13 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
     @Value("${docker.push.max-retries:3}")
     private int maxRetries;
     
+    // Docker Registry 설정
+    @Value("${docker.registry.port:5500}")
+    private int dockerRegistryPort;
+    
+    @Value("${docker.registry.secure:false}")
+    private boolean dockerRegistrySecure;
+    
     @Value("${docker.push.retry-delay-seconds:5}")
     private long retryDelaySeconds;
     
@@ -240,7 +247,7 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
         
         try {
             // 1. OSS 정보 가져오기
-            OssDto ossInfo = getOssInfoFromDB();
+            OssDto ossInfo = nexusIntegrationService.getNexusInfoFromDB();
             if (ossInfo == null) {
                 return createErrorResult("OSS 정보를 데이터베이스에서 가져올 수 없습니다.");
             }
@@ -278,9 +285,9 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
                 result.put("success", true);
                 result.put("message", "이미지가 성공적으로 Nexus에 푸시되었습니다.");
                 result.put("registryUrl", registryInfo.getRegistryUrl());
-                result.put("repository", getDockerRepositoryName(ossInfo));
+                result.put("repository", nexusIntegrationService.getRepositoryNameByFormat("docker"));
                 result.put("fullImageName", String.format("%s/%s/%s:%s", 
-                    registryInfo.getRegistryUrl(), getDockerRepositoryName(ossInfo), imageName, tag));
+                    registryInfo.getRegistryUrl(), nexusIntegrationService.getRepositoryNameByFormat("docker"), imageName, tag));
             } else {
                 result.put("success", false);
                 result.put("message", "이미지 푸시에 실패했습니다. 로그를 확인하세요.");
@@ -302,7 +309,7 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
         log.info("=== Starting enhanced Docker push process ===");
         
         try {
-            String repositoryName = getDockerRepositoryName(ossInfo);
+            String repositoryName = nexusIntegrationService.getRepositoryNameByFormat("docker");
             String username = ossInfo.getOssUsername();
             String password = Base64Utils.base64Decoding(ossInfo.getOssPassword());
             
@@ -577,14 +584,12 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
                 throw new IllegalArgumentException("Invalid URL: missing host");
             }
             
-            // Docker Registry 포트 사용 (8797 for HTTP, 8798 for HTTPS)
-            // 8797 포트는 HTTP이므로 강제로 false 설정
-            boolean isSecure = false; // 8797 포트는 항상 HTTP
-            int dockerPort = 8797; // HTTP 포트 사용
+            // Docker Registry 포트를 설정 파일에서 가져오기
+            boolean isSecure = dockerRegistrySecure;
+            int dockerPort = dockerRegistryPort;
             String registryUrl = host + ":" + dockerPort;
             
-            log.info("Parsed Nexus URL - Host: {}, Port: {}, Secure: {}, Registry URL: {}", 
-                    host, port, isSecure, registryUrl);
+            log.info("Parsed Nexus URL - Host: {}, Port: {}, Secure: {}, Registry URL: {}", host, port, isSecure, registryUrl);
             
             return new DockerRegistryInfo(registryUrl, isSecure, host, port);
             
@@ -609,30 +614,7 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
         return registryUrl + "/" + repositoryName + "/" + fullImageName + ":" + tag;
     }
     
-    /**
-     * DB에서 OSS 정보 가져오기
-     */
-    private OssDto getOssInfoFromDB() {
-        try {
-            return nexusIntegrationService.getNexusInfoFromDB();
-        } catch (Exception e) {
-            log.error("Error getting OSS info from DB: {}", e.getMessage(), e);
-            return null;
-        }
-    }
     
-    /**
-     * Nexus에서 Docker Repository 이름 가져오기
-     */
-    private String getDockerRepositoryName(OssDto ossInfo) {
-        try {
-            return nexusIntegrationService.getDockerRepositoryName();
-        } catch (Exception e) {
-            log.error("Error getting Docker repository name: {}", e.getMessage(), e);
-            return "MCMP_Docker_Test"; // fallback
-        }
-
-    }
     
     /**
      * 에러 결과 생성
@@ -642,6 +624,21 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
         result.put("success", false);
         result.put("message", message);
         return result;
+    }
+    
+    @Override
+    public Map<String, Object> searchDockerHubImages(String query, int page, int pageSize) {
+        return searchImages(query, page, pageSize);
+    }
+    
+    @Override
+    public Map<String, Object> getDockerHubImageDetails(String imageName, String tag) {
+        return getImageDetails(imageName, tag);
+    }
+    
+    @Override
+    public Map<String, Object> getImageInfo(String imageName, String tag) {
+        return getImageDetails(imageName, tag);
     }
     
     /**
@@ -654,7 +651,7 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
             DockerRegistryInfo registryInfo = parseNexusUrl(ossInfo.getOssUrl());
             String username = ossInfo.getOssUsername();
             String password = Base64Utils.base64Decoding(ossInfo.getOssPassword());
-            String repositoryName = getDockerRepositoryName(ossInfo);
+            String repositoryName = nexusIntegrationService.getRepositoryNameByFormat("docker");
             
             String sourceImage = getSourceImageName(imageName, tag);
             String nexusImage = getNexusImageName(registryInfo.getRegistryUrl(), repositoryName, imageName, tag);

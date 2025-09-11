@@ -1,0 +1,2056 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" output="build/resources/test" path="src/test/resources">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="optional" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="resource" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="src" output="build/classes/java/test" path="src/test/java">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="src" output="build/resources/main" path="src/main/resources">
+		<attributes>
+			<attribute name="optional" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="resource" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="src" output="build/classes/java/main" path="src/main/java">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="src" output="build/classes/java/test" path="build/generated/sources/annotationProcessor/java/test">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="optional" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="src" output="build/classes/java/main" path="build/generated/sources/annotationProcessor/java/main">
+		<attributes>
+			<attribute name="optional" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-17">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter/2.7.9/19f855d327f68690cf630698e4e41c3afe134a83/spring-boot-starter-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter/2.7.9/4a4c93de254ed8686e92d0b43cab3f6595c77f92/spring-boot-starter-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/antlr/antlr/2.7.7/83cd2cd674a217ade95a4bb83a8a14f351f48bd0/antlr-2.7.7.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="antlr"/>
+			<attribute name="artifactId" value="antlr"/>
+			<attribute name="version" value="2.7.7"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.cloud/spring-cloud-context/3.1.5/c89cdcf2e2b895401e5795b431b8096511af1731/spring-cloud-context-3.1.5.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.cloud/spring-cloud-context/3.1.5/f9e1b88f60ef31e2013b98f3cf5ecba20478891f/spring-cloud-context-3.1.5-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.cloud"/>
+			<attribute name="artifactId" value="spring-cloud-context"/>
+			<attribute name="version" value="3.1.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-spi/2.6.1/972ae720c6a9a5f31be2744972b435cc39166174/springfox-spi-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-spi/2.6.1/1547fb2a632a46d3890233266222e50966c8d9b0/springfox-spi-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.springfox"/>
+			<attribute name="artifactId" value="springfox-spi"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/javax.xml.bind/jaxb-api/2.3.1/8531ad5ac454cc2deb9d4d32c40c4d7451939b5d/jaxb-api-2.3.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/javax.xml.bind/jaxb-api/2.3.1/e47264d065cecbc572ba99856fcc7da19a470ae3/jaxb-api-2.3.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="javax.xml.bind"/>
+			<attribute name="artifactId" value="jaxb-api"/>
+			<attribute name="version" value="2.3.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.checkerframework/checker-qual/3.5.0/2f50520c8abea66fbd8d26e481d3aef5c673b510/checker-qual-3.5.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.checkerframework/checker-qual/3.5.0/acb4745ac343906cd39f9b3776db0e56f251ae6e/checker-qual-3.5.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.checkerframework"/>
+			<attribute name="artifactId" value="checker-qual"/>
+			<attribute name="version" value="3.5.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-schema/2.6.1/b4d837ed7dc726a59504d2e6587e162e071a8965/springfox-schema-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-schema/2.6.1/fada1df36aa57114f1b82d861518e84a8d4a2a20/springfox-schema-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.springfox"/>
+			<attribute name="artifactId" value="springfox-schema"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springdoc/springdoc-openapi-webmvc-core/1.6.8/5829872762cdaec01e6b0e03c6f985556c434bad/springdoc-openapi-webmvc-core-1.6.8.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springdoc/springdoc-openapi-webmvc-core/1.6.8/6932a51cd0f46ed66a4e88c2351ab546293a2788/springdoc-openapi-webmvc-core-1.6.8-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springdoc"/>
+			<attribute name="artifactId" value="springdoc-openapi-webmvc-core"/>
+			<attribute name="version" value="1.6.8"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents.client5/httpclient5/5.1.4/208f9eed6d6ab709e2ae7a75b457ef60c0baefa5/httpclient5-5.1.4.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents.client5/httpclient5/5.1.4/228e5b4e277f0a63714fbaaa3fbaec7007189f5f/httpclient5-5.1.4-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.httpcomponents.client5"/>
+			<attribute name="artifactId" value="httpclient5"/>
+			<attribute name="version" value="5.1.4"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-annotations/2.13.3/7198b3aac15285a49e218e08441c5f70af00fc51/jackson-annotations-2.13.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-annotations/2.13.3/ba85620155c9143d2f9e731008c94cf778ffe91e/jackson-annotations-2.13.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml.jackson.core"/>
+			<attribute name="artifactId" value="jackson-annotations"/>
+			<attribute name="version" value="2.13.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/2.13.3/9363ded5441b1fee62d5be0604035690ca759a2a/jackson-dataformat-yaml-2.13.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/2.13.3/91efd618b2a634451080eace05690553b3129910/jackson-dataformat-yaml-2.13.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml.jackson.dataformat"/>
+			<attribute name="artifactId" value="jackson-dataformat-yaml"/>
+			<attribute name="version" value="2.13.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.sun.xml.bind/jaxb-impl/2.3.3/3758e8c1664979749e647a9ca8c7ea1cd83c9b1e/jaxb-impl-2.3.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.sun.xml.bind/jaxb-impl/2.3.3/e480ca4208fc77d4c5d9f7d37630237cc1b93b39/jaxb-impl-2.3.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.sun.xml.bind"/>
+			<attribute name="artifactId" value="jaxb-impl"/>
+			<attribute name="version" value="2.3.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna-platform-jpms/5.15.0/9093c678070f1b1edd7f5e27db01649f9f9e18f1/jna-platform-jpms-5.15.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna-platform-jpms/5.15.0/712d5f4d00130b3727a653dc3aca63921fab671f/jna-platform-jpms-5.15.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="net.java.dev.jna"/>
+			<attribute name="artifactId" value="jna-platform-jpms"/>
+			<attribute name="version" value="5.15.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-to-slf4j/2.17.2/17dd0fae2747d9a28c67bc9534108823d2376b46/log4j-to-slf4j-2.17.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-to-slf4j/2.17.2/c5e9730fac0589670eb001946c9986bbd22bc3b9/log4j-to-slf4j-2.17.2-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.logging.log4j"/>
+			<attribute name="artifactId" value="log4j-to-slf4j"/>
+			<attribute name="version" value="2.17.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-http/4.1.89.Final/75c46974dce9c730b999e83bbcdab2fc25e85aae/netty-codec-http-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-http/4.1.89.Final/3b51b461544cbd091aea64f5e4c158d6560b7202/netty-codec-http-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-codec-http"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.module/jackson-module-parameter-names/2.13.5/a401a99e7a45450fd3ef76e82ba39005fd1a8c22/jackson-module-parameter-names-2.13.5.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.module/jackson-module-parameter-names/2.13.5/6818c520f58eaec69783b4433171ae24e6e605a8/jackson-module-parameter-names-2.13.5-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml.jackson.module"/>
+			<attribute name="artifactId" value="jackson-module-parameter-names"/>
+			<attribute name="version" value="2.13.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.annotation/jakarta.annotation-api/1.3.5/59eb84ee0d616332ff44aba065f3888cf002cd2d/jakarta.annotation-api-1.3.5.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.annotation/jakarta.annotation-api/1.3.5/1ad35f11d17abb52426bfe15ea7b4c583795012/jakarta.annotation-api-1.3.5-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="jakarta.annotation"/>
+			<attribute name="artifactId" value="jakarta.annotation-api"/>
+			<attribute name="version" value="1.3.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcprov-jdk15on/1.68/46a080368d38b428d237a59458f9bc915222894d/bcprov-jdk15on-1.68.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcprov-jdk15on/1.68/c092c4f5af620ea5fd40a48d844c556826bebb63/bcprov-jdk15on-1.68-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.bouncycastle"/>
+			<attribute name="artifactId" value="bcprov-jdk15on"/>
+			<attribute name="version" value="1.68"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-common/6.10.0/526f7a456fa62ada71c74509cdb81851d45ccab0/kubernetes-model-common-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-common/6.10.0/7866e5e6c810d045dd573de2832adf575b316930/kubernetes-model-common-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-common"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.classgraph/classgraph/4.8.143/7a7a9cd5eaa8566c5b1e47904a7849a9fd903f48/classgraph-4.8.143.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.classgraph/classgraph/4.8.143/38332264e2bc5b00790e60dfb4b6a6a1eb160359/classgraph-4.8.143-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.github.classgraph"/>
+			<attribute name="artifactId" value="classgraph"/>
+			<attribute name="version" value="4.8.143"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.persistence/jakarta.persistence-api/2.2.3/8f6ea5daedc614f07a3654a455660145286f024e/jakarta.persistence-api-2.2.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.persistence/jakarta.persistence-api/2.2.3/f9671636b64baca8130e3fcf516894d40173b47f/jakarta.persistence-api-2.2.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="jakarta.persistence"/>
+			<attribute name="artifactId" value="jakarta.persistence-api"/>
+			<attribute name="version" value="2.2.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-aspects/5.3.25/7afc5817a53aaccb2d71858cc5dceba716dba1db/spring-aspects-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-aspects/5.3.25/f0a1c33a97c29acc06dcf60947c5f4132667e475/spring-aspects-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-aspects"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/2.17.2/f42d6afa111b4dec5d2aea0fe2197240749a4ea6/log4j-api-2.17.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/2.17.2/91a89f75de4f567c38dc7ec9f83f2a1afd2c2915/log4j-api-2.17.2-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.logging.log4j"/>
+			<attribute name="artifactId" value="log4j-api"/>
+			<attribute name="version" value="2.17.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-validation/2.7.9/7cfc9801c13eefd3d20499c2371d921eb11c328/spring-boot-starter-validation-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-validation/2.7.9/16fa9df93b50831fb9ad43fba2467a57dae6684a/spring-boot-starter-validation-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter-validation"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/commons-fileupload/commons-fileupload/1.4/f95188e3d372e20e7328706c37ef366e5d7859b0/commons-fileupload-1.4.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/commons-fileupload/commons-fileupload/1.4/d50ee98902746c6a351662fa8b728189d1a30e90/commons-fileupload-1.4-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="commons-fileupload"/>
+			<attribute name="artifactId" value="commons-fileupload"/>
+			<attribute name="version" value="1.4"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-autoscaling/6.10.0/4e3d7a852e37d2b978530cd802f91274122ef58b/kubernetes-model-autoscaling-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-autoscaling/6.10.0/31bf84bc17ecc68f6e052e5a0a5fffe47e3cf766/kubernetes-model-autoscaling-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-autoscaling"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-core/2.13.3/a27014716e4421684416e5fa83d896ddb87002da/jackson-core-2.13.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-core/2.13.3/f86da50dc26b8f89ed97197be1e106589b6aa19d/jackson-core-2.13.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml.jackson.core"/>
+			<attribute name="artifactId" value="jackson-core"/>
+			<attribute name="version" value="2.13.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jersey.core/jersey-client/2.35/ea92be0dd34d0b298930a7514e715783f4eaba97/jersey-client-2.35.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jersey.core/jersey-client/2.35/645cdfd35f5580a6f7cb3d430794174df07bdad8/jersey-client-2.35-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.jersey.core"/>
+			<attribute name="artifactId" value="jersey-client"/>
+			<attribute name="version" value="2.35"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-core/3.3.0/3f7d14dce4081dc1c88f434ea48e5d5ee712b444/docker-java-core-3.3.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-core/3.3.0/25ab2a1ab72c9d127cea88b54aafc8dc6c9b9131/docker-java-core-3.3.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.github.docker-java"/>
+			<attribute name="artifactId" value="docker-java-core"/>
+			<attribute name="version" value="3.3.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-core/6.10.0/89905cb84a2067cb286ee6843382fa131bf66cf6/kubernetes-model-core-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-core/6.10.0/1f52eb0a5a73b6ec0163e010fa6475b82db54017/kubernetes-model-core-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-core"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-client/6.10.0/e92ba504d5d7de00af391769112360376c5eb2a8/kubernetes-client-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-client/6.10.0/a1256f71c4d01781e8507f12ba1032ca8af64042/kubernetes-client-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-client"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.hamcrest/hamcrest-core/2.2/3f2bd07716a31c395e2837254f37f21f0f0ab24b/hamcrest-core-2.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.hamcrest/hamcrest-core/2.2/260c1224a39af35b0dbf85201647125f25f1b40d/hamcrest-core-2.2-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.hamcrest"/>
+			<attribute name="artifactId" value="hamcrest-core"/>
+			<attribute name="version" value="2.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jboss.logging/jboss-logging/3.4.3.Final/c4bd7e12a745c0e7f6cf98c45cdcdf482fd827ea/jboss-logging-3.4.3.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jboss.logging/jboss-logging/3.4.3.Final/85e076a2f4d153c57f4dc414e7212a1b1e1a29fd/jboss-logging-3.4.3.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.jboss.logging"/>
+			<attribute name="artifactId" value="jboss-logging"/>
+			<attribute name="version" value="3.4.3.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-coordination/6.10.0/9dad5b905740b2e0389bbde4918d36d8dea90f11/kubernetes-model-coordination-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-coordination/6.10.0/bb59cfd9b17ead5bd3b48f8dea056438acadb23d/kubernetes-model-coordination-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-coordination"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-transport-httpclient5/3.3.0/4a358e19ca8d889692b95d4b1dcd4b2f1c613994/docker-java-transport-httpclient5-3.3.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-transport-httpclient5/3.3.0/f2c681f9ff28082a9b41f9e2a20c50dbfe3eedad/docker-java-transport-httpclient5-3.3.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.github.docker-java"/>
+			<attribute name="artifactId" value="docker-java-transport-httpclient5"/>
+			<attribute name="version" value="3.3.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-swagger2/2.6.1/73c3a70ec0b10b61c8eb9ef1659131cd78dbbd82/springfox-swagger2-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-swagger2/2.6.1/ea18222cb4a669f9bdde1b3efb2ad06705d293c1/springfox-swagger2-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.springfox"/>
+			<attribute name="artifactId" value="springfox-swagger2"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.tomcat.embed/tomcat-embed-el/9.0.71/8fe43848c27ec921c8c5d6dcbd8b959076d7bf99/tomcat-embed-el-9.0.71.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.tomcat.embed/tomcat-embed-el/9.0.71/4f5242587726872581f004ddd8a49dc86911df20/tomcat-embed-el-9.0.71-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.tomcat.embed"/>
+			<attribute name="artifactId" value="tomcat-embed-el"/>
+			<attribute name="version" value="9.0.71"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.sun.activation/jakarta.activation/1.2.2/74548703f9851017ce2f556066659438019e7eb5/jakarta.activation-1.2.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.sun.activation/jakarta.activation/1.2.2/fa3c25fb842cbe9eaa126a007475297f8bf35abe/jakarta.activation-1.2.2-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.sun.activation"/>
+			<attribute name="artifactId" value="jakarta.activation"/>
+			<attribute name="version" value="1.2.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-data-jpa/2.7.9/5af4a206fd4eaac881b7d96ca1ef19b2111a355c/spring-boot-starter-data-jpa-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-data-jpa/2.7.9/fb552bd771d745fc80039b67dd245573ae6aa21/spring-boot-starter-data-jpa-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter-data-jpa"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-security/2.7.9/ca8e422a56493e99a7c8c9d56d92091256d9fed7/spring-boot-starter-security-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-security/2.7.9/48d69e439b2767db7021e5d8bc5abb5bcc8d7588/spring-boot-starter-security-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter-security"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.guava/failureaccess/1.0.1/1dcf1de382a0bf95a3d8b0849546c88bac1292c9/failureaccess-1.0.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.guava/failureaccess/1.0.1/1d064e61aad6c51cc77f9b59dc2cccc78e792f5a/failureaccess-1.0.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.guava"/>
+			<attribute name="artifactId" value="failureaccess"/>
+			<attribute name="version" value="1.0.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-aop/5.3.25/722e30759b29331726f9deed76f80b22345ee627/spring-aop-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-aop/5.3.25/f06034fea72f454582a071134c608a906aa84842/spring-aop-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-aop"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-batch/6.10.0/37413e08b21d5fb216201dc4762ce72ce7cde6e2/kubernetes-model-batch-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-batch/6.10.0/f38ea9e7752c731837a7df73e258854c75a51dac/kubernetes-model-batch-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-batch"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.slf4j/jcl-over-slf4j/1.7.36/d877e195a05aca4a2f1ad2ff14bfec1393af4b5e/jcl-over-slf4j-1.7.36.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.slf4j/jcl-over-slf4j/1.7.36/91b21b162173dfc6bb676bc7f4865cdd268eac68/jcl-over-slf4j-1.7.36-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.slf4j"/>
+			<attribute name="artifactId" value="jcl-over-slf4j"/>
+			<attribute name="version" value="1.7.36"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-json/2.7.9/671b3611eeb2fb315281ae17242ef082666e4262/spring-boot-starter-json-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-json/2.7.9/137f420176fc3f78346d08188647ae9e2e9b1946/spring-boot-starter-json-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter-json"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.squareup.okhttp3/okhttp/4.10.0/cd63657ac15770ed1420647154c9f44645533bef/okhttp-4.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.squareup.okhttp3/okhttp/4.10.0/4afcb4a940f3411594ba7dc899086a882293f22a/okhttp-4.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.squareup.okhttp3"/>
+			<attribute name="artifactId" value="okhttp"/>
+			<attribute name="version" value="4.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-expression/5.3.25/d681cdb86611f03d8ef29654edde219fe5afef1d/spring-expression-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-expression/5.3.25/658a263ecd0962be8508d20a6b3e1df3eb552247/spring-expression-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-expression"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/javax.activation/javax.activation-api/1.2.0/85262acf3ca9816f9537ca47d5adeabaead7cb16/javax.activation-api-1.2.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/javax.activation/javax.activation-api/1.2.0/1b4c6e77d35adab19794746d8ea753df30d77dca/javax.activation-api-1.2.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="javax.activation"/>
+			<attribute name="artifactId" value="javax.activation-api"/>
+			<attribute name="version" value="1.2.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.auto.service/auto-service-annotations/1.0.1/ac86dacc0eb9285ea9d42eee6aad8629ca3a7432/auto-service-annotations-1.0.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.auto.service/auto-service-annotations/1.0.1/81d155712ad79e1914732d23cd255d88143676aa/auto-service-annotations-1.0.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.auto.service"/>
+			<attribute name="artifactId" value="auto-service-annotations"/>
+			<attribute name="version" value="1.0.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-jdbc/2.7.9/e09f4ac40a09826c3eff01369d5b56e2abcea9c9/spring-boot-starter-jdbc-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-jdbc/2.7.9/5a858e29a9a56cda5cd3dda0a021e859840adc51/spring-boot-starter-jdbc-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter-jdbc"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/ch.qos.logback/logback-classic/1.2.11/4741689214e9d1e8408b206506cbe76d1c6a7d60/logback-classic-1.2.11.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/ch.qos.logback/logback-classic/1.2.11/c6d3537d4af04b787f2fc15c52215df03ce66098/logback-classic-1.2.11-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="ch.qos.logback"/>
+			<attribute name="artifactId" value="logback-classic"/>
+			<attribute name="version" value="1.2.11"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.cloud/spring-cloud-commons/3.1.5/f22b9ea2123556f42e81b453608cfab4f2404956/spring-cloud-commons-3.1.5.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.cloud/spring-cloud-commons/3.1.5/931f835a684ee085ad65c5f5b7a291c497feb460/spring-cloud-commons-3.1.5-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.cloud"/>
+			<attribute name="artifactId" value="spring-cloud-commons"/>
+			<attribute name="version" value="3.1.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/javax.ws.rs/javax.ws.rs-api/2.0.1/104e9c2b5583cfcfeac0402316221648d6d8ea6b/javax.ws.rs-api-2.0.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/javax.ws.rs/javax.ws.rs-api/2.0.1/a20db7429fd8dfff74335ec867472b71c345049b/javax.ws.rs-api-2.0.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="javax.ws.rs"/>
+			<attribute name="artifactId" value="javax.ws.rs-api"/>
+			<attribute name="version" value="2.0.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.zaxxer/HikariCP/4.0.3/107cbdf0db6780a065f895ae9d8fbf3bb0e1c21f/HikariCP-4.0.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.zaxxer/HikariCP/4.0.3/b27e256676e4457e73aaea5dfe19795ab2451f93/HikariCP-4.0.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.zaxxer"/>
+			<attribute name="artifactId" value="HikariCP"/>
+			<attribute name="version" value="4.0.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.security/spring-security-rsa/1.0.11.RELEASE/e1ce51e2e8735b99ca1a47a8968ff35984f0d902/spring-security-rsa-1.0.11.RELEASE.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.security/spring-security-rsa/1.0.11.RELEASE/57bae456ce4d8b2410283a538f44a46d1a33e209/spring-security-rsa-1.0.11.RELEASE-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.security"/>
+			<attribute name="artifactId" value="spring-security-rsa"/>
+			<attribute name="version" value="1.0.11.RELEASE"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna-jpms/5.15.0/b0f59539bbe010a75b1a9759a67521692bf65d78/jna-jpms-5.15.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna-jpms/5.15.0/f84631ed8ab3610424139df0baf36a0756336e8d/jna-jpms-5.15.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="net.java.dev.jna"/>
+			<attribute name="artifactId" value="jna-jpms"/>
+			<attribute name="version" value="5.15.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.xml.bind/jakarta.xml.bind-api/2.3.3/48e3b9cfc10752fba3521d6511f4165bea951801/jakarta.xml.bind-api-2.3.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.xml.bind/jakarta.xml.bind-api/2.3.3/d83744bae211a4072c39f007000a13f501a88395/jakarta.xml.bind-api-2.3.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="jakarta.xml.bind"/>
+			<attribute name="artifactId" value="jakarta.xml.bind-api"/>
+			<attribute name="version" value="2.3.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.hibernate.validator/hibernate-validator/6.2.5.Final/a68959c06e5f8ff45faff469aa16f232c04af620/hibernate-validator-6.2.5.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.hibernate.validator/hibernate-validator/6.2.5.Final/63cae51be197f942db543d5e2247eeaa79433849/hibernate-validator-6.2.5.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.hibernate.validator"/>
+			<attribute name="artifactId" value="hibernate-validator"/>
+			<attribute name="version" value="6.2.5.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents/httpcore/4.4.16/51cf043c87253c9f58b539c9f7e44c8894223850/httpcore-4.4.16.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents/httpcore/4.4.16/229e4c0eae80465381ae02adf61bca5558360777/httpcore-4.4.16-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.httpcomponents"/>
+			<attribute name="artifactId" value="httpcore"/>
+			<attribute name="version" value="4.4.16"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.swagger/swagger-annotations/1.5.10/246ec68bce560227d3633d5ab5979437544bd6dc/swagger-annotations-1.5.10.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.swagger/swagger-annotations/1.5.10/d35dbd4f2f08053921288fb9f3e798aeeda338ce/swagger-annotations-1.5.10-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.swagger"/>
+			<attribute name="artifactId" value="swagger-annotations"/>
+			<attribute name="version" value="1.5.10"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-flowcontrol/6.10.0/8e28f619f626f70bc621ac0649d91f47f8679eec/kubernetes-model-flowcontrol-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-flowcontrol/6.10.0/a2f539e5e6a69ba7174def82877bc2bd5f4bf988/kubernetes-model-flowcontrol-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-flowcontrol"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/commons-io/commons-io/2.11.0/a2503f302b11ebde7ebc3df41daebe0e4eea3689/commons-io-2.11.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/commons-io/commons-io/2.11.0/2ef0187124bbfc7aed3038d4ffdd2241e8992937/commons-io-2.11.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="commons-io"/>
+			<attribute name="artifactId" value="commons-io"/>
+			<attribute name="version" value="2.11.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-resolver/4.1.89.Final/686b21bf3488747bc834ee9e60a863f37b71f35e/netty-resolver-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-resolver/4.1.89.Final/4249e980378f8f067d0da1ee08e8710a3ca833e6/netty-resolver-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-resolver"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.12.1/b1e93a735caea94f503e95e6fe79bf9cdc1e985d/jna-5.12.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.12.1/a558f0c18863579764c8adcdf2312e0b9711c5af/jna-5.12.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="net.java.dev.jna"/>
+			<attribute name="artifactId" value="jna"/>
+			<attribute name="version" value="5.12.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.openfeign.form/feign-form-spring/3.8.0/71059f6e16ddbaf0e42f1b1aa0bb60cc2f823e4d/feign-form-spring-3.8.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.openfeign.form/feign-form-spring/3.8.0/34e856a101f27aae440a83780bb90684712738ae/feign-form-spring-3.8.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.github.openfeign.form"/>
+			<attribute name="artifactId" value="feign-form-spring"/>
+			<attribute name="version" value="3.8.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.aspectj/aspectjweaver/1.9.7/158f5c255cd3e4408e795b79f7c3fbae9b53b7ca/aspectjweaver-1.9.7.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.aspectj/aspectjweaver/1.9.7/8da21dfaf64693f4a9c269298dce04d12a7b10fd/aspectjweaver-1.9.7-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.aspectj"/>
+			<attribute name="artifactId" value="aspectjweaver"/>
+			<attribute name="version" value="1.9.7"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-kqueue/4.1.89.Final/50bd5dc0c5971564608ec5f1a1b57a936d3bfb51/netty-transport-native-kqueue-4.1.89.Final-osx-x86_64.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-kqueue/4.1.89.Final/92856398627deb3c51619f809df5e60794a48570/netty-transport-native-kqueue-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-transport-native-kqueue"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.w3c/dom/2.3.0-jaxb-1.0.6/fbe7e88b94614968f2cfb1c62663933dcaf77a88/dom-2.3.0-jaxb-1.0.6.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.w3c"/>
+			<attribute name="artifactId" value="dom"/>
+			<attribute name="version" value="2.3.0-jaxb-1.0.6"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-storageclass/6.10.0/71fbda74c51b5e150c7ebda51beb77ec6cb34f74/kubernetes-model-storageclass-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-storageclass/6.10.0/1c6c3420f5c6a70ed428d5eec66f6c526e33bc5/kubernetes-model-storageclass-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-storageclass"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-models/2.2.0/4c2a02014692b378d92cebf4658c69ef6c78bb92/swagger-models-2.2.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-models/2.2.0/4f09482dbc7337453a421dce830b8ef3d0110f45/swagger-models-2.2.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.swagger.core.v3"/>
+			<attribute name="artifactId" value="swagger-models"/>
+			<attribute name="version" value="2.2.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-kqueue/4.1.89.Final/8dc89b65fafb3efbadd86d4d185012b2d53c2804/netty-transport-classes-kqueue-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-kqueue/4.1.89.Final/1210205b9423308d1372793a01f64a6793ff1e37/netty-transport-classes-kqueue-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-transport-classes-kqueue"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springdoc/springdoc-openapi-common/1.6.8/cd8bfcee82d061ee4444940d886ceaa77dec5bdd/springdoc-openapi-common-1.6.8.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springdoc/springdoc-openapi-common/1.6.8/9d44fb8b30f9ff1ddbf489b9ba4336ea79a3d6ee/springdoc-openapi-common-1.6.8-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springdoc"/>
+			<attribute name="artifactId" value="springdoc-openapi-common"/>
+			<attribute name="version" value="1.6.8"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-web/5.3.25/c69815e7931cd3ce7f19cc8028fd1c36626120d6/spring-web-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-web/5.3.25/1c1a05f9e56b8cee98d71c3d610f177f17b3f73d/spring-web-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-web"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-unix-common/4.1.89.Final/a7717ed61393d5aad202a92bb02f661ed525bf86/netty-transport-native-unix-common-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-unix-common/4.1.89.Final/7b34dbabfae0ac6641c74c7396ed984506b1acd9/netty-transport-native-unix-common-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-transport-native-unix-common"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-logging/2.7.9/4b1afa6083581924606c7cc892933b63ec5810d3/spring-boot-starter-logging-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-logging/2.7.9/9e15e2fdbdfbc60d24c22c04b42d490d09b640aa/spring-boot-starter-logging-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter-logging"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.sun.istack/istack-commons-runtime/3.0.12/cbbe1a62b0cc6c85972e99d52aaee350153dc530/istack-commons-runtime-3.0.12.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.sun.istack/istack-commons-runtime/3.0.12/472b862e0850fddfd912b7de2fd52139c91a8b6f/istack-commons-runtime-3.0.12-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.sun.istack"/>
+			<attribute name="artifactId" value="istack-commons-runtime"/>
+			<attribute name="version" value="3.0.12"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport/4.1.89.Final/e7ff320310eafe302c0dfb9690ae7201ab61ead2/netty-transport-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport/4.1.89.Final/492d4bde8fddf51dc6af4c4e16557cd08096f78e/netty-transport-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-transport"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jboss/jandex/2.4.2.Final/1e1c385990b258ff1a24c801e84aebbacf70eb39/jandex-2.4.2.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jboss/jandex/2.4.2.Final/798180cc939fc34e3fc6b7e7771f9bde1c63d14a/jandex-2.4.2.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.jboss"/>
+			<attribute name="artifactId" value="jandex"/>
+			<attribute name="version" value="2.4.2.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.cloud/spring-cloud-starter-openfeign/3.1.5/639ce2afe789e227be5117513a54e8eccad1a645/spring-cloud-starter-openfeign-3.1.5.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.cloud"/>
+			<attribute name="artifactId" value="spring-cloud-starter-openfeign"/>
+			<attribute name="version" value="3.1.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.marcnuri.helm-java/lib-api/0.0.13/4927534bada0d21c5be072106ec0c3b65659217a/lib-api-0.0.13.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.marcnuri.helm-java/lib-api/0.0.13/b711887ff215428c495f80edd3f5cccea4e2cd7f/lib-api-0.0.13-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.marcnuri.helm-java"/>
+			<attribute name="artifactId" value="lib-api"/>
+			<attribute name="version" value="0.0.13"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/b421526c5f297295adef1c886e5246c39d4ac629/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.guava"/>
+			<attribute name="artifactId" value="listenablefuture"/>
+			<attribute name="version" value="9999.0-empty-to-avoid-conflict-with-guava"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-apiextensions/6.10.0/3d6fd69bce401d40804fabdfdf4e1cab588c3309/kubernetes-model-apiextensions-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-apiextensions/6.10.0/2782ffa7cb7c34bd5dcea99a4fa1040949585ee0/kubernetes-model-apiextensions-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-apiextensions"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.jclouds/jclouds-core/2.5.0/5049a87e66c154e69f666e6d1a70e2ab925e53a8/jclouds-core-2.5.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.jclouds/jclouds-core/2.5.0/4b36c1af63d3ce8e38cd88965018f1f2f9e2b968/jclouds-core-2.5.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.jclouds"/>
+			<attribute name="artifactId" value="jclouds-core"/>
+			<attribute name="version" value="2.5.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.kohlschutter.junixsocket/junixsocket-common/2.6.1/34151df0d8c8348ddb9f2f387943b3238b5f1a4f/junixsocket-common-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.kohlschutter.junixsocket/junixsocket-common/2.6.1/41220c0c703b1b796780b5ee1b780d8945af2eae/junixsocket-common-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.kohlschutter.junixsocket"/>
+			<attribute name="artifactId" value="junixsocket-common"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents.core5/httpcore5/5.1.5/df9da3a1fa2351c4790245400ed28d78a8ddd3fc/httpcore5-5.1.5.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents.core5/httpcore5/5.1.5/659cd2087dc45f09adf78716d8fac685cffe78e9/httpcore5-5.1.5-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.httpcomponents.core5"/>
+			<attribute name="artifactId" value="httpcore5"/>
+			<attribute name="version" value="5.1.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-api/3.3.0/67a002d74f20f81c8639317404eb147556caeda7/docker-java-api-3.3.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-api/3.3.0/dba9db6e13427a0c23d911a1c5d0c6aff34efb60/docker-java-api-3.3.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.github.docker-java"/>
+			<attribute name="artifactId" value="docker-java-api"/>
+			<attribute name="version" value="3.3.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-beans/5.3.25/b3aeae036b4ea1abfa1f9604d452e19664efe5f6/spring-beans-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-beans/5.3.25/cb20df8e727b921a584b8474fdb0cce147378569/spring-beans-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-beans"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-swagger-ui/2.6.1/4c854c86c91ab36c86fc1a63571a0614c2ea9ab2/springfox-swagger-ui-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-swagger-ui/2.6.1/ddabadf93d7b80a2c4513c8ab1688037b7e1c538/springfox-swagger-ui-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.springfox"/>
+			<attribute name="artifactId" value="springfox-swagger-ui"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/javax.inject/javax.inject/1/6975da39a7040257bd51d21a231b76c915872d38/javax.inject-1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/javax.inject/javax.inject/1/a00123f261762a7c5e0ec916a2c7c8298d29c400/javax.inject-1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="javax.inject"/>
+			<attribute name="artifactId" value="javax.inject"/>
+			<attribute name="version" value="1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.security/spring-security-config/5.7.7/3a7b700d07513be4361c9024ec4cc21f93f7f65a/spring-security-config-5.7.7.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.security/spring-security-config/5.7.7/5b69781c2d59535b10cf80e942b0159729214f93/spring-security-config-5.7.7-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.security"/>
+			<attribute name="artifactId" value="spring-security-config"/>
+			<attribute name="version" value="5.7.7"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.code.findbugs/jsr305/3.0.2/25ea2e8b0c338a877313bd4672d3fe056ea78f0d/jsr305-3.0.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.code.findbugs/jsr305/3.0.2/b19b5927c2c25b6c70f093767041e641ae0b1b35/jsr305-3.0.2-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.code.findbugs"/>
+			<attribute name="artifactId" value="jsr305"/>
+			<attribute name="version" value="3.0.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-context/5.3.25/268a70ce4f44333ce0f13304c5f8c53b3df5f5f4/spring-context-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-context/5.3.25/537aa7309840dbbba15fae30fac8bdd07368bd75/spring-context-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-context"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-swagger-common/2.6.1/47befb039a0a1f0cdaab74d2777fa9eb6b01f8db/springfox-swagger-common-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-swagger-common/2.6.1/5e452eee198e8b6ff3ec1800d65fa1fbd4f45874/springfox-swagger-common-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.springfox"/>
+			<attribute name="artifactId" value="springfox-swagger-common"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.openfeign.form/feign-form/3.8.0/3083889996b18443c275a352d3ab4bc6c8321598/feign-form-3.8.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.openfeign.form/feign-form/3.8.0/1a88e6c0bc93f64260daca9935e7b4f188d9e803/feign-form-3.8.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.github.openfeign.form"/>
+			<attribute name="artifactId" value="feign-form"/>
+			<attribute name="version" value="3.8.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/919f0dfe192fb4e063e7dacadee7f8bb9a2672a9/annotations-13.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/5991ca87ef1fb5544943d9abc5a9a37583fabe03/annotations-13.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.jetbrains"/>
+			<attribute name="artifactId" value="annotations"/>
+			<attribute name="version" value="13.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.openfeign/feign-slf4j/11.10/408dcd1217a239bd9cacc0450ec59b5044c8546e/feign-slf4j-11.10.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.openfeign/feign-slf4j/11.10/535407f3edde346f6236cc8d1f6293aca48cd4eb/feign-slf4j-11.10-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.github.openfeign"/>
+			<attribute name="artifactId" value="feign-slf4j"/>
+			<attribute name="version" value="11.10"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/2.13.5/71318db3f1a5ef94a5db9fce9be26959fdf20f3/jackson-jaxrs-json-provider-2.13.5.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/2.13.5/e2cdd02c349427b8031fd929cdc8377844f8604/jackson-jaxrs-json-provider-2.13.5-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml.jackson.jaxrs"/>
+			<attribute name="artifactId" value="jackson-jaxrs-json-provider"/>
+			<attribute name="version" value="2.13.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/commons-net/commons-net/3.6/b71de00508dcb078d2b24b5fa7e538636de9b3da/commons-net-3.6.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/commons-net/commons-net/3.6/961dc27eabbe71bf32478baffe0e1be915ce7689/commons-net-3.6-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="commons-net"/>
+			<attribute name="artifactId" value="commons-net"/>
+			<attribute name="version" value="3.6"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-scheduling/6.10.0/e97336c7798664e990d6ea943af3020c2cd4e43b/kubernetes-model-scheduling-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-scheduling/6.10.0/ad257e59ee6cb5f9ba7073d4c10cfdc776892dbe/kubernetes-model-scheduling-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-scheduling"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.webjars/swagger-ui/4.10.3/c770b50a519df6a17100300fe035a5a7f1673342/swagger-ui-4.10.3.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.webjars"/>
+			<attribute name="artifactId" value="swagger-ui"/>
+			<attribute name="version" value="4.10.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy/1.12.23/d470526e8c4566c04e9ae5d3ccb62d1a7aa58986/byte-buddy-1.12.23.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy/1.12.23/9df824cc52b3b88d4c1f8945c3379fbc898f34f6/byte-buddy-1.12.23-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="net.bytebuddy"/>
+			<attribute name="artifactId" value="byte-buddy"/>
+			<attribute name="version" value="1.12.23"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-web/2.7.9/e745a069e2b7ca51e378fcbc397d14dd82178199/spring-boot-starter-web-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-web/2.7.9/7f3dc33fb2a835968d69d10cc49208dd6f93cdc0/spring-boot-starter-web-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter-web"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-networking/6.10.0/a453793e981cdaff9aae71ef098b31df273fca6c/kubernetes-model-networking-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-networking/6.10.0/7530c73961902aa9a31e7d34c64f59b251555d33/kubernetes-model-networking-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-networking"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk7/1.6.21/568c1b78a8e17a4f35b31f0a74e2916095ed74c2/kotlin-stdlib-jdk7-1.6.21.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk7/1.6.21/78b7fc534a411952d7579a61d02b70fdd34aa56c/kotlin-stdlib-jdk7-1.6.21-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.jetbrains.kotlin"/>
+			<attribute name="artifactId" value="kotlin-stdlib-jdk7"/>
+			<attribute name="version" value="1.6.21"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.projectlombok/lombok/1.18.22/9c08ea24c6eb714e2d6170e8122c069a0ba9aacf/lombok-1.18.22.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.projectlombok/lombok/1.18.22/764fbcf20fe348c23338b3f8a7373c9e7d206956/lombok-1.18.22-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.projectlombok"/>
+			<attribute name="artifactId" value="lombok"/>
+			<attribute name="version" value="1.18.22"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/ch.qos.logback/logback-core/1.2.11/a01230df5ca5c34540cdaa3ad5efb012f1f1f792/logback-core-1.2.11.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/ch.qos.logback/logback-core/1.2.11/35e61a57db9f8567acd01d1b6a671f21f867d1e9/logback-core-1.2.11-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="ch.qos.logback"/>
+			<attribute name="artifactId" value="logback-core"/>
+			<attribute name="version" value="1.2.11"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.cloud/spring-cloud-starter/3.1.5/4d202021f3b4a3ced491c9c9761b643bfe385776/spring-cloud-starter-3.1.5.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.cloud"/>
+			<attribute name="artifactId" value="spring-cloud-starter"/>
+			<attribute name="version" value="3.1.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk15on/1.68/81da950604ff0b2652348cbd2b48fde46ced9867/bcpkix-jdk15on-1.68.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk15on/1.68/a5407438fed5d271f129d85e3f92cc027fa246a9/bcpkix-jdk15on-1.68-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.bouncycastle"/>
+			<attribute name="artifactId" value="bcpkix-jdk15on"/>
+			<attribute name="version" value="1.68"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-core/2.6.1/5c502e6b9d50d34096077eacc384cd00f63710e1/springfox-core-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-core/2.6.1/6267a96afb6610db68821fa5886277422fdc107f/springfox-core-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.springfox"/>
+			<attribute name="artifactId" value="springfox-core"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springdoc/springdoc-openapi-ui/1.6.8/818ee564cf44aace39bc08d24d06bd5c411ead66/springdoc-openapi-ui-1.6.8.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springdoc/springdoc-openapi-ui/1.6.8/5e38cb7e534d72b125472598ffc5d8cc7983a46e/springdoc-openapi-ui-1.6.8-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springdoc"/>
+			<attribute name="artifactId" value="springdoc-openapi-ui"/>
+			<attribute name="version" value="1.6.8"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.activation/jakarta.activation-api/1.2.2/99f53adba383cb1bf7c3862844488574b559621f/jakarta.activation-api-1.2.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.activation/jakarta.activation-api/1.2.2/c45b5962230be8a5f93759203870c98917bb8b31/jakarta.activation-api-1.2.2-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="jakarta.activation"/>
+			<attribute name="artifactId" value="jakarta.activation-api"/>
+			<attribute name="version" value="1.2.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.slf4j/jul-to-slf4j/1.7.36/ed46d81cef9c412a88caef405b58f93a678ff2ca/jul-to-slf4j-1.7.36.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.slf4j/jul-to-slf4j/1.7.36/86e5d1e467b4b30ece98254248e7e726e747ec58/jul-to-slf4j-1.7.36-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.slf4j"/>
+			<attribute name="artifactId" value="jul-to-slf4j"/>
+			<attribute name="version" value="1.7.36"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-epoll/4.1.89.Final/e22beed74809aa5bc5c19370ac92eee4b437ae20/netty-transport-classes-epoll-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-epoll/4.1.89.Final/c4e7732ed86ab26490ffdcbd4e00297a003c70d1/netty-transport-classes-epoll-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-transport-classes-epoll"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-discovery/6.10.0/cba115f54ce296ffef8d7a6eb1871dd4b21573e7/kubernetes-model-discovery-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-discovery/6.10.0/776c49e32441ba8bc025b362db3d15269ef2c384/kubernetes-model-discovery-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-discovery"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.jcraft/jzlib/1.1.1/a1551373315ffc2f96130a0e5704f74e151777ba/jzlib-1.1.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.jcraft/jzlib/1.1.1/dc910806edfb4c9a4b4c7e439a9cd3a3f0a090a9/jzlib-1.1.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.jcraft"/>
+			<attribute name="artifactId" value="jzlib"/>
+			<attribute name="version" value="1.1.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java/3.3.0/8fb9fc51d77ec5ce1981632229352324d9e2488c/docker-java-3.3.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java/3.3.0/44e1dd46b9b8006d369a9cccd9ae0d53b632ae38/docker-java-3.3.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.github.docker-java"/>
+			<attribute name="artifactId" value="docker-java"/>
+			<attribute name="version" value="3.3.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-transport-jersey/3.3.0/b847da8fade0e349e25d80039774e79013e0055d/docker-java-transport-jersey-3.3.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-transport-jersey/3.3.0/c051d36cce10bdbd94f74e85f884a6a8838cf9f0/docker-java-transport-jersey-3.3.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.github.docker-java"/>
+			<attribute name="artifactId" value="docker-java-transport-jersey"/>
+			<attribute name="version" value="3.3.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2/hk2-utils/2.6.1/396513aa96c1d5a10aa4f75c4dcbf259a698d62d/hk2-utils-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2/hk2-utils/2.6.1/91a2264ed6d909c44763fc807d22a19da87b84c9/hk2-utils-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.hk2"/>
+			<attribute name="artifactId" value="hk2-utils"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.json/json/20180813/8566b2b0391d9d4479ea225645c6ed47ef17fe41/json-20180813.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.json/json/20180813/60753006d96d5fc85b61b0897f3326b5c4e1c4f0/json-20180813-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.json"/>
+			<attribute name="artifactId" value="json"/>
+			<attribute name="version" value="20180813"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/junit/junit/4.13.2/8ac9e16d933b6fb43bc7f576336b8f4d7eb5ba12/junit-4.13.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/junit/junit/4.13.2/33987872a811fe4d4001ed494b07854822257f42/junit-4.13.2-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="junit"/>
+			<attribute name="artifactId" value="junit"/>
+			<attribute name="version" value="4.13.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.jcraft/jsch/0.1.55/bbd40e5aa7aa3cfad5db34965456cee738a42a50/jsch-0.1.55.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.jcraft/jsch/0.1.55/1ed25a5ba2c0bbe14bae93817b76a246e622efd7/jsch-0.1.55-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.jcraft"/>
+			<attribute name="artifactId" value="jsch"/>
+			<attribute name="version" value="0.1.55"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.squareup.okio/okio-jvm/3.0.0/ab5a73fa2ccb4a36b0b5c69fe10b16d0255bcf8/okio-jvm-3.0.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.squareup.okio/okio-jvm/3.0.0/73e518d3b5760645d525c24934e4efc01149060a/okio-jvm-3.0.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.squareup.okio"/>
+			<attribute name="artifactId" value="okio-jvm"/>
+			<attribute name="version" value="3.0.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.data/spring-data-jpa/2.7.8/feb737f6eda0f40b8170d19e87df0fe7b58004d5/spring-data-jpa-2.7.8.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.data/spring-data-jpa/2.7.8/f089c6281f7e470cca53df5d744b9a5333bf298/spring-data-jpa-2.7.8-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.data"/>
+			<attribute name="artifactId" value="spring-data-jpa"/>
+			<attribute name="version" value="2.7.8"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jersey.inject/jersey-hk2/2.35/2be6d2227081028566e8e2b0fc6a1abbaecf56f7/jersey-hk2-2.35.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jersey.inject/jersey-hk2/2.35/38cd2eaa2ed1380b42e471762341676ec5741aa9/jersey-hk2-2.35-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.jersey.inject"/>
+			<attribute name="artifactId" value="jersey-hk2"/>
+			<attribute name="version" value="2.35"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-buffer/4.1.89.Final/b1d3dbf69a75eaa8793c7e00cff2851dac9fd725/netty-buffer-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-buffer/4.1.89.Final/347dd87e8db15d7f96d713ca994d54f32c798a9d/netty-buffer-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-buffer"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.h2database/h2/1.4.199/7bf08152984ed8859740ae3f97fae6c72771ae45/h2-1.4.199.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.h2database/h2/1.4.199/cda9ec0b80ed4eefc4d1cd37781548725a59a738/h2-1.4.199-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.h2database"/>
+			<attribute name="artifactId" value="h2"/>
+			<attribute name="version" value="1.4.199"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-extensions/6.10.0/bb592cc169e25719d1083f73c2d9b2e5e4e41075/kubernetes-model-extensions-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-extensions/6.10.0/54659b3bd9e29960355fb208ed15da3f64ab0a67/kubernetes-model-extensions-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-extensions"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.plugin/spring-plugin-core/1.2.0.RELEASE/f380e7760032e7d929184f8ad8a33716b75c0657/spring-plugin-core-1.2.0.RELEASE.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.plugin/spring-plugin-core/1.2.0.RELEASE/112d82259202fa909d51cf7ccefae0c5523f1373/spring-plugin-core-1.2.0.RELEASE-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.plugin"/>
+			<attribute name="artifactId" value="spring-plugin-core"/>
+			<attribute name="version" value="1.2.0.RELEASE"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.squareup.okhttp3/logging-interceptor/4.9.3/d7786efea637a62603352985d9a229c206003268/logging-interceptor-4.9.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.squareup.okhttp3/logging-interceptor/4.9.3/30288bd77d2f72d76d30688be15ecb7909272dcf/logging-interceptor-4.9.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.squareup.okhttp3"/>
+			<attribute name="artifactId" value="logging-interceptor"/>
+			<attribute name="version" value="4.9.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.j2objc/j2objc-annotations/1.3/ba035118bc8bac37d7eff77700720999acd9986d/j2objc-annotations-1.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.j2objc/j2objc-annotations/1.3/d26c56180205cbb50447c3eca98ecb617cf9f58b/j2objc-annotations-1.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.j2objc"/>
+			<attribute name="artifactId" value="j2objc-annotations"/>
+			<attribute name="version" value="1.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.module/jackson-module-jaxb-annotations/2.13.5/5a2a6083a13d550f5fc2e1490cdb5952cdbd391c/jackson-module-jaxb-annotations-2.13.5.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.module/jackson-module-jaxb-annotations/2.13.5/da7b981bd42174969536fde356bae88fc57729e6/jackson-module-jaxb-annotations-2.13.5-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml.jackson.module"/>
+			<attribute name="artifactId" value="jackson-module-jaxb-annotations"/>
+			<attribute name="version" value="2.13.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml/classmate/1.5.1/3fe0bed568c62df5e89f4f174c101eab25345b6c/classmate-1.5.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml/classmate/1.5.1/504edac38ff03cc5ce1d0391abb1416ffad58a99/classmate-1.5.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml"/>
+			<attribute name="artifactId" value="classmate"/>
+			<attribute name="version" value="1.5.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.tomcat.embed/tomcat-embed-core/9.0.71/adaed61b4eaa5b52448336c0881fcd828fd51a2f/tomcat-embed-core-9.0.71.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.tomcat.embed/tomcat-embed-core/9.0.71/2ec6df0f12a3b51d0d7b21dc9a0be5ced9945f5b/tomcat-embed-core-9.0.71-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.tomcat.embed"/>
+			<attribute name="artifactId" value="tomcat-embed-core"/>
+			<attribute name="version" value="9.0.71"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-lang3/3.12.0/c6842c86792ff03b9f1d1fe2aab8dc23aa6c6f0e/commons-lang3-3.12.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-lang3/3.12.0/198b882fdc2c72c89c63401d946f6ba46c3acea3/commons-lang3-3.12.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.commons"/>
+			<attribute name="artifactId" value="commons-lang3"/>
+			<attribute name="version" value="3.12.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.data/spring-data-commons/2.7.8/ee07f3fa279f4980d03a9ad65241cea752ae64dd/spring-data-commons-2.7.8.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.data/spring-data-commons/2.7.8/3ddb11e0dc6e7c800d27060da290ecd18206c43d/spring-data-commons-2.7.8-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.data"/>
+			<attribute name="artifactId" value="spring-data-commons"/>
+			<attribute name="version" value="2.7.8"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.yaml/snakeyaml/1.30/8fde7fe2586328ac3c68db92045e1c8759125000/snakeyaml-1.30.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.yaml/snakeyaml/1.30/2fa17b2e1e6edc10ce8dec15df18a844efd8318b/snakeyaml-1.30-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.yaml"/>
+			<attribute name="artifactId" value="snakeyaml"/>
+			<attribute name="version" value="1.30"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-admissionregistration/6.10.0/3d4b12febdc13a04aff9edd3ffb677ba3149ab93/kubernetes-model-admissionregistration-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-admissionregistration/6.10.0/612c011d154ea322389b3d20f8adc43f8f5085b6/kubernetes-model-admissionregistration-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-admissionregistration"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.jaxrs/jackson-jaxrs-base/2.13.5/a49c686861cf156fab2842285286bda0dc5841bd/jackson-jaxrs-base-2.13.5.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.jaxrs/jackson-jaxrs-base/2.13.5/284fdca58d608d7c48817cc299ce493eb8a7a8ca/jackson-jaxrs-base-2.13.5-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml.jackson.jaxrs"/>
+			<attribute name="artifactId" value="jackson-jaxrs-base"/>
+			<attribute name="version" value="2.13.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-databind/2.13.3/56deb9ea2c93a7a556b3afbedd616d342963464e/jackson-databind-2.13.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-databind/2.13.3/87fe580a4141d26b6036234fb0c240aa1d4592db/jackson-databind-2.13.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml.jackson.core"/>
+			<attribute name="artifactId" value="jackson-databind"/>
+			<attribute name="version" value="2.13.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-common/4.1.89.Final/c0c80bfe45cc85da5030ea8fc64071e28d0f6f5f/netty-common-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-common/4.1.89.Final/44d28ca389e2b8733ca317ca6ebdafa1451ee603/netty-common-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-common"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-policy/6.10.0/388682156ba4ce71b2d06c5cf886bee93031ee8/kubernetes-model-policy-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-policy/6.10.0/b1b43ae94d58b5dea18fe4fb6f68e138c28ac494/kubernetes-model-policy-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-policy"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.plugin/spring-plugin-metadata/1.2.0.RELEASE/97223fc496b6cab31602eedbd4202aa4fff0d44f/spring-plugin-metadata-1.2.0.RELEASE.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.plugin/spring-plugin-metadata/1.2.0.RELEASE/6551604dd9c0619bae2f5a244580fa9a0dc646bf/spring-plugin-metadata-1.2.0.RELEASE-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.plugin"/>
+			<attribute name="artifactId" value="spring-plugin-metadata"/>
+			<attribute name="version" value="1.2.0.RELEASE"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-core/5.3.25/85382e86321227506bf7f97ed80e2ab88bce25f0/spring-core-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-core/5.3.25/a1dbd0ee414155d8330405526538e0956c0f9435/spring-core-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-core"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/1.6.21/11ef67f1900634fd951bad28c53ec957fabbe5b8/kotlin-stdlib-1.6.21.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/1.6.21/bc58085192d5abb48080e3670915133715a33ce0/kotlin-stdlib-1.6.21-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.jetbrains.kotlin"/>
+			<attribute name="artifactId" value="kotlin-stdlib"/>
+			<attribute name="version" value="1.6.21"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-compress/1.18/1191f9f2bc0c47a8cce69193feb1ff0a8bcb37d5/commons-compress-1.18.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-compress/1.18/a25b942b99fde2cc2913ab39ad34abc0df4f5eb9/commons-compress-1.18-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.commons"/>
+			<attribute name="artifactId" value="commons-compress"/>
+			<attribute name="version" value="1.18"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-jdbc/5.3.25/809f5841b13d42e5d4d14eb13346958cc9e9e187/spring-jdbc-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-jdbc/5.3.25/3387697d059e071938bd59b48e2169d2fd7e7ad3/spring-jdbc-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-jdbc"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2.external/jakarta.inject/2.6.1/8096ebf722902e75fbd4f532a751e514f02e1eb7/jakarta.inject-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2.external/jakarta.inject/2.6.1/74132e0252fda12812a851695e488d3a862e09de/jakarta.inject-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.hk2.external"/>
+			<attribute name="artifactId" value="jakarta.inject"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.eclipse.jgit/org.eclipse.jgit/5.7.0.202003110725-r/8dfe333ee6850df171a3d6b696aca3f93e23abc3/org.eclipse.jgit-5.7.0.202003110725-r.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.eclipse.jgit/org.eclipse.jgit/5.7.0.202003110725-r/770c95b2666ca1c300e87861423480bc004d5fb1/org.eclipse.jgit-5.7.0.202003110725-r-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.eclipse.jgit"/>
+			<attribute name="artifactId" value="org.eclipse.jgit"/>
+			<attribute name="version" value="5.7.0.202003110725-r"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.8.5/f645ed69d595b24d4cf8b3fbb64cc505bede8829/gson-2.8.5.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.8.5/c5b4c491aecb72e7c32a78da0b5c6b9cda8dee0f/gson-2.8.5-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.code.gson"/>
+			<attribute name="artifactId" value="gson"/>
+			<attribute name="version" value="2.8.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jersey.connectors/jersey-apache-connector/2.35/b09cfd6d2e645f1d8db538ba93201b2d69b8403d/jersey-apache-connector-2.35.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jersey.connectors/jersey-apache-connector/2.35/a387a76c56031401e1427c59c031d1d99af6d602/jersey-apache-connector-2.35-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.jersey.connectors"/>
+			<attribute name="artifactId" value="jersey-apache-connector"/>
+			<attribute name="version" value="2.35"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jersey.core/jersey-common/2.35/2f15ec1b3a3598d6b12d4b0c6ff6f0905f5e5b4c/jersey-common-2.35.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jersey.core/jersey-common/2.35/61dcd73db207969c328ff777fd09416c35f3e945/jersey-common-2.35-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.jersey.core"/>
+			<attribute name="artifactId" value="jersey-common"/>
+			<attribute name="version" value="2.35"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.errorprone/error_prone_annotations/2.3.4/dac170e4594de319655ffb62f41cbd6dbb5e601e/error_prone_annotations-2.3.4.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.errorprone/error_prone_annotations/2.3.4/950adf6dcd7361e3d1e544a6e13b818587f95d14/error_prone_annotations-2.3.4-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.errorprone"/>
+			<attribute name="artifactId" value="error_prone_annotations"/>
+			<attribute name="version" value="2.3.4"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.swagger/swagger-models/1.5.10/da29e4f4f7cff80b1ef134b0f3805013be443e58/swagger-models-1.5.10.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.swagger/swagger-models/1.5.10/398eb434c5c1e969e851a93a83627cd20fc57356/swagger-models-1.5.10-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.swagger"/>
+			<attribute name="artifactId" value="swagger-models"/>
+			<attribute name="version" value="1.5.10"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-rbac/6.10.0/a959f2cfd2192289de46a8bff69180d7b9c26cab/kubernetes-model-rbac-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-rbac/6.10.0/78a9503daae824aa0dd2dfe91b16db49740b4014/kubernetes-model-rbac-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-rbac"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-jcl/5.3.25/2e65a986dc7f98b40faed8df1d50db77c0b96c61/spring-jcl-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-jcl/5.3.25/fad06a90f8b4eb6838d90426b8e8cabbf90f833b/spring-jcl-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-jcl"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-metrics/6.10.0/86fd6fd1313918aa27a2e08aac539b51f07092dc/kubernetes-model-metrics-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-metrics/6.10.0/4341587b1e41ade93e36c16f426dfbba13ea0616/kubernetes-model-metrics-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-metrics"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot/2.7.9/788d60e73e0f7bbbf11b30c3fb0a9cbaa073446b/spring-boot-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot/2.7.9/9331da39c686be7729f7287ebc5dd809db9ac348/spring-boot-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.googlecode.javaewah/JavaEWAH/1.1.7/570dde3cd706ae10c62fe19b150928cfdb415e87/JavaEWAH-1.1.7.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.googlecode.javaewah/JavaEWAH/1.1.7/873ede6129ef0df62bddab6a6f14a2420ada8a7/JavaEWAH-1.1.7-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.googlecode.javaewah"/>
+			<attribute name="artifactId" value="JavaEWAH"/>
+			<attribute name="version" value="1.1.7"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpg-jdk15on/1.64/56956a8c63ccadf62e7c678571cf86f30bd84441/bcpg-jdk15on-1.64.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.bouncycastle/bcpg-jdk15on/1.64/b241337df9516b35637d9be84451e2f03a81d186/bcpg-jdk15on-1.64-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.bouncycastle"/>
+			<attribute name="artifactId" value="bcpg-jdk15on"/>
+			<attribute name="version" value="1.64"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.validation/jakarta.validation-api/2.0.2/5eacc6522521f7eacb081f95cee1e231648461e7/jakarta.validation-api-2.0.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.validation/jakarta.validation-api/2.0.2/ef429a7f3bc2d2d1784a1135668a857a6aaedf31/jakarta.validation-api-2.0.2-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="jakarta.validation"/>
+			<attribute name="artifactId" value="jakarta.validation-api"/>
+			<attribute name="version" value="2.0.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2/osgi-resource-locator/1.0.3/de3b21279df7e755e38275137539be5e2c80dd58/osgi-resource-locator-1.0.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2/osgi-resource-locator/1.0.3/2f01d4501f52f63016fe70f7aea79c19cccb8d44/osgi-resource-locator-1.0.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.hk2"/>
+			<attribute name="artifactId" value="osgi-resource-locator"/>
+			<attribute name="version" value="1.0.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/zjsonpatch/0.3.0/d3ebf0f291297649b4c8dc3ecc81d2eddedc100d/zjsonpatch-0.3.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/zjsonpatch/0.3.0/833e719cb0a8571eb0e825d09d4f118baf5fe9f6/zjsonpatch-0.3.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="zjsonpatch"/>
+			<attribute name="version" value="0.3.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/1.7.25/da76ca59f6a57ee3102f8f9bd9cee742973efa8a/slf4j-api-1.7.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/1.7.25/962153db4a9ea71b79d047dfd1b2a0d80d8f4739/slf4j-api-1.7.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.slf4j"/>
+			<attribute name="artifactId" value="slf4j-api"/>
+			<attribute name="version" value="1.7.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.security/spring-security-web/5.7.7/be60a596a263be507c590710ea6aaf7e5b64cf57/spring-security-web-5.7.7.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.security/spring-security-web/5.7.7/f2184354b712f46ac5ea3d7ad1ad3353148d59d/spring-security-web-5.7.7-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.security"/>
+			<attribute name="artifactId" value="spring-security-web"/>
+			<attribute name="version" value="5.7.7"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.security/spring-security-crypto/5.7.7/ed4ba8723f0c4c7abf420eae7714aa5391410be8/spring-security-crypto-5.7.7.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.security/spring-security-crypto/5.7.7/61b9a2652e97c2f7f00091775f07963ea4ae602a/spring-security-crypto-5.7.7-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.security"/>
+			<attribute name="artifactId" value="spring-security-crypto"/>
+			<attribute name="version" value="5.7.7"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/aopalliance/aopalliance/1.0/235ba8b489512805ac13a8f9ea77a1ca5ebe3e8/aopalliance-1.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/aopalliance/aopalliance/1.0/4a4b6d692e17846a9f3da036438a7ac491d3c814/aopalliance-1.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="aopalliance"/>
+			<attribute name="artifactId" value="aopalliance"/>
+			<attribute name="version" value="1.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.datatype/jackson-datatype-jsr310/2.13.3/ad2f4c61aeb9e2a8bb5e4a3ed782cfddec52d972/jackson-datatype-jsr310-2.13.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.datatype/jackson-datatype-jsr310/2.13.3/626c09a497c4bed81f04fd12ebb0c7945de56ecc/jackson-datatype-jsr310-2.13.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml.jackson.datatype"/>
+			<attribute name="artifactId" value="jackson-datatype-jsr310"/>
+			<attribute name="version" value="2.13.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.javassist/javassist/3.25.0-GA/442dc1f9fd520130bd18da938622f4f9b2e5fba3/javassist-3.25.0-GA.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.javassist/javassist/3.25.0-GA/f00308c31650161577a0d152898ec606a08945da/javassist-3.25.0-GA-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.javassist"/>
+			<attribute name="artifactId" value="javassist"/>
+			<attribute name="version" value="3.25.0-GA"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.ws.rs/jakarta.ws.rs-api/2.1.6/1dcb770bce80a490dff49729b99c7a60e9ecb122/jakarta.ws.rs-api-2.1.6.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.ws.rs/jakarta.ws.rs-api/2.1.6/6c66d1fc6dfd1de469e831d2cab362ce07b2561d/jakarta.ws.rs-api-2.1.6-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="jakarta.ws.rs"/>
+			<attribute name="artifactId" value="jakarta.ws.rs-api"/>
+			<attribute name="version" value="2.1.6"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.security/spring-security-core/5.7.7/4502c4ac0d63b12fa5162e622f1b5ea2483f1b6b/spring-security-core-5.7.7.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.security/spring-security-core/5.7.7/eee144b2bcb6c0dcc0f03c769bf0db5e9ffe69da/spring-security-core-5.7.7-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.security"/>
+			<attribute name="artifactId" value="spring-security-core"/>
+			<attribute name="version" value="5.7.7"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-resource/6.10.0/b9fffbc45cf728bdb2b07046004606a7ae3af9c0/kubernetes-model-resource-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-resource/6.10.0/a713d65262a89496a3b5685587a9fc2604970b9a/kubernetes-model-resource-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-resource"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-transport/3.3.0/5fc0ce9822d09506b36b0925c273f0751ede3df5/docker-java-transport-3.3.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-transport/3.3.0/c8b9578214704b8f39d1b85a5bd1a3a8522b610d/docker-java-transport-3.3.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.github.docker-java"/>
+			<attribute name="artifactId" value="docker-java-transport"/>
+			<attribute name="version" value="3.3.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.hibernate/hibernate-core/5.6.15.Final/ab14b7cef1fdff654ca81923048a6034d6c7cfa7/hibernate-core-5.6.15.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.hibernate/hibernate-core/5.6.15.Final/e0fa5b954311688f0b788c288ced4d39037a7dec/hibernate-core-5.6.15.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.hibernate"/>
+			<attribute name="artifactId" value="hibernate-core"/>
+			<attribute name="version" value="5.6.15.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-gatewayapi/6.10.0/17378e8f982f2da3379c675c7b761b6bfd73c5cd/kubernetes-model-gatewayapi-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-gatewayapi/6.10.0/3921ee3e2931ba82611ec1199f15f768de88b806/kubernetes-model-gatewayapi-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-gatewayapi"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.hamcrest/hamcrest/2.2/1820c0968dba3a11a1b30669bb1f01978a91dedc/hamcrest-2.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.hamcrest/hamcrest/2.2/a0a13cfc629420efb587d954f982c4c6a100da25/hamcrest-2.2-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.hamcrest"/>
+			<attribute name="artifactId" value="hamcrest"/>
+			<attribute name="version" value="2.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-certificates/6.10.0/438a207ef0053bd3a225c84873d3521ebdf62dad/kubernetes-model-certificates-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-certificates/6.10.0/65aef61175ce2e5a5d11bb89aa87ea73e166f61b/kubernetes-model-certificates-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-certificates"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-aop/2.7.9/9bd6ddd1f956f44dc954ec6915123998c3afe7ce/spring-boot-starter-aop-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-aop/2.7.9/6498dc6e465c9466d659bb96b6d285e2e3a9b66e/spring-boot-starter-aop-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter-aop"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/19.0/6ce200f6b23222af3d8abb6b6459e6c44f4bb0e9/guava-19.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/19.0/91a4d115400e904f22b03a78deb355e9ea803cd4/guava-19.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.guava"/>
+			<attribute name="artifactId" value="guava"/>
+			<attribute name="version" value="19.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents/httpclient/4.5.12/4023a2a80b64c25926911faf350b50cd2a29220f/httpclient-4.5.12.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents/httpclient/4.5.12/f899c33d48d6d513ddda79441b4ba90643f19f8/httpclient-4.5.12-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.httpcomponents"/>
+			<attribute name="artifactId" value="httpclient"/>
+			<attribute name="version" value="4.5.12"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-spring-web/2.6.1/6478ed7e49755b652aac907d42a735349056a6a/springfox-spring-web-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.springfox/springfox-spring-web/2.6.1/3322c13436cc726184998808e35d474acfa043fd/springfox-spring-web-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.springfox"/>
+			<attribute name="artifactId" value="springfox-spring-web"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.session/spring-session-core/2.7.0/367dc88d1c57bdedbbc0ac662e80a4f2daa3fceb/spring-session-core-2.7.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.session/spring-session-core/2.7.0/fb4e38c0c03ddc80dc2fd607ceeaef4e7390305d/spring-session-core-2.7.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.session"/>
+			<attribute name="artifactId" value="spring-session-core"/>
+			<attribute name="version" value="2.7.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.6.21/5e5b55c26dbc80372a920aef60eb774b714559b8/kotlin-stdlib-common-1.6.21.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.6.21/4161056305b7cdaf52a6fd0c051b06ad03f9bd49/kotlin-stdlib-common-1.6.21-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.jetbrains.kotlin"/>
+			<attribute name="artifactId" value="kotlin-stdlib-common"/>
+			<attribute name="version" value="1.6.21"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jaxb/jaxb-runtime/2.3.8/c90a335a07c60db986f29d35b0f8ac0a18f0f989/jaxb-runtime-2.3.8.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jaxb/jaxb-runtime/2.3.8/ae0b15b3c7daaed31edaad90e1d92fabd604b988/jaxb-runtime-2.3.8-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.jaxb"/>
+			<attribute name="artifactId" value="jaxb-runtime"/>
+			<attribute name="version" value="2.3.8"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.hibernate.common/hibernate-commons-annotations/5.1.2.Final/e59ffdbc6ad09eeb33507b39ffcf287679a498c8/hibernate-commons-annotations-5.1.2.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.hibernate.common/hibernate-commons-annotations/5.1.2.Final/f61bcf5c598d45f10dc79688ebce6b4d1c2c5bd5/hibernate-commons-annotations-5.1.2.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.hibernate.common"/>
+			<attribute name="artifactId" value="hibernate-commons-annotations"/>
+			<attribute name="version" value="5.1.2.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.inject/guice/5.1.0/da25056c694c54ba16e78e4fc35f17fc60f0d1b4/guice-5.1.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.inject/guice/5.1.0/3615134568ad698ea689b2cc5578c8274cad371d/guice-5.1.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.inject"/>
+			<attribute name="artifactId" value="guice"/>
+			<attribute name="version" value="5.1.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-autoconfigure/2.7.9/849b238dd024101cad8d107b4a8b0906f75003d5/spring-boot-autoconfigure-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-autoconfigure/2.7.9/627fb7d59e7dabbbc5ff2805ddad07fe7279c6a0/spring-boot-autoconfigure-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-autoconfigure"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec/4.1.89.Final/f03a649ffa405ca4c802a8bfcc2abfe70ae485ca/netty-codec-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec/4.1.89.Final/60c2eb76da77d4fe30290d89c41921f84cc4f320/netty-codec-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-codec"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.cloud/spring-cloud-openfeign-core/3.1.5/6fcddab95a3ba5031df7cf706bd98d79e25384a/spring-cloud-openfeign-core-3.1.5.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.cloud/spring-cloud-openfeign-core/3.1.5/23c3457cbec6fb1c58484e5af08ce21113a4388/spring-cloud-openfeign-core-3.1.5-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.cloud"/>
+			<attribute name="artifactId" value="spring-cloud-openfeign-core"/>
+			<attribute name="version" value="3.1.5"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-client-api/6.10.0/743ccecdc20ad831fab1897d8dfbf759c56b7608/kubernetes-client-api-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-client-api/6.10.0/894dde11f2986c6c4f6e9edbae1387d9aee535cf/kubernetes-client-api-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-client-api"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/30.1-jre/d0c3ce2311c9e36e73228da25a6e99b2ab826f/guava-30.1-jre.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/30.1-jre/8ae9687f4800d716821aad9784bd4769e9e566a4/guava-30.1-jre-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.guava"/>
+			<attribute name="artifactId" value="guava"/>
+			<attribute name="version" value="30.1-jre"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.webjars/webjars-locator-core/0.50/d1ae68f5fea4f8e36e1d9adfd1ac02463c43894a/webjars-locator-core-0.50.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.webjars/webjars-locator-core/0.50/5eb4b310155fd748d6121da589edb78a667ddda3/webjars-locator-core-0.50-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.webjars"/>
+			<attribute name="artifactId" value="webjars-locator-core"/>
+			<attribute name="version" value="0.50"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2/hk2-locator/2.6.1/9dedf9d2022e38ec0743ed44c1ac94ad6149acdd/hk2-locator-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2/hk2-locator/2.6.1/73883e1a0effc4d1409743b515030a634f7b45c3/hk2-locator-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.hk2"/>
+			<attribute name="artifactId" value="hk2-locator"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-orm/5.3.25/b0fb2911a5d528037149240c8b4f2c820d90405b/spring-orm-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-orm/5.3.25/4f1d732748f47ac1ad5eeccdfc0c775a1e081f34/spring-orm-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-orm"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-handler/4.1.89.Final/ced584e9eba5a6b7aad7c6a28a60c13375459f1a/netty-handler-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-handler/4.1.89.Final/a8e6a06c82196f31f88c0b1923cb107ee77b1146/netty-handler-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-handler"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-httpclient-okhttp/6.10.0/db8ac9af378537a86fe60ffe46d5415637b8082c/kubernetes-httpclient-okhttp-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-httpclient-okhttp/6.10.0/e38f95d3d70420a3e48344121b733f319d12b764/kubernetes-httpclient-okhttp-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-httpclient-okhttp"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-webmvc/5.3.25/62a8258bcc4f7a58dd69af5140481b64653c90/spring-webmvc-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-webmvc/5.3.25/315c7bb3f46a09d2b2dc1f6ff8b671b36a122ce8/spring-webmvc-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-webmvc"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2/hk2-api/2.6.1/114bd7afb4a1bd9993527f52a08a252b5d2acac5/hk2-api-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2/hk2-api/2.6.1/911d7e334b8b230b491bb130af8404fdb7a81059/hk2-api-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.hk2"/>
+			<attribute name="artifactId" value="hk2-api"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-socks/4.1.89.Final/17aabd2ec883e5fbd6c3ecd990cb78fc036e015a/netty-codec-socks-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-socks/4.1.89.Final/5bd6a10bb21e474e3493c8ed1cd9edb3843e4aac/netty-codec-socks-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-codec-socks"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.snakeyaml/snakeyaml-engine/2.7/5213e62e87e62ac009d80aeb64c8240075bf078a/snakeyaml-engine-2.7.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.snakeyaml/snakeyaml-engine/2.7/ace42a79599809c460ae8e620406b5be03721ae5/snakeyaml-engine-2.7-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.snakeyaml"/>
+			<attribute name="artifactId" value="snakeyaml-engine"/>
+			<attribute name="version" value="2.7"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.auto.value/auto-value-annotations/1.9/25a0fcef915f663679fcdb447541c5d86a9be4ba/auto-value-annotations-1.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.auto.value/auto-value-annotations/1.9/d9ab604610be31d00a4a61accda1559a8603504/auto-value-annotations-1.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.auto.value"/>
+			<attribute name="artifactId" value="auto-value-annotations"/>
+			<attribute name="version" value="1.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.datatype/jackson-datatype-jdk8/2.13.3/d4884595d5aab5babdb00ddbd693b8fd36b5ec3c/jackson-datatype-jdk8-2.13.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.datatype/jackson-datatype-jdk8/2.13.3/1595bea0e2f1fd1386f0dae89c957e6aba386c2e/jackson-datatype-jdk8-2.13.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.fasterxml.jackson.datatype"/>
+			<attribute name="artifactId" value="jackson-datatype-jdk8"/>
+			<attribute name="version" value="2.13.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.kohlschutter.junixsocket/junixsocket-native-common/2.6.1/70a02ed1d3fab753ac436732d4aab877ada8b50f/junixsocket-native-common-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.kohlschutter.junixsocket/junixsocket-native-common/2.6.1/c145703612b3f7377ae8c6ee27417be0f3c17509/junixsocket-native-common-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.kohlschutter.junixsocket"/>
+			<attribute name="artifactId" value="junixsocket-native-common"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-transport-netty/3.3.0/8976d490e22afcdb60479133a2f92050e9709a80/docker-java-transport-netty-3.3.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.github.docker-java/docker-java-transport-netty/3.3.0/6a6b857343a2fdd39b4be1dbd9b9270a51d94c9/docker-java-transport-netty-3.3.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.github.docker-java"/>
+			<attribute name="artifactId" value="docker-java-transport-netty"/>
+			<attribute name="version" value="3.3.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-apps/6.10.0/359eaca9e33408f7b2135b588cb05b8fd62ab827/kubernetes-model-apps-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-apps/6.10.0/9894abd55e50cec0d96aadfe80b9c4c35d5d9a24/kubernetes-model-apps-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-apps"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.marcnuri.helm-java/helm-java/0.0.13/d908ef5f0a649e49f2bbc50340f6afaa946d42ed/helm-java-0.0.13.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.marcnuri.helm-java/helm-java/0.0.13/2ecf1f3a56d9f3ce105a84c55a274989e3e73214/helm-java-0.0.13-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.marcnuri.helm-java"/>
+			<attribute name="artifactId" value="helm-java"/>
+			<attribute name="version" value="0.0.13"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.1.89.Final/f5619abb188be61100451d3e03858072006a8117/netty-transport-native-epoll-4.1.89.Final-linux-x86_64.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.1.89.Final/c9f54e97f0b33e32c671dd9554976016632f2846/netty-transport-native-epoll-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-transport-native-epoll"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.openfeign/feign-core/11.10/2fe5b55375eb51ee219386e6fe519e9773d5384a/feign-core-11.10.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.openfeign/feign-core/11.10/ab952804c03a79c633a652c2e79518e07cbb9ac4/feign-core-11.10-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.github.openfeign"/>
+			<attribute name="artifactId" value="feign-core"/>
+			<attribute name="version" value="11.10"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jaxb/txw2/2.3.8/66e0297f1196f0d15a776e699de1b8e6ac5d44dd/txw2-2.3.8.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.jaxb/txw2/2.3.8/6610d41bd5ecd5357b446f9368877c2371052a5b/txw2-2.3.8-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.jaxb"/>
+			<attribute name="artifactId" value="txw2"/>
+			<attribute name="version" value="2.3.8"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-node/6.10.0/a195c697e1163424bbb51f1f35eedadb2f626d49/kubernetes-model-node-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-node/6.10.0/34b2027bcdfd9cb198e06a44006598b8c2a6ce4c/kubernetes-model-node-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-node"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.cdancy/jenkins-rest/1.0.1/ffaa0121d2b5259d83706cdc6cbc63c2fd02d651/jenkins-rest-1.0.1-all.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.github.cdancy/jenkins-rest/1.0.1/1175e94542ce027839fde93df34ee42d03428fa3/jenkins-rest-1.0.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.github.cdancy"/>
+			<attribute name="artifactId" value="jenkins-rest"/>
+			<attribute name="version" value="1.0.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk8/1.6.21/eeb4d60d75e9ea9c11200d52974e522793b14fba/kotlin-stdlib-jdk8-1.6.21.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk8/1.6.21/2cb762c1a14a3a958fd18d29f59491fa300e42d4/kotlin-stdlib-jdk8-1.6.21-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.jetbrains.kotlin"/>
+			<attribute name="artifactId" value="kotlin-stdlib-jdk8"/>
+			<attribute name="version" value="1.6.21"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2.external/aopalliance-repackaged/2.6.1/b2eb0a83bcbb44cc5d25f8b18f23be116313a638/aopalliance-repackaged-2.6.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.glassfish.hk2.external/aopalliance-repackaged/2.6.1/8225e1c5c5615a447227ed9164e709be1e77802d/aopalliance-repackaged-2.6.1-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.glassfish.hk2.external"/>
+			<attribute name="artifactId" value="aopalliance-repackaged"/>
+			<attribute name="version" value="2.6.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.mapstruct/mapstruct/1.0.0.Final/794bb2c7d3dd69211deb22857d92fb4c5361be3f/mapstruct-1.0.0.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.mapstruct/mapstruct/1.0.0.Final/a7a438b4f78e6fce59777acc37f12776d92f884d/mapstruct-1.0.0.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.mapstruct"/>
+			<attribute name="artifactId" value="mapstruct"/>
+			<attribute name="version" value="1.0.0.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-events/6.10.0/95963ab9f6d0080bd7b26ea466acfd42d20b9e19/kubernetes-model-events-6.10.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.fabric8/kubernetes-model-events/6.10.0/970216e4afab16086de52af8dc93f6ab88d89551/kubernetes-model-events-6.10.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.fabric8"/>
+			<attribute name="artifactId" value="kubernetes-model-events"/>
+			<attribute name="version" value="6.10.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-tomcat/2.7.9/a1076e6ffa1d771d3ccd18e72280317a152323e8/spring-boot-starter-tomcat-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-tomcat/2.7.9/3d247dbead4a3cf00ecb747c1bdc32c1cbc05c7d/spring-boot-starter-tomcat-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter-tomcat"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-core/2.2.0/cc13730807aa6649f91a4e1ca4590e458dfda343/swagger-core-2.2.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-core/2.2.0/60fa054051a050c2bce8b0e5134197d987fb54b3/swagger-core-2.2.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.swagger.core.v3"/>
+			<attribute name="artifactId" value="swagger-core"/>
+			<attribute name="version" value="2.2.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-handler-proxy/4.1.89.Final/561cba12be44f90ba3e5110cefecdb785fa199cc/netty-handler-proxy-4.1.89.Final.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.netty/netty-handler-proxy/4.1.89.Final/5e19239596aba61f4a8f89544261f59d30250c5f/netty-handler-proxy-4.1.89.Final-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.netty"/>
+			<attribute name="artifactId" value="netty-handler-proxy"/>
+			<attribute name="version" value="4.1.89.Final"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.inject.extensions/guice-assistedinject/5.1.0/58a8956f00d6939978d7da735f393d7af7db5c02/guice-assistedinject-5.1.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.google.inject.extensions/guice-assistedinject/5.1.0/532cf47dc1c7b3752a0825fbb4c42683c1c096bc/guice-assistedinject-5.1.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.google.inject.extensions"/>
+			<attribute name="artifactId" value="guice-assistedinject"/>
+			<attribute name="version" value="5.1.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/commons-codec/commons-codec/1.15/49d94806b6e3dc933dacbd8acb0fdbab8ebd1e5d/commons-codec-1.15.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/commons-codec/commons-codec/1.15/843bc57fd042051e994846da8167bb7ca677a6d/commons-codec-1.15-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="commons-codec"/>
+			<attribute name="artifactId" value="commons-codec"/>
+			<attribute name="version" value="1.15"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/javax.annotation/javax.annotation-api/1.3.2/934c04d3cfef185a8008e7bf34331b79730a9d43/javax.annotation-api-1.3.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/javax.annotation/javax.annotation-api/1.3.2/65dfd2c47380bf72ec62a5b8c4ceb78a4eda1a53/javax.annotation-api-1.3.2-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="javax.annotation"/>
+			<attribute name="artifactId" value="javax.annotation-api"/>
+			<attribute name="version" value="1.3.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-annotations/2.2.0/404f8a4159d7d6034c3e515e3f673f19c6a100ee/swagger-annotations-2.2.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-annotations/2.2.0/38551bebea2a325091b383f53a98152b5ae7862a/swagger-annotations-2.2.0-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="io.swagger.core.v3"/>
+			<attribute name="artifactId" value="swagger-annotations"/>
+			<attribute name="version" value="2.2.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.transaction/jakarta.transaction-api/1.3.3/c4179d48720a1e87202115fbed6089bdc4195405/jakarta.transaction-api-1.3.3.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/jakarta.transaction/jakarta.transaction-api/1.3.3/4ea5dba7d38f64e274bd3b0f0314383f009583ec/jakarta.transaction-api-1.3.3-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="jakarta.transaction"/>
+			<attribute name="artifactId" value="jakarta.transaction-api"/>
+			<attribute name="version" value="1.3.3"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.tomcat.embed/tomcat-embed-websocket/9.0.71/987b6460af04b08bc9914788d2762080afb09541/tomcat-embed-websocket-9.0.71.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apache.tomcat.embed/tomcat-embed-websocket/9.0.71/41800a8478ee5716c70da6cd576959b798f72498/tomcat-embed-websocket-9.0.71-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apache.tomcat.embed"/>
+			<attribute name="artifactId" value="tomcat-embed-websocket"/>
+			<attribute name="version" value="9.0.71"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-tx/5.3.25/b459d0b755c9614a55ebd39ce353748c4b210be2/spring-tx-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-tx/5.3.25/fec5e7ab8aa7450053f9049fa54026b7b190f52/spring-tx-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-tx"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter-params/5.8.2/ddeafe92fc263f895bfb73ffeca7fd56e23c2cce/junit-jupiter-params-5.8.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter-params/5.8.2/26d07692b618b8da29479febec7d55e18107ee48/junit-jupiter-params-5.8.2-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.junit.jupiter"/>
+			<attribute name="artifactId" value="junit-jupiter-params"/>
+			<attribute name="version" value="5.8.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.skyscreamer/jsonassert/1.5.1/6d842d0faf4cf6725c509a5e5347d319ee0431c3/jsonassert-1.5.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.skyscreamer/jsonassert/1.5.1/56cfa73a7ab13fbb8d433570add90f087d40e243/jsonassert-1.5.1-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.skyscreamer"/>
+			<attribute name="artifactId" value="jsonassert"/>
+			<attribute name="version" value="1.5.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.vaadin.external.google/android-json/0.0.20131108.vaadin1/fa26d351fe62a6a17f5cda1287c1c6110dec413f/android-json-0.0.20131108.vaadin1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.vaadin.external.google/android-json/0.0.20131108.vaadin1/bf42d7e47a3228513b626dd7d37ac6f072aeca4f/android-json-0.0.20131108.vaadin1-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.vaadin.external.google"/>
+			<attribute name="artifactId" value="android-json"/>
+			<attribute name="version" value="0.0.20131108.vaadin1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.assertj/assertj-core/3.22.0/c300c0c6a24559f35fa0bd3a5472dc1edcd0111e/assertj-core-3.22.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.assertj/assertj-core/3.22.0/2b9454bcf528122cfb8aaffa2f02e1c1dd4d3ec5/assertj-core-3.22.0-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.assertj"/>
+			<attribute name="artifactId" value="assertj-core"/>
+			<attribute name="version" value="3.22.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.mockito/mockito-junit-jupiter/4.5.1/f81fb60bd69b3a6e5537ae23b883326f01632a61/mockito-junit-jupiter-4.5.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.mockito/mockito-junit-jupiter/4.5.1/6aa189452f42167be3dc9ce5ac029df0f15ba0e5/mockito-junit-jupiter-4.5.1-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.mockito"/>
+			<attribute name="artifactId" value="mockito-junit-jupiter"/>
+			<attribute name="version" value="4.5.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter-engine/5.8.2/c598b4328d2f397194d11df3b1648d68d7d990e3/junit-jupiter-engine-5.8.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter-engine/5.8.2/ea87fe3d752e24397f71f347872e79a89c61a704/junit-jupiter-engine-5.8.2-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.junit.jupiter"/>
+			<attribute name="artifactId" value="junit-jupiter-engine"/>
+			<attribute name="version" value="5.8.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.mockito/mockito-core/4.5.1/ed456e623e5afc6f4cee3ae58144e5c45f3b3bf/mockito-core-4.5.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.mockito/mockito-core/4.5.1/c08b438bd19ba98419cf7919ba63e909f75b71c/mockito-core-4.5.1-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.mockito"/>
+			<attribute name="artifactId" value="mockito-core"/>
+			<attribute name="version" value="4.5.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.jayway.jsonpath/json-path/2.7.0/f9d7d9659f2694e61142046ff8a216c047f263e8/json-path-2.7.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/com.jayway.jsonpath/json-path/2.7.0/f98abbc2176cd35716cbad60d7f1d4c97ac89dd1/json-path-2.7.0-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="com.jayway.jsonpath"/>
+			<attribute name="artifactId" value="json-path"/>
+			<attribute name="version" value="2.7.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.opentest4j/opentest4j/1.2.0/28c11eb91f9b6d8e200631d46e20a7f407f2a046/opentest4j-1.2.0.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.opentest4j/opentest4j/1.2.0/41d55b3c2254de9837b4ec8923cbd371b8a7eab5/opentest4j-1.2.0-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.opentest4j"/>
+			<attribute name="artifactId" value="opentest4j"/>
+			<attribute name="version" value="1.2.0"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter/5.8.2/5a817b1e63f1217e5c586090c45e681281f097ad/junit-jupiter-5.8.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter/5.8.2/5fd01c33132462aab3905cb74bd1097a713ab91a/junit-jupiter-5.8.2-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.junit.jupiter"/>
+			<attribute name="artifactId" value="junit-jupiter"/>
+			<attribute name="version" value="5.8.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-test/2.7.9/e70e0bc6a5e4084a4a7015e60c2254cd30dc5d7a/spring-boot-test-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-test/2.7.9/a2c86eeaca762d6a7e59e2503fd0450ab67d7855/spring-boot-test-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-test"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter-api/5.8.2/4c21029217adf07e4c0d0c5e192b6bf610c94bdc/junit-jupiter-api-5.8.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.jupiter/junit-jupiter-api/5.8.2/429d353563c5fb35a3d47076bedbf75161e976c2/junit-jupiter-api-5.8.2-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.junit.jupiter"/>
+			<attribute name="artifactId" value="junit-jupiter-api"/>
+			<attribute name="version" value="5.8.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-test/2.7.9/45bfc2fc9537a082aabb8cbca99c05e937033fab/spring-boot-starter-test-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-test/2.7.9/894cad821616e4af38fb3d551c8372299041ba84/spring-boot-starter-test-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-starter-test"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.minidev/json-smart/2.4.8/7c62f5f72ab05eb54d40e2abf0360a2fe9ea477f/json-smart-2.4.8.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.minidev/json-smart/2.4.8/399ee58414b3686be3d4f3b59f6bc11d30d2309e/json-smart-2.4.8-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="net.minidev"/>
+			<attribute name="artifactId" value="json-smart"/>
+			<attribute name="version" value="2.4.8"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.objenesis/objenesis/3.2/7fadf57620c8b8abdf7519533e5527367cb51f09/objenesis-3.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.objenesis/objenesis/3.2/9f5da90020a255f25b6d8da8db273e2d38ce9805/objenesis-3.2-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.objenesis"/>
+			<attribute name="artifactId" value="objenesis"/>
+			<attribute name="version" value="3.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.1/a99500cf6eea30535eeac6be73899d048f8d12a8/asm-9.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.1/3fb15dd478bf8dcb039aa0d035f9fff9e4229c61/asm-9.1-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.ow2.asm"/>
+			<attribute name="artifactId" value="asm"/>
+			<attribute name="version" value="9.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-test/5.3.25/42a55c25a4da3bc330d8ab3ea7648cd76d0830d4/spring-test-5.3.25.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework/spring-test/5.3.25/9292b679f6314704bec3ce40092d27f4f82f4bfa/spring-test-5.3.25-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework"/>
+			<attribute name="artifactId" value="spring-test"/>
+			<attribute name="version" value="5.3.25"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.platform/junit-platform-commons/1.8.2/32c8b8617c1342376fd5af2053da6410d8866861/junit-platform-commons-1.8.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.platform/junit-platform-commons/1.8.2/386b61876dd33d0ef0381189d3c1db9455d99659/junit-platform-commons-1.8.2-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.junit.platform"/>
+			<attribute name="artifactId" value="junit-platform-commons"/>
+			<attribute name="version" value="1.8.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.platform/junit-platform-engine/1.8.2/b737de09f19864bd136805c84df7999a142fec29/junit-platform-engine-1.8.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.junit.platform/junit-platform-engine/1.8.2/ef25ff956479198a71a7d1b23e11f27fb09393b6/junit-platform-engine-1.8.2-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.junit.platform"/>
+			<attribute name="artifactId" value="junit-platform-engine"/>
+			<attribute name="version" value="1.8.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apiguardian/apiguardian-api/1.1.2/a231e0d844d2721b0fa1b238006d15c6ded6842a/apiguardian-api-1.1.2.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.apiguardian/apiguardian-api/1.1.2/e0787a997746ac32639e0bf3cb27af8dce8a3428/apiguardian-api-1.1.2-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.apiguardian"/>
+			<attribute name="artifactId" value="apiguardian-api"/>
+			<attribute name="version" value="1.1.2"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy-agent/1.12.23/1cba11fdb72c383edacb909f79ae6870efd275e4/byte-buddy-agent-1.12.23.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy-agent/1.12.23/1ac88d54d214b8a56481f657eac1fd2d14a382c6/byte-buddy-agent-1.12.23-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="net.bytebuddy"/>
+			<attribute name="artifactId" value="byte-buddy-agent"/>
+			<attribute name="version" value="1.12.23"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.minidev/accessors-smart/2.4.8/6e1bee5a530caba91893604d6ab41d0edcecca9a/accessors-smart-2.4.8.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/net.minidev/accessors-smart/2.4.8/f8801f70a860e4e3a9485f9923dde4204cb70c96/accessors-smart-2.4.8-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="net.minidev"/>
+			<attribute name="artifactId" value="accessors-smart"/>
+			<attribute name="version" value="2.4.8"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-test-autoconfigure/2.7.9/f77105c98b45f585f5487b8076163c30cc1524d4/spring-boot-test-autoconfigure-2.7.9.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-test-autoconfigure/2.7.9/acbe1f60a167bd6217567a3fbd31b2775861817c/spring-boot-test-autoconfigure-2.7.9-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.springframework.boot"/>
+			<attribute name="artifactId" value="spring-boot-test-autoconfigure"/>
+			<attribute name="version" value="2.7.9"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.xmlunit/xmlunit-core/2.9.1/e5833662d9a1279a37da3ef6f62a1da29fcd68c4/xmlunit-core-2.9.1.jar" sourcepath="C:/Users/Gi-Hyun Lee/.gradle/caches/modules-2/files-2.1/org.xmlunit/xmlunit-core/2.9.1/8ef88e77c158cdc17de55ad94e1e7e7972a91bd6/xmlunit-core-2.9.1-sources.jar">
+		<attributes>
+			<attribute name="test" value="true"/>
+			<attribute name="gradle.buildServer" value="true"/>
+			<attribute name="groupId" value="org.xmlunit"/>
+			<attribute name="artifactId" value="xmlunit-core"/>
+			<attribute name="version" value="2.9.1"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="output" path="bin/default"/>
+</classpath>

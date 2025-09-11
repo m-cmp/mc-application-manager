@@ -40,6 +40,13 @@ public class SoftwareCatalogDTO {
     private String logoUrlLarge;
     private String logoUrlSmall;
     private List<CatalogRefDTO> catalogRefs;
+    
+    // 추가 필드들
+    private String version;
+    private String license;
+    private String homepage;
+    private String repositoryUrl;
+    private String documentationUrl;
 
     // 3. Resource Requeirements
     private Double minCpu;
@@ -88,6 +95,11 @@ public class SoftwareCatalogDTO {
                 .description(entity.getDescription())
                 .logoUrlLarge(entity.getLogoUrlLarge())
                 .logoUrlSmall(entity.getLogoUrlSmall())
+                .version(entity.getVersion())
+                .license(entity.getLicense())
+                .homepage(entity.getHomepage())
+                .repositoryUrl(entity.getRepositoryUrl())
+                .documentationUrl(entity.getDocumentationUrl())
 
                 // 3. Resource Requirements
                 .minCpu(entity.getMinCpu())

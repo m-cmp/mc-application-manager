@@ -4,6 +4,7 @@ import java.util.List;
 
 import kr.co.mcmp.softwarecatalog.application.dto.DockerHubImageRegistrationRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.HelmChartRegistrationRequest;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
 import kr.co.mcmp.softwarecatalog.catetory.dto.KeyValueDTO;
 import kr.co.mcmp.softwarecatalog.catetory.dto.SoftwareCatalogRequestDTO;
@@ -67,7 +68,7 @@ public class CatalogController {
             @PathVariable Long catalogId,
             @RequestBody SoftwareCatalogDTO catalogDTO,
             @RequestParam(required = false) String username) {
-        SoftwareCatalogDTO updatedCatalog = catalogService.updateCatalog(catalogId, catalogDTO, username);
+        SoftwareCatalogDTO updatedCatalog = catalogService.updateCatalog(catalogId, catalogDTO);
         return ResponseEntity.ok(new ResponseWrapper<>(updatedCatalog));
     }
 
@@ -107,9 +108,8 @@ public class CatalogController {
     @PostMapping("/nexus/image/push")
     public ResponseEntity<ResponseWrapper<Object>> pushImageToNexus(
             @RequestParam String imageName,
-            @RequestParam String tag,
-            @RequestBody byte[] imageData) {
-        Object result = catalogService.pushImageToNexus(imageName, tag, imageData);
+            @RequestParam String tag) {
+        Object result = catalogService.pushImageToNexus(imageName, tag, null);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     
@@ -141,7 +141,7 @@ public class CatalogController {
     public ResponseEntity<ResponseWrapper<Object>> pushImageAndRegisterCatalog(
             @RequestBody SoftwareCatalogDTO catalog,
             @RequestParam(required = false) String username) {
-        Object result = catalogService.pushImageAndRegisterCatalog(catalog, username);
+        Object result = catalogService.pushImageAndRegisterCatalog(catalog);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
@@ -195,6 +195,43 @@ public class CatalogController {
             @RequestBody DockerHubImageRegistrationRequest request,
             @RequestParam(required = false) String username) {
         Object result = catalogService.registerDockerHubImage(request, username);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+    
+    // ==================== Helm Chart 관련 엔드포인트 ====================
+    
+    @Operation(summary = "ArtifactHub Helm Chart 검색", description = "ArtifactHub에서 Helm Chart를 검색합니다.")
+    @GetMapping("/artifacthub/search")
+    public ResponseEntity<ResponseWrapper<Object>> searchHelmCharts(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        Object result = catalogService.searchHelmCharts(query, page, pageSize);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+    
+    @Operation(summary = "ArtifactHub Helm Chart 상세 정보 조회", description = "ArtifactHub에서 특정 Helm Chart의 상세 정보를 조회합니다.")
+    @GetMapping("/artifacthub/chart/{packageId}")
+    public ResponseEntity<ResponseWrapper<Object>> getHelmChartDetails(
+            @PathVariable String packageId) {
+        Object result = catalogService.getHelmChartDetails(packageId);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+    
+    @Operation(summary = "ArtifactHub Helm Chart 버전 목록 조회", description = "ArtifactHub에서 특정 Helm Chart의 버전 목록을 조회합니다.")
+    @GetMapping("/artifacthub/chart/{packageId}/versions")
+    public ResponseEntity<ResponseWrapper<List<String>>> getHelmChartVersions(
+            @PathVariable String packageId) {
+        List<String> result = catalogService.getHelmChartVersions(packageId);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+    
+    @Operation(summary = "Helm Chart를 HELM_CHART 테이블에 등록", description = "ArtifactHub Helm Chart를 HELM_CHART 테이블에 등록합니다.")
+    @PostMapping("/artifacthub/register")
+    public ResponseEntity<ResponseWrapper<Object>> registerHelmChart(
+            @RequestBody HelmChartRegistrationRequest request,
+            @RequestParam(required = false) String username) {
+        Object result = catalogService.registerHelmChart(request, username);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 

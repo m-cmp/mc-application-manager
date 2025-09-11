@@ -10,4 +10,8 @@ public class CombinedCatalogDTO {
 
     SoftwareCatalogDTO softwareCatalogDTO;
     CommonRepository.RepositoryDto repositoryDTO;
+    
+    public void setCatalog(SoftwareCatalogDTO catalog) {
+        this.softwareCatalogDTO = catalog;
+    }
 }
