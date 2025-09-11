@@ -1,51 +1,37 @@
 package kr.co.mcmp.softwarecatalog;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import javax.persistence.EntityNotFoundException;
-
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
-
 import kr.co.mcmp.dto.oss.repository.CommonRepository;
-import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.service.oss.repository.CommonModuleRepositoryService;
 import kr.co.mcmp.softwarecatalog.Ref.CatalogRefDTO;
 import kr.co.mcmp.softwarecatalog.Ref.CatalogRefEntity;
 import kr.co.mcmp.softwarecatalog.Ref.CatalogRefRepository;
 import kr.co.mcmp.softwarecatalog.application.dto.DockerHubImageRegistrationRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.HelmChartDTO;
-import kr.co.mcmp.softwarecatalog.application.dto.HelmChartRegistrationRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
-import kr.co.mcmp.softwarecatalog.application.service.ArtifactHubIntegrationService;
 import kr.co.mcmp.softwarecatalog.application.service.DockerHubIntegrationService;
-import kr.co.mcmp.softwarecatalog.application.service.HelmChartIntegrationService;
 import kr.co.mcmp.softwarecatalog.application.service.NexusIntegrationService;
+import kr.co.mcmp.softwarecatalog.category.entity.IngressConfig;
+import kr.co.mcmp.softwarecatalog.category.repository.IngressConfigRepository;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityNotFoundException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @Log4j2
@@ -60,9 +46,8 @@ public class CatalogService {
     private final CommonModuleRepositoryService moduleRepositoryService;
     private final NexusIntegrationService nexusIntegrationService;
     private final DockerHubIntegrationService dockerHubIntegrationService;
-    private final HelmChartIntegrationService helmChartIntegrationService;
-    private final ArtifactHubIntegrationService artifactHubIntegrationService;
-    private final RestTemplate restTemplate;
+    private final IngressConfigRepository ingressConfigRepository;
+
 
     @Transactional
     public SoftwareCatalogDTO createCatalog(SoftwareCatalogDTO catalogDTO, String username) {
@@ -71,9 +56,9 @@ public class CatalogService {
             user = getUserByUsername(username);
         }
 
-        
-        // 1. 내부 DB에 카탈로그 등록
+        // 1. 내부 DB에 카탈로그 등록 (catalogRefs 제외)
         SoftwareCatalog catalog = catalogDTO.toEntity();
+        catalog.setCatalogRefs(null); // 중복 저장 방지를 위해 일시적으로 null 설정
         catalog.setRegisteredBy(user);
         catalog.setCreatedAt(LocalDateTime.now());
         catalog.setUpdatedAt(LocalDateTime.now());
@@ -95,8 +80,11 @@ public class CatalogService {
                 // DOCKERHUB인 경우 PACKAGE_INFO 테이블에서 조회 후 catalogId 업데이트
                 updatePackageInfoCatalogId(catalog, catalogDTO);
             } else if ("ARTIFACTHUB".equalsIgnoreCase(catalogDTO.getSourceType())) {
-                // ARTIFACTHUB인 경우 HELM_CHART 테이블에서 조회 후 catalogId 업데이트  
+                // ARTIFACTHUB인 경우 HELM_CHART 테이블에서 조회 후 catalogId 업데이트
                 updateHelmChartCatalogId(catalog, catalogDTO);
+                if(catalogDTO.getIngressEnabled()){
+                    saveIngressConfig(catalog, catalogDTO.getIngressUrl());
+                }
             }
         }
 
@@ -104,157 +92,169 @@ public class CatalogService {
 
         return result;
     }
-    
+
     /**
      * 내부 DB에만 카탈로그를 등록합니다 (넥서스 연동 없이)
      */
     @Transactional
     public SoftwareCatalogDTO createCatalogInternal(SoftwareCatalogDTO catalogDTO, User user) {
-        
-        SoftwareCatalog paramCatalog = catalogDTO.toEntity();
-        paramCatalog.setRegisteredBy(user);
-        paramCatalog.setCreatedAt(LocalDateTime.now());
-        paramCatalog.setUpdatedAt(LocalDateTime.now());
 
-        paramCatalog = catalogRepository.save(paramCatalog);
+        SoftwareCatalog catalog = catalogDTO.toEntity();
+        catalog.setRegisteredBy(user);
+        catalog.setCreatedAt(LocalDateTime.now());
+        catalog.setUpdatedAt(LocalDateTime.now());
+
+        catalog = catalogRepository.save(catalog);
 
         if (catalogDTO.getCatalogRefs() != null && !catalogDTO.getCatalogRefs().isEmpty()) {
             for (CatalogRefDTO refDTO : catalogDTO.getCatalogRefs()) {
                 CatalogRefEntity refEntity = refDTO.toEntity();
-                refEntity.setCatalog(paramCatalog);
+                refEntity.setCatalog(catalog);
                 catalogRefRepository.save(refEntity);
             }
         }
 
-
-        SoftwareCatalog catalog = SoftwareCatalog.builder()
-                .name(catalogDTO.getName())
-                .description(catalogDTO.getDescription())
-                .version(catalogDTO.getVersion())
-                .category(catalogDTO.getCategory())
-                .license(catalogDTO.getLicense())
-                .homepage(catalogDTO.getHomepage())
-                .repositoryUrl(catalogDTO.getRepositoryUrl())
-                .documentationUrl(catalogDTO.getDocumentationUrl())
-                .registeredBy(user)
-                .build();
-
-        SoftwareCatalog savedCatalog = catalogRepository.save(catalog);
-
-        // PackageInfo 저장
         if (catalogDTO.getPackageInfo() != null) {
-            savePackageInfo(savedCatalog, catalogDTO.getPackageInfo());
+            savePackageInfo(catalog, catalogDTO.getPackageInfo());
+        } else if (catalogDTO.getHelmChart() != null) {
+            saveHelmChart(catalog, catalogDTO.getHelmChart());
         }
 
-        // HelmChart 저장
-        if (catalogDTO.getHelmChart() != null) {
-            saveHelmChart(savedCatalog, catalogDTO.getHelmChart());
-        }
-
-        // Nexus에 등록 (주석 처리)
-        // try {
-        // nexusIntegrationService.registerToNexus(result);
-        // log.info("Application registered to Nexus successfully: {}",
-        // result.getName());
-        // } catch (Exception e) {
-        // log.warn("Failed to register application to Nexus: {}", result.getName(), e);
-        // }
-
-        return SoftwareCatalogDTO.fromEntity(savedCatalog);
+        return SoftwareCatalogDTO.fromEntity(catalog);
     }
 
-    @Transactional(readOnly = true)
     public SoftwareCatalogDTO getCatalog(Long catalogId) {
         SoftwareCatalog catalog = catalogRepository.findById(catalogId)
-                .orElseThrow(() -> new EntityNotFoundException("Catalog not found with id: " + catalogId));
+                .orElseThrow(() -> new EntityNotFoundException("Catalog not found"));
 
         SoftwareCatalogDTO dto = SoftwareCatalogDTO.fromEntity(catalog);
 
-        // PackageInfo 조회
-        packageInfoRepository.findByCatalogId(catalogId)
-                .ifPresent(packageInfo -> dto.setPackageInfo(PackageInfoDTO.fromEntity(packageInfo)));
+        List<CatalogRefEntity> refs = catalogRefRepository.findByCatalogId(catalogId);
 
-        // HelmChart 조회
-        helmChartRepository.findByCatalogId(catalogId)
-                .ifPresent(helmChart -> dto.setHelmChart(HelmChartDTO.fromEntity(helmChart)));
+        if("ARTIFACTHUB".equals(dto.getSourceType())) {
+            IngressConfig ingressConfig = ingressConfigRepository.findByCatalogId(catalogId);
+            if(ingressConfig != null){
+                dto.setIngressEnabled(true);
+                dto.setIngressUrl(ingressConfig.getPath());
+            } else {
+                dto.setIngressEnabled(false);
+            }
+        } else {
+            dto.setIngressEnabled(false);
+        }
+
+        dto.setCatalogRefs(refs.stream().map(CatalogRefDTO::fromEntity).collect(Collectors.toList()));
+
+        packageInfoRepository.findByCatalogId(catalogId).ifPresent(packageInfo -> dto.setPackageInfo(PackageInfoDTO.fromEntity(packageInfo)));
+
+        helmChartRepository.findByCatalogId(catalogId).ifPresent(helmChart -> dto.setHelmChart(HelmChartDTO.fromEntity(helmChart)));
 
         return dto;
     }
 
-    @Transactional(readOnly = true)
     public List<SoftwareCatalogDTO> getAllCatalogs() {
         List<SoftwareCatalog> catalogs = catalogRepository.findAll();
-        return catalogs.stream()
-                .map(catalog -> {
-                    SoftwareCatalogDTO dto = SoftwareCatalogDTO.fromEntity(catalog);
+        List<SoftwareCatalogDTO> dtos = new ArrayList<>();
 
-                    // PackageInfo 조회
-                    packageInfoRepository.findByCatalogId(catalog.getId())
-                            .ifPresent(packageInfo -> dto.setPackageInfo(PackageInfoDTO.fromEntity(packageInfo)));
+        for (SoftwareCatalog catalog : catalogs) {
+            SoftwareCatalogDTO dto = SoftwareCatalogDTO.fromEntity(catalog);
 
-                    // HelmChart 조회
-                    helmChartRepository.findByCatalogId(catalog.getId())
-                            .ifPresent(helmChart -> dto.setHelmChart(HelmChartDTO.fromEntity(helmChart)));
+            List<CatalogRefEntity> refs = catalogRefRepository.findByCatalogId(catalog.getId());
+            dto.setCatalogRefs(refs.stream().map(CatalogRefDTO::fromEntity).collect(Collectors.toList()));
 
-                    return dto;
-                })
-                .collect(Collectors.toList());
+            packageInfoRepository.findByCatalogId(catalog.getId()).ifPresent(packageInfo -> dto.setPackageInfo(PackageInfoDTO.fromEntity(packageInfo)));
+
+            helmChartRepository.findByCatalogId(catalog.getId())
+                    .ifPresent(helmChart -> dto.setHelmChart(HelmChartDTO.fromEntity(helmChart)));
+
+            dtos.add(dto);
+        }
+
+        return dtos;
     }
 
     @Transactional
-    public SoftwareCatalogDTO updateCatalog(Long catalogId, SoftwareCatalogDTO catalogDTO) {
-        SoftwareCatalog catalog = catalogRepository.findById(catalogId)
-                .orElseThrow(() -> new EntityNotFoundException("Catalog not found with id: " + catalogId));
-
-        catalog.updateFromDTO(catalogDTO);
-
-        // PackageInfo 업데이트
-        if (catalogDTO.getPackageInfo() != null) {
-            updatePackageInfo(catalog, catalogDTO.getPackageInfo());
-        }
-
-        // HelmChart 업데이트
-        if (catalogDTO.getHelmChart() != null) {
-            updateHelmChart(catalog, catalogDTO.getHelmChart());
-        }
-
-        SoftwareCatalog savedCatalog = catalogRepository.save(catalog);
-
-        // Nexus에서 삭제 (주석 처리)
-        // try {
-        // nexusIntegrationService.deleteFromNexus(catalog.getName());
-        // log.info("Application deleted from Nexus successfully: {}",
-        // catalog.getName());
-        // } catch (Exception e) {
-        // log.warn("Failed to delete application from Nexus: {}", catalog.getName(),
-        // e);
-        // }
-
-        return SoftwareCatalogDTO.fromEntity(savedCatalog);
-    }
-
-    @Transactional
-
-    public void deleteCatalog(Long catalogId) {
+    public SoftwareCatalogDTO updateCatalog(Long catalogId, SoftwareCatalogDTO catalogDTO, String username) {
         SoftwareCatalog catalog = catalogRepository.findById(catalogId)
                 .orElseThrow(() -> new EntityNotFoundException("Catalog not found"));
-        // 1. 넥서스에서 애플리케이션 삭제
-        try {
-            nexusIntegrationService.deleteFromNexus(catalog.getName());
-            log.info("Application deleted from Nexus successfully: {}", catalog.getName());
-        } catch (Exception e) {
-            log.warn("Failed to delete application from Nexus: {}", catalog.getName(), e);
-            // 넥서스 삭제 실패해도 DB 삭제는 진행
+
+        User user = null;
+        if (StringUtils.isNotBlank(username)) {
+            user = getUserByUsername(username);
         }
-        // 2. 내부 DB에서 카탈로그 삭제
+
+        updateCatalogFromDTO(catalog, catalogDTO, user);
+        catalog = catalogRepository.save(catalog);
+
         catalogRefRepository.deleteAllByCatalogId(catalogId);
-        // packageInfoRepository.deleteByCatalogId(catalogId);
-        // helmChartRepository.deleteByCatalogId(catalogId);
+        if (catalogDTO.getCatalogRefs() != null && !catalogDTO.getCatalogRefs().isEmpty()) {
+            for (CatalogRefDTO refDTO : catalogDTO.getCatalogRefs()) {
+                CatalogRefEntity refEntity = refDTO.toEntity();
+                refEntity.setCatalog(catalog);
+                catalogRefRepository.save(refEntity);
+            }
+        }
+
+        if("ARTIFACTHUB".equalsIgnoreCase(catalogDTO.getSourceType()) ) {
+            if(catalogDTO.getIngressEnabled()){
+                ingressConfigRepository.deleteAllByCatalogId(catalogId);
+                saveIngressConfig(catalog, catalogDTO.getIngressUrl());
+            }
+            else {
+                IngressConfig ingressConfig = ingressConfigRepository.findByCatalogId(catalogId);
+                if(ingressConfig != null){
+                    ingressConfigRepository.delete(ingressConfig);
+                }
+            }
+        }
+
+        return SoftwareCatalogDTO.fromEntity(catalog);
+    }
+
+    @Transactional
+    public void deleteCatalog(Long catalogId) {
+        SoftwareCatalog catalog = catalogRepository.findById(catalogId).orElseThrow(() -> new EntityNotFoundException("Catalog not found"));
+        if ("ARTIFACT".equals(catalog.getSourceType())) {
+            // portmapping Delete
+
+            // ingress config Delete
+            IngressConfig ingressConfig = ingressConfigRepository.findByCatalogId(catalogId);
+            if(ingressConfig != null){
+                ingressConfigRepository.delete(ingressConfig);
+            }
+        }
+        catalogRefRepository.deleteAllByCatalogId(catalogId);
         catalogRepository.delete(catalog);
+
         log.info("Software catalog deleted successfully with ID: {}", catalogId);
     }
 
-    // ==================== PackageInfo 관련 메서드 ====================
+    private void updateCatalogFromDTO(SoftwareCatalog catalog, SoftwareCatalogDTO dto, User user) {
+        catalog.setName(dto.getName());
+        catalog.setDescription(dto.getDescription());
+        catalog.setCategory(dto.getCategory());
+        catalog.setSourceType(dto.getSourceType());
+        catalog.setLogoUrlLarge(dto.getLogoUrlLarge());
+        catalog.setLogoUrlSmall(dto.getLogoUrlSmall());
+        catalog.setSummary(dto.getSummary());
+        catalog.setRegisteredBy(user);
+        catalog.setUpdatedAt(LocalDateTime.now());
+        catalog.setMinCpu(dto.getMinCpu());
+        catalog.setRecommendedCpu(dto.getRecommendedCpu());
+        catalog.setMinMemory(dto.getMinMemory());
+        catalog.setRecommendedMemory(dto.getRecommendedMemory());
+        catalog.setMinDisk(dto.getMinDisk());
+        catalog.setRecommendedDisk(dto.getRecommendedDisk());
+        catalog.setCpuThreshold(dto.getCpuThreshold());
+        catalog.setMemoryThreshold(dto.getMemoryThreshold());
+        catalog.setMinReplicas(dto.getMinReplicas());
+        catalog.setMaxReplicas(dto.getMaxReplicas());
+    }
+
+    private User getUserByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with username: " + username));
+    }
 
     private void savePackageInfo(SoftwareCatalog catalog, PackageInfoDTO packageInfoDTO) {
         PackageInfo packageInfo = packageInfoDTO.toEntity();
@@ -270,8 +270,6 @@ public class CatalogService {
         packageInfoRepository.save(packageInfo);
     }
 
-    // ==================== HelmChart 관련 메서드 ====================
-
     private void saveHelmChart(SoftwareCatalog catalog, HelmChartDTO helmChartDTO) {
         HelmChart helmChart = helmChartDTO.toEntity();
         helmChart.setCatalog(catalog);
@@ -286,31 +284,23 @@ public class CatalogService {
         helmChartRepository.save(helmChart);
     }
 
-    // ==================== Nexus 통합 관련 메서드 ====================
-
-    @Transactional(readOnly = true)
     public List<CombinedCatalogDTO> getAllCatalogsWithNexusInfo() {
-        List<SoftwareCatalogDTO> catalogs = getAllCatalogs();
+        List<SoftwareCatalog> dbCatalogs = catalogRepository.findAll();
         List<CommonRepository.RepositoryDto> nexusRepositories = moduleRepositoryService.getRepositoryList("nexus");
 
-        // Nexus repository를 Map으로 변환 (이름을 키로 사용)
         Map<String, CommonRepository.RepositoryDto> nexusRepoMap = nexusRepositories.stream()
-                .collect(Collectors.toMap(
-                        CommonRepository.RepositoryDto::getName,
-                        Function.identity(),
-                        (existing, replacement) -> existing));
+                .collect(Collectors.toMap(CommonRepository.RepositoryDto::getName, Function.identity()));
 
         log.info("Nexus Repository Map:");
         nexusRepoMap.forEach((key, value) -> {
-            log.info("  {}: {}", key, value.getUrl());
+            log.info("Key: {}, Value: {}", key, value.toString());
         });
 
-        return catalogs.stream()
+        return dbCatalogs.stream()
                 .map(catalog -> {
                     CombinedCatalogDTO combinedDTO = new CombinedCatalogDTO();
-                    combinedDTO.setCatalog(catalog);
+                    combinedDTO.setSoftwareCatalogDTO(getSoftwareCatalogDTO(catalog));
 
-                    // Nexus repository 정보 매핑
                     CommonRepository.RepositoryDto nexusRepo = nexusRepoMap.get(catalog.getName());
                     if (nexusRepo != null) {
                         combinedDTO.setRepositoryDTO(nexusRepo);
@@ -321,222 +311,427 @@ public class CatalogService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
     public CombinedCatalogDTO getCatalogWithNexusInfo(Long catalogId) {
-        SoftwareCatalogDTO catalog = getCatalog(catalogId);
+        SoftwareCatalog catalog = catalogRepository.findById(catalogId)
+                .orElseThrow(() -> new EntityNotFoundException("Catalog not found"));
 
-        // Nexus repository 정보 조회
+        SoftwareCatalogDTO catalogDTO = getSoftwareCatalogDTO(catalog);
+
         List<CommonRepository.RepositoryDto> nexusRepositories = moduleRepositoryService.getRepositoryList("nexus");
         CommonRepository.RepositoryDto nexusRepo = nexusRepositories.stream()
-                .filter(repo -> Objects.equals(repo.getName(), catalog.getName()))
+                .filter(repo -> repo.getName().equals(catalog.getName()))
                 .findFirst()
                 .orElse(null);
 
         CombinedCatalogDTO combinedDTO = new CombinedCatalogDTO();
-        combinedDTO.setCatalog(catalog);
+        combinedDTO.setSoftwareCatalogDTO(catalogDTO);
         combinedDTO.setRepositoryDTO(nexusRepo);
 
         return combinedDTO;
     }
 
-    // ==================== Docker Hub 통합 관련 메서드 ====================
+    private SoftwareCatalogDTO getSoftwareCatalogDTO(SoftwareCatalog catalog) {
+        SoftwareCatalogDTO dto = SoftwareCatalogDTO.fromEntity(catalog);
 
-    @Transactional
-    public Map<String, Object> pushImageAndRegisterCatalog(SoftwareCatalogDTO catalog) {
-        log.info("Pushing image and registering catalog: {}", catalog.getName());
+        List<CatalogRefDTO> refDTOs = catalogRefRepository.findByCatalogId(catalog.getId()).stream()
+                .map(CatalogRefDTO::fromEntity)
+                .collect(Collectors.toList());
+        dto.setCatalogRefs(refDTOs);
 
-        Map<String, Object> result = new HashMap<>();
+        packageInfoRepository.findByCatalogId(catalog.getId())
+                .ifPresent(packageInfo -> dto.setPackageInfo(PackageInfoDTO.fromEntity(packageInfo)));
 
-        try {
-            // Nexus에 이미지 푸시 및 카탈로그 등록
-            Map<String, Object> nexusResult = nexusIntegrationService.pushImageAndRegisterCatalog(catalog);
+        helmChartRepository.findByCatalogId(catalog.getId())
+                .ifPresent(helmChart -> dto.setHelmChart(HelmChartDTO.fromEntity(helmChart)));
 
-            result.put("success", true);
-            result.put("message", "Image pushed and catalog registered successfully");
-            result.put("nexusResult", nexusResult);
-
-        } catch (Exception e) {
-            log.error("Failed to push image and register catalog: {}", catalog.getName(), e);
-            result.put("success", false);
-            result.put("message", "Failed to push image and register catalog: " + e.getMessage());
-        }
-
-        return result;
+        return dto;
     }
 
+    // ===== 넥서스 연동 관련 메서드 (카탈로그 관리용) =====
+
+    /**
+     * 넥서스에 이미지를 푸시하고 카탈로그에 등록합니다.
+     *
+     * @param catalog 소프트웨어 카탈로그 정보
+     * @param username 사용자명
+     * @return 등록 결과
+     */
+    @Transactional
+    public Map<String, Object> pushImageAndRegisterCatalog(SoftwareCatalogDTO catalog, String username) {
+        log.info("Pushing image and registering catalog: {}", catalog.getName());
+
+        // 1. 이미지 푸시 및 넥서스 등록
+        Map<String, Object> nexusResult = nexusIntegrationService.pushImageAndRegisterCatalog(catalog);
+
+        // 2. DB에 카탈로그 등록
+        User user = null;
+        if (StringUtils.isNotBlank(username)) {
+            user = getUserByUsername(username);
+        }
+
+        SoftwareCatalogDTO result = createCatalogInternal(catalog, user);
+
+        // 3. 결과 통합
+        Map<String, Object> finalResult = new java.util.HashMap<>();
+        finalResult.put("success", true);
+        finalResult.put("message", "Image pushed and catalog registered successfully");
+        finalResult.put("catalog", result);
+        finalResult.put("nexusResult", nexusResult);
+
+        return finalResult;
+    }
+
+    /**
+     * 넥서스에 이미지가 존재하는지 확인합니다.
+     *
+     * @param imageName 이미지 이름
+     * @param tag 이미지 태그
+     * @return 존재 여부
+     */
     public boolean checkImageExistsInNexus(String imageName, String tag) {
         return nexusIntegrationService.checkImageExistsInNexus(imageName, tag);
     }
 
+    /**
+     * 넥서스에 이미지를 푸시합니다.
+     *
+     * @param imageName 이미지 이름
+     * @param tag 이미지 태그
+     * @param imageData 이미지 데이터
+     * @return 푸시 결과
+     */
     public Map<String, Object> pushImageToNexus(String imageName, String tag, byte[] imageData) {
         return nexusIntegrationService.pushImageToNexus(imageName, tag, imageData);
     }
 
+    /**
+     * 넥서스에서 이미지를 풀합니다.
+     *
+     * @param imageName 이미지 이름
+     * @param tag 이미지 태그
+     * @return 풀 결과
+     */
     public Map<String, Object> pullImageFromNexus(String imageName, String tag) {
         return nexusIntegrationService.pullImageFromNexus(imageName, tag);
     }
 
-    public Map<String, Object> pullImageFromNexusWithAuth(String imageName, String tag) {
-        log.info("Pulling image from Nexus with authentication: {}:{}", imageName, tag);
+    /**
+     * 카탈로그 ID로 이미지를 풀합니다.
+     *
+     * @param catalogId 카탈로그 ID
+     * @return 풀 결과
+     */
+    public Map<String, Object> pullImageByCatalogId(Long catalogId) {
+        log.info("Pulling image by catalog ID: {}", catalogId);
 
-        Map<String, Object> result = new HashMap<>();
+        // 카탈로그 정보 조회
+        SoftwareCatalogDTO catalog = getCatalog(catalogId);
 
-        try {
-            // Nexus에서 이미지 풀
-            Map<String, Object> pullResult = nexusIntegrationService.pullImageFromNexus(imageName, tag);
-
-            if ((Boolean) pullResult.get("success")) {
-                result.put("success", true);
-                result.put("message", "Image pulled successfully from Nexus");
-                result.put("imageUrl", pullResult.get("imageUrl"));
-                result.put("nexusInfo", pullResult.get("nexusInfo"));
-            } else {
-                result.put("success", false);
-                result.put("message", "Failed to pull image from Nexus: " + pullResult.get("message"));
-            }
-
-        } catch (Exception e) {
-            log.error("Error pulling image from Nexus: {}:{}", imageName, tag, e);
-            result.put("success", false);
-            result.put("message", "Error pulling image from Nexus: " + e.getMessage());
+        if (catalog.getPackageInfo() == null) {
+            throw new IllegalArgumentException("PackageInfo is not available for catalog ID: " + catalogId);
         }
 
-        return result;
+        String imageName = catalog.getPackageInfo().getPackageName();
+        String tag = catalog.getPackageInfo().getPackageVersion();
+
+        log.info("Pulling image for catalog '{}': {}:{}", catalog.getName(), imageName, tag);
+
+        return nexusIntegrationService.pullImageFromNexus(imageName, tag);
     }
 
+    /**
+     * 넥서스에서 이미지 태그 목록을 조회합니다.
+     *
+     * @param imageName 이미지 이름
+     * @return 태그 목록
+     */
     public List<String> getImageTagsFromNexus(String imageName) {
         return nexusIntegrationService.getImageTagsFromNexus(imageName);
     }
 
-    // ==================== Docker Hub 이미지 등록 관련 메서드 ====================
-
-    @Transactional
-    public Map<String, Object> registerDockerHubImage(DockerHubImageRegistrationRequest request, String username) {
-        log.info("Registering Docker Hub image: {}:{}", request.getImageName(), request.getTag());
-
-        Map<String, Object> result = new HashMap<>();
-
-        try {
-            // 1. Docker Hub에서 이미지 정보 조회
-            Map<String, Object> imageInfo = dockerHubIntegrationService.getImageInfo(request.getImageName(),
-                    request.getTag());
-            if (!(Boolean) imageInfo.get("success")) {
-                result.put("success", false);
-                result.put("message", "Failed to get image info from Docker Hub: " + imageInfo.get("message"));
-                return result;
-            }
-
-            // 2. 소프트웨어 카탈로그 생성
-            SoftwareCatalogDTO catalogDTO = createCatalogFromDockerImage(request, imageInfo, username);
-            SoftwareCatalogDTO savedCatalog = createCatalog(catalogDTO, username);
-
-            // 3. Docker Hub 이미지를 Nexus에 푸시
-            Map<String, Object> pushResult = dockerHubIntegrationService.pushImageToNexus(request.getImageName(),
-                    request.getTag());
-
-            result.put("success", true);
-            result.put("message", "Docker Hub image registered successfully");
-            result.put("catalog", savedCatalog);
-            result.put("nexusPush", pushResult);
-
-        } catch (Exception e) {
-            log.error("Failed to register Docker Hub image: {}:{}", request.getImageName(), request.getTag(), e);
-            result.put("success", false);
-            result.put("message", "Failed to register Docker Hub image: " + e.getMessage());
-        }
-
-        return result;
-    }
-
-    private SoftwareCatalogDTO createCatalogFromDockerImage(DockerHubImageRegistrationRequest request,
-            Map<String, Object> imageInfo, String username) {
-        @SuppressWarnings("unchecked")
-        Map<String, Object> imageData = (Map<String, Object>) imageInfo.get("data");
-
-        return SoftwareCatalogDTO.builder()
-                .name(request.getImageName())
-                .description((String) imageData.get("description"))
-                .version(request.getTag())
-                .category("Docker Image")
-                .license((String) imageData.get("license"))
-                .homepage((String) imageData.get("homepage"))
-                .repositoryUrl((String) imageData.get("repository_url"))
-                .documentationUrl((String) imageData.get("documentation_url"))
-                .build();
-    }
-
-    private Map<String, Object> createDockerImageInfo(Map<String, Object> imageData) {
-        return Map.of(
-                "name", imageData.get("name"),
-                "description", imageData.get("description"),
-                "version", imageData.get("version"),
-                "license", imageData.get("license"),
-                "homepage", imageData.get("homepage"),
-                "repository_url", imageData.get("repository_url"),
-                "documentation_url", imageData.get("documentation_url"),
-                "status", imageData.get("status"),
-                "is_private", imageData.get("is_private"));
-    }
-
-    // ==================== Helm Chart 관련 메서드 ====================
-
-    /**
-     * ArtifactHub에서 Helm Chart를 검색합니다.
-     */
-    public Map<String, Object> searchHelmCharts(String query, int page, int pageSize) {
-        return helmChartIntegrationService.searchHelmCharts(query, page, pageSize);
-    }
-
-    /**
-     * ArtifactHub에서 Helm Chart 상세 정보를 조회합니다.
-     */
-    public Map<String, Object> getHelmChartDetails(String packageId) {
-        return helmChartIntegrationService.getHelmChartDetails(packageId);
-    }
-
-    /**
-     * ArtifactHub에서 Helm Chart 버전 목록을 조회합니다.
-     */
-    public List<String> getHelmChartVersions(String packageId) {
-        return helmChartIntegrationService.getHelmChartVersions(packageId);
-    }
-
-    /**
-     * Helm Chart를 등록하고 Nexus에 푸시합니다.
-     */
-    public Map<String, Object> registerHelmChart(HelmChartRegistrationRequest request, String username) {
-        return helmChartIntegrationService.registerHelmChart(request, username);
-    }
-
-    // ==================== Docker Hub 관련 메서드 ====================
 
     /**
      * Docker Hub에서 이미지를 검색합니다.
+     *
+     * @param query 검색 쿼리
+     * @param page 페이지 번호
+     * @param pageSize 페이지 크기
+     * @return 검색 결과
      */
     public Map<String, Object> searchDockerHubImages(String query, int page, int pageSize) {
-        return dockerHubIntegrationService.searchDockerHubImages(query, page, pageSize);
+        return dockerHubIntegrationService.searchImages(query, page, pageSize);
     }
 
     /**
      * Docker Hub에서 이미지 상세 정보를 조회합니다.
+     *
+     * @param imageName 이미지 이름
+     * @param tag 이미지 태그
+     * @return 이미지 상세 정보
      */
     public Map<String, Object> getDockerHubImageDetails(String imageName, String tag) {
-        return dockerHubIntegrationService.getDockerHubImageDetails(imageName, tag);
+        return dockerHubIntegrationService.getImageDetails(imageName, tag);
     }
 
     /**
-     * 카탈로그 ID로 이미지를 풀합니다.
+     * Docker Hub 이미지를 package_info에만 등록합니다.
+     *
+     * @param request Docker Hub 이미지 등록 요청
+     * @param username 사용자명
+     * @return 등록 결과
      */
-    public Map<String, Object> pullImageByCatalogId(Long catalogId) {
-        SoftwareCatalogDTO catalog = getCatalog(catalogId);
-        if (catalog == null) {
-            Map<String, Object> result = new HashMap<>();
+    public Map<String, Object> registerDockerHubImage(DockerHubImageRegistrationRequest request, String username) {
+        log.info("Registering Docker Hub image to package_info: {}:{}", request.getImageName(), request.getTag());
+
+        try {
+            // 1. Docker Hub에서 이미지 정보 조회
+            Map<String, Object> imageDetails = getDockerHubImageDetails(request.getImageName(), request.getTag());
+            if (!(Boolean) imageDetails.get("success")) {
+                return imageDetails;
+            }
+
+            // 2. Docker Hub 이미지 상세 정보를 package_info에만 저장
+            PackageInfo savedPackageInfo = saveDockerHubImageToPackageInfo(request, imageDetails);
+
+            // 3. Docker Hub 이미지를 Nexus에 푸시
+            Map<String, Object> pushResult = dockerHubIntegrationService.pushImageToNexus(request.getImageName(), request.getTag());
+
+            Map<String, Object> result = new java.util.HashMap<>();
+            result.put("success", true);
+            result.put("message", "Docker Hub image registered to package_info successfully");
+            result.put("packageInfo", savedPackageInfo);
+            result.put("pushResult", pushResult);
+
+            return result;
+
+        } catch (Exception e) {
+            log.error("Failed to register Docker Hub image: {}:{}", request.getImageName(), request.getTag(), e);
+
+            Map<String, Object> result = new java.util.HashMap<>();
             result.put("success", false);
-            result.put("message", "Catalog not found with id: " + catalogId);
+            result.put("message", "Failed to register Docker Hub image: " + e.getMessage());
             return result;
         }
+    }
 
-        return pullImageFromNexusWithAuth(catalog.getName(), catalog.getVersion());
+
+    /**
+     * Docker Hub 이미지 상세 정보를 package_info 테이블에 저장합니다.
+     */
+    private PackageInfo saveDockerHubImageToPackageInfo(DockerHubImageRegistrationRequest request, Map<String, Object> imageDetails) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> imageData = (Map<String, Object>) imageDetails.get("data");
+
+            if (imageData == null) {
+                throw new RuntimeException("No image data found in Docker Hub response");
+            }
+
+            // PackageInfo 엔티티 생성 및 기본 정보 설정
+            PackageInfo packageInfo = createBasePackageInfo(request);
+
+            // Docker Hub API 응답에서 데이터 추출 및 설정
+            extractAndSetDockerHubData(packageInfo, imageData);
+
+            // package_info 테이블에 저장
+            PackageInfo savedPackageInfo = packageInfoRepository.save(packageInfo);
+
+            log.info("Docker Hub image details saved to package_info: {}:{} (packageInfoId: {})",
+                    request.getImageName(), request.getTag(), savedPackageInfo.getId());
+
+            return savedPackageInfo;
+
+        } catch (Exception e) {
+            log.error("Failed to save Docker Hub image details to package_info: {}:{}",
+                    request.getImageName(), request.getTag(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * 기본 PackageInfo 엔티티를 생성합니다.
+     */
+    private PackageInfo createBasePackageInfo(DockerHubImageRegistrationRequest request) {
+        PackageInfo packageInfo = new PackageInfo();
+        packageInfo.setCatalog(null); // software_catalog에 저장하지 않음
+        packageInfo.setPackageType(kr.co.mcmp.softwarecatalog.application.constants.PackageType.DOCKER);
+        packageInfo.setPackageName(request.getImageName());
+        packageInfo.setPackageVersion(request.getTag());
+        packageInfo.setRepositoryUrl("https://hub.docker.com/r/" + request.getImageName());
+        return packageInfo;
+    }
+
+    /**
+     * Docker Hub API 응답에서 데이터를 추출하여 PackageInfo에 설정합니다.
+     */
+    private void extractAndSetDockerHubData(PackageInfo packageInfo, Map<String, Object> imageData) {
+        // 기본 정보 설정
+        setStringValue(packageInfo::setDockerImageId, imageData.get("id"));
+        setStringValue(packageInfo::setDockerPublisher, imageData.get("user"));
+        setStringValue(packageInfo::setDockerShortDescription, imageData.get("description"));
+        setStringValue(packageInfo::setDockerSource, imageData.get("affiliation"));
+
+        // 숫자 정보 설정
+        setIntegerValue(packageInfo::setStarCount, imageData.get("star_count"));
+        setLongValue(packageInfo::setPullCount, imageData.get("pull_count"));
+
+        // 불린 정보 설정
+        setBooleanValue(packageInfo::setIsOfficial, isOfficialImage(imageData));
+        setBooleanValue(packageInfo::setIsAutomated, imageData.get("is_automated"));
+        setBooleanValue(packageInfo::setIsArchived, imageData.get("is_archived"));
+
+        // 날짜 정보 설정
+        setDateTimeValue(packageInfo::setDockerUpdatedAt, imageData.get("last_updated"));
+        setDateTimeValue(packageInfo::setDockerCreatedAt, imageData.get("date_registered"));
+
+        // 운영체제 및 아키텍처 정보 설정
+        setOperatingSystems(packageInfo, imageData);
+        setArchitectures(packageInfo, imageData);
+        setCategories(packageInfo, imageData);
+
+        // 추가 정보 로깅
+        logAdditionalDockerHubInfo(imageData);
+    }
+
+    /**
+     * 문자열 값을 안전하게 설정합니다.
+     */
+    private void setStringValue(java.util.function.Consumer<String> setter, Object value) {
+        if (value != null) {
+            setter.accept(value.toString());
+        }
+    }
+
+    /**
+     * 정수 값을 안전하게 설정합니다.
+     */
+    private void setIntegerValue(java.util.function.Consumer<Integer> setter, Object value) {
+        if (value instanceof Number) {
+            setter.accept(((Number) value).intValue());
+        }
+    }
+
+    /**
+     * Long 값을 안전하게 설정합니다.
+     */
+    private void setLongValue(java.util.function.Consumer<String> setter, Object value) {
+        if (value instanceof Number) {
+            setter.accept(String.valueOf(((Number) value).longValue()));
+        }
+    }
+
+    /**
+     * 불린 값을 안전하게 설정합니다.
+     */
+    private void setBooleanValue(java.util.function.Consumer<Boolean> setter, Object value) {
+        if (value instanceof Boolean) {
+            setter.accept((Boolean) value);
+        }
+    }
+
+    /**
+     * 날짜/시간 값을 안전하게 설정합니다.
+     */
+    private void setDateTimeValue(java.util.function.Consumer<LocalDateTime> setter, Object value) {
+        if (value != null) {
+            try {
+                String dateStr = value.toString().replace("Z", "");
+                setter.accept(LocalDateTime.parse(dateStr));
+            } catch (Exception e) {
+                log.warn("Failed to parse date: {}", value);
+            }
+        }
+    }
+
+    /**
+     * 공식 이미지인지 확인합니다.
+     */
+    private Boolean isOfficialImage(Map<String, Object> imageData) {
+        Object namespace = imageData.get("namespace");
+        return namespace != null && "library".equals(namespace.toString());
+    }
+
+    /**
+     * 운영체제 정보를 설정합니다.
+     */
+    private void setOperatingSystems(PackageInfo packageInfo, Map<String, Object> imageData) {
+        @SuppressWarnings("unchecked")
+        List<String> osList = (List<String>) imageData.get("operating_systems");
+        if (osList != null && !osList.isEmpty()) {
+            packageInfo.setOperatingSystems(String.join(",", osList));
+        } else {
+            packageInfo.setOperatingSystems("linux"); // 기본값
+        }
+    }
+
+    /**
+     * 아키텍처 정보를 설정합니다.
+     */
+    private void setArchitectures(PackageInfo packageInfo, Map<String, Object> imageData) {
+        @SuppressWarnings("unchecked")
+        List<String> archList = (List<String>) imageData.get("architectures");
+        if (archList != null && !archList.isEmpty()) {
+            packageInfo.setArchitectures(String.join(",", archList));
+        } else {
+            // full_description에서 아키텍처 정보 추출 시도
+            String fullDesc = (String) imageData.get("full_description");
+            if (fullDesc != null && fullDesc.contains("Supported architectures")) {
+                List<String> extractedArchs = extractArchitecturesFromDescription(fullDesc);
+                if (!extractedArchs.isEmpty()) {
+                    packageInfo.setArchitectures(String.join(",", extractedArchs));
+                }
+            }
+            // 기본값 설정
+            if (packageInfo.getArchitectures() == null) {
+                packageInfo.setArchitectures("amd64");
+            }
+        }
+    }
+
+    /**
+     * full_description에서 아키텍처 정보를 추출합니다.
+     */
+    private List<String> extractArchitecturesFromDescription(String fullDesc) {
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\[`([^`]+)`\\]");
+        java.util.regex.Matcher matcher = pattern.matcher(fullDesc);
+        List<String> archList = new ArrayList<>();
+
+        while (matcher.find()) {
+            String arch = matcher.group(1);
+            if (!arch.contains("nginx") && !arch.contains("bookworm") && !arch.contains("alpine") &&
+                    !arch.contains("perl") && !arch.contains("otel") && !arch.contains("slim")) {
+                archList.add(arch);
+            }
+        }
+        return archList;
+    }
+
+    /**
+     * 카테고리 정보를 설정합니다.
+     */
+    private void setCategories(PackageInfo packageInfo, Map<String, Object> imageData) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> categoryList = (List<Map<String, Object>>) imageData.get("categories");
+        if (categoryList != null && !categoryList.isEmpty()) {
+            List<String> categoryNames = categoryList.stream()
+                    .map(category -> (String) category.get("name"))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            if (!categoryNames.isEmpty()) {
+                packageInfo.setCategories(String.join(",", categoryNames));
+            }
+        }
+    }
+
+    /**
+     * 추가 Docker Hub 정보를 로깅합니다.
+     */
+    private void logAdditionalDockerHubInfo(Map<String, Object> imageData) {
+        // 핵심 정보만 로깅
+        log.debug("Repository type: {}, Status: {}, Is private: {}",
+                imageData.get("repository_type"),
+                imageData.get("status"),
+                imageData.get("is_private"));
     }
 
     /**
@@ -547,29 +742,29 @@ public class CatalogService {
             String category = catalogDTO.getCategory();
             String packageName = catalogDTO.getPackageName();
             String packageVersion = catalogDTO.getVersion();
-            
-            log.info("Searching for existing PackageInfo with category: {}, name: {}, version: {}", 
+
+            log.info("Searching for existing PackageInfo with category: {}, name: {}, version: {}",
                     category, packageName, packageVersion);
-            
+
             // category, packageName, packageVersion으로 기존 PackageInfo 조회 (catalog_id가 null인 것)
             List<PackageInfo> existingPackageInfos = packageInfoRepository.findByCategoriesAndCatalogIsNull(category);
-            
+
             PackageInfo targetPackageInfo = existingPackageInfos.stream()
-                    .filter(pkg -> packageName.equals(pkg.getPackageName()) && 
-                                  packageVersion.equals(pkg.getPackageVersion()))
+                    .filter(pkg -> packageName.equals(pkg.getPackageName()) &&
+                            packageVersion.equals(pkg.getPackageVersion()))
                     .findFirst()
                     .orElse(null);
-            
+
             if (targetPackageInfo != null) {
                 // catalogId만 업데이트 (기존 데이터는 그대로 유지)
                 targetPackageInfo.setCatalog(catalog);
                 packageInfoRepository.save(targetPackageInfo);
                 log.info("Updated PackageInfo catalogId only: {} -> {}", targetPackageInfo.getId(), catalog.getId());
             } else {
-                log.warn("No matching PackageInfo found for category: {}, name: {}, version: {}", 
+                log.warn("No matching PackageInfo found for category: {}, name: {}, version: {}",
                         category, packageName, packageVersion);
             }
-            
+
         } catch (Exception e) {
             log.error("Failed to update PackageInfo catalogId", e);
         }
@@ -583,40 +778,44 @@ public class CatalogService {
             String category = catalogDTO.getCategory();
             String chartName = catalogDTO.getPackageName();
             String chartVersion = catalogDTO.getVersion();
-            
-            log.info("Searching for existing HelmChart with category: {}, name: {}, version: {}", 
-                    category, chartName, chartVersion);
-            
+
+            log.info("Searching for existing HelmChart with category: {}, name: {}, version: {}", category, chartName, chartVersion);
+
             // category, chartName, chartVersion으로 기존 HelmChart 조회 (catalog_id가 null인 것)
             List<HelmChart> existingHelmCharts = helmChartRepository.findByCategoryAndCatalogIsNull(category);
-            
+
             HelmChart targetHelmChart = existingHelmCharts.stream()
-                    .filter(chart -> chartName.equals(chart.getChartName()) && 
-                                    chartVersion.equals(chart.getChartVersion()))
+                    .filter(chart -> chartName.equals(chart.getChartName()) &&
+                            chartVersion.equals(chart.getChartVersion()))
                     .findFirst()
                     .orElse(null);
-            
+
             if (targetHelmChart != null) {
                 // catalogId만 업데이트 (기존 데이터는 그대로 유지)
                 targetHelmChart.setCatalog(catalog);
                 helmChartRepository.save(targetHelmChart);
                 log.info("Updated HelmChart catalogId only: {} -> {}", targetHelmChart.getId(), catalog.getId());
             } else {
-                log.warn("No matching HelmChart found for category: {}, name: {}, version: {}", 
+                log.warn("No matching HelmChart found for category: {}, name: {}, version: {}",
                         category, chartName, chartVersion);
             }
-            
+
         } catch (Exception e) {
             log.error("Failed to update HelmChart catalogId", e);
         }
     }
 
+    private void saveIngressConfig(SoftwareCatalog catalog, String ingressUrl) {
+        try {
+            IngressConfig ingressConfig = IngressConfig.builder()
+                    .path(ingressUrl)
+                    .catalog(catalog)
+                    .build();
 
-
-    // ==================== 유틸리티 메서드 ====================
-
-    private User getUserByUsername(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with username: " + username));
+            ingressConfigRepository.save(ingressConfig);
+        } catch (Exception e) {
+            log.error("Failed to save ingress config", e);
+        }
     }
 }
+

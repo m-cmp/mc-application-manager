@@ -6,8 +6,8 @@ import kr.co.mcmp.softwarecatalog.application.dto.DockerHubImageRegistrationRequ
 import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.HelmChartRegistrationRequest;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
-import kr.co.mcmp.softwarecatalog.catetory.dto.KeyValueDTO;
-import kr.co.mcmp.softwarecatalog.catetory.dto.SoftwareCatalogRequestDTO;
+import kr.co.mcmp.softwarecatalog.category.dto.KeyValueDTO;
+import kr.co.mcmp.softwarecatalog.category.dto.SoftwareCatalogRequestDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -92,7 +92,7 @@ public class CatalogController {
         CombinedCatalogDTO combinedCatalog = catalogService.getCatalogWithNexusInfo(catalogId);
         return ResponseEntity.ok(new ResponseWrapper<>(combinedCatalog));
     }
-    
+
     // ===== 넥서스 연동 API 엔드포인트 (카탈로그 관리용) =====
 
     @Operation(summary = "넥서스에 이미지 존재 확인", description = "넥서스에 이미지가 존재하는지 확인합니다.")
@@ -103,7 +103,7 @@ public class CatalogController {
         boolean result = catalogService.checkImageExistsInNexus(imageName, tag);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     @Operation(summary = "넥서스에 이미지 푸시", description = "넥서스에 이미지를 푸시합니다.")
     @PostMapping("/nexus/image/push")
     public ResponseEntity<ResponseWrapper<Object>> pushImageToNexus(
@@ -112,7 +112,7 @@ public class CatalogController {
         Object result = catalogService.pushImageToNexus(imageName, tag, null);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     @Operation(summary = "넥서스에서 이미지 풀", description = "넥서스에서 이미지를 풀합니다.")
     @PostMapping("/nexus/image/pull")
     public ResponseEntity<ResponseWrapper<Object>> pullImageFromNexus(
@@ -121,21 +121,21 @@ public class CatalogController {
         Object result = catalogService.pullImageFromNexus(imageName, tag);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     @Operation(summary = "카탈로그 ID로 이미지 풀", description = "카탈로그 ID를 통해 넥서스에서 이미지를 풀합니다.")
     @PostMapping("/nexus/image/pull/{catalogId}")
     public ResponseEntity<ResponseWrapper<Object>> pullImageByCatalogId(@PathVariable Long catalogId) {
         Object result = catalogService.pullImageByCatalogId(catalogId);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     @Operation(summary = "넥서스에서 이미지 태그 조회", description = "넥서스에서 특정 이미지의 태그 목록을 조회합니다.")
     @GetMapping("/nexus/image/{imageName}/tags")
     public ResponseEntity<ResponseWrapper<List<String>>> getImageTagsFromNexus(@PathVariable String imageName) {
         List<String> result = catalogService.getImageTagsFromNexus(imageName);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     @Operation(summary = "이미지 푸시 및 카탈로그 등록", description = "넥서스에 이미지를 푸시하고 카탈로그에 등록합니다.")
     @PostMapping("/nexus/image/push-and-register")
     public ResponseEntity<ResponseWrapper<Object>> pushImageAndRegisterCatalog(
@@ -169,7 +169,7 @@ public class CatalogController {
     }
 
     // ===== Docker Hub 연동 API 엔드포인트 =====
-    
+
     @Operation(summary = "Docker Hub에서 이미지 검색", description = "Docker Hub에서 이미지를 검색합니다.")
     @GetMapping("/dockerhub/search")
     public ResponseEntity<ResponseWrapper<Object>> searchDockerHubImages(
@@ -179,7 +179,7 @@ public class CatalogController {
         Object result = catalogService.searchDockerHubImages(query, page, pageSize);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     @Operation(summary = "Docker Hub 이미지 상세 정보 조회", description = "Docker Hub에서 특정 이미지의 상세 정보를 조회합니다.")
     @GetMapping("/dockerhub/image/{imageName}")
     public ResponseEntity<ResponseWrapper<Object>> getDockerHubImageDetails(
@@ -188,7 +188,7 @@ public class CatalogController {
         Object result = catalogService.getDockerHubImageDetails(imageName, tag);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     @Operation(summary = "Docker Hub 이미지를 카탈로그에 등록", description = "Docker Hub 이미지를 카탈로그에 등록하고 넥서스에 푸시합니다.")
     @PostMapping("/dockerhub/register")
     public ResponseEntity<ResponseWrapper<Object>> registerDockerHubImage(
@@ -197,9 +197,9 @@ public class CatalogController {
         Object result = catalogService.registerDockerHubImage(request, username);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     // ==================== Helm Chart 관련 엔드포인트 ====================
-    
+
     @Operation(summary = "ArtifactHub Helm Chart 검색", description = "ArtifactHub에서 Helm Chart를 검색합니다.")
     @GetMapping("/artifacthub/search")
     public ResponseEntity<ResponseWrapper<Object>> searchHelmCharts(
@@ -209,7 +209,7 @@ public class CatalogController {
         Object result = catalogService.searchHelmCharts(query, page, pageSize);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     @Operation(summary = "ArtifactHub Helm Chart 상세 정보 조회", description = "ArtifactHub에서 특정 Helm Chart의 상세 정보를 조회합니다.")
     @GetMapping("/artifacthub/chart/{packageId}")
     public ResponseEntity<ResponseWrapper<Object>> getHelmChartDetails(
@@ -217,7 +217,7 @@ public class CatalogController {
         Object result = catalogService.getHelmChartDetails(packageId);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     @Operation(summary = "ArtifactHub Helm Chart 버전 목록 조회", description = "ArtifactHub에서 특정 Helm Chart의 버전 목록을 조회합니다.")
     @GetMapping("/artifacthub/chart/{packageId}/versions")
     public ResponseEntity<ResponseWrapper<List<String>>> getHelmChartVersions(
@@ -225,7 +225,7 @@ public class CatalogController {
         List<String> result = catalogService.getHelmChartVersions(packageId);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
+
     @Operation(summary = "Helm Chart를 HELM_CHART 테이블에 등록", description = "ArtifactHub Helm Chart를 HELM_CHART 테이블에 등록합니다.")
     @PostMapping("/artifacthub/register")
     public ResponseEntity<ResponseWrapper<Object>> registerHelmChart(

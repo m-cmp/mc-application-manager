@@ -3,14 +3,13 @@ package kr.co.mcmp.softwarecatalog.application.service.impl;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import kr.co.mcmp.dto.oss.repository.CommonRepository;
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
-import kr.co.mcmp.softwarecatalog.catetory.dto.KeyValueDTO;
-import kr.co.mcmp.softwarecatalog.catetory.dto.SoftwareCatalogRequestDTO;
+import kr.co.mcmp.softwarecatalog.category.dto.KeyValueDTO;
+import kr.co.mcmp.softwarecatalog.category.dto.SoftwareCatalogRequestDTO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

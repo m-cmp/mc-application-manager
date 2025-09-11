@@ -1,4 +1,4 @@
-package kr.co.mcmp.softwarecatalog.catetory.dto;
+package kr.co.mcmp.softwarecatalog.category.dto;
 
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import lombok.*;
