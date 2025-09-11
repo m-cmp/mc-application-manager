@@ -5,7 +5,6 @@ import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -130,24 +129,6 @@ public class ApplicationController {
     @GetMapping("/nexus/applications")
     public ResponseEntity<ResponseWrapper<List<Object>>> getAllApplicationsFromNexus() {
         List<Object> result = applicationService.getAllApplicationsFromNexus();
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-
-    // ===== 넥서스 연동 API 엔드포인트 (애플리케이션 배포용) =====
-
-    @Operation(summary = "넥서스에서 이미지 풀", description = "넥서스에서 이미지를 풀합니다.")
-    @PostMapping("/nexus/image/pull")
-    public ResponseEntity<ResponseWrapper<Object>> pullImageFromNexus(
-            @RequestParam String imageName,
-            @RequestParam String tag) {
-        Object result = applicationService.pullImageFromNexus(imageName, tag);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-
-    @Operation(summary = "카탈로그 ID로 이미지 풀", description = "카탈로그 ID를 통해 넥서스에서 이미지를 풀합니다.")
-    @PostMapping("/nexus/image/pull/{catalogId}")
-    public ResponseEntity<ResponseWrapper<Object>> pullImageByCatalogId(@PathVariable Long catalogId) {
-        Object result = applicationService.pullImageByCatalogId(catalogId);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 

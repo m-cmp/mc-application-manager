@@ -2,8 +2,8 @@ package kr.co.mcmp.softwarecatalog.application.service;
 
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
-import kr.co.mcmp.softwarecatalog.category.dto.KeyValueDTO;
-import kr.co.mcmp.softwarecatalog.category.dto.SoftwareCatalogRequestDTO;
+import kr.co.mcmp.softwarecatalog.catetory.dto.KeyValueDTO;
+import kr.co.mcmp.softwarecatalog.catetory.dto.SoftwareCatalogRequestDTO;
 
 import java.util.List;
 
@@ -31,6 +31,14 @@ public interface ApplicationService {
     List<Object> getAllApplicationsFromNexus();
 
     /**
+     * 넥서스에서 이미지 태그 목록을 조회합니다.
+     *
+     * @param imageName 이미지 이름
+     * @return 태그 목록
+     */
+    List<String> getImageTagsFromNexus(String imageName);
+
+    /**
      * 넥서스에서 이미지를 풀합니다.
      *
      * @param imageName 이미지 이름
@@ -38,14 +46,6 @@ public interface ApplicationService {
      * @return 풀 결과
      */
     Object pullImageFromNexus(String imageName, String tag);
-
-    /**
-     * 카탈로그 ID로 이미지를 풀합니다.
-     *
-     * @param catalogId 카탈로그 ID
-     * @return 풀 결과
-     */
-    Object pullImageByCatalogId(Long catalogId);
 
     List<KeyValueDTO> getCategoriesFromDB(SoftwareCatalogRequestDTO.SearchCatalogListDTO request);
 
