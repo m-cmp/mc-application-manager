@@ -1,11 +1,9 @@
 package kr.co.mcmp.softwarecatalog.application.service;
 
-import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
-import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
-import kr.co.mcmp.softwarecatalog.catetory.dto.KeyValueDTO;
-import kr.co.mcmp.softwarecatalog.catetory.dto.SoftwareCatalogRequestDTO;
-
 import java.util.List;
+
+import kr.co.mcmp.softwarecatalog.category.dto.KeyValueDTO;
+import kr.co.mcmp.softwarecatalog.category.dto.SoftwareCatalogRequestDTO;
 
 /**
  * 애플리케이션 등록 및 수정을 담당하는 서비스 인터페이스
