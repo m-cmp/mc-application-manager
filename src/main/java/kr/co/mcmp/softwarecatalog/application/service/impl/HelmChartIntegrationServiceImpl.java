@@ -67,7 +67,8 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             // 2. Helm Chart 상세 정보를 HELM_CHART 테이블에 저장
             HelmChart savedHelmChart = saveHelmChartToTable(request, chartDetails, username);
             
-            // 3. Helm Chart를 Nexus로 push
+            // 3. Helm Chart를 Nexus로 push (savedHelmChart의 repository URL 사용)
+            request.setRepositoryUrl(savedHelmChart.getChartRepositoryUrl());
             Map<String, Object> pushResult = pushHelmChartToNexus(request);
             if (!(Boolean) pushResult.get("success")) {
                 log.warn("Failed to push Helm Chart to Nexus, but saved to database: {}", pushResult.get("message"));
@@ -196,16 +197,23 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         // 문자열 값 설정
         setStringValue(helmChart::setChartName, chartData.get("name"));
         setStringValue(helmChart::setChartVersion, chartData.get("version"));
-        setStringValue(helmChart::setChartRepositoryUrl, chartData.get("repository_url"));
         setStringValue(helmChart::setPackageId, chartData.get("package_id"));
         setStringValue(helmChart::setCategory, chartData.get("category"));
         setStringValue(helmChart::setImageRepository, chartData.get("image_repository"));
         setStringValue(helmChart::setDescription, chartData.get("description"));
         setStringValue(helmChart::setNormalizedName, chartData.get("normalized_name"));
-        setStringValue(helmChart::setRepositoryName, chartData.get("repository_name"));
-        setStringValue(helmChart::setRepositoryDisplayName, chartData.get("repository_display_name"));
         setStringValue(helmChart::setHomeUrl, chartData.get("home_url"));
         setStringValue(helmChart::setValuesFile, chartData.get("values_file"));
+        
+        // Repository 정보 추출 (중첩된 구조에서)
+        @SuppressWarnings("unchecked")
+        Map<String, Object> repository = (Map<String, Object>) chartData.get("repository");
+        if (repository != null) {
+            setStringValue(helmChart::setChartRepositoryUrl, repository.get("url"));
+            setStringValue(helmChart::setRepositoryName, repository.get("name"));
+            setStringValue(helmChart::setRepositoryDisplayName, repository.get("display_name"));
+            setBooleanValue(helmChart::setRepositoryOfficial, repository.get("official"));
+        }
         
         // 불린 값 설정
         setBooleanValue(helmChart::setHasValuesSchema, chartData.get("has_values_schema"));
@@ -246,40 +254,33 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
     }
     
     /**
-     * Helm Chart를 다운로드합니다.
+     * Helm Chart를 HTTP 요청으로 다운로드합니다.
      */
     private boolean downloadHelmChart(HelmChartRegistrationRequest request) {
         log.info("Downloading Helm Chart: {}:{} from {}", request.getChartName(), request.getChartVersion(), request.getRepositoryUrl());
         
         try {
-            // Helm repo add 명령어 실행
-            ProcessBuilder repoAddProcess = new ProcessBuilder("helm", "repo", "add", "temp-repo", request.getRepositoryUrl());
-            Process repoAddResult = repoAddProcess.start();
-            int repoAddExitCode = repoAddResult.waitFor();
-            
-            if (repoAddExitCode != 0) {
-                log.error("Failed to add Helm repository: {}", request.getRepositoryUrl());
+            // Repository URL이 null인 경우 처리
+            if (request.getRepositoryUrl() == null || request.getRepositoryUrl().isEmpty()) {
+                log.error("Repository URL is null or empty for Helm Chart: {}:{}", request.getChartName(), request.getChartVersion());
                 return false;
             }
             
-            // Helm repo update 명령어 실행
-            ProcessBuilder repoUpdateProcess = new ProcessBuilder("helm", "repo", "update");
-            Process repoUpdateResult = repoUpdateProcess.start();
-            int repoUpdateExitCode = repoUpdateResult.waitFor();
+            // Helm Chart 다운로드 URL 구성
+            String chartUrl = buildHelmChartDownloadUrl(request);
+            log.info("Downloading Helm Chart from URL: {}", chartUrl);
             
-            if (repoUpdateExitCode != 0) {
-                log.error("Failed to update Helm repository");
-                return false;
-            }
+            // HTTP 요청으로 Helm Chart 다운로드 (.tgz 확장자 사용)
+            ProcessBuilder curlProcess = new ProcessBuilder("curl", "-L", "-o", 
+                    request.getChartName() + "-" + request.getChartVersion() + ".tgz", chartUrl);
+            Process curlResult = curlProcess.start();
+            int curlExitCode = curlResult.waitFor();
             
-            // Helm pull 명령어 실행
-            ProcessBuilder pullProcess = new ProcessBuilder("helm", "pull", "temp-repo/" + request.getChartName(), 
-                    "--version", request.getChartVersion(), "--untar");
-            Process pullResult = pullProcess.start();
-            int pullExitCode = pullResult.waitFor();
-            
-            if (pullExitCode != 0) {
-                log.error("Failed to download Helm Chart: {}:{}", request.getChartName(), request.getChartVersion());
+            if (curlExitCode != 0) {
+                // 오류 출력 읽기
+                String errorOutput = new String(curlResult.getErrorStream().readAllBytes());
+                log.error("Failed to download Helm Chart: {}:{} (exit code: {})", request.getChartName(), request.getChartVersion(), curlExitCode);
+                log.error("Error output: {}", errorOutput);
                 return false;
             }
             
@@ -289,6 +290,24 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         } catch (Exception e) {
             log.error("Error downloading Helm Chart: {}:{}", request.getChartName(), request.getChartVersion(), e);
             return false;
+        }
+    }
+    
+    /**
+     * Helm Chart 다운로드 URL을 구성합니다.
+     */
+    private String buildHelmChartDownloadUrl(HelmChartRegistrationRequest request) {
+        String baseUrl = request.getRepositoryUrl();
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        
+        // Bitnami repository의 경우 /charts/ 경로가 없음
+        if (baseUrl.contains("charts.bitnami.com")) {
+            return String.format("%s/%s-%s.tgz", baseUrl, request.getChartName(), request.getChartVersion());
+        } else {
+            // 일반적인 Helm Chart URL 패턴: {repository}/charts/{chartName}-{version}.tgz
+            return String.format("%s/charts/%s-%s.tgz", baseUrl, request.getChartName(), request.getChartVersion());
         }
     }
     
@@ -306,47 +325,94 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
                 return false;
             }
             
-            // Helm Chart 패키징
-            ProcessBuilder packageProcess = new ProcessBuilder("helm", "package", request.getChartName(), 
-                    "--version", request.getChartVersion());
-            Process packageProcessResult = packageProcess.start();
-            int packageExitCode = packageProcessResult.waitFor();
-            
-            if (packageExitCode != 0) {
-                log.error("Failed to package Helm Chart: {}:{}", request.getChartName(), request.getChartVersion());
-                return false;
-            }
-            
-            // Nexus에 업로드 (RestTemplate 사용)
+            // 다운로드된 Helm Chart 파일명 (.tgz 확장자 사용)
             String chartFileName = request.getChartName() + "-" + request.getChartVersion() + ".tgz";
-            String helmRepositoryName = nexusIntegrationService.getRepositoryNameByFormat("helm");
-            String uploadUrl = nexusInfo.getOssUrl() + "/repository/" + helmRepositoryName + "/" + chartFileName;
             
-            // 파일을 읽어서 업로드
+            // Helm Chart 파일이 존재하는지 확인
             java.io.File chartFile = new java.io.File(chartFileName);
             if (!chartFile.exists()) {
-                log.error("Chart file not found: {}", chartFileName);
+                log.error("Helm Chart file not found: {}", chartFileName);
                 return false;
             }
             
-            // RestTemplate을 사용하여 업로드
-            boolean uploadSuccess = nexusIntegrationService.uploadFileToNexus(chartFile, uploadUrl, nexusInfo);
+            // Nexus에 업로드 (Components API 사용)
+            String helmRepositoryName = nexusIntegrationService.getRepositoryNameByFormat("helm");
+            // Components API를 사용하여 업로드
+            String uploadUrl = nexusInfo.getOssUrl() + "/service/rest/v1/components?repository=" + helmRepositoryName;
             
-            if (uploadSuccess) {
-                log.info("Successfully uploaded Helm Chart to Nexus: {}:{}", request.getChartName(), request.getChartVersion());
-                
-                // 임시 파일 정리
+            // curl을 사용하여 파일 업로드 (Components API용)
+            // 필수 필드: helm.asset, 선택: helm.asset.provenance
+            // 상태코드 확인을 위해 -w "%{http_code}" 사용
+            ProcessBuilder uploadProcess = new ProcessBuilder(
+                "curl", "-X", "POST", "-sS",
+                "-u", nexusInfo.getOssUsername() + ":" + kr.co.mcmp.util.Base64Utils.base64Decoding(nexusInfo.getOssPassword()),
+                "-H", "Content-Type: multipart/form-data",
+                "-F", "helm.asset=@" + chartFileName,
+                "-F", "helm.asset.provenance=",
+                "-w", "%{http_code}",
+                uploadUrl
+            );
+            
+            Process uploadResult = uploadProcess.start();
+            int uploadExitCode = uploadResult.waitFor();
+            
+            // 응답 출력/상태코드 읽기
+            String rawOutput = new String(uploadResult.getInputStream().readAllBytes());
+            String errorOutput = new String(uploadResult.getErrorStream().readAllBytes());
+            String responseOutput = rawOutput;
+            int httpCode = -1;
+            if (rawOutput != null && rawOutput.length() >= 3) {
+                String tail = rawOutput.substring(rawOutput.length() - 3);
                 try {
-                    if (chartFile.exists()) {
-                        chartFile.delete();
-                        log.debug("Cleaned up temporary chart file: {}", chartFileName);
-                    }
-                } catch (Exception cleanupException) {
-                    log.warn("Failed to cleanup temporary chart file: {}", cleanupException.getMessage());
+                    httpCode = Integer.parseInt(tail);
+                    responseOutput = rawOutput.substring(0, Math.max(0, rawOutput.length() - 3));
+                } catch (NumberFormatException ignore) {
+                    // 상태코드가 포함되지 않은 경우 그대로 둠
                 }
             }
+            log.info("Nexus upload httpCode: {}", httpCode);
+            if (!responseOutput.isEmpty()) {
+                log.info("Nexus upload response: {}", responseOutput);
+            }
+            if (!errorOutput.isEmpty()) {
+                log.warn("Nexus upload stderr: {}", errorOutput);
+            }
+            if (uploadExitCode != 0 || (httpCode >= 300 && httpCode != -1)) {
+                log.error("Failed to upload Helm Chart to Nexus: {}:{} (exitCode={}, httpCode={})", 
+                        request.getChartName(), request.getChartVersion(), uploadExitCode, httpCode);
+                return false;
+            }
+
+            // 업로드 후 간단 검증: 검색 API로 존재여부 확인
+            try {
+                String helmRepositoryNameVerify = nexusIntegrationService.getRepositoryNameByFormat("helm");
+                String verifyUrl = nexusInfo.getOssUrl() + "/service/rest/v1/search?repository=" + helmRepositoryNameVerify + "&name=" + request.getChartName();
+                ProcessBuilder verifyPb = new ProcessBuilder("curl", "-sS", "-u",
+                        nexusInfo.getOssUsername() + ":" + kr.co.mcmp.util.Base64Utils.base64Decoding(nexusInfo.getOssPassword()),
+                        verifyUrl);
+                Process verifyProc = verifyPb.start();
+                String verifyOut = new String(verifyProc.getInputStream().readAllBytes());
+                verifyProc.waitFor();
+                if (verifyOut == null || verifyOut.trim().isEmpty() || !verifyOut.contains(request.getChartName())) {
+                    log.warn("Helm Chart not visible in Nexus search yet. It may require index rebuild.");
+                } else {
+                    log.info("Helm Chart appears in Nexus search results.");
+                }
+            } catch (Exception ve) {
+                log.warn("Failed to verify Helm Chart in Nexus search: {}", ve.getMessage());
+            }
             
-            return uploadSuccess;
+            // 임시 파일 삭제
+            try {
+                if (chartFile.delete()) {
+                    log.info("Temporary Helm Chart file deleted: {}", chartFileName);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to delete temporary Helm Chart file: {}", chartFileName);
+            }
+            
+            log.info("Successfully uploaded Helm Chart to Nexus: {}:{}", request.getChartName(), request.getChartVersion());
+            return true;
             
         } catch (Exception e) {
             log.error("Error uploading Helm Chart to Nexus: {}:{}", request.getChartName(), request.getChartVersion(), e);
