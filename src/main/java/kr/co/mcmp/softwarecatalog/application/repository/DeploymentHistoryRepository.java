@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -38,4 +39,9 @@ public interface DeploymentHistoryRepository extends JpaRepository<DeploymentHis
     List<DeploymentHistory> findByCatalogIdOrderByExecutedAtDesc(Long catalogId);
     List<DeploymentHistory> findByCatalogIdAndExecutedByOrderByExecutedAtDesc(Long catalogId, User user);
 
+    @Modifying
+    @Query("delete from DeploymentHistory d where d.catalog.id = :catalogId")
+    void deleteAllByCatalogId(@Param("catalogId") Long catalogId);
+    
+    void deleteByCatalog(SoftwareCatalog catalog);
 }
