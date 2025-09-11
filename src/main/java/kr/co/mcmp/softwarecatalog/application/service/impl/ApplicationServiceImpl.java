@@ -3,9 +3,8 @@ package kr.co.mcmp.softwarecatalog.application.service.impl;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
+import kr.co.mcmp.dto.oss.repository.CommonRepository;
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
-import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
@@ -163,21 +162,32 @@ public class ApplicationServiceImpl implements ApplicationService {
      */
     @Override
     public List<KeyValueDTO> getPackageVersionFromDB(SoftwareCatalogRequestDTO.SearchPackageVersionListDTO dto) {
-        log.info("Getting package categories from DB: {}", dto.getApplicationName());
-        List<String> result = new ArrayList<>();
+        log.info("Getting package versions from DB: {}", dto.getApplicationName());
+        List<KeyValueDTO> result = new ArrayList<>();
+        
         if(PackageType.valueOf("DOCKER").equals(dto.getTarget())) {
-            result = packageInfoRepository.findDistinctPackageVersionByPackageName(dto.getApplicationName());
+            List<Object[]> packageInfoList = packageInfoRepository.findDistinctPackageVersionByPackageName(dto.getApplicationName());
+            result = packageInfoList.stream()
+                    .filter(Objects::nonNull)
+                    .map(row -> KeyValueDTO.builder()
+                            .key((String) row[0]) // packageVersion
+                            .value((String) row[0]) // packageVersion
+                            .isUsed(row[1] != null) // catalog.id가 null이 아니면 사용중
+                            .build())
+                    .collect(Collectors.toList());
         }
         else if(PackageType.valueOf("HELM").equals(dto.getTarget())) {
-            result = helmChartRepository.findDistinctPackageVersionByChartName(dto.getApplicationName());
+            List<Object[]> helmChartList = helmChartRepository.findDistinctPackageVersionByChartName(dto.getApplicationName());
+            result = helmChartList.stream()
+                    .filter(Objects::nonNull)
+                    .map(row -> KeyValueDTO.builder()
+                            .key((String) row[0]) // chartVersion
+                            .value((String) row[0]) // chartVersion
+                            .isUsed(row[1] != null) // catalog.id가 null이 아니면 사용중
+                            .build())
+                    .collect(Collectors.toList());
         }
-        // String -> KeyValueDTO 변환
-        return result.stream()
-                .filter(Objects::nonNull) // null 값 제거
-                .map(version -> KeyValueDTO.builder()
-                        .key(version)
-                        .value(version) // 필요하다면 다른 값 매핑 가능
-                        .build())
-                .collect(Collectors.toList());
+        
+        return result;
     }
 }
