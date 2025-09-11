@@ -60,33 +60,24 @@ public class ApplicationServiceImpl implements ApplicationService {
         
         return (List<Object>) (List<?>) nexusIntegrationService.getAllFromNexus();
     }
-    
-    /**
-     * 넥서스에서 이미지 태그 목록을 조회합니다.
-     * 
-     * @param imageName 이미지 이름
-     * @return 태그 목록
-     */
-    @Override
-    public List<String> getImageTagsFromNexus(String imageName) {
-        log.info("Getting image tags from Nexus: {}", imageName);
-        
-        return nexusIntegrationService.getImageTagsFromNexus(imageName);
-    }
-    
-    /**
-     * 넥서스에서 이미지를 풀합니다.
-     * 
-     * @param imageName 이미지 이름
-     * @param tag 이미지 태그
-     * @return 풀 결과
-     */
+
     @Override
     public Object pullImageFromNexus(String imageName, String tag) {
         log.info("Pulling image from Nexus: {}:{}", imageName, tag);
         
         return nexusIntegrationService.pullImageFromNexus(imageName, tag);
     }
+
+    @Override
+    public Object pullImageByCatalogId(Long catalogId) {
+        log.info("Pulling image by catalog ID: {}", catalogId);
+        
+        // 카탈로그 정보 조회 후 이미지 풀
+        // 이 부분은 CatalogService의 메서드를 호출하거나 직접 구현
+        return null;
+        // return nexusIntegrationService.pullImageByCatalogId(catalogId);
+    }
+    
 
     /**
      * DB에 Application의 Category를 조회합니다.

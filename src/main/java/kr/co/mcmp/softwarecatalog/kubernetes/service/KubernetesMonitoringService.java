@@ -90,7 +90,7 @@ public class KubernetesMonitoringService {
                 .getItems()
                 .stream()
                 .filter(pod -> pod.getMetadata().getName().startsWith(appName))
-                .collect(Collectors.toList());
+                .collect(Collectors.toList());  
                 
         log.info("Pod names in namespace: {}", 
                 client.pods().inNamespace(namespace).list().getItems()

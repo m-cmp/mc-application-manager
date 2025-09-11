@@ -132,20 +132,22 @@ public class ApplicationController {
         List<Object> result = applicationService.getAllApplicationsFromNexus();
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
-    
-    @Operation(summary = "넥서스에서 이미지 태그 조회", description = "넥서스에서 특정 이미지의 태그 목록을 조회합니다.")
-    @GetMapping("/nexus/image/{imageName}/tags")
-    public ResponseEntity<ResponseWrapper<List<String>>> getImageTagsFromNexus(@PathVariable String imageName) {
-        List<String> result = applicationService.getImageTagsFromNexus(imageName);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
+
+    // ===== 넥서스 연동 API 엔드포인트 (애플리케이션 배포용) =====
+
     @Operation(summary = "넥서스에서 이미지 풀", description = "넥서스에서 이미지를 풀합니다.")
     @PostMapping("/nexus/image/pull")
     public ResponseEntity<ResponseWrapper<Object>> pullImageFromNexus(
             @RequestParam String imageName,
             @RequestParam String tag) {
         Object result = applicationService.pullImageFromNexus(imageName, tag);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+
+    @Operation(summary = "카탈로그 ID로 이미지 풀", description = "카탈로그 ID를 통해 넥서스에서 이미지를 풀합니다.")
+    @PostMapping("/nexus/image/pull/{catalogId}")
+    public ResponseEntity<ResponseWrapper<Object>> pullImageByCatalogId(@PathVariable Long catalogId) {
+        Object result = applicationService.pullImageByCatalogId(catalogId);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
