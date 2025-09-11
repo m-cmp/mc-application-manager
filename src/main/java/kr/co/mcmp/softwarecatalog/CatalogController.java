@@ -89,7 +89,4 @@ public class CatalogController {
         CombinedCatalogDTO combinedCatalog = catalogService.getCatalogWithNexusInfo(catalogId);
         return ResponseEntity.ok(new ResponseWrapper<>(combinedCatalog));
     }
-
-
-
 }

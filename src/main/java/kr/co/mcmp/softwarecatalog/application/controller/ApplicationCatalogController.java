@@ -1,4 +1,4 @@
-package kr.co.mcmp.softwarecatalog.application;
+package kr.co.mcmp.softwarecatalog.application.controller;
 
 import java.util.List;
 

@@ -26,7 +26,7 @@ import lombok.extern.log4j.Log4j2;
 @RequiredArgsConstructor
 public class HelmChartController {
 
-    private final HelmChartService helmChartService;
+    private final ApplicationHelmChartService helmChartService;
 
     @Operation(summary = "ArtifactHub Helm Chart 검색", description = "ArtifactHub에서 Helm Chart를 검색합니다.")
     @GetMapping("/search")
