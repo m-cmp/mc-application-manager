@@ -111,17 +111,17 @@ public class CatalogService {
     @Transactional
     public SoftwareCatalogDTO createCatalogInternal(SoftwareCatalogDTO catalogDTO, User user) {
         
-        SoftwareCatalog catalog = catalogDTO.toEntity();
-        catalog.setRegisteredBy(user);
-        catalog.setCreatedAt(LocalDateTime.now());
-        catalog.setUpdatedAt(LocalDateTime.now());
+        SoftwareCatalog paramCatalog = catalogDTO.toEntity();
+        paramCatalog.setRegisteredBy(user);
+        paramCatalog.setCreatedAt(LocalDateTime.now());
+        paramCatalog.setUpdatedAt(LocalDateTime.now());
 
-        catalog = catalogRepository.save(catalog);
+        paramCatalog = catalogRepository.save(paramCatalog);
 
         if (catalogDTO.getCatalogRefs() != null && !catalogDTO.getCatalogRefs().isEmpty()) {
             for (CatalogRefDTO refDTO : catalogDTO.getCatalogRefs()) {
                 CatalogRefEntity refEntity = refDTO.toEntity();
-                refEntity.setCatalog(catalog);
+                refEntity.setCatalog(paramCatalog);
                 catalogRefRepository.save(refEntity);
             }
         }
