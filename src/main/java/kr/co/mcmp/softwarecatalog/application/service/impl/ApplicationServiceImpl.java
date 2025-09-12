@@ -6,8 +6,16 @@ import java.util.stream.Collectors;
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
+import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
+import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
+import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
+import kr.co.mcmp.softwarecatalog.application.model.OperationHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.DeploymentLogRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.OperationHistoryRepository;
 import kr.co.mcmp.softwarecatalog.category.dto.KeyValueDTO;
 import kr.co.mcmp.softwarecatalog.category.dto.SoftwareCatalogRequestDTO;
 import org.springframework.stereotype.Service;
@@ -33,6 +41,14 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final PackageInfoRepository packageInfoRepository;
 
     private final HelmChartRepository helmChartRepository;
+    
+    private final ApplicationStatusRepository applicationStatusRepository;
+    
+    private final DeploymentHistoryRepository deploymentHistoryRepository;
+    
+    private final DeploymentLogRepository deploymentLogRepository;
+    
+    private final OperationHistoryRepository operationHistoryRepository;
 
     // ===== 넥서스 연동 관련 메서드 (애플리케이션 배포/운영용) =====
     
@@ -187,6 +203,116 @@ public class ApplicationServiceImpl implements ApplicationService {
                     .collect(Collectors.toList());
         }
         
+        return result;
+    }
+
+    // ===== 애플리케이션 상태/배포 관련 조회 메서드 =====
+
+    /**
+     * 모든 애플리케이션 상태를 조회합니다.
+     */
+    @Override
+    public List<ApplicationStatus> getAllApplicationStatus() {
+        log.info("Getting all application status");
+        return applicationStatusRepository.findAll();
+    }
+
+    /**
+     * 특정 애플리케이션 상태의 에러 로그를 조회합니다.
+     */
+    @Override
+    public List<String> getApplicationErrorLogs(Long applicationStatusId) {
+        log.info("Getting error logs for application status ID: {}", applicationStatusId);
+        ApplicationStatus status = applicationStatusRepository.findById(applicationStatusId).orElse(null);
+        if (status == null) {
+            log.warn("Application status not found for ID: {}", applicationStatusId);
+            return List.of();
+        }
+        return status.getErrorLogs();
+    }
+
+    /**
+     * 모든 배포 이력을 조회합니다.
+     */
+    @Override
+    public List<DeploymentHistory> getAllDeploymentHistory() {
+        log.info("Getting all deployment history");
+        return deploymentHistoryRepository.findAll();
+    }
+
+    /**
+     * 모든 배포 로그를 조회합니다.
+     */
+    @Override
+    public List<DeploymentLog> getAllDeploymentLogs() {
+        log.info("Getting all deployment logs");
+        return deploymentLogRepository.findAll();
+    }
+
+    /**
+     * 모든 운영 이력을 조회합니다.
+     */
+    @Override
+    public List<OperationHistory> getAllOperationHistory() {
+        log.info("Getting all operation history");
+        return operationHistoryRepository.findAll();
+    }
+
+    /**
+     * 특정 애플리케이션의 모든 상태/배포/로그 정보를 통합 조회합니다.
+     */
+    @Override
+    public Map<String, Object> getIntegratedApplicationInfo(Long catalogId) {
+        log.info("Getting integrated application info for catalog ID: {}", catalogId);
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        // 애플리케이션 상태 조회
+        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId).map(List::of).orElse(List.of());
+        result.put("applicationStatuses", applicationStatuses);
+        log.debug("Found {} application statuses for catalog ID {}", applicationStatuses.size(), catalogId);
+        
+        // 배포 이력 조회
+        List<DeploymentHistory> deploymentHistories = deploymentHistoryRepository.findByCatalogIdOrderByExecutedAtDesc(catalogId);
+        result.put("deploymentHistories", deploymentHistories);
+        log.debug("Found {} deployment histories for catalog ID {}", deploymentHistories.size(), catalogId);
+        
+        // 배포 로그 조회 (각 배포 이력에 대한 로그)
+        List<Map<String, Object>> deploymentLogsWithHistory = new ArrayList<>();
+        for (DeploymentHistory history : deploymentHistories) {
+            List<DeploymentLog> logs = deploymentLogRepository.findByDeploymentIdOrderByLoggedAtDesc(history.getId());
+            Map<String, Object> historyWithLogs = new HashMap<>();
+            historyWithLogs.put("deploymentHistory", history);
+            historyWithLogs.put("logs", logs);
+            deploymentLogsWithHistory.add(historyWithLogs);
+        }
+        result.put("deploymentLogsWithHistory", deploymentLogsWithHistory);
+        log.debug("Found {} deployment logs with history for catalog ID {}", deploymentLogsWithHistory.size(), catalogId);
+        
+        // 운영 이력 조회 (애플리케이션 상태별)
+        List<Map<String, Object>> operationHistoriesWithStatus = new ArrayList<>();
+        for (ApplicationStatus status : applicationStatuses) {
+            List<OperationHistory> operations = operationHistoryRepository.findByApplicationStatusId(status.getId());
+            Map<String, Object> statusWithOperations = new HashMap<>();
+            statusWithOperations.put("applicationStatus", status);
+            statusWithOperations.put("operations", operations);
+            operationHistoriesWithStatus.add(statusWithOperations);
+        }
+        result.put("operationHistoriesWithStatus", operationHistoriesWithStatus);
+        log.debug("Found {} operation histories with status for catalog ID {}", operationHistoriesWithStatus.size(), catalogId);
+        
+        // 에러 로그 조회 (각 애플리케이션 상태별)
+        List<Map<String, Object>> errorLogsWithStatus = new ArrayList<>();
+        for (ApplicationStatus status : applicationStatuses) {
+            Map<String, Object> statusWithErrors = new HashMap<>();
+            statusWithErrors.put("applicationStatus", status);
+            statusWithErrors.put("errorLogs", status.getErrorLogs());
+            errorLogsWithStatus.add(statusWithErrors);
+        }
+        result.put("errorLogsWithStatus", errorLogsWithStatus);
+        log.debug("Found {} error logs with status for catalog ID {}", errorLogsWithStatus.size(), catalogId);
+        
+        log.info("Successfully retrieved integrated application info for catalog ID: {}", catalogId);
         return result;
     }
 }

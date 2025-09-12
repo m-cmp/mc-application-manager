@@ -8,16 +8,16 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "네임스페이스 정보")
+@Schema(description = "Namespace information")
 public class NamespaceDto {
 
-    @Schema(description = "네임스페이스 ID", example = "default")
+    @Schema(description = "Namespace ID", example = "default")
     private String id;
 
-    @Schema(description = "네임스페이스 이름", example = "default")
+    @Schema(description = "Namespace name", example = "default")
     private String name;
 
-    @Schema(description = "네임스페이스 설명", example = "Default Namespace")
+    @Schema(description = "Namespace description", example = "Default Namespace")
     private String description;
     
 }

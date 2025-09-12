@@ -8,7 +8,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-@Tag(name = "JenkinsBuild", description = "Jenkins Build 정보")
+@Tag(name = "JenkinsBuild", description = "Jenkins Build information")
 public class JenkinsBuild implements Serializable {
 
 	private static final long serialVersionUID = -5111991560267809480L;

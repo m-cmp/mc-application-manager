@@ -12,9 +12,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class CommonFormatType {
 
-    @Schema(title = "포맷 유형", example = "raw, docker, helm")
+    @Schema(title = "Format type", example = "raw, docker, helm")
     private String format;
 
-    @Schema(title = "타입 유형", example = "hosted")
+    @Schema(title = "Type", example = "hosted")
     private String type;
 }

@@ -32,11 +32,11 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
     private static final String ARTIFACT_HUB_API_BASE = "https://artifacthub.io/api/v1";
     
     /**
-     * ArtifactHub에서 Helm Chart를 검색합니다.
+     * ArtifactHub에서 Helm Chart를 검색합니다. (공식 저장소만 필터링)
      */
     @Override
     public Map<String, Object> searchHelmCharts(String query, int page, int pageSize) {
-        log.info("Searching ArtifactHub Helm charts: query={}, page={}, pageSize={}", query, page, pageSize);
+        log.info("Searching ArtifactHub Helm charts (Official repositories only): query={}, page={}, pageSize={}", query, page, pageSize);
         
         Map<String, Object> result = new HashMap<>();
         
@@ -48,10 +48,35 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
             
             if (response.getStatusCode().is2xxSuccessful()) {
+                Map<String, Object> responseBody = response.getBody();
+                if (responseBody != null) {
+                    // 공식 저장소만 필터링
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> allPackages = (List<Map<String, Object>>) responseBody.get("packages");
+                    if (allPackages != null) {
+                        List<Map<String, Object>> officialPackages = new ArrayList<>();
+                        for (Map<String, Object> packageInfo : allPackages) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> repository = (Map<String, Object>) packageInfo.get("repository");
+                            if (repository != null) {
+                                String repositoryUrl = (String) repository.get("url");
+                                if (isOfficialRepository(repositoryUrl)) {
+                                    officialPackages.add(packageInfo);
+                                    log.debug("Found official package: {} from {}", packageInfo.get("name"), repositoryUrl);
+                                }
+                            }
+                        }
+                        
+                        // 필터링된 결과로 교체
+                        responseBody.put("packages", officialPackages);
+                        log.info("Filtered to {} official packages from {} total packages", officialPackages.size(), allPackages.size());
+                    }
+                }
+                
                 result.put("success", true);
-                result.put("data", response.getBody());
-                result.put("message", "ArtifactHub Helm chart search completed successfully");
-                log.info("Successfully searched ArtifactHub Helm charts: {} results", pageSize);
+                result.put("data", responseBody);
+                result.put("message", "ArtifactHub Helm chart search completed successfully (Official repositories only)");
+                log.info("Successfully searched ArtifactHub Helm charts (Official repositories only): {} results", pageSize);
             } else {
                 result.put("success", false);
                 result.put("message", "Failed to search ArtifactHub: " + response.getStatusCode());
@@ -67,6 +92,57 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
         return result;
     }
     
+    /**
+     * 공식 저장소인지 검증합니다.
+     */
+    private boolean isOfficialRepository(String repositoryUrl) {
+        if (repositoryUrl == null) {
+            return false;
+        }
+        
+        // 허용된 공식 저장소 목록 (확장)
+        String[] officialRepositories = {
+            "charts.bitnami.com",
+            "kubernetes-charts.storage.googleapis.com",
+            "https://kubernetes-charts.storage.googleapis.com",
+            "https://charts.bitnami.com/bitnami",
+            "cowboysysop.github.io",
+            "https://cowboysysop.github.io/charts/",
+            "charts.jfrog.io",
+            "https://charts.jfrog.io",
+            "marketplace.azurecr.io",
+            "https://marketplace.azurecr.io/helm/v1/repo",
+            "helm.nginx.com",
+            "https://helm.nginx.com/stable",
+            // 더 많은 공식 저장소 추가
+            "charts.helm.sh",
+            "https://charts.helm.sh/stable",
+            "kubernetes-sigs.github.io",
+            "https://kubernetes-sigs.github.io",
+            "prometheus-community.github.io",
+            "https://prometheus-community.github.io/helm-charts",
+            "grafana.github.io",
+            "https://grafana.github.io/helm-charts",
+            "elastic.github.io",
+            "https://elastic.github.io/helm-charts",
+            "jetstack.github.io",
+            "https://jetstack.github.io/charts",
+            "ingress-nginx.github.io",
+            "https://ingress-nginx.github.io/charts",
+            "traefik.github.io",
+            "https://traefik.github.io/charts"
+        };
+        
+        for (String officialRepo : officialRepositories) {
+            if (repositoryUrl.contains(officialRepo)) {
+                log.debug("Repository verified as official: {}", repositoryUrl);
+                return true;
+            }
+        }
+        
+        log.debug("Repository not in official list: {}", repositoryUrl);
+        return false;
+    }
     
     /**
      * 여러 페이지에서 패키지를 검색하는 헬퍼 메서드

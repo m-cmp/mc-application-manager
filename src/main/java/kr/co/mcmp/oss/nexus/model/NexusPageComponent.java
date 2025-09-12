@@ -9,7 +9,7 @@ import java.util.List;
 
 @Getter
 @Setter
-@Tag(name = "NexusPageComponent", description = "넥서스 컴포넌트 페이지 객체")
+@Tag(name = "NexusPageComponent", description = "Nexus component page object")
 public class NexusPageComponent implements Serializable {
 
 	private static final long serialVersionUID = 6346599677940737012L;

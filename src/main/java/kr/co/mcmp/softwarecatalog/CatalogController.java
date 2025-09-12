@@ -25,7 +25,7 @@ import kr.co.mcmp.response.ResponseWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
-@Tag(name="software catalog crud", description="software catalog 정보 입력, 수정 외")
+@Tag(name="software catalog crud", description="software catalog information input, modification, etc.")
 @RestController
 @Log4j2
 @RequestMapping("/catalog/software")
@@ -35,7 +35,7 @@ public class CatalogController {
 
    private final CatalogService catalogService;
 
-    @Operation(summary = "카탈로그 생성")
+    @Operation(summary = "Create catalog")
     @PostMapping
     public ResponseEntity<ResponseWrapper<SoftwareCatalogDTO>> createCatalog(
             @RequestBody SoftwareCatalogDTO catalogDTO,
@@ -44,14 +44,14 @@ public class CatalogController {
         return ResponseEntity.status(HttpStatus.CREATED).body(new ResponseWrapper<>(createdCatalog));
     }
 
-    @Operation(summary = "카탈로그 조회")
+    @Operation(summary = "Get catalog")
     @GetMapping("/{catalogId}")
     public ResponseEntity<ResponseWrapper<SoftwareCatalogDTO>> getCatalog(@PathVariable Long catalogId) {
         SoftwareCatalogDTO catalog = catalogService.getCatalog(catalogId);
         return ResponseEntity.ok(new ResponseWrapper<>(catalog));
     }
 
-    @Operation(summary = "모든 카탈로그 조회")
+    @Operation(summary = "Get all catalogs")
     @GetMapping
     public ResponseEntity<ResponseWrapper<List<SoftwareCatalogDTO>>> getAllCatalogs() {
         List<SoftwareCatalogDTO> catalogs = catalogService.getAllCatalogs();
@@ -59,7 +59,7 @@ public class CatalogController {
     }
 
 
-    @Operation(summary = "카탈로그 업데이트")
+    @Operation(summary = "Update catalog")
     @PutMapping("/{catalogId}")
     public ResponseEntity<ResponseWrapper<SoftwareCatalogDTO>> updateCatalog(
             @PathVariable Long catalogId,
@@ -69,21 +69,21 @@ public class CatalogController {
         return ResponseEntity.ok(new ResponseWrapper<>(updatedCatalog));
     }
 
-    @Operation(summary = "카탈로그 삭제")
+    @Operation(summary = "Delete catalog")
     @DeleteMapping("/{catalogId}")
     public ResponseEntity<ResponseWrapper<Void>> deleteCatalog(@PathVariable Long catalogId) {
         catalogService.deleteCatalog(catalogId);
         return ResponseEntity.ok(new ResponseWrapper<>(ResponseCode.OK));
     }
 
-    @Operation(summary = "Nexus 정보를 포함한 모든 카탈로그 조회")
+    @Operation(summary = "Get all catalogs with Nexus information")
     @GetMapping("/combined")
     public ResponseEntity<ResponseWrapper<List<CombinedCatalogDTO>>> getAllCatalogsWithNexusInfo() {
         List<CombinedCatalogDTO> combinedCatalogs = catalogService.getAllCatalogsWithNexusInfo();
         return ResponseEntity.ok(new ResponseWrapper<>(combinedCatalogs));
     }
 
-    @Operation(summary = "Nexus 정보를 포함한 특정 카탈로그 조회")
+    @Operation(summary = "Get specific catalog with Nexus information")
     @GetMapping("/{catalogId}/combined")
     public ResponseEntity<ResponseWrapper<CombinedCatalogDTO>> getCatalogWithNexusInfo(@PathVariable Long catalogId) {
         CombinedCatalogDTO combinedCatalog = catalogService.getCatalogWithNexusInfo(catalogId);

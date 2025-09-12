@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
 import java.util.List;
 
-@Tag(name = "CommonRepositoryController - 레포지토리 API 관련")
+@Tag(name = "CommonRepositoryController - Repository API related")
 @RequestMapping("/oss/v1/repositories")
 @RestController
 @RequiredArgsConstructor
@@ -21,46 +21,46 @@ public class CommonRepositoryController {
 
     private final CommonModuleRepositoryService moduleRepositoryService;
 
-    @Operation(summary = "레포지토리 목록 조회")
+    @Operation(summary = "Get repository list")
     @GetMapping("/{module}/list")
     public ResponseEntity<ResponseWrapper<List<CommonRepository.RepositoryDto>>> getRepositoryList(
-            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module) {
+            @Parameter(description = "Module type", required = true, example = "nexus") @PathVariable("module") String module) {
         List<CommonRepository.RepositoryDto> repositoryList = moduleRepositoryService.getRepositoryList(module);
         return ResponseEntity.ok(new ResponseWrapper<>(repositoryList));
     }
 
-    @Operation(summary = "레포지토리 상세 조회")
+    @Operation(summary = "Get repository details")
     @GetMapping("/{module}/detail/{name}")
     public ResponseEntity<ResponseWrapper<CommonRepository.RepositoryDto>> getRepositoryDetailByName(
-            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
-            @Parameter(description = "레포지토리 이름", required = true) @PathVariable("name") String name) {
+            @Parameter(description = "Module type", required = true, example = "nexus") @PathVariable("module") String module,
+            @Parameter(description = "Repository name", required = true) @PathVariable("name") String name) {
         CommonRepository.RepositoryDto repositoryDetailByName = moduleRepositoryService.getRepositoryDetailByName(module, name);
         return ResponseEntity.ok(new ResponseWrapper<>(repositoryDetailByName));
     }
 
-    @Operation(summary = "레포지토리 등록")
+    @Operation(summary = "Register repository")
     @PostMapping("/{module}/create")
     public ResponseEntity<ResponseWrapper<String>> createRepository(
-            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
+            @Parameter(description = "Module type", required = true, example = "nexus") @PathVariable("module") String module,
             @RequestBody @Valid CommonRepository.RepositoryDto repositoryDto) {
         moduleRepositoryService.createRepository(module, repositoryDto);
         return ResponseEntity.ok(new ResponseWrapper<>("Repository create completed"));
     }
 
-    @Operation(summary = "레포지토리 수정")
+    @Operation(summary = "Update repository")
     @PutMapping("/{module}/update")
     public ResponseEntity<ResponseWrapper<String>> updateRepository(
-            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
+            @Parameter(description = "Module type", required = true, example = "nexus") @PathVariable("module") String module,
             @RequestBody @Valid CommonRepository.RepositoryDto repositoryDto) {
         moduleRepositoryService.updateRepository(module, repositoryDto);
         return ResponseEntity.ok(new ResponseWrapper<>("Repository update completed"));
     }
 
-    @Operation(summary = "레포지토리 삭제")
+    @Operation(summary = "Delete repository")
     @DeleteMapping("/{module}/delete/{name}")
     public ResponseEntity<ResponseWrapper<String>> deleteRepository(
-            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
-            @Parameter(description = "레포지토리 이름", required = true) @PathVariable("name") String name) {
+            @Parameter(description = "Module type", required = true, example = "nexus") @PathVariable("module") String module,
+            @Parameter(description = "Repository name", required = true) @PathVariable("name") String name) {
         moduleRepositoryService.deleteRepository(module, name);
         return ResponseEntity.ok(new ResponseWrapper<>("Repository delete completed"));
     }

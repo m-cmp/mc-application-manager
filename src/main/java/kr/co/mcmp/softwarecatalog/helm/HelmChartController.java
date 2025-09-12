@@ -19,7 +19,7 @@ import kr.co.mcmp.softwarecatalog.application.dto.HelmChartRegistrationRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-@Tag(name = "Helm Chart Integration", description = "ArtifactHub Helm Chart 검색, 등록 및 관리")
+@Tag(name = "Helm Chart Integration", description = "ArtifactHub Helm Chart search, registration and management")
 @RestController
 @Slf4j
 @RequestMapping("/catalog/helm")
@@ -28,7 +28,7 @@ public class HelmChartController {
 
     private final ApplicationHelmChartService helmChartService;
 
-    @Operation(summary = "ArtifactHub Helm Chart 검색", description = "ArtifactHub에서 Helm Chart를 검색합니다.")
+    @Operation(summary = "Search ArtifactHub Helm Charts", description = "Search Helm Charts from ArtifactHub.")
     @GetMapping("/search")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> searchHelmCharts(
             @RequestParam String query,
@@ -39,7 +39,7 @@ public class HelmChartController {
     }
 
 
-    @Operation(summary = "ArtifactHub Helm Chart 버전 목록 조회", description = "ArtifactHub에서 특정 Helm Chart의 버전 목록을 조회합니다.")
+    @Operation(summary = "Get ArtifactHub Helm Chart versions", description = "Retrieve version list for a specific Helm Chart from ArtifactHub.")
     @GetMapping("/chart/{packageId}/versions")
     public ResponseEntity<ResponseWrapper<List<String>>> getHelmChartVersions(
             @PathVariable String packageId) {
@@ -47,7 +47,7 @@ public class HelmChartController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "Helm Chart를 HELM_CHART 테이블에 등록", description = "ArtifactHub Helm Chart를 HELM_CHART 테이블에 등록합니다.")
+    @Operation(summary = "Register Helm Chart to HELM_CHART table", description = "Register ArtifactHub Helm Chart to HELM_CHART table.")
     @PostMapping("/register")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> registerHelmChart(
             @RequestBody HelmChartRegistrationRequest request,
@@ -56,7 +56,7 @@ public class HelmChartController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "검색 결과에서 바로 Helm Chart 등록", description = "검색된 패키지 ID로 바로 Helm Chart를 등록합니다.")
+    @Operation(summary = "Register Helm Chart directly from search results", description = "Register Helm Chart directly using searched package ID.")
     @PostMapping("/register/{packageId}")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> registerHelmChartFromSearch(
             @PathVariable String packageId,
@@ -70,7 +70,7 @@ public class HelmChartController {
             @RequestParam(required = false) String documentationUrl,
             @RequestParam(required = false) String imageRepository) {
         
-        // HelmChartRegistrationRequest 객체 생성
+        // Create HelmChartRegistrationRequest object
         HelmChartRegistrationRequest request = HelmChartRegistrationRequest.builder()
                 .packageId(packageId)
                 .chartName(chartName)

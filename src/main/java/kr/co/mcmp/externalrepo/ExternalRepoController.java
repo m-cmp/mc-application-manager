@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name="external repository search", description="외부저장소 검색(dockerhub, artifacthub 등)")
+@Tag(name="external repository search", description="External repository search (dockerhub, artifacthub, etc.)")
 @RestController
 @RequestMapping("/search")
 public class ExternalRepoController {
@@ -24,7 +24,7 @@ public class ExternalRepoController {
     ExternalRepoService outSvc;
 
 
-    @Operation(summary = "dockerHub catalog 조회(image 조회)")
+    @Operation(summary = "Get dockerHub catalog (image search)")
     @GetMapping("/dockerhub/{keyword}")
     public ResponseWrapper<DockerHubCatalog> getDockerHubList(@PathVariable String keyword){
         logger.info("testString: {}", keyword);
@@ -35,7 +35,7 @@ public class ExternalRepoController {
         }
     }
 
-    @Operation(summary = "artifactHub package 목록 조회(helm 조회)")
+    @Operation(summary = "Get artifactHub package list (helm search)")
     @GetMapping("/artifacthub/{keyword}")
     public ResponseWrapper<ArtifactHubPackage> getArtifactHubList(@PathVariable String keyword){
         if(keyword != null) {

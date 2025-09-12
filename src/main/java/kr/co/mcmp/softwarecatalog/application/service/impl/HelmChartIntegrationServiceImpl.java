@@ -316,12 +316,17 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
     }
     
     /**
-     * Helm Chart 다운로드 URL을 구성합니다.
+     * Helm Chart 다운로드 URL을 구성합니다. (공식 저장소만 허용)
      */
     private String buildHelmChartDownloadUrl(HelmChartRegistrationRequest request) {
         String baseUrl = request.getRepositoryUrl();
         if (baseUrl.endsWith("/")) {
             baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        
+        // 공식 저장소 검증
+        if (!isOfficialRepository(baseUrl)) {
+            throw new IllegalArgumentException("Only official repositories are allowed. Found: " + baseUrl);
         }
         
         // Bitnami repository의 경우 /charts/ 경로가 없음
@@ -331,6 +336,39 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             // 일반적인 Helm Chart URL 패턴: {repository}/charts/{chartName}-{version}.tgz
             return String.format("%s/charts/%s-%s.tgz", baseUrl, request.getChartName(), request.getChartVersion());
         }
+    }
+    
+    /**
+     * 공식 저장소인지 검증합니다.
+     */
+    private boolean isOfficialRepository(String repositoryUrl) {
+        if (repositoryUrl == null) {
+            return false;
+        }
+        
+        // 허용된 공식 저장소 목록
+        String[] officialRepositories = {
+            "charts.bitnami.com",
+            "kubernetes-charts.storage.googleapis.com",
+            "https://kubernetes-charts.storage.googleapis.com",
+            "https://charts.bitnami.com/bitnami",
+            "cowboysysop.github.io",
+            "https://cowboysysop.github.io/charts/",
+            "charts.jfrog.io",
+            "https://charts.jfrog.io",
+            "marketplace.azurecr.io",
+            "https://marketplace.azurecr.io/helm/v1/repo"
+        };
+        
+        for (String officialRepo : officialRepositories) {
+            if (repositoryUrl.contains(officialRepo)) {
+                log.info("Repository verified as official: {}", repositoryUrl);
+                return true;
+            }
+        }
+        
+        log.warn("Repository not in official list: {}", repositoryUrl);
+        return false;
     }
     
     /**

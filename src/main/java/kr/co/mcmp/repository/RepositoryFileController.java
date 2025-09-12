@@ -6,7 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
-// @Tag(name="repository file upload, download", description="repository(현재는 nexus)관련 파일 업로드, 다운로드 등")
+// @Tag(name="repository file upload, download", description="repository (currently nexus) related file upload, download, etc.")
 // @RestController
 // @RequestMapping("/repository/file")
 // public class RepositoryFileController {

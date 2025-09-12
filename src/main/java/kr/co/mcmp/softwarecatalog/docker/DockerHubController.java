@@ -20,7 +20,7 @@ import kr.co.mcmp.softwarecatalog.SoftwareCatalogDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
-@Tag(name = "Docker Hub Integration", description = "Docker Hub 이미지 검색, 등록 및 관리")
+@Tag(name = "Docker Hub Integration", description = "Docker Hub image search, registration and management")
 @RestController
 @Log4j2
 @RequestMapping("/catalog/docker")
@@ -29,7 +29,7 @@ public class DockerHubController {
 
     private final DockerHubService dockerHubService;
 
-    @Operation(summary = "Docker Hub에서 이미지 검색", description = "Docker Hub에서 이미지를 검색합니다.")
+    @Operation(summary = "Search Docker Hub images", description = "Search images from Docker Hub.")
     @GetMapping("/search")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> searchDockerHubImages(
             @RequestParam String query,
@@ -39,7 +39,7 @@ public class DockerHubController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "Docker Hub 이미지 상세 정보 조회", description = "Docker Hub에서 특정 이미지의 상세 정보를 조회합니다.")
+    @Operation(summary = "Get Docker Hub image details", description = "Retrieve detailed information for a specific image from Docker Hub.")
     @GetMapping("/image/{imageName}")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> getDockerHubImageDetails(
             @PathVariable String imageName,
@@ -48,7 +48,7 @@ public class DockerHubController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "Docker Hub 이미지를 카탈로그에 등록", description = "Docker Hub 이미지를 카탈로그에 등록하고 넥서스에 푸시합니다.")
+    @Operation(summary = "Register Docker Hub image to catalog", description = "Register Docker Hub image to catalog and push to Nexus.")
     @PostMapping("/register")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> registerDockerHubImage(
             @RequestBody DockerHubImageRegistrationRequest request,
@@ -57,7 +57,7 @@ public class DockerHubController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "넥서스에 이미지 존재 확인", description = "넥서스에 이미지가 존재하는지 확인합니다.")
+    @Operation(summary = "Check if image exists in Nexus", description = "Check if image exists in Nexus.")
     @GetMapping("/nexus/image/exists")
     public ResponseEntity<ResponseWrapper<Boolean>> checkImageExistsInNexus(
             @RequestParam String imageName,
@@ -66,7 +66,7 @@ public class DockerHubController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "넥서스에 이미지 푸시", description = "넥서스에 이미지를 푸시합니다.")
+    @Operation(summary = "Push image to Nexus", description = "Push image to Nexus.")
     @PostMapping("/nexus/image/push")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> pushImageToNexus(
             @RequestParam String imageName,
@@ -75,7 +75,7 @@ public class DockerHubController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "넥서스에서 이미지 풀", description = "넥서스에서 이미지를 풀합니다.")
+    @Operation(summary = "Pull image from Nexus", description = "Pull image from Nexus.")
     @PostMapping("/nexus/image/pull")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> pullImageFromNexus(
             @RequestParam String imageName,
@@ -84,21 +84,21 @@ public class DockerHubController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "카탈로그 ID로 이미지 풀", description = "카탈로그 ID를 통해 넥서스에서 이미지를 풀합니다.")
+    @Operation(summary = "Pull image by catalog ID", description = "Pull image from Nexus using catalog ID.")
     @PostMapping("/nexus/image/pull/{catalogId}")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> pullImageByCatalogId(@PathVariable Long catalogId) {
         Map<String, Object> result = dockerHubService.pullImageByCatalogId(catalogId);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "넥서스에서 이미지 태그 조회", description = "넥서스에서 특정 이미지의 태그 목록을 조회합니다.")
+    @Operation(summary = "Get image tags from Nexus", description = "Retrieve tag list for a specific image from Nexus.")
     @GetMapping("/nexus/image/{imageName}/tags")
     public ResponseEntity<ResponseWrapper<List<String>>> getImageTagsFromNexus(@PathVariable String imageName) {
         List<String> result = dockerHubService.getImageTagsFromNexus(imageName);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @Operation(summary = "이미지 푸시 및 카탈로그 등록", description = "넥서스에 이미지를 푸시하고 카탈로그에 등록합니다.")
+    @Operation(summary = "Push image and register to catalog", description = "Push image to Nexus and register to catalog.")
     @PostMapping("/nexus/image/push-and-register")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> pushImageAndRegisterCatalog(
             @RequestBody SoftwareCatalogDTO catalog,
