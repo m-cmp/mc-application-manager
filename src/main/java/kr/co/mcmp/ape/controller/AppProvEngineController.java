@@ -33,32 +33,32 @@ public class AppProvEngineController {
 
     private final AppProvEngineService appProvEngineService;
 
-    @Operation(summary = "APE 로그 조회")
+    @Operation(summary = "Get APE logs")
     @GetMapping("/log/{jobName}")
     public ResponseWrapper<List<ApeLogResDto>> getApeLog(@PathVariable String jobName) {
         return new ResponseWrapper<>(appProvEngineService.getApeLog(jobName));
     }
 
     @PostMapping("/vm/install")
-    @Operation(summary = "Install VM Application", description = "VM에 애플리케이션을 설치하기 위해 Jenkins 작업을 트리거합니다.")
+    @Operation(summary = "Install VM Application", description = "Trigger Jenkins job to install application on VM.")
     public ResponseWrapper<String> triggerVmInstall(@RequestBody JenkinsJobDto.VmApplicationInstall jobDto) {
         return triggerJenkinsJob(jobDto);
     }
 
     @PostMapping("/vm/uninstall")
-    @Operation(summary = "Uninstall VM Application", description = "VM에서 애플리케이션을 제거하기 위해 Jenkins 작업을 트리거합니다.")
+    @Operation(summary = "Uninstall VM Application", description = "Trigger Jenkins job to uninstall application from VM.")
     public ResponseWrapper<String> triggerVmUninstall(@RequestBody JenkinsJobDto.VmApplicationUninstall jobDto) {
         return triggerJenkinsJob(jobDto);
     }
 
     @PostMapping("/helm/install")
-    @Operation(summary = "Install Kubernetes Helm Chart", description = "Kubernetes에 Helm 차트를 설치하기 위해 Jenkins 작업을 트리거합니다.")
+    @Operation(summary = "Install Kubernetes Helm Chart", description = "Trigger Jenkins job to install Helm chart on Kubernetes.")
     public ResponseWrapper<String> triggerHelmInstall(@RequestBody JenkinsJobDto.HelmChartInstall jobDto) {
         return triggerJenkinsJob(jobDto);
     }
 
     @PostMapping("/helm/uninstall")
-    @Operation(summary = "Uninstall Kubernetes Helm Release", description = "Kubernetes에서 Helm 릴리스를 제거하기 위해 Jenkins 작업을 트리거합니다.")
+    @Operation(summary = "Uninstall Kubernetes Helm Release", description = "Trigger Jenkins job to uninstall Helm release from Kubernetes.")
     public ResponseWrapper<String> triggerHelmUninstall(@RequestBody JenkinsJobDto.HelmChartUninstall jobDto) {
         return triggerJenkinsJob(jobDto);
     }

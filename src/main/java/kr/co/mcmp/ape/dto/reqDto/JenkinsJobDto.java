@@ -15,7 +15,7 @@ import lombok.ToString;
 @Getter
 @Setter
 @ToString
-@Schema(description = "Jenkins 작업 DTO")
+    @Schema(description = "Jenkins job DTO")
 public abstract class JenkinsJobDto {
 
     @Schema(description = "Namespace", example = "ns01")
@@ -36,15 +36,15 @@ public abstract class JenkinsJobDto {
 
     @Getter
     @Setter
-    @Schema(description = "VM 애플리케이션 설치 작업")
+    @Schema(description = "VM application installation job")
     public static class VmApplicationInstall extends JenkinsJobDto {
-        @Schema(description = "설치할 애플리케이션 목록", example = "nginx")
+        @Schema(description = "List of applications to install", example = "nginx")
         private List<String> applications;
 
-        @Schema(description = "설치할 VM", example = "vm01")
+        @Schema(description = "VM to install on", example = "vm01")
         private String vmName;
 
-        @Schema(description = "MCIS 이름", example = "mci01")
+        @Schema(description = "MCIS name", example = "mci01")
         private String mciName;
 
         private String version;
@@ -68,15 +68,15 @@ public abstract class JenkinsJobDto {
     }
     @Getter
     @Setter
-    @Schema(description = "VM 애플리케이션 삭제 작업")
+    @Schema(description = "VM application uninstallation job")
     public static class VmApplicationUninstall extends JenkinsJobDto {
-        @Schema(description = "삭제 애플리케이션 목록", example = "nginx")
+        @Schema(description = "List of applications to uninstall", example = "nginx")
         private List<String> applications;
 
-        @Schema(description = "MCIS 이름", example = "mci01")
+        @Schema(description = "MCIS name", example = "mci01")
         private String mciName;
 
-        @Schema(description = "설치할 VM", example = "vm01")
+        @Schema(description = "VM to install on", example = "vm01")
         private String vmName;
 
         private String version;
@@ -101,31 +101,31 @@ public abstract class JenkinsJobDto {
 
     @Getter
     @Setter
-    @Schema(description = "Helm 차트 설치 작업")
+    @Schema(description = "Helm chart installation job")
     public static class HelmChartInstall extends JenkinsJobDto {
-        @Schema(description = "K8s 클러스터 이름", example = "cluster01", required = true)
+        @Schema(description = "K8s cluster name", example = "cluster01", required = true)
         private String clusterName;
 
-        @Schema(description = "설치할 Helm 차트 목록", example = "[\"nginx\"]")
+        @Schema(description = "List of Helm charts to install", example = "[\"nginx\"]")
         private List<String> helmCharts;
         // @Schema(description = "설치할 Helm 차트", example = "nginx")
         // private String helmCharts;
         private String version;
 
         
-        @Schema(description = "HPA(Horizontal Pod AutoScaler) 활성화 여부", example = "false")
+        @Schema(description = "HPA (Horizontal Pod AutoScaler) activation", example = "false")
         private boolean enableHpa;
 
-        @Schema(description = "HPA 최소 레플리카 수", example = "1", minimum = "1")
+        @Schema(description = "HPA minimum replica count", example = "1", minimum = "1")
         private int hpaMinReplicas;
 
-        @Schema(description = "HPA 최대 레플리카 수", example = "10", minimum = "1")
+        @Schema(description = "HPA maximum replica count", example = "10", minimum = "1")
         private int hpaMaxReplicas;
 
-        @Schema(description = "HPA CPU 사용률 목표 (퍼센트)", example = "80", minimum = "1", maximum = "100")
+        @Schema(description = "HPA CPU utilization target (percentage)", example = "80", minimum = "1", maximum = "100")
         private int hpaCpuUtilization;
 
-        @Schema(description = "HPA 메모리 사용률 목표 (퍼센트)", example = "80", minimum = "1", maximum = "100")
+        @Schema(description = "HPA memory utilization target (percentage)", example = "80", minimum = "1", maximum = "100")
         private int hpaMemoryUtilization;
 
 
@@ -154,12 +154,12 @@ public abstract class JenkinsJobDto {
     
     @Getter
     @Setter
-    @Schema(description = "Helm 차트 제거 작업")
+    @Schema(description = "Helm chart uninstallation job")
     public static class HelmChartUninstall extends JenkinsJobDto {
-        @Schema(description = "K8s 클러스터 이름", example = "cluster01", required = true)
+        @Schema(description = "K8s cluster name", example = "cluster01", required = true)
         private String clusterName;
 
-        @Schema(description = "제거할 Helm 차트 목록", example = "[\"nginx\"]")
+        @Schema(description = "List of Helm charts to uninstall", example = "[\"nginx\"]")
         private List<String> helmCharts;
         // @Schema(description = "제거할 Helm 차트 목록", example = "nginx")
         // private String helmCharts;

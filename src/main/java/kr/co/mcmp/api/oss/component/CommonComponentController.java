@@ -15,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.validation.Valid;
 import java.util.List;
 
-@Tag(name = "CommonComponentController - 컴포넌트 API 관련")
+@Tag(name = "CommonComponentController - Component API related")
 @RequestMapping("/oss/v1/components")
 @RestController
 @RequiredArgsConstructor
@@ -23,49 +23,49 @@ public class CommonComponentController {
 
     private final CommonModuleComponentService moduleComponentService;
 
-    @Operation(summary = "컴포넌트 목록 조회")
+    @Operation(summary = "Get component list")
     @GetMapping("/{module}/list/{name}")
     public ResponseEntity<ResponseWrapper<List<CommonComponent.ComponentDto>>> getComponentList(
-            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
-            @Parameter(description = "레포지토리 이름", required = true) @PathVariable("name") String name) {
+            @Parameter(description = "Module type", required = true, example = "nexus") @PathVariable("module") String module,
+            @Parameter(description = "Repository name", required = true) @PathVariable("name") String name) {
         List<CommonComponent.ComponentDto> componentList = moduleComponentService.getComponentList(module, name);
         return ResponseEntity.ok(new ResponseWrapper<>(componentList));
     }
 
-    @Operation(summary = "컴포넌트 상세 조회")
+    @Operation(summary = "Get component details")
     @GetMapping("/{module}/detail/{id}")
     public ResponseEntity<ResponseWrapper<CommonComponent.ComponentDto>> getComponentDetailByName(
-            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
-            @Parameter(description = "컴포넌트 식별자", required = true) @PathVariable("id") String id) {
+            @Parameter(description = "Module type", required = true, example = "nexus") @PathVariable("module") String module,
+            @Parameter(description = "Component identifier", required = true) @PathVariable("id") String id) {
         CommonComponent.ComponentDto componentDetailByName = moduleComponentService.getComponentDetailByName(module, id);
         return ResponseEntity.ok(new ResponseWrapper<>(componentDetailByName));
     }
 
-    @Operation(summary = "컴포넌트 삭제")
+    @Operation(summary = "Delete component")
     @DeleteMapping("/{module}/delete/{id}")
     public ResponseEntity<ResponseWrapper<String>> deleteComponent(
-            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
-            @Parameter(description = "컴포넌트 식별자", required = true) @PathVariable("id") String id) {
+            @Parameter(description = "Module type", required = true, example = "nexus") @PathVariable("module") String module,
+            @Parameter(description = "Component identifier", required = true) @PathVariable("id") String id) {
         moduleComponentService.deleteComponent(module, id);
         return ResponseEntity.ok(new ResponseWrapper<>("Component delete completed"));
     }
 
-    @Operation(summary = "컴포넌트 등록")
+    @Operation(summary = "Register component")
     @PostMapping("/{module}/create/{name}")
     public ResponseEntity<ResponseWrapper<String>> createComponent(
-            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
-            @Parameter(description = "레포지토리 이름", required = true) @PathVariable("name") String name,
+            @Parameter(description = "Module type", required = true, example = "nexus") @PathVariable("module") String module,
+            @Parameter(description = "Repository name", required = true) @PathVariable("name") String name,
             @RequestPart(value = "directory") String directory,
             @RequestPart(value = "assets", required = false) List<MultipartFile> files) {
         moduleComponentService.createComponent(module, name, directory, files);
         return ResponseEntity.ok(new ResponseWrapper<>("Component create completed"));
     }
 
-    @Operation(summary = "컴포넌트 등록 - 텍스트")
+    @Operation(summary = "Register component - text")
     @PostMapping("/{module}/create/{name}/text")
     public ResponseEntity<ResponseWrapper<String>> createComponentByText(
-            @Parameter(description = "모듈 타입", required = true, example = "nexus") @PathVariable("module") String module,
-            @Parameter(description = "레포지토리 이름", required = true) @PathVariable("name") String name,
+            @Parameter(description = "Module type", required = true, example = "nexus") @PathVariable("module") String module,
+            @Parameter(description = "Repository name", required = true) @PathVariable("name") String name,
             @RequestBody @Valid CommonUploadComponent.TextComponentDto textComponent) {
         moduleComponentService.createComponentByText(module, name, textComponent);
         return ResponseEntity.ok(new ResponseWrapper<>("Component create completed"));

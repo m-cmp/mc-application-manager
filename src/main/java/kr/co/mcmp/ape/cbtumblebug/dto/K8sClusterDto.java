@@ -15,7 +15,7 @@ import lombok.ToString;
 @NoArgsConstructor
 @ToString
 @AllArgsConstructor
-@ApiModel(description = "K8s Cluster 정보")
+@ApiModel(description = "K8s Cluster information")
 public class K8sClusterDto {
 
     @JsonProperty("resourceType")

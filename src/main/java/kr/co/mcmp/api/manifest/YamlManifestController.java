@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
 
-@Tag(name = "YamlManifestController - Yaml Generator 관련")
+@Tag(name = "YamlManifestController - Yaml Generator")
 @RequestMapping("/manifest/v1/generator")
 @RestController
 @RequiredArgsConstructor
@@ -21,7 +21,7 @@ public class YamlManifestController {
 
     private final YamlManifestService manifestService;
 
-    @Operation(summary = "Deployments Yaml 생성")
+    @Operation(summary = "Generate Deployments Yaml")
     @PostMapping("/yaml/deployments")
     public ResponseEntity<ResponseWrapper<String>> generateYamlDeployments(
             @Valid @RequestBody K8SDeploymentDto deployments) {
@@ -29,7 +29,7 @@ public class YamlManifestController {
         return ResponseEntity.ok(new ResponseWrapper<>(yaml));
     }
 
-    @Operation(summary = "Service Yaml 생성")
+    @Operation(summary = "Generate Service Yaml")
     @PostMapping("/yaml/service")
     public ResponseEntity<ResponseWrapper<String>> generateYamlService(
             @Valid @RequestBody K8SServiceDto service) {
@@ -37,7 +37,7 @@ public class YamlManifestController {
         return ResponseEntity.ok(new ResponseWrapper<>(yaml));
     }
 
-    @Operation(summary = "ConfigMap Yaml 생성")
+    @Operation(summary = "Generate ConfigMap Yaml")
     @PostMapping("/yaml/configmap")
     public ResponseEntity<ResponseWrapper<String>> generateYamlConfigMap(
             @Valid @RequestBody K8SConfigMapDto configMap) {
@@ -45,7 +45,7 @@ public class YamlManifestController {
         return ResponseEntity.ok(new ResponseWrapper<>(yaml));
     }
 
-    @Operation(summary = "Pod Yaml 생성")
+    @Operation(summary = "Generate Pod Yaml")
     @PostMapping("/yaml/pod")
     public ResponseEntity<ResponseWrapper<String>> generateYamlPod(
             @Valid @RequestBody K8SPodDto pod) {
@@ -53,7 +53,7 @@ public class YamlManifestController {
         return ResponseEntity.ok(new ResponseWrapper<>(yaml));
     }
 
-    @Operation(summary = "Hpa Yaml 생성")
+    @Operation(summary = "Generate HPA Yaml")
     @PostMapping("/yaml/hpa")
     public ResponseEntity<ResponseWrapper<String>> generateYamlHpa(
             @Valid @RequestBody K8SHpaDto hpa) {

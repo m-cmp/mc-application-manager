@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "oss", description = "oss 관리")
+@Tag(name = "oss", description = "OSS management")
 @Slf4j
 @RequiredArgsConstructor
 @RequestMapping("/oss")
@@ -22,25 +22,25 @@ public class OssController {
 
     private final OssService ossService;
 
-    @Operation(summary = "OSS 목록 조회", description = "oss 모든 목록조회" )
+    @Operation(summary = "Get OSS list", description = "Retrieve all OSS list" )
     @GetMapping("/list")
     public ResponseWrapper<List<OssDto>> getOssList() {
         return new ResponseWrapper<>(ossService.getAllOssList());
     }
 
-    @Operation(summary = "OSS 목록 조회", description = "oss 목록조회(Keyword)" )
+    @Operation(summary = "Get OSS list by keyword", description = "Retrieve OSS list by keyword" )
     @GetMapping("/list/{ossTypeName}")
     public ResponseWrapper<List<OssDto>> getOssList(@PathVariable("ossTypeName") String ossTypeName) {
         return new ResponseWrapper<>(ossService.getOssList(ossTypeName));
     }
 
-    @Operation(summary = "OSS 등록", description = "oss 등록")
+    @Operation(summary = "Register OSS", description = "Register OSS")
     @PostMapping
     public ResponseWrapper<Long> registOss(@RequestBody OssDto ossDto) {
         return new ResponseWrapper<>(ossService.registOss(ossDto));
     }
 
-    @Operation(summary = "OSS 수정", description = "oss 수정")
+    @Operation(summary = "Update OSS", description = "Update OSS")
     @PatchMapping("/{ossIdx}")
     public ResponseWrapper<Long> updateOss(@PathVariable Long ossIdx, @RequestBody OssDto ossDto) {
         if ( ossIdx != 0 || ossDto.getOssIdx() != 0 ) {
@@ -49,19 +49,19 @@ public class OssController {
         return new ResponseWrapper<>(ResponseCode.BAD_REQUEST, "OssIdx");
     }
 
-    @Operation(summary = "OSS 삭제", description = "oss 삭제")
+    @Operation(summary = "Delete OSS", description = "Delete OSS")
     @DeleteMapping("/{ossIdx}")
     public ResponseWrapper<Boolean> deleteOss(@PathVariable Long ossIdx) {
         return new ResponseWrapper<>(ossService.deleteOss(ossIdx));
     }
 
-    @Operation(summary = "OSS 상세 조회", description = "oss 상세조회" )
+    @Operation(summary = "Get OSS details", description = "Retrieve OSS details" )
     @GetMapping("/{ossIdx}")
     public ResponseWrapper<OssDto> detailOss(@PathVariable Long ossIdx) {
         return new ResponseWrapper<>(ossService.detailOss(ossIdx));
     }
 
-    @Operation(summary = "OSS 정보 중복 체크(oss명, url, username)", description = "true : 중복 / false : 중복 아님")
+    @Operation(summary = "Check OSS information duplication (oss name, url, username)", description = "true : duplicated / false : not duplicated")
     @GetMapping("/duplicate")
     public ResponseWrapper<Boolean> isOssInfoDuplicated(@RequestParam String ossName, @RequestParam String ossUrl, @RequestParam String ossUsername) {
         if ( StringUtils.isBlank(ossName) ) {
@@ -77,7 +77,7 @@ public class OssController {
         return new ResponseWrapper<>(ossService.isOssInfoDuplicated(ossDto));
     }
 
-    @Operation(summary = "OSS 연결확인", description = "oss 연결 확인")
+    @Operation(summary = "Check OSS connection", description = "Check OSS connection")
     @PostMapping("/connection-check")
     public ResponseWrapper<Boolean> checkConnection(@RequestBody OssDto ossDto) {
         return new ResponseWrapper<>(ossService.checkConnection(ossDto));

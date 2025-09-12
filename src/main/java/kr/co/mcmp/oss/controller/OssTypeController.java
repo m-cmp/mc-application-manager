@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "oss 타입", description = "JENKINS / GITLAB / TUMBLEBUG / Etc...")
+@Tag(name = "oss type", description = "JENKINS / GITLAB / TUMBLEBUG / Etc...")
 @Slf4j
 @RequiredArgsConstructor
 @RequestMapping("/ossType")
@@ -21,25 +21,25 @@ public class OssTypeController {
 
     private final OssTypeService ossTypeService;
 
-    @Operation(summary = "OSS 타입 목록 조회", description = "oss Type 목록조회" )
+    @Operation(summary = "Get OSS type list", description = "Retrieve OSS type list" )
     @GetMapping("/list")
     public ResponseWrapper<List<OssTypeDto>> getOssTypeList() {
         return new ResponseWrapper<>(ossTypeService.getAllOssTypeList());
     }
 
-    @Operation(summary = "OSS 타입 목록 조회", description = "등록된 OSS 를 제외한 oss Type 목록조회" )
+    @Operation(summary = "Get OSS type list (excluding registered)", description = "Retrieve OSS type list excluding registered OSS" )
     @GetMapping("/filter/list")
     public ResponseWrapper<List<OssTypeDto>> getOssTypeFilteredList() {
         return new ResponseWrapper<>(ossTypeService.getOssTypeFilteredList());
     }
 
-    @Operation(summary = "OSS 타입 등록", description = "oss Type 등록")
+    @Operation(summary = "Register OSS type", description = "Register OSS type")
     @PostMapping
     public ResponseWrapper<Long> registOssType(@RequestBody OssTypeDto ossTypeDto) {
         return new ResponseWrapper<>(ossTypeService.registOssType(ossTypeDto));
     }
 
-    @Operation(summary = "OSS 타입 수정", description = "oss Type 수정")
+    @Operation(summary = "Update OSS type", description = "Update OSS type")
     @PatchMapping("/{ossTypeIdx}")
     public ResponseWrapper<Long> updateOssType(@PathVariable Long ossTypeIdx, @RequestBody OssTypeDto ossTypeDto) {
         if ( ossTypeIdx != 0 || ossTypeDto.getOssTypeIdx() != 0 ) {
@@ -48,13 +48,13 @@ public class OssTypeController {
         return new ResponseWrapper<>(ResponseCode.BAD_REQUEST, "OssTypeIdx");
     }
 
-    @Operation(summary = "OSS 타입 삭제", description = "oss Type 삭제")
+    @Operation(summary = "Delete OSS type", description = "Delete OSS type")
     @DeleteMapping("/{ossTypeIdx}")
     public ResponseWrapper<Boolean> deleteOssType(@PathVariable Long ossTypeIdx) {
         return new ResponseWrapper<>(ossTypeService.deleteOssType(ossTypeIdx));
     }
 
-    @Operation(summary = "OSS 타입 상세", description = "oss Type 상세정보")
+    @Operation(summary = "Get OSS type details", description = "Retrieve OSS type details")
     @GetMapping("/{ossTypeIdx}")
     public ResponseWrapper<OssTypeDto> detailOssType(@PathVariable Long ossTypeIdx) {
         return new ResponseWrapper<>(ossTypeService.detailOssType(ossTypeIdx));

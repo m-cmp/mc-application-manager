@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
-// @Tag(name="repository create, update, etc...", description="repository(현재는 nexus)관련 폴더생성, 변경 등")
+// @Tag(name="repository create, update, etc...", description="repository (currently nexus) related folder creation, modification, etc.")
 // @RestController
 // @RequestMapping("/repository")
 // public class RepositoryController {

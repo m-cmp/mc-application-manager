@@ -821,7 +821,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             
             // Docker Repository 생성 JSON
             String repositoryConfig = String.format(
-                "{\"name\":\"%s\",\"online\":true,\"storage\":{\"blobStoreName\":\"default\",\"strictContentTypeValidation\":true,\"writePolicy\":\"allow_once\"},\"docker\":{\"v1Enabled\":false,\"forceBasicAuth\":true,\"httpPort\":5000}}",
+                "{\"name\":\"%s\",\"online\":true,\"storage\":{\"blobStoreName\":\"default\",\"strictContentTypeValidation\":true,\"writePolicy\":\"allow_once\"},\"docker\":{\"v1Enabled\":false,\"forceBasicAuth\":true,\"httpPort\":5500}}",
                 repositoryName
             );
             

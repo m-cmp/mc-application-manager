@@ -38,10 +38,6 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         return artifactHubIntegrationService.searchHelmCharts(query, page, pageSize);
     }
     
-    @Override
-    public Map<String, Object> getHelmChartDetails(String packageId) {
-        return artifactHubIntegrationService.getHelmChartDetails(packageId);
-    }
     
     @Override
     public List<String> getHelmChartVersions(String packageId) {
@@ -56,19 +52,10 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         Map<String, Object> result = new HashMap<>();
         
         try {
-            // 1. ArtifactHub에서 Helm Chart 정보 조회
-            Map<String, Object> chartDetails = getHelmChartDetails(request.getPackageId());
-            if (!(Boolean) chartDetails.get("success")) {
-                result.put("success", false);
-                result.put("message", "Failed to get Helm Chart details: " + chartDetails.get("message"));
-                return result;
-            }
+            // 1. Helm Chart 상세 정보를 HELM_CHART 테이블에 저장 (요청 데이터 사용)
+            HelmChart savedHelmChart = saveHelmChartToTableDirect(request, username);
             
-            // 2. Helm Chart 상세 정보를 HELM_CHART 테이블에 저장
-            HelmChart savedHelmChart = saveHelmChartToTable(request, chartDetails, username);
-            
-            // 3. Helm Chart를 Nexus로 push (savedHelmChart의 repository URL 사용)
-            request.setRepositoryUrl(savedHelmChart.getChartRepositoryUrl());
+            // 2. Helm Chart를 Nexus로 push
             Map<String, Object> pushResult = pushHelmChartToNexus(request);
             if (!(Boolean) pushResult.get("success")) {
                 log.warn("Failed to push Helm Chart to Nexus, but saved to database: {}", pushResult.get("message"));
@@ -141,6 +128,41 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             
             // ArtifactHub 데이터 추출 및 설정
             extractAndSetArtifactHubData(helmChart, chartData);
+            
+            // HELM_CHART 테이블에 저장
+            HelmChart savedHelmChart = helmChartRepository.save(helmChart);
+            
+            log.info("Helm Chart details saved to HELM_CHART table: packageId={} (helmChartId: {})", 
+                    request.getPackageId(), savedHelmChart.getId());
+            
+            return savedHelmChart;
+            
+        } catch (Exception e) {
+            log.error("Failed to save Helm Chart details to HELM_CHART table: packageId={}", 
+                    request.getPackageId(), e);
+            throw new RuntimeException("Failed to save Helm Chart details", e);
+        }
+    }
+    
+    /**
+     * Helm Chart 상세 정보를 HELM_CHART 테이블에 직접 저장합니다 (요청 데이터 사용).
+     */
+    private HelmChart saveHelmChartToTableDirect(HelmChartRegistrationRequest request, String username) {
+        try {
+            // 사용자 정보 조회
+            User user = null;
+            if (username != null && !username.isEmpty()) {
+                user = userRepository.findByUsername(username).orElse(null);
+            }
+            
+            // HelmChart 엔티티 생성 (요청 데이터 직접 사용)
+            HelmChart helmChart = createBaseHelmChart(request, user);
+            
+            // 요청 데이터에서 추가 정보 설정
+            helmChart.setDescription(request.getDescription());
+            helmChart.setHomeUrl(request.getHomepage());
+            helmChart.setValuesFile(request.getDocumentationUrl());
+            // helmChart.setLicense(request.getLicense());
             
             // HELM_CHART 테이블에 저장
             HelmChart savedHelmChart = helmChartRepository.save(helmChart);
@@ -294,12 +316,17 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
     }
     
     /**
-     * Helm Chart 다운로드 URL을 구성합니다.
+     * Helm Chart 다운로드 URL을 구성합니다. (공식 저장소만 허용)
      */
     private String buildHelmChartDownloadUrl(HelmChartRegistrationRequest request) {
         String baseUrl = request.getRepositoryUrl();
         if (baseUrl.endsWith("/")) {
             baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        
+        // 공식 저장소 검증
+        if (!isOfficialRepository(baseUrl)) {
+            throw new IllegalArgumentException("Only official repositories are allowed. Found: " + baseUrl);
         }
         
         // Bitnami repository의 경우 /charts/ 경로가 없음
@@ -309,6 +336,39 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             // 일반적인 Helm Chart URL 패턴: {repository}/charts/{chartName}-{version}.tgz
             return String.format("%s/charts/%s-%s.tgz", baseUrl, request.getChartName(), request.getChartVersion());
         }
+    }
+    
+    /**
+     * 공식 저장소인지 검증합니다.
+     */
+    private boolean isOfficialRepository(String repositoryUrl) {
+        if (repositoryUrl == null) {
+            return false;
+        }
+        
+        // 허용된 공식 저장소 목록
+        String[] officialRepositories = {
+            "charts.bitnami.com",
+            "kubernetes-charts.storage.googleapis.com",
+            "https://kubernetes-charts.storage.googleapis.com",
+            "https://charts.bitnami.com/bitnami",
+            "cowboysysop.github.io",
+            "https://cowboysysop.github.io/charts/",
+            "charts.jfrog.io",
+            "https://charts.jfrog.io",
+            "marketplace.azurecr.io",
+            "https://marketplace.azurecr.io/helm/v1/repo"
+        };
+        
+        for (String officialRepo : officialRepositories) {
+            if (repositoryUrl.contains(officialRepo)) {
+                log.info("Repository verified as official: {}", repositoryUrl);
+                return true;
+            }
+        }
+        
+        log.warn("Repository not in official list: {}", repositoryUrl);
+        return false;
     }
     
     /**

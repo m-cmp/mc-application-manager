@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name="software catalog reference crud", description="software catalog 관련정보(workflow, homepage, 기타자료) 입력, 수정 외")
+@Tag(name="software catalog reference crud", description="software catalog related information (workflow, homepage, other materials) input, modification, etc.")
 @RestController
 @RequestMapping("/catalog/software/ref")
 public class CatalogRefController {
