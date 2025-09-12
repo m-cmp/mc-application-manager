@@ -44,7 +44,19 @@ public class ApplicationController {
             @Parameter(description = "Service port number", required = true, example = "8080") @RequestParam Integer servicePort,
             @Parameter(description = "Username for deployment (optional)", example = "admin") @RequestParam(required = false) String username) {
         DeploymentRequest request = DeploymentRequest.forVm(namespace, mciId, vmId, catalogId, servicePort, username);
+        
+        // 스펙 검증 먼저 수행
+        boolean specValid = applicationOrchestrationService.checkSpecForVm(namespace, mciId, vmId, catalogId);
+        
         DeploymentHistory result = applicationOrchestrationService.deployApplication(request);
+        
+        // 스펙 검증 실패 시 경고 메시지와 함께 응답
+        if (!specValid) {
+            ResponseWrapper<DeploymentHistory> response = new ResponseWrapper<>(result);
+            response.setDetail("Warning: Insufficient VM resources detected. Deployment may fail or perform poorly.");
+            return ResponseEntity.ok(response);
+        }
+        
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 

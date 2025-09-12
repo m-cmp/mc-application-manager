@@ -97,7 +97,8 @@ public class DockerDeploymentService implements DeploymentService {
         if (deploymentType == DeploymentType.VM) {
             return this;
         }
-        throw new IllegalArgumentException("Unsupported deployment type: " + deploymentType);
+        // throw new IllegalArgumentException("Unsupported deployment type: " + deploymentType);
+        return null;
     }
     
     private DeploymentParameters buildDeployParameters(SoftwareCatalogDTO catalog, Integer servicePort) {
