@@ -9,6 +9,8 @@ import kr.co.mcmp.softwarecatalog.application.dto.HelmChartDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
+import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
 import kr.co.mcmp.softwarecatalog.category.entity.IngressConfig;
@@ -21,6 +23,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
 import javax.persistence.EntityNotFoundException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -41,6 +44,10 @@ public class CatalogService {
     private final UserRepository userRepository;
     private final CommonModuleRepositoryService moduleRepositoryService;
     private final IngressConfigRepository ingressConfigRepository;
+    private final PortMappingRepository portMappingRepository;
+    private final DeploymentHistoryRepository deploymentHistoryRepository;
+    private final ApplicationStatusRepository applicationStatusRepository;
+    private final EntityManager entityManager;
 
     @Transactional
     public SoftwareCatalogDTO createCatalog(SoftwareCatalogDTO catalogDTO, String username) {
@@ -179,7 +186,14 @@ public class CatalogService {
         updateCatalogFromDTO(catalog, catalogDTO, user);
         catalog = catalogRepository.save(catalog);
 
+        // EntityManager flush를 통해 변경사항을 DB에 반영
+        entityManager.flush();
+
         catalogRefRepository.deleteAllByCatalogId(catalogId);
+
+        // 삭제 후 flush로 변경사항 반영
+        entityManager.flush();
+
         if (catalogDTO.getCatalogRefs() != null && !catalogDTO.getCatalogRefs().isEmpty()) {
             for (CatalogRefDTO refDTO : catalogDTO.getCatalogRefs()) {
                 CatalogRefEntity refEntity = refDTO.toEntity();
@@ -191,35 +205,56 @@ public class CatalogService {
         if("ARTIFACTHUB".equalsIgnoreCase(catalogDTO.getSourceType()) ) {
             if(catalogDTO.getIngressEnabled()){
                 ingressConfigRepository.deleteAllByCatalogId(catalogId);
+                entityManager.flush();
                 saveIngressConfig(catalog, catalogDTO.getIngressUrl());
             }
             else {
                 IngressConfig ingressConfig = ingressConfigRepository.findByCatalogId(catalogId);
                 if(ingressConfig != null){
                     ingressConfigRepository.delete(ingressConfig);
+                    entityManager.flush();
                 }
             }
         }
 
-        return SoftwareCatalogDTO.fromEntity(catalog);
+        // 모든 변경사항을 반영한 후 최종 flush
+        entityManager.flush();
+
+        // 업데이트된 catalog를 다시 조회하여 반환 (lazy loading 문제 해결)
+        return getCatalog(catalogId);
     }
 
     @Transactional
     public void deleteCatalog(Long catalogId) {
-        SoftwareCatalog catalog = catalogRepository.findById(catalogId).orElseThrow(() -> new EntityNotFoundException("Catalog not found"));
-        if ("ARTIFACT".equals(catalog.getSourceType())) {
-            // portmapping Delete
+        SoftwareCatalog catalog = catalogRepository.findById(catalogId)
+                .orElseThrow(() -> new EntityNotFoundException("Catalog not found"));
 
-            // ingress config Delete
-            IngressConfig ingressConfig = ingressConfigRepository.findByCatalogId(catalogId);
-            if(ingressConfig != null){
-                ingressConfigRepository.delete(ingressConfig);
-            }
+        log.info("Starting deletion process for catalog ID: {}", catalogId);
+
+        try {
+            // 1. HelmChart의 catalog_id를 NULL로 (Repository 사용)
+            helmChartRepository.unlinkCatalogByCatalogId(catalogId);
+            entityManager.flush();
+
+            // 2. IngressConfig 삭제 (외래키 제약 조건 때문에 먼저 삭제)
+            ingressConfigRepository.deleteAllByCatalogId(catalogId);
+            entityManager.flush();
+
+            // 3. PortMapping 삭제
+            portMappingRepository.deleteAllByCatalogId(catalogId);
+            entityManager.flush();
+
+            // 4. CatalogRef 삭제
+            catalogRefRepository.deleteAllByCatalogId(catalogId);
+            entityManager.flush();
+
+            // 5. 마지막으로 Catalog 삭제 (Repository bulk delete)
+            catalogRepository.deleteByIdBulk(catalogId);
+            entityManager.flush();
+        } catch (Exception e) {
+            log.error("Failed to delete catalog with ID: {}", catalogId, e);
+            throw new RuntimeException("Failed to delete catalog: " + e.getMessage(), e);
         }
-        catalogRefRepository.deleteAllByCatalogId(catalogId);
-        catalogRepository.delete(catalog);
-
-        log.info("Software catalog deleted successfully with ID: {}", catalogId);
     }
 
     private void updateCatalogFromDTO(SoftwareCatalog catalog, SoftwareCatalogDTO dto, User user) {
