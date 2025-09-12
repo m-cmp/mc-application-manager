@@ -1,6 +1,9 @@
 package kr.co.mcmp.softwarecatalog.Ref;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,6 +14,7 @@ public interface CatalogRefRepository extends JpaRepository<CatalogRefEntity, Lo
     List<CatalogRefEntity> findByCatalogId(Long catalogId);
     //List<CatalogRefEntity> findByCatalogIdOrderByReferenceTypeAsc(Integer catalogId);
 
-    void deleteAllByCatalogId(Long catalogIdx);
-
+    @Modifying
+    @Query("delete from CatalogRefEntity r where r.catalog.id = :catalogId")
+    void deleteAllByCatalogId(@Param("catalogId") Long catalogId);
 }

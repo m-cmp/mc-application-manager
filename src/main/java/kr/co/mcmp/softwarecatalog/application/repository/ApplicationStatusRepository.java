@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -39,4 +40,10 @@ public interface ApplicationStatusRepository extends JpaRepository<ApplicationSt
     @Param("clusterName") String clusterName,
     @Param("catalogId") Long catalogId
     );
+    
+    @Modifying
+    @Query("delete from ApplicationStatus a where a.catalog.id = :catalogId")
+    void deleteAllByCatalogId(@Param("catalogId") Long catalogId);
+    
+    void deleteByCatalog(SoftwareCatalog catalog);
 }

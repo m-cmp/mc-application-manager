@@ -3,10 +3,11 @@ package kr.co.mcmp.softwarecatalog.application.repository;
 import java.util.List;
 import java.util.Optional;
 
-import feign.Param;
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
@@ -30,4 +31,8 @@ public interface HelmChartRepository extends JpaRepository<HelmChart, Long> {
 
     @Query("SELECT DISTINCT hc.chartVersion, hc.catalog.id FROM HelmChart hc WHERE hc.chartName = :chartName")
     List<Object[]> findDistinctPackageVersionByChartName(String chartName);
+
+    @Modifying
+    @Query("UPDATE HelmChart h SET h.catalog = null WHERE h.catalog.id = :catalogId")
+    void unlinkCatalogByCatalogId(@Param("catalogId") Long catalogId);
 }
