@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.co.mcmp.externalrepo.model.ArtifactHubPackage;
 import kr.co.mcmp.externalrepo.model.DockerHubCatalog;
+import kr.co.mcmp.externalrepo.model.DockerHubTag;
 import kr.co.mcmp.response.ResponseWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @Tag(name="external repository search", description="External repository search (dockerhub, artifacthub, etc.)")
 @RestController
@@ -45,5 +48,14 @@ public class ExternalRepoController {
         }
     }
 
-
+    @Operation(summary = "Get dockerHub catalog(image tag search)")
+    @GetMapping("/dockerhub/{namespace}/{reposigory}")
+    public ResponseWrapper<List<DockerHubTag.TagResult>> getDockerHubList(@PathVariable String namespace, @PathVariable String reposigory){
+        logger.info("namespace: {}", namespace);
+        logger.info("reposigory: {}", reposigory);
+        if(namespace != null && reposigory != null) {
+            return new ResponseWrapper<>(outSvc.searchDockerHubTag(namespace, reposigory));
+        }
+        return null;
+    }
 }

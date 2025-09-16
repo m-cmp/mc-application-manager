@@ -18,5 +18,4 @@ public interface ArtifactHubInteface {
     @GetMapping(value="/api/v1/packages/search")
     ArtifactHubPackage searchPackage(@RequestParam("ts_query_web") String helm, @RequestParam(required=false, value="kind", defaultValue="0") String kind);
 
-
 }

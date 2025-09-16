@@ -44,11 +44,9 @@ public class DockerHubService {
                 return result;
             }
 
-            // 2. 소프트웨어 카탈로그 생성
-            // SoftwareCatalogDTO catalogDTO = createCatalogFromDockerImage(request, imageInfo, username);
-            // SoftwareCatalogDTO savedCatalog = catalogService.createCatalog(catalogDTO, username);
+            log.error("Docker Hub image info: {}", imageInfo);
 
-            // 3. Docker Hub 이미지를 Nexus에 푸시
+            // 2. Docker Hub 이미지를 Nexus에 푸시
             Map<String, Object> pushResult = dockerHubIntegrationService.pushImageToNexus(request.getImageName(),
                     request.getTag());
 
