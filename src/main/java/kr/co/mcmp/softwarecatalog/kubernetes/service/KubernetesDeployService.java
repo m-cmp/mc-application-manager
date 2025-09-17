@@ -12,7 +12,7 @@ import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
-import kr.co.mcmp.softwarecatalog.kubernetes.util.KubernetesClientFactory;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
 import kr.co.mcmp.softwarecatalog.kubernetes.util.KubernetesUtils;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;

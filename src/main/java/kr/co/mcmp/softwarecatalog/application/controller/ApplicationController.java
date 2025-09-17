@@ -24,11 +24,13 @@ import kr.co.mcmp.softwarecatalog.application.service.ApplicationOrchestrationSe
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import org.springframework.web.bind.annotation.PathVariable;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/applications")
 @Tag(name="Installed application", description = "Application management API for VM and K8s environments")
 @RequiredArgsConstructor
+@Slf4j
 public class ApplicationController {
 
     private final ApplicationService applicationService;
@@ -68,6 +70,7 @@ public class ApplicationController {
             @Parameter(description = "Catalog ID of the application to deploy", required = true, example = "123") @RequestParam Long catalogId,
             @Parameter(description = "Username for deployment (optional)", example = "admin") @RequestParam(required = false) String username) {
         DeploymentRequest request = DeploymentRequest.forKubernetes(namespace, clusterName, catalogId, username);
+        
         DeploymentHistory result = applicationOrchestrationService.deployApplication(request);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }

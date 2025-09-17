@@ -112,6 +112,15 @@ dependencies {
 
     implementation 'io.github.cdancy:jenkins-rest:1.0.1:all'
     
+    // ===== AWS SDK for Java 2.x 의존성 (EKS 인증용) =====
+    implementation platform('software.amazon.awssdk:bom:2.20.162')
+    implementation 'software.amazon.awssdk:auth'
+    implementation 'software.amazon.awssdk:sts'
+    implementation 'software.amazon.awssdk:eks'
+    implementation 'software.amazon.awssdk:regions'
+    implementation 'software.amazon.awssdk:apache-client'
+    implementation 'software.amazon.awssdk:sdk-core'
+
 
 }
 

@@ -118,16 +118,29 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
     }
     
     @Override
-    public void insertOperationHistory(ApplicationStatus applicationStatus, String username, String reason, ActionType actionType) {
+    public void insertOperationHistory(ApplicationStatus applicationStatus, String username, String reason, String detailReason, ActionType actionType) {
+        log.info("Inserting operation history - username: {}, reason: {}, detailReason: {}, actionType: {}", username, reason, detailReason, actionType);
+        
         User user = getUserOrNull(username);
+        if (user == null) {
+            log.warn("User not found for username: {}", username);
+        }
+        
+        // reason이 null이거나 빈 문자열인 경우 기본값 설정
+        String finalReason = (reason == null || reason.trim().isEmpty()) ? "No reason provided" : reason;
+        String finalDetailReason = (detailReason == null || detailReason.trim().isEmpty()) ? "No detail reason provided" : detailReason;
+        
         OperationHistory operationHistory = OperationHistory.builder()
                     .applicationStatus(applicationStatus)
-                    .reason(reason)
+                    .reason(finalReason)
+                    .detailReason(finalDetailReason)
                     .operationType(actionType.name())
                     .executedBy(user)
                     .createdAt(LocalDateTime.now()).build();
 
-        operationHistoryRepository.save(operationHistory);
+        OperationHistory savedHistory = operationHistoryRepository.save(operationHistory);
+        log.info("Operation history saved with ID: {}, reason: {}, detailReason: {}", 
+                savedHistory.getId(), savedHistory.getReason(), savedHistory.getDetailReason());
     }
     
     @Override

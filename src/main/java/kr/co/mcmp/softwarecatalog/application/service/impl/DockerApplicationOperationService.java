@@ -79,7 +79,7 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
                     throw new IllegalArgumentException("Unknown operation: " + operation);
             }
     
-            applicationHistoryService.insertOperationHistory(applicationStatus, username, reason, operation);
+            applicationHistoryService.insertOperationHistory(applicationStatus, username, reason, "Docker operation: " + operation.name(), operation);
             updateApplicationStatus(applicationStatus, operation, result, username);
     
         } catch (Exception e) {
