@@ -104,31 +104,31 @@ const initData = () => {
  */
 const setColumns = () => {
   columns.value = [
+    // {
+    //   title: "Type",
+    //   field: "deploymentType",
+    //   width: '15%'
+    // },
     {
-      title: "Type",
-      field: "deploymentType",
-      width: '8%'
+      title: "Infra",
+      width: '25%',
+      formatter: infraFormatter,
     },
     {
       title: "Application",
       field: "applicationName",
-      width: '25%'
-    },
-    {
-      title: "Infra",
-      width: '12%',
-      formatter: infraFormatter,
+      width: '15%'
     },
     {
       title: "Status",
-      width: '12%',
+      width: '15%',
       formatter: statusFormatter,
     },
     
     {
       title: "CheckedAt",
       field: "checkedAt",
-      width: '18%'
+      width: '20%'
     },
     {
       title: "Action",
@@ -178,13 +178,14 @@ const _applicationAction = async (params: {
 
 
 const infraFormatter = (cell: any) => {
+  const infraType = cell.getRow().getData().deploymentType
   const infraName =
-    cell.getRow().getData().vmName ? cell.getRow().getData().vmName :
+    cell.getRow().getData().vmId ? cell.getRow().getData().vmId :
     cell.getRow().getData().clusterName ? cell.getRow().getData().clusterName : '-'
   return `
     <div>
       <p>
-        ${infraName}
+        ${infraType} (${infraName})
       <p>
     </div>
   ` 

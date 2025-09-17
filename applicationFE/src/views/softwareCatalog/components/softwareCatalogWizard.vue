@@ -81,7 +81,7 @@
               <textarea class="form-control" rows="4" v-model="catalogDto.description" placeholder="Application description" />
             </div>
             <div class="mb-3">
-              <label class="form-label required">Reference</label>
+              <label class="form-label">Reference</label>
               <div class="row g-2 mb-2" v-for="(ref, idx) in refData" :key="idx">
                 <div class="col-5">
                   <select class="form-select" v-model="ref.refType">
@@ -300,7 +300,7 @@
           <div class="ms-auto d-flex gap-2">
             <button class="btn btn-outline-secondary" :disabled="currentStep === 1" @click="prevStep">Prev</button>
             <button class="btn btn-primary" v-if="currentStep < 4" :disabled="!canGoNext" @click="nextStep">Next</button>
-            <button class="btn btn-primary" v-else @click="props.mode === 'update' ? update() : create()">{{ props.mode === 'update' ? 'Update' : 'Create' }}</button>
+            <button class="btn btn-primary" v-else :disabled="!canGoNext" @click="props.mode === 'update' ? update() : create()">{{ props.mode === 'update' ? 'Update' : 'Create' }}</button>
           </div>
         </div>
       </div>
@@ -446,13 +446,44 @@ const portMappings = ref([
 // ------------------------------------------------------------ Computed ------------------------------------------------------------
 const canGoNext = computed(() => {
   if (currentStep.value === 1) {
-    return catalogDto.value.target && catalogDto.value.category && catalogDto.value.packageName
+    return catalogDto.value.target && 
+      catalogDto.value.category && 
+      catalogDto.value.packageName && 
+      catalogDto.value.version
   }
   if (currentStep.value === 2) {
-    return catalogDto.value.name.trim().length > 0
+    return catalogDto.value.name.trim().length > 0 && 
+      catalogDto.value.summary.trim().length > 0 && 
+      catalogDto.value.description.trim().length > 0
   }
   if (currentStep.value === 3) {
-    return true
+    return catalogDto.value.minCpu > 0 && 
+      catalogDto.value.minMemory > 0 && 
+      catalogDto.value.minDisk > 0 && 
+      catalogDto.value.recommendedCpu > 0 && 
+      catalogDto.value.recommendedMemory > 0 && 
+      catalogDto.value.recommendedDisk > 0
+  }
+  if(currentStep.value === 3 && catalogDto.value.hpaEnabled) {
+    return catalogDto.value.minReplicas > 0 && 
+      catalogDto.value.maxReplicas > 0 && 
+      catalogDto.value.cpuThreshold > 0 && 
+      catalogDto.value.memoryThreshold > 0
+  }
+  console.log(portMappings.value)
+  if(currentStep.value === 3 && catalogDto.value.target === 'VM') {
+    return catalogDto.value.defaultPort > 0
+  }
+  if (currentStep.value === 4 && catalogDto.value.target === 'K8S') {
+    console.log(portMappings.value.length)
+    if(portMappings.value.length > 0) {
+      return portMappings.value.every((port: any) => port.targetPort > 0 && port.hostPort > 0 && port.protocol)
+    } else {
+      return false
+    }
+  }
+  if(currentStep.value === 4 && catalogDto.value.ingressEnabled) {
+    return catalogDto.value.ingressUrl.trim().length > 0
   }
   return true
 })
@@ -733,7 +764,7 @@ const onClickStep = (num: number) => {
 watch(() => catalogDto.value.target, (newTarget) => {
   if (newTarget) {
     // 초기화 중이 아닐 때만 하위 필드들을 초기화
-    if (props.mode === 'create') {
+    if (props.mode === 'new') {
       catalogDto.value.category = ''
       catalogDto.value.packageName = ''
       catalogDto.value.version = ''
@@ -746,7 +777,7 @@ const categoryList = ref([] as { key: string, value: string }[])
 const _getCategoryList = async () => {
   
   // 초기화 중이 아닐 때만 필드들을 초기화
-  if (props.mode === 'create') {
+  if (props.mode === 'new') {
     categoryList.value = []
     packageList.value = []
     versionList.value = [] 
@@ -768,7 +799,7 @@ const _getCategoryList = async () => {
 watch(() => catalogDto.value.category, (category) => {
   if (category) {
     // 초기화 중이 아닐 때만 하위 필드들을 초기화
-    if (props.mode === 'create') {
+    if (props.mode === 'new') {
       catalogDto.value.packageName = ''
       catalogDto.value.version = ''
     }
@@ -780,7 +811,7 @@ const packageList = ref([] as { key: string, value: string }[])
 const _getPackageList = async () => {
   
   // 초기화 중이 아닐 때만 필드들을 초기화
-  if (props.mode === 'create') {
+  if (props.mode === 'new') {
     packageList.value = []
     versionList.value = []
     catalogDto.value.packageName = ''
@@ -798,7 +829,7 @@ const _getPackageList = async () => {
 watch(() => catalogDto.value.packageName, (packageName) => {
   if (packageName) {
     // 초기화 중이 아닐 때만 version을 초기화
-    if (props.mode === 'create') {
+    if (props.mode === 'new') {
       catalogDto.value.version = ''
     }
     _getVersionList()
@@ -807,9 +838,8 @@ watch(() => catalogDto.value.packageName, (packageName) => {
 
 const versionList = ref([] as any[])
 const _getVersionList = async () => {
-  
   // 초기화 중이 아닐 때만 version을 초기화
-  if (props.mode === 'create') {
+  if (props.mode === 'new') {
     versionList.value = []
     catalogDto.value.version = ''
   }
@@ -819,7 +849,17 @@ const _getVersionList = async () => {
     packageName: catalogDto.value.packageName || ''
   }
   const { data } = await getVersionList(param)
-  versionList.value = data
+
+  if(props.mode === 'new') {
+    data.forEach((item: any) => {
+      if(!item.isUsed) {
+        versionList.value.push(item) 
+      }
+    })
+  }
+  else {
+    versionList.value = data
+  }
 }
 
 </script>

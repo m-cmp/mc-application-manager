@@ -3,7 +3,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h2 class="mb-0">Catalog</h2>
       <button 
-        class="btn btn-primary" 
+        class="btn btn-outline-primary d-none d-sm-inline-block" 
         style="margin-right: 315px;" 
         data-bs-toggle="modal" 
         data-bs-target="#modal-wizard"
@@ -39,11 +39,19 @@
                 
                 <!-- Catalog Category -->
                 <div class="col-auto text-muted">
-                  {{ catalog.category }}
+                  <div class="d-flex justify-content-end">
+                    <div class="mouse-hover">
+                      <IconEdit class="me-2 cursor-pointer" size="15" stroke-width="2" data-bs-toggle="modal" data-bs-target="#modal-wizard" @click="onClickUpdate(catalog.id)" />
+                      <IconTrash class="cursor-pointer" size="15" stroke-width="2" @click="onClickDelete(catalog)" />
+                    </div>
+                  </div>
+                  <div class="d-flex justify-content-end">
+                    {{ catalog.category }}
+                  </div>
                 </div>
 
                 <!-- Dots -->
-                <div class="col-auto lh-1">
+                <!-- <div class="col-auto lh-1">
                   <div class="dropdown">
                     <a href="javascript:void(0);" class="link-secondary" @click="toggleDropdown(`dropdown-${catalog.id}`)">
                       <IconDots class="icon" width="24" height="24" stroke-width="2" />
@@ -64,7 +72,7 @@
                       </a>
                     </div>
                   </div>
-                </div>
+                </div> -->
 
                 <div 
                   :id="'accordion_' + catalog.id" 
@@ -145,17 +153,22 @@
 
       <!-- Search Area -->
       <div class="col-lg-3">
-        <input 
-          type="text" 
-          class="form-control mb-3" 
-          placeholder="Search…" 
-          @keypress="searchCatalog"
-          v-model="searchKeyword" 
-          id="inputCatalogSearch">
+        <div class="input-icon mb-3">
+          <span class="input-icon-addon">
+            <IconSearch class="icon" width="24" height="24" stroke-width="2" />
+          </span>
+          <input 
+            type="text" 
+            class="form-control" 
+            placeholder="Search…" 
+            @keypress="searchCatalog"
+            v-model="searchKeyword" 
+            id="inputCatalogSearch">
+        </div>
         
         <!-- docker hub Search -->
         <h3 class="mb-3">
-          dockerHub search
+         DOCKERHUB
         </h3>
         <div 
           v-if="dockerHubSearchList.length == 0"
@@ -174,14 +187,14 @@
                 <div class="col-auto">
                   <img 
                     :src="result.logo_url.large" 
-                    class="rounded-start" 
+                    class="rounded-start ms-2" 
                     alt="Shape of You" 
                     width="80"
                     height="80">
                 </div>
                 <div class="col">
                   <div class="card-body">
-                    <a href="" target="_blank">
+                    <a :href="'https://hub.docker.com/search?q=' + searchKeyword" target="_blank">
                       {{result.name}}
                     </a>
                     <div class="text-muted">
@@ -190,7 +203,10 @@
                   </div>
                 </div>
                 <div class="col-auto lh-1">
-                  <div class="dropdown">
+                  <div class="d-flex justify-content-end me-2 mt-4 mouse-hover">
+                    <IconDownload class="cursor-pointer" size="20" stroke-width="2" @click="onClickUpload(result, 'DockerHub')" />
+                  </div>
+                  <!-- <div class="dropdown">
                     <a 
                       href="#" 
                       class="link-secondary" 
@@ -206,19 +222,11 @@
                         @click="onClickMovePageDockerHub">
                         Go to the page
                       </a>
-                      <a 
-                        class="dropdown-item" 
-                        href="#" 
-                        data-bs-toggle="modal"
-                        data-bs-target="#modal-form"
-                        @click="onClickCreate('dockerhub', result)" >
-                        Enter content into softwareCatalog
-                      </a>
                       <a class="dropdown-item" href="#">
                         Copy file/image to repository
                       </a>
                     </div>
-                  </div>
+                  </div> -->
                 </div>
               </div>
             </div>
@@ -226,7 +234,7 @@
         </div>
         <div class="mt-5">
           <h3 class="mb-3">
-            artifactHub search
+            ARTIFACTHUB
           </h3>
           <div 
             v-if="artifactHubSearchList.length == 0"
@@ -249,7 +257,7 @@
                   </div>
                   <div class="col">
                     <div class="card-body">
-                      <a href="" target="_blank">
+                      <a :href="'https://artifacthub.io/packages/search?ts_query_web=' + searchKeyword + '&sort=relevance&page=1'" target="_blank">
                         {{result.name}}
                       </a>
                       <div class="text-muted">
@@ -258,7 +266,10 @@
                     </div>
                   </div>
                   <div class="col-auto lh-1">
-                    <div class="dropdown">
+                    <div class="d-flex justify-content-end me-2 mt-4 mouse-hover">
+                      <IconDownload class="cursor-pointer" size="20" stroke-width="2" @click="onClickUpload(result, 'ArtifactHub')" />
+                    </div>
+                    <!-- <div class="dropdown">
                       <a 
                         href="#" 
                         class="link-secondary" 
@@ -269,18 +280,11 @@
                         <a class="dropdown-item" @click="onClickMovePageArtifactHub">
                           Go to the page
                         </a>
-                        <a class="dropdown-item" 
-                          href="#"
-                          data-bs-toggle="modal"
-                          data-bs-target="#modal-form"
-                          @click="onClickCreate('artifacthub', result)" >
-                          Enter content into softwareCatalog
-                        </a>
                         <a class="dropdown-item" href="#">
                           Copy file/image to repository
                         </a>
                       </div>
-                    </div>
+                    </div> -->
                   </div>
                 </div>
               </div>
@@ -303,6 +307,13 @@
     :catalog-info="selectCatalogInfo"
     @created="_getSoftwareCatalogList"
     @updated="_getSoftwareCatalogList" />
+    
+  <UploadForm 
+    ref="uploadFormModal"
+    :source-data="uploadData"
+    @uploaded="onUploaded"
+    @close="onUploadModalClose" />
+    
   <!-- <SoftwareCatalogForm 
     :mode="formMode" 
     :catalog-idx="selectCatalogIdx" 
@@ -312,16 +323,18 @@
 </template>
 <script setup lang="ts">
 // Component
-import { IconDots } from '@tabler/icons-vue'
+import { IconDots, IconDownload, IconEdit, IconRowRemove, IconSearch, IconTrash, IconUpload } from '@tabler/icons-vue'
 // @ts-ignore
 import SoftwareCatalogForm from './softwareCatalogForm.vue';
 // @ts-ignore
 import SoftwareCatalogWizard from './softwareCatalogWizard.vue';
 // @ts-ignore
 import DeleteConfirmModal from './DeleteConfirmModal.vue';
+// @ts-ignore
+import UploadForm from './uploadForm.vue';
 
 // API
-import { getSoftwareCatalogList, searchArtifacthubhub, searchDockerhub } from '../../../api/softwareCatalog';
+import { getSoftwareCatalogList, searchArtifacthubhub, searchDockerhub, upLoadDockerHubApplication, upLoadArtifactHubApplication } from '../../../api/softwareCatalog';
 
 // ETC
 import { computed, onMounted, ref } from 'vue';
@@ -345,6 +358,10 @@ const repositoryName = ref("" as string)
 // 삭제 관련 상태
 const deleteTargetCatalog = ref({} as any)
 const deleteConfirmModal = ref<any>(null)
+
+// 업로드 관련 상태
+const uploadFormModal = ref<any>(null)
+const uploadData = ref({} as any)
 
 const searchKeyword = ref("")
 const dockerHubSearchList = ref([] as any)
@@ -552,6 +569,73 @@ const goToPage = (url:string) => {
 const formattedText = (text:string) => {
   return text.replace(/\\n|\n/g, '<br/>');
 }
+
+/**
+* @Method onClickUpload
+* @Desc Upload 팝업 열기 및 데이터 설정
+*/
+const onClickUpload = (sourceData: any, sourceType: string) => {
+  
+  console.log('sourceData', sourceData)
+  // 업로드 데이터 설정
+  uploadData.value = sourceData
+  uploadData.value.sourceType = sourceType
+  console.log('uploadData', uploadData.value)
+  
+  // 업로드 폼 모달 열기
+  if (uploadFormModal.value) {
+    uploadFormModal.value.show()
+  }
+}
+
+/**
+* @Method onUploaded
+* @Desc 업로드 완료 이벤트 핸들러
+*/
+const onUploaded = async (uploadFormData: any) => {
+  console.log('Upload completed:', uploadFormData)
+
+  if(uploadFormData.sourceType == 'DockerHub') {
+    // Backend에 맞게 데이터 변환
+    uploadFormData.createdAt = uploadFormData.created_at
+    uploadFormData.updatedAt = uploadFormData.updated_at
+    uploadFormData.short_description = uploadFormData.short_description
+    uploadFormData.starCount = uploadFormData.star_count
+    uploadFormData.ratePlans = uploadFormData.rate_plans
+
+    delete uploadFormData.created_at
+    delete uploadFormData.updated_at
+    delete uploadFormData.short_description
+    delete uploadFormData.star_count
+    delete uploadFormData.rate_plans
+
+
+    const { data } = await upLoadDockerHubApplication(uploadFormData)
+  } else if(uploadFormData.sourceType == 'ArtifactHub') {
+    const params = {
+      name: uploadFormData.name,
+      tag: uploadFormData.tag
+    }
+    const { data } = await upLoadArtifactHubApplication(params)
+  }
+
+  toast.success('Software catalog uploaded successfully!')
+  
+  // 업로드 완료 후 처리 로직 추가 (API 호출 등)
+  // TODO: 실제 업로드 API 호출
+}
+
+/**
+* @Method onUploadModalClose
+* @Desc 업로드 모달 닫기 이벤트 핸들러
+*/
+const onUploadModalClose = () => {
+  uploadData.value = {
+    sourceType: '',
+    name: '',
+    sourceData: {}
+  }
+}
 </script>
 
 <style>
@@ -573,4 +657,17 @@ body {
 /* .me-3 {
   margin-right: 3px;
 } */
+ .mouse-hover {
+   opacity: 0;
+   transition: opacity 0.15s ease-in-out;
+ }
+ .list-group-item:hover .mouse-hover {
+   opacity: 1;
+ }
+ #resultDockerHubSearch .card:hover .mouse-hover {
+   opacity: 1;
+ }
+ #resultArtifactHubSearch .card:hover .mouse-hover {
+   opacity: 1;
+ }
 </style>

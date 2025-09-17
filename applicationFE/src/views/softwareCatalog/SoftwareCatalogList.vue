@@ -161,7 +161,7 @@
               <input type="text" class="form-control" placeholder="Search…" @keypress="searchCatalog"
                 v-model="searchKeyword" id="inputCatalogSearch">
               <div> <br /></div>
-              <h3 class="mb-3">dockerHub search</h3>
+              <h3 class="mb-3">DOCKERHUB</h3>
               <div class="col-md-6 col-lg-12" id="resultDockerHubEmpty" v-if="dockerHubSearchList.length == 0">No related
                 Container Images found.</div>
               <div class="row row-cards" id="resultDockerHubSearch">
@@ -212,7 +212,7 @@
                 </div>
               </div>
               <div style="margin-bottom:20px;">&nbsp;</div>
-              <h3 class="mb-3">artifactHub search</h3>
+              <h3 class="mb-3">ARTIFACTHUB</h3>
               <div class="col-md-6 col-lg-12" id="resultArtifactHubEmpty" v-if="artifactHubSearch.length == 0">No related
                 Helm Charts found.</div>
               <div class="row row-cards" id="resultArtifactHubSearch">

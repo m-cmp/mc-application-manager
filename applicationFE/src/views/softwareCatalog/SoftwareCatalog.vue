@@ -13,11 +13,11 @@
             <!-- Install Button relocated into header -->
             <div class="col-auto ms-auto">
               <button 
-                class="btn btn-primary" 
+                class="btn btn-outline-primary d-none d-sm-inline-block" 
                 data-bs-toggle='modal' 
                 data-bs-target='#install-form'
                 @click="onClickDeploy('Application Installation')">
-                INSTALL
+                DEPLOY
               </button>
             </div>
             <!-- New Button -->
@@ -105,7 +105,17 @@
                     <!-- Repository -->
                     <div class="tab-pane" id="tabs-repository">
                       <div>
-                        <RepositoryList />
+                        <template v-if="!showRepositoryDetail">
+                          <RepositoryList 
+                            :embedded="true"
+                            @open-detail="onOpenRepositoryDetail"/>
+                        </template>
+                        <template v-else>
+                          <RepositoryDetail 
+                            :embedded="true"
+                            :repository-name="selectedRepositoryName"
+                            @back-to-list="onBackToRepositoryList"/>
+                        </template>
                       </div>
                     </div>
                   </div>
@@ -129,6 +139,7 @@ import ApplicationInstallationForm from '@/views/softwareCatalog/components/appl
 import ApplicationStatusList from '@/views/softwareCatalog/components/applicationStatusList.vue';
 import SoftwareCatalogList from '@/views/softwareCatalog/components/softwareCatalogList.vue';
 import RepositoryList from '@/views/repository/RepositoryList.vue';
+import RepositoryDetail from '@/views/repository/RepositoryDetail.vue';
 
 // ETC
 import { onMounted } from 'vue';
@@ -141,6 +152,8 @@ import _ from 'lodash';
 const userinfo = useUserStore();
 const nsId = ref("" as string)
 const modalTite = ref("" as string)
+const showRepositoryDetail = ref(false)
+const selectedRepositoryName = ref("")
 
 /**
 * @Title Life Cycle
@@ -157,6 +170,16 @@ onMounted(async () => {
 */
 const onClickDeploy = (value: string) => {
   modalTite.value = value
+}
+
+const onOpenRepositoryDetail = (name: string) => {
+  selectedRepositoryName.value = name
+  showRepositoryDetail.value = true
+}
+
+const onBackToRepositoryList = () => {
+  showRepositoryDetail.value = false
+  selectedRepositoryName.value = ""
 }
 
 

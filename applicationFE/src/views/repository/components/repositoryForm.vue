@@ -20,10 +20,10 @@
             <div class="mb-3">
               <label class="form-label required">Format</label>
               <div>
-                <label class="form-check form-check-inline">
+                <!-- <label class="form-check form-check-inline">
                   <input class="form-check-input" type="radio" name="format" value="raw" v-model="repositoryFormData.format" :disabled="props.mode != 'new'" />
                   <span class="form-check-label">raw</span>
-                </label>
+                </label> -->
                 <label class="form-check form-check-inline">
                   <input class="form-check-input" type="radio" name="format" value="helm" v-model="repositoryFormData.format" :disabled="props.mode != 'new'" />
                   <span class="form-check-label">helm</span>
@@ -69,7 +69,7 @@
               </div>
             </div>
 
-            <div class="mb-3">
+            <!-- <div class="mb-3">
               <label class="form-label required">Storage</label>
               <div class="grid gap-0 column-gap-3">
                 <input type="text" class="form-control p-2 g-col-11" value="default" disabled />
@@ -88,7 +88,7 @@
               <div class="grid gap-0 column-gap-3">
                 <input type="number" class="form-control p-2 g-col-11" v-model="httpsPort" :disabled="repositoryFormData.format != 'docker'" placeholder="Enter HTTPS port" />
               </div>
-            </div>
+            </div> -->
 
           </div>
         </div>
@@ -158,7 +158,7 @@ const httpsPort = ref(0 as number)
 const setInit = async () => {
   if (props.mode === 'new') {
     repositoryFormData.value.name = ''
-    repositoryFormData.value.format = 'raw'
+    repositoryFormData.value.format = 'helm'
     repositoryFormData.value.type = 'hosted'
     repositoryFormData.value.url = ''
     repositoryFormData.value.online = true

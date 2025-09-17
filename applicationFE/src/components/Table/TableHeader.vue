@@ -7,18 +7,18 @@
         <div class="btn-list">
           <a
             v-if="!props.popupFlag"
-            class="btn btn-primary d-none d-sm-inline-block" 
+            class="btn btn-outline-primary d-none d-sm-inline-block" 
             @click.prevent.stop="onClickNewbtn">
-            <IconPlus class="icon icon-tabler icon-tabler-plus" color="white" :size="20" stroke-width="1" />
+            <IconPlus class="icon icon-tabler icon-tabler-plus" :size="20" stroke-width="1" />
             {{ props.newBtnTitle }}
           </a>
           <a
             v-else
-            class="btn btn-primary d-none d-sm-inline-block" 
+            class="btn btn-outline-primary d-none d-sm-inline-block" 
             data-bs-toggle="modal" 
             :data-bs-target="props.popupTarget"
             @click.prevent.stop="onClickNewbtn">
-            <IconPlus class="icon icon-tabler icon-tabler-plus" color="white" :size="20" stroke-width="1" />
+            <IconPlus class="icon icon-tabler icon-tabler-plus" :size="20" stroke-width="1" />
             {{ props.newBtnTitle }}
           </a>
         </div>

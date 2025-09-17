@@ -37,6 +37,11 @@ import RepositoryForm from './components/repositoryForm.vue';
 import DeleteRepository from './components/deleteRepository.vue';
 
 const toast = useToast()
+// Embedded 모드: SoftwareCatalog 탭 내에서 상세 전환을 위해 사용
+const props = defineProps<{ embedded?: boolean }>()
+const emit = defineEmits<{
+  (e: 'open-detail', repositoryName: string): void
+}>()
 /**
  * @Title repositoryList / columns
  * @Desc 
@@ -85,23 +90,54 @@ const setColumns = () => {
       cellClick: function (e, cell) {
         e.stopPropagation();
         selectRepositoryName.value = cell.getRow().getData().name
-        router.push('/web/repository/detail/' + selectRepositoryName.value)
+        if (props.embedded) {
+          emit('open-detail', selectRepositoryName.value)
+        } else {
+          router.push('/web/repository/detail/' + selectRepositoryName.value)
+        }
       }
     },
     {
       title: "Format",
       field: "format",
-      width: '10%'
+      width: '10%',
+      cellClick: function (e, cell) {
+        e.stopPropagation();
+        selectRepositoryName.value = cell.getRow().getData().name
+        if (props.embedded) {
+          emit('open-detail', selectRepositoryName.value)
+        } else {
+          router.push('/web/repository/detail/' + selectRepositoryName.value)
+        }
+      }
     },
     {
       title: "URL",
       field: "url",
-      width: '40%'
+      width: '40%',
+      cellClick: function (e, cell) {
+        e.stopPropagation();
+        selectRepositoryName.value = cell.getRow().getData().name
+        if (props.embedded) {
+          emit('open-detail', selectRepositoryName.value)
+        } else {
+          router.push('/web/repository/detail/' + selectRepositoryName.value)
+        }
+      }
     },
     {
       title: "Type(hosted)",
       field: "type",
-      width: '15%'
+      width: '15%',
+      cellClick: function (e, cell) {
+        e.stopPropagation();
+        selectRepositoryName.value = cell.getRow().getData().name
+        if (props.embedded) {
+          emit('open-detail', selectRepositoryName.value)
+        } else {
+          router.push('/web/repository/detail/' + selectRepositoryName.value)
+        }
+      }
     },
     {
       title: "Action",
@@ -131,14 +167,14 @@ const editDeleteButtonFormatter = () => {
   return `
   <div>
     <button
-      class='btn btn-primary d-none d-sm-inline-block me-1'
+      class='btn btn-outline-primary d-none d-sm-inline-block me-1'
       id='edit-btn'
       data-bs-toggle='modal' 
       data-bs-target='#repositoryForm'>
       Update
     </button>
     <button
-      class='btn btn-danger d-none d-sm-inline-block'
+      class='btn btn-outline-danger d-none d-sm-inline-block'
       id='delete-btn'
       data-bs-toggle='modal' 
       data-bs-target='#deleteRepository'>
