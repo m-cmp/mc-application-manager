@@ -2,10 +2,6 @@ package kr.co.mcmp.softwarecatalog;
 
 import java.util.List;
 
-import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
-import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
-import kr.co.mcmp.softwarecatalog.category.dto.KeyValueDTO;
-import kr.co.mcmp.softwarecatalog.category.dto.SoftwareCatalogRequestDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -53,8 +49,14 @@ public class CatalogController {
 
     @Operation(summary = "Get all catalogs")
     @GetMapping
-    public ResponseEntity<ResponseWrapper<List<SoftwareCatalogDTO>>> getAllCatalogs() {
-        List<SoftwareCatalogDTO> catalogs = catalogService.getAllCatalogs();
+    public ResponseEntity<ResponseWrapper<List<SoftwareCatalogDTO>>> getAllCatalogs(
+            @RequestParam(required = false) String name) {
+        List<SoftwareCatalogDTO> catalogs;
+        if (name != null && !name.trim().isEmpty()) {
+            catalogs = catalogService.getCatalogsByName(name);
+        } else {
+            catalogs = catalogService.getAllCatalogs();
+        }
         return ResponseEntity.ok(new ResponseWrapper<>(catalogs));
     }
 

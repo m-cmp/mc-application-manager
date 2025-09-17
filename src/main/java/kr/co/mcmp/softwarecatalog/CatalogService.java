@@ -13,6 +13,8 @@ import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusReposi
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
+import kr.co.mcmp.softwarecatalog.rating.repository.OverallRatingRepository;
+import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.category.entity.IngressConfig;
 import kr.co.mcmp.softwarecatalog.category.repository.IngressConfigRepository;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
@@ -45,6 +47,7 @@ public class CatalogService {
     private final CommonModuleRepositoryService moduleRepositoryService;
     private final IngressConfigRepository ingressConfigRepository;
     private final PortMappingRepository portMappingRepository;
+    private final OverallRatingRepository overallRatingRepository;
     private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final ApplicationStatusRepository applicationStatusRepository;
     private final EntityManager entityManager;
@@ -166,6 +169,43 @@ public class CatalogService {
 
             helmChartRepository.findByCatalogId(catalog.getId())
                     .ifPresent(helmChart -> dto.setHelmChart(HelmChartDTO.fromEntity(helmChart)));
+
+            // 평균 평점 추가
+            Double averageRating = overallRatingRepository.findAverageRatingByCatalogId(catalog.getId());
+            dto.setAverageRating(averageRating != null ? averageRating : 0.0);
+
+            // 다운로드 횟수 추가 (배포 성공한 것만)
+            Long downloadCount = deploymentHistoryRepository.countByCatalogIdAndStatusAndActionType(catalog.getId(), "SUCCESS", ActionType.INSTALL);
+            dto.setDownloadCount(downloadCount != null ? downloadCount : 0L);
+
+            dtos.add(dto);
+        }
+
+        return dtos;
+    }
+
+    public List<SoftwareCatalogDTO> getCatalogsByName(String name) {
+        List<SoftwareCatalog> catalogs = catalogRepository.findByNameContainingIgnoreCaseWithCatalogRefs(name);
+        List<SoftwareCatalogDTO> dtos = new ArrayList<>();
+
+        for (SoftwareCatalog catalog : catalogs) {
+            SoftwareCatalogDTO dto = SoftwareCatalogDTO.fromEntity(catalog);
+
+            List<CatalogRefEntity> refs = catalogRefRepository.findByCatalogId(catalog.getId());
+            dto.setCatalogRefs(refs.stream().map(CatalogRefDTO::fromEntity).collect(Collectors.toList()));
+
+            packageInfoRepository.findByCatalogId(catalog.getId()).ifPresent(packageInfo -> dto.setPackageInfo(PackageInfoDTO.fromEntity(packageInfo)));
+
+            helmChartRepository.findByCatalogId(catalog.getId())
+                    .ifPresent(helmChart -> dto.setHelmChart(HelmChartDTO.fromEntity(helmChart)));
+
+            // 평균 평점 추가
+            Double averageRating = overallRatingRepository.findAverageRatingByCatalogId(catalog.getId());
+            dto.setAverageRating(averageRating != null ? averageRating : 0.0);
+
+            // 다운로드 횟수 추가 (배포 성공한 것만)
+            Long downloadCount = deploymentHistoryRepository.countByCatalogIdAndStatusAndActionType(catalog.getId(), "SUCCESS", ActionType.INSTALL);
+            dto.setDownloadCount(downloadCount != null ? downloadCount : 0L);
 
             dtos.add(dto);
         }
