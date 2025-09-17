@@ -19,9 +19,12 @@ public class DockerHubTag {
     public static class TagResult {
         private int id;
         private String name;
-        private long full_size;
-        private String last_updated;
-        private String last_updater_username;
+        @JsonProperty("full_size")
+        private long fullSize;
+        @JsonProperty("last_updated")
+        private String lastUpdated;
+        @JsonProperty("last_updater_username")
+        private String lastUpdaterUsername;
         private boolean v2;
         private List<Image> images;
         // 필요하면 다른 필드 추가
@@ -35,14 +38,14 @@ public class DockerHubTag {
         private String digest;
         private String os;
         @JsonProperty("os_features")
-        private String os_features;
+        private String osFeatures;
         @JsonProperty("os_version")
-        private String os_version;
+        private String osVersion;
         private long size;
         private String status;
         @JsonProperty("last_pulled")
-        private String last_pulled;
+        private String lastPulled;
         @JsonProperty("last_pushed")
-        private String last_pushed;
+        private String lastPushed;
     }
 }

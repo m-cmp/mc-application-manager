@@ -20,7 +20,7 @@ public class ApplicationHelmChartService {
 
     @Transactional
     public Map<String, Object> registerHelmChart(HelmChartRegistrationRequest request, String username) {
-        log.info("Registering Helm Chart: {}:{}", request.getChartName(), request.getChartVersion());
+        log.info("Registering Helm Chart: {}:{}", request.getName(), request.getVersion());
         return helmChartIntegrationService.registerHelmChart(request, username);
     }
 

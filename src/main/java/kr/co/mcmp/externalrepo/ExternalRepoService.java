@@ -1,9 +1,6 @@
 package kr.co.mcmp.externalrepo;
 
-import kr.co.mcmp.externalrepo.model.ArtifactHubPackage;
-import kr.co.mcmp.externalrepo.model.ArtifactHubRepository;
-import kr.co.mcmp.externalrepo.model.DockerHubCatalog;
-import kr.co.mcmp.externalrepo.model.DockerHubTag;
+import kr.co.mcmp.externalrepo.model.*;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,13 +22,6 @@ public class ExternalRepoService {
 
     public List<ArtifactHubRepository> searchArtifactHubRepository(String keyword){
         return artfInt.searchRepository(keyword);
-
-    }
-
-    public ArtifactHubPackage searchArtifactHubPackage(String keyword){
-        ArtifactHubPackage test = artfInt.searchPackage(keyword, "0");
-        log.info("ArtifactHubPackage : {}", test.toString());
-        return test;
     }
 
     public DockerHubNamespace searchDockerHubNamespace(String keyword){
@@ -51,6 +41,22 @@ public class ExternalRepoService {
         if(tag != null){
             tagList = tag.getResults();
             log.info("DockerHubTag : {}",tagList.toString());
+        }
+        return tagList;
+    }
+
+    public ArtifactHubPackage searchArtifactHubPackage(String keyword){
+        ArtifactHubPackage test = artfInt.searchPackage(keyword, "0");
+        log.info("ArtifactHubPackage : {}", test.toString());
+        return test;
+    }
+
+    public List<ArtifactHubTag.ArtifactHubVersion> searchArtifactHubTag(String packageKind, String repository, String packageName){
+        ArtifactHubTag artifactHubInfo = artfInt.searchTags(packageKind, repository, packageName);
+        List<ArtifactHubTag.ArtifactHubVersion> tagList = null;
+        if(artifactHubInfo != null){
+            tagList = artifactHubInfo.getAvailableVersions();
+            log.info("ArtifactHubTag : {}",tagList.toString());
         }
         return tagList;
     }

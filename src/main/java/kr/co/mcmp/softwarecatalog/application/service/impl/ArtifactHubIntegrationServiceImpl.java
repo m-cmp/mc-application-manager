@@ -1,22 +1,20 @@
 package kr.co.mcmp.softwarecatalog.application.service.impl;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.DataInput;
+import java.util.*;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import kr.co.mcmp.externalrepo.model.ArtifactHubPackage;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
 
 import kr.co.mcmp.softwarecatalog.application.service.ArtifactHubIntegrationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 
 /**
  * ArtifactHub 연동 서비스 구현체
@@ -25,28 +23,28 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Slf4j
 @RequiredArgsConstructor
 public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegrationService {
-    
+
     @Autowired
     private RestTemplate restTemplate;
-    
+
     private static final String ARTIFACT_HUB_API_BASE = "https://artifacthub.io/api/v1";
-    
+
     /**
      * ArtifactHub에서 Helm Chart를 검색합니다. (공식 저장소만 필터링)
      */
     @Override
     public Map<String, Object> searchHelmCharts(String query, int page, int pageSize) {
         log.info("Searching ArtifactHub Helm charts (Official repositories only): query={}, page={}, pageSize={}", query, page, pageSize);
-        
+
         Map<String, Object> result = new HashMap<>();
-        
+
         try {
-            String url = String.format("%s/packages/search?kind=0&facets=false&page=%d&limit=%d&sort=relevance&ts_query_web=%s", 
+            String url = String.format("%s/packages/search?kind=0&facets=false&page=%d&limit=%d&sort=relevance&ts_query_web=%s",
                     ARTIFACT_HUB_API_BASE, page, pageSize, query);
-            
+
             HttpEntity<String> entity = createHttpEntity();
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
-            
+
             if (response.getStatusCode().is2xxSuccessful()) {
                 Map<String, Object> responseBody = response.getBody();
                 if (responseBody != null) {
@@ -66,13 +64,13 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
                                 }
                             }
                         }
-                        
+
                         // 필터링된 결과로 교체
                         responseBody.put("packages", officialPackages);
                         log.info("Filtered to {} official packages from {} total packages", officialPackages.size(), allPackages.size());
                     }
                 }
-                
+
                 result.put("success", true);
                 result.put("data", responseBody);
                 result.put("message", "ArtifactHub Helm chart search completed successfully (Official repositories only)");
@@ -82,16 +80,16 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
                 result.put("message", "Failed to search ArtifactHub: " + response.getStatusCode());
                 log.error("ArtifactHub search failed: {}", response.getStatusCode());
             }
-            
+
         } catch (Exception e) {
             log.error("Error searching ArtifactHub Helm charts: {}", e.getMessage());
             result.put("success", false);
             result.put("message", "Error searching ArtifactHub Helm charts: " + e.getMessage());
         }
-        
+
         return result;
     }
-    
+
     /**
      * 공식 저장소인지 검증합니다.
      */
@@ -99,7 +97,7 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
         if (repositoryUrl == null) {
             return false;
         }
-        
+
         // 허용된 공식 저장소 목록 (확장)
         String[] officialRepositories = {
             "charts.bitnami.com",
@@ -132,18 +130,18 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
             "traefik.github.io",
             "https://traefik.github.io/charts"
         };
-        
+
         for (String officialRepo : officialRepositories) {
             if (repositoryUrl.contains(officialRepo)) {
                 log.debug("Repository verified as official: {}", repositoryUrl);
                 return true;
             }
         }
-        
+
         log.debug("Repository not in official list: {}", repositoryUrl);
         return false;
     }
-    
+
     /**
      * 여러 페이지에서 패키지를 검색하는 헬퍼 메서드
      */
@@ -151,25 +149,25 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
         try {
             // API 제한을 고려하여 페이지 수를 최소화
             for (int page = 1; page <= 3; page++) {
-                String url = String.format("%s/packages/search?kind=0&facets=false&page=%d&limit=60&sort=relevance&ts_query_web=%s", 
+                String url = String.format("%s/packages/search?kind=0&facets=false&page=%d&limit=60&sort=relevance&ts_query_web=%s",
                         ARTIFACT_HUB_API_BASE, page, searchTerm);
                 HttpEntity<String> entity = createHttpEntity();
                 ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-                
+
                 if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                     try {
                         ObjectMapper mapper = new ObjectMapper();
                         Map<String, Object> responseBody = mapper.readValue(response.getBody(), Map.class);
                         @SuppressWarnings("unchecked")
                         List<Map<String, Object>> packages = (List<Map<String, Object>>) responseBody.get("packages");
-                        
+
                         if (packages != null) {
                             log.info("Found {} packages in search results for term '{}'", packages.size(), searchTerm);
                             for (Map<String, Object> packageInfo : packages) {
                                 String foundPackageId = (String) packageInfo.get("package_id");
                                 String packageName = (String) packageInfo.get("name");
                                 log.debug("Checking package: id={}, name={}", foundPackageId, packageName);
-                                
+
                                 if (packageId.equals(foundPackageId)) {
                                     result.put("success", true);
                                     result.put("data", packageInfo);
@@ -187,7 +185,7 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
                     log.warn("API rate limit reached for term '{}', skipping remaining pages", searchTerm);
                     break;
                 }
-                
+
                 // API 제한을 피하기 위해 페이지 간 대기
                 if (page < 3) {
                     try {
@@ -201,10 +199,10 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
         } catch (Exception e) {
             log.error("Error searching for package with term '{}': {}", searchTerm, e.getMessage());
         }
-        
+
         return false;
     }
-    
+
     /**
      * ArtifactHub에서 Helm Chart 버전 목록을 조회합니다.
      * ArtifactHub API는 직접적인 버전 조회 엔드포인트를 제공하지 않으므로,
@@ -213,9 +211,9 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
     @Override
     public List<String> getHelmChartVersions(String packageId) {
         log.info("Getting ArtifactHub Helm chart versions: packageId={}", packageId);
-        
+
         List<String> versions = new ArrayList<>();
-        
+
         try {
             // 먼저 패키지 상세 정보를 조회하여 repository 정보를 얻습니다
             // Map<String, Object> chartDetails = getHelmChartDetails(packageId);
@@ -224,14 +222,14 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
                 log.warn("Failed to get chart details for packageId: {}", packageId);
                 return versions;
             }
-            
+
             @SuppressWarnings("unchecked")
             Map<String, Object> chartData = (Map<String, Object>) chartDetails.get("data");
             if (chartData == null) {
                 log.warn("No chart data found for packageId: {}", packageId);
                 return versions;
             }
-            
+
             // Repository 정보에서 repository name을 추출
             @SuppressWarnings("unchecked")
             Map<String, Object> repository = (Map<String, Object>) chartData.get("repository");
@@ -239,41 +237,41 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
                 log.warn("No repository information found for packageId: {}", packageId);
                 return versions;
             }
-            
+
             String repositoryName = (String) repository.get("name");
             String chartName = (String) chartData.get("name");
-            
+
             if (repositoryName == null || chartName == null) {
                 log.warn("Missing repository name or chart name for packageId: {}", packageId);
                 return versions;
             }
-            
+
             // 여러 페이지를 검색하여 모든 버전을 수집
             for (int page = 1; page <= 5; page++) {
                 String searchQuery = String.format("%s %s", repositoryName, chartName);
-                String url = String.format("%s/packages/search?kind=0&facets=false&page=%d&limit=60&sort=relevance&ts_query_web=%s", 
+                String url = String.format("%s/packages/search?kind=0&facets=false&page=%d&limit=60&sort=relevance&ts_query_web=%s",
                         ARTIFACT_HUB_API_BASE, page, searchQuery);
-                
+
                 HttpEntity<String> entity = createHttpEntity();
                 ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
-                
+
                 if (response.getStatusCode().is2xxSuccessful()) {
                     Map<String, Object> responseBody = (Map<String, Object>) response.getBody();
                     @SuppressWarnings("unchecked")
                     List<Map<String, Object>> packages = (List<Map<String, Object>>) responseBody.get("packages");
-                    
+
                     if (packages != null && !packages.isEmpty()) {
                         boolean foundMatchingChart = false;
                         for (Map<String, Object> packageInfo : packages) {
                             String pkgName = (String) packageInfo.get("name");
                             String version = (String) packageInfo.get("version");
-                            
+
                             if (chartName.equals(pkgName) && version != null && !versions.contains(version)) {
                                 versions.add(version);
                                 foundMatchingChart = true;
                             }
                         }
-                        
+
                         // 더 이상 매칭되는 차트가 없으면 검색 중단
                         if (!foundMatchingChart) {
                             break;
@@ -287,17 +285,57 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
                     break;
                 }
             }
-            
-            log.info("Successfully retrieved {} versions for Helm chart: {} (repository: {})", 
+
+            log.info("Successfully retrieved {} versions for Helm chart: {} (repository: {})",
                     versions.size(), chartName, repositoryName);
-            
+
         } catch (Exception e) {
             log.error("Error getting ArtifactHub Helm chart versions: {}", e.getMessage());
         }
-        
+
         return versions;
     }
-    
+
+    @Override
+    public ArtifactHubPackage.Package getPackageDetailInfo(String packageKind, String repository, String packageName, String version) {
+        String url = String.format("%s/packages/%s/%s/%s/%s",
+                ARTIFACT_HUB_API_BASE, packageKind, repository, packageName, version);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            MediaType contentType = response.getHeaders().getContentType();
+            try {
+                ObjectMapper mapper = new ObjectMapper()
+                        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+                // 컨텐츠 타입이 정확히 application/json이 아니더라도 subtype에 json이 포함되면 처리
+                if (contentType == null || contentType.includes(MediaType.APPLICATION_JSON)
+                        || (contentType.getSubtype() != null && contentType.getSubtype().toLowerCase(Locale.ROOT).contains("json"))) {
+                    return mapper.readValue(response.getBody(), ArtifactHubPackage.Package.class);
+                } else {
+                    log.warn("Unexpected content type: {} - trying to parse anyway", contentType);
+                    return mapper.readValue(response.getBody(), ArtifactHubPackage.Package.class);
+                }
+            } catch (Exception e) {
+                log.error("Failed to parse response body", e);
+                return null;
+            }
+        } else {
+            log.warn("Failed to fetch package detail: {}", response.getStatusCode());
+            return null;
+        }
+    }
+
+
+
+
     /**
      * HTTP 엔티티 생성
      */
@@ -305,6 +343,7 @@ public class ArtifactHubIntegrationServiceImpl implements ArtifactHubIntegration
         HttpHeaders headers = new HttpHeaders();
         headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
         headers.set("Accept", "application/json");
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
         return new HttpEntity<>(headers);
     }
 }
