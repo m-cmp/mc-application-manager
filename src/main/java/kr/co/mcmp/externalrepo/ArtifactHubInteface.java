@@ -21,5 +21,5 @@ public interface ArtifactHubInteface {
     ArtifactHubPackage searchPackage(@RequestParam("ts_query_web") String helm, @RequestParam(required=false, value="kind", defaultValue="0") String kind);
 
     @GetMapping(value="/api/v1/packages/{packageKind}/{repository}/{packageName}")
-    ArtifactHubTag searchTags(@PathVariable String packageKind, @PathVariable String repository, @PathVariable String packageName);
+    ArtifactHubTag searchTags(@PathVariable("packageKind") String packageKind, @PathVariable("repository") String repository, @PathVariable("packageName") String packageName);
 }

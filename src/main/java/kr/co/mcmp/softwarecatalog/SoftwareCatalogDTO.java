@@ -72,6 +72,10 @@ public class SoftwareCatalogDTO {
     private Long registeredById;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    // 6. Rating and Download Info
+    private Double averageRating;
+    private Long downloadCount;
 
     public static SoftwareCatalogDTO fromEntity(SoftwareCatalog entity) {
         if (entity == null) {

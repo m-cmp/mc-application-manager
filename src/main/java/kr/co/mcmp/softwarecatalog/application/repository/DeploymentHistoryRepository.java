@@ -1,7 +1,6 @@
 package kr.co.mcmp.softwarecatalog.application.repository;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -11,7 +10,6 @@ import org.springframework.stereotype.Repository;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
-import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 
@@ -44,4 +42,6 @@ public interface DeploymentHistoryRepository extends JpaRepository<DeploymentHis
     void deleteAllByCatalogId(@Param("catalogId") Long catalogId);
     
     void deleteByCatalog(SoftwareCatalog catalog);
+    
+    Long countByCatalogIdAndStatusAndActionType(Long catalogId, String status, ActionType actionType);
 }
