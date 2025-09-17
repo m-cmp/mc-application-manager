@@ -75,7 +75,12 @@ public class SoftwareCatalogDTO {
     
     // 6. Rating and Download Info
     private Double averageRating;
+    private Long ratingCount;
     private Long downloadCount;
+    
+    // 7. Formatted Display Fields
+    private String formattedRatingCount;
+    private String formattedDownloadCount;
 
     public static SoftwareCatalogDTO fromEntity(SoftwareCatalog entity) {
         if (entity == null) {

@@ -15,6 +15,7 @@ import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
 import kr.co.mcmp.softwarecatalog.rating.repository.OverallRatingRepository;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
+import kr.co.mcmp.softwarecatalog.util.NumberFormatUtil;
 import kr.co.mcmp.softwarecatalog.category.entity.IngressConfig;
 import kr.co.mcmp.softwarecatalog.category.repository.IngressConfigRepository;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
@@ -174,9 +175,15 @@ public class CatalogService {
             Double averageRating = overallRatingRepository.findAverageRatingByCatalogId(catalog.getId());
             dto.setAverageRating(averageRating != null ? averageRating : 0.0);
 
+            // 평가 횟수 추가
+            Long ratingCount = overallRatingRepository.countByCatalogId(catalog.getId());
+            dto.setRatingCount(ratingCount != null ? ratingCount : 0L);
+            dto.setFormattedRatingCount(NumberFormatUtil.formatNumber(ratingCount != null ? ratingCount : 0L));
+
             // 다운로드 횟수 추가 (배포 성공한 것만)
             Long downloadCount = deploymentHistoryRepository.countByCatalogIdAndStatusAndActionType(catalog.getId(), "SUCCESS", ActionType.INSTALL);
             dto.setDownloadCount(downloadCount != null ? downloadCount : 0L);
+            dto.setFormattedDownloadCount(NumberFormatUtil.formatNumber(downloadCount != null ? downloadCount : 0L));
 
             dtos.add(dto);
         }
@@ -203,9 +210,15 @@ public class CatalogService {
             Double averageRating = overallRatingRepository.findAverageRatingByCatalogId(catalog.getId());
             dto.setAverageRating(averageRating != null ? averageRating : 0.0);
 
+            // 평가 횟수 추가
+            Long ratingCount = overallRatingRepository.countByCatalogId(catalog.getId());
+            dto.setRatingCount(ratingCount != null ? ratingCount : 0L);
+            dto.setFormattedRatingCount(NumberFormatUtil.formatNumber(ratingCount != null ? ratingCount : 0L));
+
             // 다운로드 횟수 추가 (배포 성공한 것만)
             Long downloadCount = deploymentHistoryRepository.countByCatalogIdAndStatusAndActionType(catalog.getId(), "SUCCESS", ActionType.INSTALL);
             dto.setDownloadCount(downloadCount != null ? downloadCount : 0L);
+            dto.setFormattedDownloadCount(NumberFormatUtil.formatNumber(downloadCount != null ? downloadCount : 0L));
 
             dtos.add(dto);
         }
