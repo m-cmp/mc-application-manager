@@ -24,7 +24,7 @@ import kr.co.mcmp.softwarecatalog.rating.service.SoftwareRatingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-@Tag(name = "Software Rating Management", description = "소프트웨어 평가 및 평점 관리 API")
+@Tag(name = "Software Rating Management", description = "Software rating and evaluation management API")
 @RestController
 @Slf4j
 @RequestMapping("/catalog/rating")
@@ -33,7 +33,7 @@ public class SoftwareRatingController {
 
     private final SoftwareRatingService softwareRatingService;
 
-    @Operation(summary = "소프트웨어 전체 평가 등록", description = "소프트웨어에 대한 전체 평가를 등록합니다.")
+    @Operation(summary = "Create Overall Software Rating", description = "Register overall evaluation for software.")
     @PostMapping("/overall")
     public ResponseEntity<ResponseWrapper<OverallRatingResponseDTO>> createOverallRating(
             @RequestBody OverallRatingRequestDTO request,
@@ -42,7 +42,7 @@ public class SoftwareRatingController {
         return ResponseEntity.ok(new ResponseWrapper<>(response));
     }
 
-    @Operation(summary = "소프트웨어 전체 평가 수정", description = "기존 전체 평가를 수정합니다.")
+    @Operation(summary = "Update Overall Software Rating", description = "Update existing overall evaluation.")
     @PutMapping("/overall/{ratingId}")
     public ResponseEntity<ResponseWrapper<OverallRatingResponseDTO>> updateOverallRating(
             @PathVariable Long ratingId,
@@ -52,7 +52,7 @@ public class SoftwareRatingController {
         return ResponseEntity.ok(new ResponseWrapper<>(response));
     }
 
-    @Operation(summary = "소프트웨어 전체 평가 조회", description = "특정 소프트웨어의 전체 평가를 조회합니다.")
+    @Operation(summary = "Get Overall Software Ratings", description = "Retrieve overall evaluations for specific software.")
     @GetMapping("/overall/{catalogId}")
     public ResponseEntity<ResponseWrapper<List<OverallRatingResponseDTO>>> getOverallRatings(
             @PathVariable Long catalogId,
@@ -62,7 +62,7 @@ public class SoftwareRatingController {
         return ResponseEntity.ok(new ResponseWrapper<>(ratings));
     }
 
-    @Operation(summary = "소프트웨어 평점 요약 조회", description = "소프트웨어의 평점 요약 정보를 조회합니다.")
+    @Operation(summary = "Get Software Rating Summary", description = "Retrieve software rating summary information.")
     @GetMapping("/summary/{catalogId}")
     public ResponseEntity<ResponseWrapper<RatingSummaryDTO>> getRatingSummary(
             @PathVariable Long catalogId) {
@@ -70,7 +70,7 @@ public class SoftwareRatingController {
         return ResponseEntity.ok(new ResponseWrapper<>(summary));
     }
 
-    @Operation(summary = "사용자별 평가 조회", description = "특정 사용자의 평가 목록을 조회합니다.")
+    @Operation(summary = "Get User Ratings", description = "Retrieve rating list for specific user.")
     @GetMapping("/user/{username}")
     public ResponseEntity<ResponseWrapper<List<OverallRatingResponseDTO>>> getUserRatings(
             @PathVariable String username,
@@ -80,7 +80,7 @@ public class SoftwareRatingController {
         return ResponseEntity.ok(new ResponseWrapper<>(ratings));
     }
 
-    @Operation(summary = "평가 통계 조회", description = "평가 통계 정보를 조회합니다.")
+    @Operation(summary = "Get Rating Statistics", description = "Retrieve rating statistics information.")
     @GetMapping("/statistics")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> getRatingStatistics(
             @RequestParam(required = false) Long catalogId,
@@ -89,7 +89,7 @@ public class SoftwareRatingController {
         return ResponseEntity.ok(new ResponseWrapper<>(statistics));
     }
 
-    @Operation(summary = "평가 삭제", description = "사용자가 작성한 평가를 삭제합니다.")
+    @Operation(summary = "Delete Rating", description = "Delete evaluation written by user.")
     @PutMapping("/overall/{ratingId}/delete")
     public ResponseEntity<ResponseWrapper<Void>> deleteOverallRating(
             @PathVariable Long ratingId,
