@@ -48,9 +48,10 @@ public interface ApplicationHistoryService {
      * @param applicationStatus 애플리케이션 상태
      * @param username 사용자명
      * @param reason 작업 사유
+     * @param detailReason 상세 작업 사유
      * @param actionType 작업 타입
      */
-    void insertOperationHistory(ApplicationStatus applicationStatus, String username, String reason, ActionType actionType);
+    void insertOperationHistory(ApplicationStatus applicationStatus, String username, String reason, String detailReason, ActionType actionType);
     
     /**
      * 배포 이력 목록을 조회합니다.

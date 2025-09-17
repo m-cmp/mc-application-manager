@@ -1,10 +1,12 @@
 package kr.co.mcmp.response;
 
 import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
 
 @Getter
+@Setter
 public class ResponseWrapper<T> implements Serializable {
 	
 	private static final long serialVersionUID = -1745006582949878939L;

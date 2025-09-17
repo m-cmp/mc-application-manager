@@ -23,7 +23,7 @@ import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
-import kr.co.mcmp.softwarecatalog.kubernetes.util.KubernetesClientFactory;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

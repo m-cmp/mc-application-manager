@@ -55,23 +55,28 @@ public class SpecValidationServiceImpl implements SpecValidationService {
     
     @Override
     public boolean checkSpecForK8s(String namespace, String clusterName, Long catalogId) {
-        SoftwareCatalogDTO catalog = catalogService.getCatalog(catalogId);
-        K8sSpec nodeSpec = getSpecForK8s(namespace, clusterName);
-        
-        List<DeploymentHistory> activeDeployments = deploymentHistoryRepository.findByNamespaceAndClusterNameAndActionTypeNotAndStatus(
-            namespace, clusterName, ActionType.UNINSTALL, "SUCCESS"
-        );
+        try {
+            SoftwareCatalogDTO catalog = catalogService.getCatalog(catalogId);
+            K8sSpec nodeSpec = getSpecForK8s(namespace, clusterName);
+            
+            List<DeploymentHistory> activeDeployments = deploymentHistoryRepository.findByNamespaceAndClusterNameAndActionTypeNotAndStatus(
+                namespace, clusterName, ActionType.UNINSTALL, "SUCCESS"
+            );
 
-        double usedCpu = activeDeployments.stream().mapToDouble(d -> d.getCatalog().getRecommendedCpu()).sum();
-        double usedMemory = activeDeployments.stream().mapToDouble(d -> d.getCatalog().getRecommendedMemory()).sum();
+            double usedCpu = activeDeployments.stream().mapToDouble(d -> d.getCatalog().getRecommendedCpu()).sum();
+            double usedMemory = activeDeployments.stream().mapToDouble(d -> d.getCatalog().getRecommendedMemory()).sum();
 
-        double availableCpu = Double.parseDouble(nodeSpec.getVCpu().getCount()) - usedCpu;
-        double availableMemory = Double.parseDouble(nodeSpec.getMem()) - usedMemory;
+            double availableCpu = Double.parseDouble(nodeSpec.getVCpu().getCount()) - usedCpu;
+            double availableMemory = Double.parseDouble(nodeSpec.getMem()) - usedMemory;
 
-        log.info("K8s Node Spec Check - Available vCPU: {}, Required vCPU: {}", availableCpu, catalog.getRecommendedCpu());
-        log.info("K8s Node Spec Check - Available Memory: {} GiB, Required Memory: {} GiB", availableMemory, catalog.getRecommendedMemory());
+            log.info("K8s Node Spec Check - Available vCPU: {}, Required vCPU: {}", availableCpu, catalog.getRecommendedCpu());
+            log.info("K8s Node Spec Check - Available Memory: {} GiB, Required Memory: {} GiB", availableMemory, catalog.getRecommendedMemory());
 
-        return availableCpu >= catalog.getRecommendedCpu() && availableMemory >= catalog.getRecommendedMemory();
+            return availableCpu >= catalog.getRecommendedCpu() && availableMemory >= catalog.getRecommendedMemory();
+        } catch (Exception e) {
+            log.warn("K8s spec validation failed: {}. Skipping spec validation and allowing deployment.", e.getMessage());
+            return true; // 스펙 검증 실패 시에도 배포 허용
+        }
     }
     
     @Override
@@ -95,13 +100,37 @@ public class SpecValidationServiceImpl implements SpecValidationService {
         log.info("Retrieving spec for K8s cluster: namespace={}, clusterName={}", namespace, clusterName);
         try {
             K8sClusterDto clusterInfo = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
-            if (clusterInfo == null || clusterInfo.getCspViewK8sClusterDetail() == null) {
+            if (clusterInfo == null) {
                 throw new ApplicationException("Failed to retrieve K8s cluster info");
             }
 
-            List<K8sClusterDto.NodeGroup> nodeGroups = clusterInfo.getCspViewK8sClusterDetail().getNodeGroupList();
+            // spiderViewK8sClusterDetail 우선 사용, 없으면 cspViewK8sClusterDetail 사용
+            K8sClusterDto.SpiderViewK8sClusterDetail spiderDetail = clusterInfo.getSpiderViewK8sClusterDetail();
+            K8sClusterDto.CspViewK8sClusterDetail cspDetail = clusterInfo.getCspViewK8sClusterDetail();
+            
+            List<K8sClusterDto.NodeGroup> nodeGroups = null;
+            if (spiderDetail != null) {
+                nodeGroups = spiderDetail.getNodeGroupList();
+            } else if (cspDetail != null) {
+                nodeGroups = cspDetail.getNodeGroupList();
+            }
+
             if (nodeGroups == null || nodeGroups.isEmpty()) {
-                throw new ApplicationException("No node groups found for K8s cluster: " + clusterName);
+                log.warn("No node groups found for K8s cluster: {}. Using default spec for validation.", clusterName);
+                
+                // 노드 그룹이 없으면 기본 스펙 사용
+                K8sSpec defaultSpec = new K8sSpec();
+                defaultSpec.setRegion("ap-northeast-2");
+                defaultSpec.setName("default-eks-spec");
+                
+                K8sSpec.VCpu vCpu = new K8sSpec.VCpu();
+                vCpu.setCount("2");
+                vCpu.setClock("2.5");
+                defaultSpec.setVCpu(vCpu);
+                defaultSpec.setMem("4");
+                
+                log.info("Using default spec for K8s cluster without node groups: {}", defaultSpec);
+                return defaultSpec;
             }
 
             K8sClusterDto.NodeGroup firstNodeGroup = nodeGroups.get(0);

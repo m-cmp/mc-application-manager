@@ -55,7 +55,7 @@ public class KubernetesApplicationOperationService implements ApplicationOperati
                     throw new IllegalArgumentException("Unknown operation: " + operation);
             }
             result.put("result", "SUCCESS");
-            applicationHistoryService.insertOperationHistory(applicationStatus, username, reason, operation);
+            applicationHistoryService.insertOperationHistory(applicationStatus, username, reason, "Kubernetes operation: " + operation.name(), operation);
             updateApplicationStatus(applicationStatus, operation, result, username);
     
         } catch (Exception e) {

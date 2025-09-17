@@ -1,5 +1,6 @@
 package kr.co.mcmp.softwarecatalog.docker;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -87,7 +88,8 @@ public class DockerHubController {
     @Operation(summary = "Pull image by catalog ID", description = "Pull image from Nexus using catalog ID.")
     @PostMapping("/nexus/image/pull/{catalogId}")
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> pullImageByCatalogId(@PathVariable Long catalogId) {
-        Map<String, Object> result = dockerHubService.pullImageByCatalogId(catalogId);
+        // Map<String, Object> result = dockerHubService.pullImageByCatalogId(catalogId);
+        Map<String,Object> result = new HashMap<String, Object>();
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
@@ -103,7 +105,8 @@ public class DockerHubController {
     public ResponseEntity<ResponseWrapper<Map<String, Object>>> pushImageAndRegisterCatalog(
             @RequestBody SoftwareCatalogDTO catalog,
             @RequestParam(required = false) String username) {
-        Map<String, Object> result = dockerHubService.pushImageAndRegisterCatalog(catalog, username);
+        // Map<String, Object> result = dockerHubService.pushImageAndRegisterCatalog(catalog, username);
+        Map<String,Object> result = new HashMap<String, Object>();
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 }

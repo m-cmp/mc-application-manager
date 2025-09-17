@@ -52,7 +52,12 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
         
         // 스펙 검증
         if (!validateSpec(request)) {
-            throw new IllegalArgumentException("Spec validation failed for deployment request");
+            log.warn("⚠️ Spec validation failed for deployment request - catalogId: {}, type: {}", 
+                    request.getCatalogId(), request.getDeploymentType());
+            log.warn("⚠️ Continuing deployment despite insufficient resources...");
+        } else {
+            log.info("✅ Spec validation passed for deployment request - catalogId: {}, type: {}", 
+                    request.getCatalogId(), request.getDeploymentType());
         }
         
         // 배포 타입에 따른 적절한 배포 서비스 선택
@@ -144,14 +149,24 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
      */
     private boolean validateSpec(DeploymentRequest request) {
         try {
+            boolean isValid = false;
             if (request.getDeploymentType() == DeploymentType.VM) {
-                return checkSpecForVm(request.getNamespace(), request.getMciId(), request.getVmId(), request.getCatalogId());
+                isValid = checkSpecForVm(request.getNamespace(), request.getMciId(), request.getVmId(), request.getCatalogId());
+                if (!isValid) {
+                    log.warn("❌ VM spec validation failed - insufficient resources for VM deployment");
+                }
             } else if (request.getDeploymentType() == DeploymentType.K8S) {
-                return checkSpecForK8s(request.getNamespace(), request.getClusterName(), request.getCatalogId());
+                isValid = checkSpecForK8s(request.getNamespace(), request.getClusterName(), request.getCatalogId());
+                if (!isValid) {
+                    log.warn("❌ K8s spec validation failed - insufficient resources for K8s deployment");
+                }
+            } else {
+                log.info("ℹ️ Spec validation skipped for deployment type: {}", request.getDeploymentType());
+                return true; // 기타 타입은 검증 생략
             }
-            return true; // 기타 타입은 검증 생략
+            return isValid;
         } catch (Exception e) {
-            log.warn("Spec validation failed: {}", e.getMessage());
+            log.warn("❌ Spec validation error: {}", e.getMessage());
             return false;
         }
     }

@@ -11,14 +11,17 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 
-import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name ="OPERATION_HISTORY")
 public class OperationHistory {
 
@@ -38,13 +41,14 @@ public class OperationHistory {
     @Column(name = "reason")
     private String reason; // 작업 요청 이유
 
+    @Column(name = "detail_reason")
+    private String detailReason; // 상세 작업 요청 이유
+
     @Column(name = "operation_type")
     private String operationType; // 작업 유형: 중지, 재시작, 삭제 등
 
     @Column(name = "created_at")
     private LocalDateTime createdAt; // 작업 요청 시간
-
-
 
 
 }

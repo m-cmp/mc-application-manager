@@ -35,7 +35,7 @@ public class KubernetesDeploymentService implements DeploymentService {
         if (deploymentType == DeploymentType.K8S) {
             return this;
         }
-        throw new IllegalArgumentException("Unsupported deployment type: " + deploymentType);
+        return null; // K8S가 아닌 경우 null 반환
     }
 }
 

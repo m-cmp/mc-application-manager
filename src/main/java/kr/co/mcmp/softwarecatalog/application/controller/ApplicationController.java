@@ -24,11 +24,13 @@ import kr.co.mcmp.softwarecatalog.application.service.ApplicationOrchestrationSe
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import org.springframework.web.bind.annotation.PathVariable;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/applications")
 @Tag(name="Installed application", description = "Application management API for VM and K8s environments")
 @RequiredArgsConstructor
+@Slf4j
 public class ApplicationController {
 
     private final ApplicationService applicationService;
@@ -44,7 +46,19 @@ public class ApplicationController {
             @Parameter(description = "Service port number", required = true, example = "8080") @RequestParam Integer servicePort,
             @Parameter(description = "Username for deployment (optional)", example = "admin") @RequestParam(required = false) String username) {
         DeploymentRequest request = DeploymentRequest.forVm(namespace, mciId, vmId, catalogId, servicePort, username);
+        
+        // 스펙 검증 먼저 수행
+        boolean specValid = applicationOrchestrationService.checkSpecForVm(namespace, mciId, vmId, catalogId);
+        
         DeploymentHistory result = applicationOrchestrationService.deployApplication(request);
+        
+        // 스펙 검증 실패 시 경고 메시지와 함께 응답
+        if (!specValid) {
+            ResponseWrapper<DeploymentHistory> response = new ResponseWrapper<>(result);
+            response.setDetail("Warning: Insufficient VM resources detected. Deployment may fail or perform poorly.");
+            return ResponseEntity.ok(response);
+        }
+        
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
@@ -56,6 +70,7 @@ public class ApplicationController {
             @Parameter(description = "Catalog ID of the application to deploy", required = true, example = "123") @RequestParam Long catalogId,
             @Parameter(description = "Username for deployment (optional)", example = "admin") @RequestParam(required = false) String username) {
         DeploymentRequest request = DeploymentRequest.forKubernetes(namespace, clusterName, catalogId, username);
+        
         DeploymentHistory result = applicationOrchestrationService.deployApplication(request);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }

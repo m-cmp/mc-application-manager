@@ -13,6 +13,7 @@ public class OperationHistoryDto {
     private Long applicationStatusId; // ApplicationStatus의 ID
     private Long executedById;
     private String reason;
+    private String detailReason;
     private String operationType;
     private LocalDateTime createdAt;
 
