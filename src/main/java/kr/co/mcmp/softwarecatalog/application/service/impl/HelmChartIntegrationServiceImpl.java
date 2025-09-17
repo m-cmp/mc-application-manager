@@ -56,15 +56,14 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             // 1. Helm Chart 에서 존재 여부 확인
             ArtifactHubPackage.Package detailInfo = artifactHubIntegrationService.getPackageDetailInfo("helm", request.getRepository().getName(), request.getName(), request.getVersion());
             if(detailInfo != null) {
-
-                // 3; Helm Chart 상세 정보를 HELM_CHART 테이블에 저장 (요청 데이터 사용)
-                HelmChart savedHelmChart = saveHelmChartToTableDirect(request, username);
-
                 // 2. Helm Chart를 Nexus로 push
                 Map<String, Object> pushResult = pushHelmChartToNexus(request);
                 if (!(Boolean) pushResult.get("success")) {
                     log.warn("Failed to push Helm Chart to Nexus, but saved to database: {}", pushResult.get("message"));
                 }
+
+                // 3; Helm Chart 상세 정보를 HELM_CHART 테이블에 저장 (요청 데이터 사용)
+                HelmChart savedHelmChart = saveHelmChartToTableDirect(request, username);
 
                 result.put("success", true);
                 result.put("message", "Helm Chart registered successfully");
@@ -171,6 +170,13 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             // 요청 데이터에서 추가 정보 설정
             helmChart.setDescription(request.getDescription());
             helmChart.setHomeUrl(request.getHomepage());
+            helmChart.setValuesFile(request.getDocumentationUrl());
+            helmChart.setHasValuesSchema(true);
+            helmChart.setHomeUrl(request.getHomepage());
+            helmChart.setImageRepository(request.getImageRepository());
+            helmChart.setRepositoryDisplayName(request.getRepository().getName().toUpperCase());
+            helmChart.setRepositoryName(request.getRepository().getName());
+            helmChart.setRepositoryOfficial(request.getRepository().isOfficial());
             helmChart.setValuesFile(request.getDocumentationUrl());
             // helmChart.setLicense(request.getLicense());
 
