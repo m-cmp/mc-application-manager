@@ -56,8 +56,11 @@ public class DockerHubService {
                 result.put("message", "Failed to get image info from Docker Hub: " + imageTagInfo.get("message"));
                 return result;
             }
+            // 2. Docker Hub 이미지를 Nexus에 푸시
+            Map<String, Object> pushResult = dockerHubIntegrationService.pushImageToNexus(request.getName(),
+                    request.getTag());
 
-            // Docker Hub 에서 조회된 Application 정보 Entity set
+            // 3. Docker Hub 에서 조회된 Application 정보 Entity set
             PackageInfo entity = PackageInfo.builder()
                     .architectures(
                             request.getRatePlans().get(0) != null ?
@@ -91,18 +94,14 @@ public class DockerHubService {
                     .packageVersion(request.getTag())
                     .pullCount(
                             request.getRatePlans().get(0) != null ?
-                                request.getRatePlans().get(0).getRepositories().get(0) != null ? request.getRatePlans().get(0).getRepositories().get(0).getPull_count() : null
-                            : null)
+                                    request.getRatePlans().get(0).getRepositories().get(0) != null ? request.getRatePlans().get(0).getRepositories().get(0).getPull_count() : null
+                                    : null)
                     .repositoryUrl("https://hub.docker.com/_/" + request.getName() + "/tags")
                     .starCount(request.getStarCount())
                     .build();
 
             // DB insert
             packageInfoRepository.save(entity);
-
-            // 2. Docker Hub 이미지를 Nexus에 푸시
-            Map<String, Object> pushResult = dockerHubIntegrationService.pushImageToNexus(request.getName(),
-                    request.getTag());
 
             result.put("success", true);
             result.put("message", "Docker Hub image registered successfully");
