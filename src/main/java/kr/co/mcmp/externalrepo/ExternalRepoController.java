@@ -3,7 +3,9 @@ package kr.co.mcmp.externalrepo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.co.mcmp.externalrepo.model.ArtifactHubPackage;
+import kr.co.mcmp.externalrepo.model.ArtifactHubTag;
 import kr.co.mcmp.externalrepo.model.DockerHubCatalog;
+import kr.co.mcmp.externalrepo.model.DockerHubTag;
 import kr.co.mcmp.response.ResponseWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +14,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @Tag(name="external repository search", description="External repository search (dockerhub, artifacthub, etc.)")
 @RestController
@@ -35,6 +39,17 @@ public class ExternalRepoController {
         }
     }
 
+    @Operation(summary = "Get dockerHub catalog(image tag search)")
+    @GetMapping("/dockerhub/tag/{namespace}/{reposigory}")
+    public ResponseWrapper<List<DockerHubTag.TagResult>> getDockerHubTagList(@PathVariable String namespace, @PathVariable String reposigory){
+        logger.info("namespace: {}", namespace);
+        logger.info("reposigory: {}", reposigory);
+        if(namespace != null && reposigory != null) {
+            return new ResponseWrapper<>(outSvc.searchDockerHubTag(namespace, reposigory));
+        }
+        return null;
+    }
+
     @Operation(summary = "Get artifactHub package list (helm search)")
     @GetMapping("/artifacthub/{keyword}")
     public ResponseWrapper<ArtifactHubPackage> getArtifactHubList(@PathVariable String keyword){
@@ -45,5 +60,14 @@ public class ExternalRepoController {
         }
     }
 
-
+    @Operation(summary = "Get artifactHub package list (helm version search)")
+    @GetMapping("/artifacthub/version/{packageKind}/{repository}/{packageName}")
+    public ResponseWrapper<List<ArtifactHubTag.ArtifactHubVersion>> getArtifactHubVersionList(@PathVariable String packageKind, @PathVariable String repository, @PathVariable String packageName){
+        logger.info("packageKind: {}, repository: {}, packageName: {}", packageKind, repository, packageName);
+        if(packageKind != null && repository != null && packageName != null) {
+            return new ResponseWrapper<>(outSvc.searchArtifactHubTag(packageKind, repository, packageName));
+        }else{
+            return null;
+        }
+    }
 }

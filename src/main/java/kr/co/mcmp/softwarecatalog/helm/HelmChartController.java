@@ -69,21 +69,25 @@ public class HelmChartController {
             @RequestParam(required = false) String repositoryUrl,
             @RequestParam(required = false) String documentationUrl,
             @RequestParam(required = false) String imageRepository) {
-        
+
         // Create HelmChartRegistrationRequest object
         HelmChartRegistrationRequest request = HelmChartRegistrationRequest.builder()
                 .packageId(packageId)
-                .chartName(chartName)
-                .chartVersion(chartVersion)
+                .name(chartName)
+                .version(chartVersion)
                 .category(category)
                 .description(description != null ? description : "")
                 .license(license != null ? license : "Apache-2.0")
                 .homepage(homepage != null ? homepage : "")
-                .repositoryUrl(repositoryUrl != null ? repositoryUrl : "")
+                .repository(
+                        HelmChartRegistrationRequest.Repository.builder()
+                                .url(repositoryUrl != null ? repositoryUrl : "")
+                                .build()
+                )
                 .documentationUrl(documentationUrl != null ? documentationUrl : "")
                 .imageRepository(imageRepository != null ? imageRepository : "")
                 .build();
-        
+
         Map<String, Object> result = helmChartService.registerHelmChart(request, "admin");
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }

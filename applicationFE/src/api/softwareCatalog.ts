@@ -109,11 +109,11 @@ export function applicationAction(
 
 // wizard
 export function getCategoryList(params: { target: string }) {
-  return request.post(`/catalog/software/category`, params)
+  return request.post(`/catalog/application/category`, params)
 }
 
 export function getPackageList(params: { target: string, category: string }) {
-  return request.post(`/catalog/software/package`, params)
+  return request.post(`/catalog/application/package`, params)
 }
 
 export function getVersionList(params: { target: string, packageName: string }) {
@@ -121,5 +121,17 @@ export function getVersionList(params: { target: string, packageName: string }) 
     target: params.target,
     applicationName: params.packageName
   }
-  return request.post(`/catalog/software/package/version`, _params)
+  return request.post(`/catalog/application/package/version`, _params)
+}
+
+export function getApplicationTag(params: { path: string }) {
+  return request.get(`/search/dockerhub/${params.path}`)
+}
+
+export function upLoadDockerHubApplication(params: any) {
+  return request.post(`/catalog/docker/register`, params)
+}
+
+export function upLoadArtifactHubApplication(params: { name: string, tag: string }) {
+  return request.post(`/artifacthub/register`, params)
 }

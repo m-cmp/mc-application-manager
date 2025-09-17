@@ -2,8 +2,10 @@ package kr.co.mcmp.externalrepo;
 
 import kr.co.mcmp.externalrepo.model.ArtifactHubPackage;
 import kr.co.mcmp.externalrepo.model.ArtifactHubRepository;
+import kr.co.mcmp.externalrepo.model.ArtifactHubTag;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
@@ -18,5 +20,6 @@ public interface ArtifactHubInteface {
     @GetMapping(value="/api/v1/packages/search")
     ArtifactHubPackage searchPackage(@RequestParam("ts_query_web") String helm, @RequestParam(required=false, value="kind", defaultValue="0") String kind);
 
-
+    @GetMapping(value="/api/v1/packages/{packageKind}/{repository}/{packageName}")
+    ArtifactHubTag searchTags(@PathVariable String packageKind, @PathVariable String repository, @PathVariable String packageName);
 }

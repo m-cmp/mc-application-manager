@@ -1,12 +1,12 @@
 package kr.co.mcmp.externalrepo;
 
-import kr.co.mcmp.externalrepo.model.ArtifactHubPackage;
-import kr.co.mcmp.externalrepo.model.ArtifactHubRepository;
-import kr.co.mcmp.externalrepo.model.DockerHubCatalog;
+import kr.co.mcmp.externalrepo.model.*;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
@@ -22,13 +22,6 @@ public class ExternalRepoService {
 
     public List<ArtifactHubRepository> searchArtifactHubRepository(String keyword){
         return artfInt.searchRepository(keyword);
-
-    }
-
-    public ArtifactHubPackage searchArtifactHubPackage(String keyword){
-        ArtifactHubPackage test = artfInt.searchPackage(keyword, "0");
-        log.info("ArtifactHubPackage : {}", test.toString());
-        return test;
     }
 
     public DockerHubNamespace searchDockerHubNamespace(String keyword){
@@ -42,5 +35,30 @@ public class ExternalRepoService {
         //return null;
     }
 
+    public List<DockerHubTag.TagResult> searchDockerHubTag(String namespace, String repository){
+        DockerHubTag tag = dockerInt.searchTags(namespace, repository);
+        List<DockerHubTag.TagResult> tagList = null;
+        if(tag != null){
+            tagList = tag.getResults();
+            log.info("DockerHubTag : {}",tagList.toString());
+        }
+        return tagList;
+    }
+
+    public ArtifactHubPackage searchArtifactHubPackage(String keyword){
+        ArtifactHubPackage test = artfInt.searchPackage(keyword, "0");
+        log.info("ArtifactHubPackage : {}", test.toString());
+        return test;
+    }
+
+    public List<ArtifactHubTag.ArtifactHubVersion> searchArtifactHubTag(String packageKind, String repository, String packageName){
+        ArtifactHubTag artifactHubInfo = artfInt.searchTags(packageKind, repository, packageName);
+        List<ArtifactHubTag.ArtifactHubVersion> tagList = null;
+        if(artifactHubInfo != null){
+            tagList = artifactHubInfo.getAvailableVersions();
+            log.info("ArtifactHubTag : {}",tagList.toString());
+        }
+        return tagList;
+    }
 
 }

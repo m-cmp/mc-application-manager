@@ -11,37 +11,37 @@
         <div class="mb-3">
           <label class="form-label">Name</label>
           <div class="grid gap-0 column-gap-3">
-            <input type="text" ref="repositoryName" class="form-control p-2 g-col-11" v-model="repositoryDetail.name" readonly />
+            <input type="text" ref="repositoryName" class="form-control p-2 g-col-11" v-model="repositoryDetail.name" disabled />
           </div>
         </div>
 
         <div class="mb-3">
           <label class="form-label">Format</label>
           <div class="grid gap-0 column-gap-3">
-            <input type="text" ref="repositoryFormat" class="form-control p-2 g-col-11" v-model="repositoryDetail.format" readonly />
+            <input type="text" ref="repositoryFormat" class="form-control p-2 g-col-11" v-model="repositoryDetail.format" disabled />
           </div>
         </div>
 
         <div class="mb-3">
           <label class="form-label required">URL(Path)</label>
           <div class="grid gap-0 column-gap-3">
-            <input type="text" ref="repositoryFormat" class="form-control p-2 g-col-11" v-model="repositoryDetail.url" readonly />
+            <input type="text" ref="repositoryFormat" class="form-control p-2 g-col-11" v-model="repositoryDetail.url" disabled />
           </div>
         </div>
 
         <div class="mb-3">
           <label class="form-label required">Type(hosted)</label>
           <div class="grid gap-0 column-gap-3">
-            <input type="text" ref="repositoryFormat" class="form-control p-2 g-col-11" v-model="repositoryDetail.type" readonly />
+            <input type="text" ref="repositoryFormat" class="form-control p-2 g-col-11" v-model="repositoryDetail.type" disabled />
           </div>
         </div>
 
         <div class="mb-3">
-          <div class="btn-list">
+          <!-- <div class="btn-list">
             <button class='btn btn-primary d-none d-sm-inline-block' style="margin-left: auto; margin-bottom:10px;" data-bs-toggle='modal' data-bs-target='#uploadComponent' :disabled="repositoryDetail.format == 'docker'">
               File Upload
             </button>      
-          </div>
+          </div> -->
           <Tabulator 
             :columns="columns"
             :table-data="componentList">
@@ -52,7 +52,7 @@
           <div id="gap" class="col" />
           <div class="col-auto ms-auto">
             <div class="btn-list">
-              <button class="btn btn-right border" @click="onClickList">
+              <button class="btn btn-outline-primary" @click="onClickList">
                 Back to List
               </button>
             </div>
@@ -76,6 +76,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { onMounted } from 'vue';
+import { watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getRepositoryDetailInfo, getComponentList } from '@/api/repository';
 import { type Repository, type Component } from '@/views/type/type'
@@ -90,6 +91,8 @@ import UploadComponent from './components/uploadComponent.vue';
 const toast = useToast()
 const route = useRoute();
 const router = useRouter();
+const props = defineProps<{ embedded?: boolean; repositoryName?: string }>()
+const emit = defineEmits<{ (e: 'back-to-list'): void }>()
 const repositoryDetail = ref({} as Repository)
 
 const componentList = ref([] as Array<Component>)
@@ -97,16 +100,29 @@ const columns = ref([] as Array<ColumnDefinition>)
 
 onMounted(async () => {
   setColumns()
-  await _getDetailInfo()
+  if (!props.embedded) {
+    await _getDetailInfo()
+  }
 })
 
-const repositoryName = ref('' as any)
-const _getDetailInfo = async () => {
-  repositoryName.value = route.params.repositoryName
-  const { data } = await getRepositoryDetailInfo("nexus", repositoryName.value);
+const _getDetailInfo = async (name?: string) => {
+  const routeName = route.params.repositoryName as string | undefined
+  const finalName = name ?? (props.embedded ? props.repositoryName : routeName)
+  if (!finalName) return
+  const { data } = await getRepositoryDetailInfo("nexus", finalName);
   repositoryDetail.value = data;
   await _getComponentInfo()
 }
+
+watch(
+  () => props.repositoryName,
+  async (newVal) => {
+    if (props.embedded && newVal) {
+      await _getDetailInfo(newVal)
+    }
+  },
+  { immediate: true }
+)
 
 const _getComponentInfo = async () => {
   const { data } = await getComponentList("nexus", repositoryDetail.value.name);
@@ -118,19 +134,19 @@ const selectComponentName = ref('' as string)
 const setColumns = () => {
   columns.value = [
     {
-      title: "File Name",
+      title: "Name",
       field: "name",
-      width: '25%'
-    },
-    {
-      title: "File Format",
-      field: "format",
       width: '15%'
     },
+    // {
+    //   title: "Format",
+    //   field: "format",
+    //   width: '15%'
+    // },
     {
-      title: "File URL(Path)",
+      title: "URL(Path)",
       field: "assets",
-      width: '35%',
+      width: '50%',
       formatter: function(cell) {
         const assets = cell.getValue();
         if (assets && assets.length > 0) {
@@ -141,7 +157,7 @@ const setColumns = () => {
       }
     },
     {
-      title: "File Size",
+      title: "Size",
       field: "assets",
       width: '15%',
       formatter: function(cell) {
@@ -155,7 +171,7 @@ const setColumns = () => {
     },
     {
       title: "Action",
-      width: '10%',
+      width: '20%',
       formatter: downloadDeleteButtonFormatter,
       cellClick: function (e, cell) {
         const target = e.target as HTMLElement;
@@ -179,14 +195,14 @@ const downloadDeleteButtonFormatter = () => {
   return `
   <div>
   <button
-      class='btn btn-danger d-none d-sm-inline-block'
+      class='btn btn-outline-danger d-none d-sm-inline-block'
       id='delete-btn'
       data-bs-toggle='modal' 
       data-bs-target='#deleteComponent'>
       Delete
     </button>
     <button
-      class='btn btn-primary d-none d-sm-inline-block me-1'
+      class='btn btn-outline-primary d-none d-sm-inline-block me-1'
       id='download-btn'>
       Download
     </button>
@@ -205,7 +221,11 @@ const downloadUrl = (data: any) => {
 }
 
 const onClickList = () => {
-  router.push('/web/repository/list')
+  if (props.embedded) {
+    emit('back-to-list')
+  } else {
+    router.push('/web/repository/list')
+  }
 }
 
 </script>
