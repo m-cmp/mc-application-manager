@@ -515,7 +515,6 @@ const onClickUpdate = (catalogId: number) => {
 }
 
 const onClickDelete = (catalog: any) => {
-  console.log('Delete catalog:', catalog)
   deleteTargetCatalog.value = catalog
   
   // 모달 컴포넌트 열기
@@ -526,7 +525,6 @@ const onClickDelete = (catalog: any) => {
 
 // 삭제 완료 이벤트 핸들러
 const onCatalogDeleted = async (catalogId: number) => {
-  console.log('Catalog deleted:', catalogId)
   // 목록 새로고침
   await _getSoftwareCatalogList()
 }
@@ -576,11 +574,9 @@ const formattedText = (text:string) => {
 */
 const onClickUpload = (sourceData: any, sourceType: string) => {
   
-  console.log('sourceData', sourceData)
   // 업로드 데이터 설정
   uploadData.value = sourceData
   uploadData.value.sourceType = sourceType
-  console.log('uploadData', uploadData.value)
   
   // 업로드 폼 모달 열기
   if (uploadFormModal.value) {
@@ -593,13 +589,11 @@ const onClickUpload = (sourceData: any, sourceType: string) => {
 * @Desc 업로드 완료 이벤트 핸들러
 */
 const onUploaded = async (uploadFormData: any) => {
-  console.log('Upload completed:', uploadFormData)
-
   if(uploadFormData.sourceType == 'DockerHub') {
     // Backend에 맞게 데이터 변환
     uploadFormData.createdAt = uploadFormData.created_at
     uploadFormData.updatedAt = uploadFormData.updated_at
-    uploadFormData.short_description = uploadFormData.short_description
+    uploadFormData.shortDescription = uploadFormData.short_description
     uploadFormData.starCount = uploadFormData.star_count
     uploadFormData.ratePlans = uploadFormData.rate_plans
 
@@ -612,11 +606,7 @@ const onUploaded = async (uploadFormData: any) => {
 
     const { data } = await upLoadDockerHubApplication(uploadFormData)
   } else if(uploadFormData.sourceType == 'ArtifactHub') {
-    const params = {
-      name: uploadFormData.name,
-      tag: uploadFormData.tag
-    }
-    const { data } = await upLoadArtifactHubApplication(params)
+    const { data } = await upLoadArtifactHubApplication(uploadFormData)
   }
 
   toast.success('Software catalog uploaded successfully!')

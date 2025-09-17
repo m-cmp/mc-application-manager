@@ -69,10 +69,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { IconUpload } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
-import { getApplicationTag } from '@/api/softwareCatalog'
+import { getApplicationTagForDockerHub, getApplicationTagForArtifactHub } from '@/api/softwareCatalog'
 // @ts-ignore
 import _ from 'lodash';
 
@@ -98,29 +98,69 @@ const formData = ref<any>({
 
 // Props 변경 감지하여 폼 데이터 업데이트
 watch(() => [props.sourceData?.sourceType, props.sourceData?.name], () => {
-  console.log(props.sourceData)
   if (props.sourceData?.sourceType) {
     formData.value.sourceType = props.sourceData?.sourceType
   }
   if (props.sourceData?.name) {
     formData.value.name = props.sourceData?.name
-    _getApplicationTag(props.sourceData?.name)
+    console.log(formData.value.sourceType)
+    if(formData.value.sourceType.toUpperCase() == 'DOCKERHUB') {
+      _getApplicationTagForDockerHub(props.sourceData?.name)
+    } else if(formData.value.sourceType.toUpperCase() == 'ARTIFACTHUB') {
+      _getApplicationTagForArtifactHub(props.sourceData)
+    }
   }
 }, { immediate: true })
 
 const tagList = ref([] as any)
-const _getApplicationTag = async (name: string) => {
+
+onUnmounted(() => {
+  resetFormData()
+})
+
+// 폼 데이터 초기화 함수
+const resetFormData = () => {
+  formData.value = {
+    path: '',
+    sourceType: '',
+    name: '',
+    tag: ''
+  }
+  tagList.value = []
+}
+
+const _getApplicationTagForDockerHub = async (sourceData: any) => {
   const params = {
     path: props.sourceData?.id || ''
   }
 
-  const { data } = await getApplicationTag(params)
+  const { data } = await getApplicationTagForDockerHub(params)
   tagList.value = []
   if(data.length > 0) {
     data.forEach((item: any) => {
       tagList.value.push({
         key: item.name,
         value: item.name
+      })
+    })
+  }
+}
+
+const _getApplicationTagForArtifactHub = async (sourceData: any) => {
+  console.log("sourceData",sourceData)
+
+  const params = {
+    kind: 'helm',
+    repository: sourceData.repository.name,
+    packageName: sourceData.name
+  }
+  const { data } = await getApplicationTagForArtifactHub(params)
+  tagList.value = []
+  if(data.length > 0) {
+    data.forEach((item: any) => {
+      tagList.value.push({
+        key: item.version,
+        value: item.version
       })
     })
   }
@@ -140,8 +180,8 @@ const onSubmit = () => {
   // 업로드 데이터 emit
   emits('uploaded', emitData)
 
-  // 폼 초기화
-  formData.value.tag = ''
+  // 폼 완전 초기화
+  resetFormData()
   
   // 모달 닫기
   hide()
@@ -154,6 +194,9 @@ const onBackdropClick = () => {
 
 // 외부에서 모달 열기 위한 메서드
 const show = () => {
+  // 모달 열기 전 폼 초기화
+  resetFormData()
+  
   const modalElement = document.getElementById('upload-form-modal')
   if (modalElement) {
     try {
@@ -243,6 +286,11 @@ const fallbackHide = () => {
     emits('close')
   }
 }
+
+// 컴포넌트 언마운트 시 초기화
+onUnmounted(() => {
+  resetFormData()
+})
 
 defineExpose({
   show,

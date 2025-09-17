@@ -124,14 +124,19 @@ export function getVersionList(params: { target: string, packageName: string }) 
   return request.post(`/catalog/application/package/version`, _params)
 }
 
-export function getApplicationTag(params: { path: string }) {
-  return request.get(`/search/dockerhub/${params.path}`)
+export function getApplicationTagForDockerHub(params: { path: string }) {
+  return request.get(`/search/dockerhub/tag/${params.path}`)
+}
+
+export function getApplicationTagForArtifactHub(params: { kind: string, repository: string, packageName: string }) {
+  // return request.get(`/search/artifacthub/version/${params.path}`)
+  return request.get(`/search/artifacthub/version/${params.kind}/${params.repository}/${params.packageName}`)
 }
 
 export function upLoadDockerHubApplication(params: any) {
   return request.post(`/catalog/docker/register`, params)
 }
 
-export function upLoadArtifactHubApplication(params: { name: string, tag: string }) {
-  return request.post(`/artifacthub/register`, params)
+export function upLoadArtifactHubApplication(params: any) {
+  return request.post(`/catalog/helm/register`, params)
 }
