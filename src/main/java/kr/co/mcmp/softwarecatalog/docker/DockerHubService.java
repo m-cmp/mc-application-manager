@@ -1,9 +1,16 @@
 package kr.co.mcmp.softwarecatalog.docker;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import kr.co.mcmp.externalrepo.ExternalRepoService;
+import kr.co.mcmp.externalrepo.model.DockerHubCatalog;
+import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
+import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
+import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,27 +34,74 @@ public class DockerHubService {
     private final UserRepository userRepository;
     private final NexusIntegrationService nexusIntegrationService;
     private final DockerHubIntegrationService dockerHubIntegrationService;
+    private final ExternalRepoService externalRepoService;
 
     @Transactional
     public Map<String, Object> registerDockerHubImage(DockerHubImageRegistrationRequest request, String username) {
-        log.info("Registering Docker Hub image: {}:{}", request.getImageName(), request.getTag());
+        log.info("Registering Docker Hub image: {}:{}", request.getName(), request.getTag());
 
         Map<String, Object> result = new HashMap<>();
 
+        if(request.getId() == null || request.getId().isEmpty()) {
+            return result;
+        } else if(request.getTag() == null || request.getTag().isEmpty()) {
+            return result;
+        }
+
         try {
-            // 1. Docker Hub에서 이미지 정보 조회
-            Map<String, Object> imageInfo = dockerHubIntegrationService.getImageInfo(request.getImageName(),
-                    request.getTag());
-            if (!(Boolean) imageInfo.get("success")) {
+            // 1. Docker Hub에서 이미지, 태그 정보 조회
+            Map<String, Object> imageTagInfo = dockerHubIntegrationService.getImageInfo(request.getId(), request.getTag());
+            if (!(Boolean) imageTagInfo.get("success")) {
                 result.put("success", false);
-                result.put("message", "Failed to get image info from Docker Hub: " + imageInfo.get("message"));
+                result.put("message", "Failed to get image info from Docker Hub: " + imageTagInfo.get("message"));
                 return result;
             }
 
-            log.error("Docker Hub image info: {}", imageInfo);
+            // Docker Hub 에서 조회된 Application 정보 Entity set
+            PackageInfo entity = PackageInfo.builder()
+                    .architectures(
+                            request.getRatePlans().get(0) != null ?
+                                    request.getRatePlans().get(0).getArchitectures()
+                                            .stream()
+                                            .map(arch -> arch.getName())
+                                            .collect(Collectors.joining(",")) // ✅ join으로 문자열 변환
+                                    : null
+                    )
+                    .categories(request.getCategories().get(0) != null ? request.getCategories().get(0).getName() : "")
+                    .dockerCreatedAt(request.getCreatedAt().toLocalDateTime())
+                    .dockerImageId(null)
+                    .dockerPublisher(request.getPublisher().getName())
+                    .dockerShortDescription(request.getShortDescription())
+                    .dockerUpdatedAt(request.getUpdatedAt().toLocalDateTime())
+                    .dockerSource(request.getSource())
+                    .isArchived(request.getArchived())
+                    .isAutomated(false)
+                    .isOfficial(false)
+                    .lastPulledAt((LocalDateTime) imageTagInfo.get("tag_last_pulled"))
+                    .operatingSystems(
+                            request.getRatePlans().get(0) != null ?
+                                    request.getRatePlans().get(0).getOperating_systems()
+                                            .stream()
+                                            .map(os -> os.getName())
+                                            .collect(Collectors.joining(",")) // ✅ join으로 문자열 변환
+                                    : null
+                    )
+                    .packageName(request.getName())
+                    .packageType(PackageType.valueOf("DOCKER"))
+                    .packageVersion(request.getTag())
+                    .pullCount(
+                            request.getRatePlans().get(0) != null ?
+                                request.getRatePlans().get(0).getRepositories().get(0) != null ? request.getRatePlans().get(0).getRepositories().get(0).getPull_count() : null
+                            : null)
+                    .repositoryUrl("https://hub.docker.com/_/" + request.getName() + "/tags")
+                    .starCount(request.getStarCount())
+                    .build();
+
+            // DB insert
+            packageInfoRepository.save(entity);
 
             // 2. Docker Hub 이미지를 Nexus에 푸시
-            Map<String, Object> pushResult = dockerHubIntegrationService.pushImageToNexus(request.getImageName(),
+            Map<String, Object> pushResult = dockerHubIntegrationService.pushImageToNexus(request.getName(),
                     request.getTag());
 
             result.put("success", true);
@@ -56,7 +110,7 @@ public class DockerHubService {
             result.put("nexusPush", pushResult);
 
         } catch (Exception e) {
-            log.error("Failed to register Docker Hub image: {}:{}", request.getImageName(), request.getTag(), e);
+            log.error("Failed to register Docker Hub image: {}:{}", request.getName(), request.getTag(), e);
             result.put("success", false);
             result.put("message", "Failed to register Docker Hub image: " + e.getMessage());
         }
@@ -70,7 +124,7 @@ public class DockerHubService {
         Map<String, Object> imageData = (Map<String, Object>) imageInfo.get("data");
 
         return SoftwareCatalogDTO.builder()
-                .name(request.getImageName())
+                .name(request.getName())
                 .description((String) imageData.get("description"))
                 .version(request.getTag())
                 .category("Docker Image")
@@ -79,7 +133,7 @@ public class DockerHubService {
                 .repositoryUrl((String) imageData.get("repository_url"))
                 .documentationUrl((String) imageData.get("documentation_url"))
                 .sourceType("DOCKERHUB")
-                .packageName(request.getImageName())
+                .packageName(request.getName())
                 .build();
     }
 
