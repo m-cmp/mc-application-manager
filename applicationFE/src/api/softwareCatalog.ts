@@ -28,9 +28,11 @@ export const runVmInstall = (params: {
   mciId: string,
   vmId: string,
   catalogId: number,
-  servicePort: number
+  servicePort: number,
+  username: string,
+  deploymentType: string,
 }) => {
-  return request.get(`/applications/vm/deploy?namespace=${params.namespace}&mciId=${params.mciId}&vmId=${params.vmId}&catalogId=${params.catalogId}&servicePort=${params.servicePort}`, )
+  return request.post(`/applications/vm/deploy`, params)
 }
 
 // Application Action (VM -> INSTALL, UNINSTALL, RUN, RESTART, STOP)
@@ -48,15 +50,11 @@ export const runK8SInstall = (params: {
   clusterName: string,
   catalogId: number
 }) => {
-  return request.get(`/applications/k8s/deploy?namespace=${params.namespace}&clusterName=${params.clusterName}&catalogId=${params.catalogId}`)
+  return request.post(`/applications/k8s/deploy`, params)
 }
 
 // Application Action (K8S -> INSTALL, UNINSTALL, RUN, RESTART, STOP)
-export const runK8SAction = (params: {
-  operation: string,
-  applicationStatusId: number,
-  reason: string
-}) => {
+export const runK8SAction = (params: any) => {
   return request.get(`/applications/k8s/action?operation=${params.operation}&applicationStatusId=${params.applicationStatusId}&reason=${params.reason}`)
 }
 
@@ -94,8 +92,7 @@ export function deleteSoftwareCatalog(catalogId: number) {
 }
 
 export function getApplicationsStatus() {
-  // return request.get(`/applications/vm/groups`)
-  return request.get(`/applications/groups`)
+  return request.get(`/api/applications/status/groups`)
 }
 
 export function applicationAction(
@@ -139,4 +136,22 @@ export function upLoadDockerHubApplication(params: any) {
 
 export function upLoadArtifactHubApplication(params: any) {
   return request.post(`/catalog/helm/register`, params)
+}
+
+// 애플리케이션 평가 제출
+export function submitApplicationRating(params: {
+  catalogId: number,
+  rating: number,
+  category: string,
+  detailedComments: string,
+  name: string,
+  email: string,
+  metadata: string
+}) {
+  return request.post(`/catalog/rating/overall`, params)
+}
+
+// 애플리케이션 상세 정보 조회
+export function getApplicationDetail(deploymentId: number) {
+  return request.get(`/api/applications/integrated/deployment/${deploymentId}`)
 }

@@ -234,8 +234,24 @@
 
             <!-- K8S :: HPA -->
             <div class="mb-3" v-if="modalTitle == 'Application Installation'" >
-              <label class="form-label">HPA</label>
-              <div class="d-flex justigy-content-between">
+              <label class="form-label">HPA Configuration</label>
+              
+              <!-- HPA Enabled -->
+              <div class="mb-2">
+                <div class="form-check">
+                  <input 
+                    class="form-check-input" 
+                    type="checkbox" 
+                    id="hpaEnabled" 
+                    v-model="hpaData.hpaEnabled">
+                  <label class="form-check-label" for="hpaEnabled">
+                    Enable HPA (Horizontal Pod Autoscaler)
+                  </label>
+                </div>
+              </div>
+
+              <!-- HPA Fields (shown when enabled) -->
+              <div v-if="hpaData.hpaEnabled" class="d-flex justify-content-between">
                 <!-- min Replicas -->
                 <div>
                   <label class="form-label required">
@@ -285,6 +301,82 @@
                 </div>
               </div>
             </div>
+
+            <!-- K8S :: Ingress -->
+            <div class="mb-3" v-if="modalTitle == 'Application Installation'">
+              <label class="form-label">Ingress Configuration</label>
+              
+              <!-- Ingress Enabled -->
+              <div class="mb-2">
+                <div class="form-check">
+                  <input 
+                    class="form-check-input" 
+                    type="checkbox" 
+                    id="ingressEnabled" 
+                    v-model="ingressData.ingressEnabled">
+                  <label class="form-check-label" for="ingressEnabled">
+                    Enable Ingress
+                  </label>
+                </div>
+              </div>
+
+              <!-- Ingress Fields (shown when enabled) -->
+              <div v-if="ingressData.ingressEnabled">
+                <!-- Ingress Host -->
+                <div class="mb-2">
+                  <label class="form-label">Host</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    placeholder="example.com" 
+                    v-model="ingressData.ingressHost">
+                </div>
+
+                <!-- Ingress Path -->
+                <div class="mb-2">
+                  <label class="form-label">Path</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    placeholder="/" 
+                    v-model="ingressData.ingressPath">
+                </div>
+
+                <!-- Ingress Class -->
+                <div class="mb-2">
+                  <label class="form-label">Ingress Class</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    placeholder="nginx" 
+                    v-model="ingressData.ingressClass">
+                </div>
+
+                <!-- TLS Configuration -->
+                <div class="mb-2">
+                  <div class="form-check">
+                    <input 
+                      class="form-check-input" 
+                      type="checkbox" 
+                      id="ingressTlsEnabled" 
+                      v-model="ingressData.ingressTlsEnabled">
+                    <label class="form-check-label" for="ingressTlsEnabled">
+                      Enable TLS
+                    </label>
+                  </div>
+                </div>
+
+                <!-- TLS Secret (shown when TLS is enabled) -->
+                <div v-if="ingressData.ingressTlsEnabled" class="mb-2">
+                  <label class="form-label">TLS Secret Name</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    placeholder="tls-secret" 
+                    v-model="ingressData.ingressTlsSecret">
+                </div>
+              </div>
+            </div>
           </template>
         </div>
 
@@ -311,7 +403,7 @@
               data-bs-dismiss="modal" 
               @click="runInstall" 
               :disabled="specCheckFlag">
-              RUN
+              Deploy
             </button>
           </div>
         </div>
@@ -350,6 +442,7 @@ const selectNsId = ref("" as string)
 const selectMci = ref("" as string)
 const selectVm = ref("" as string)
 const hpaData = ref({} as any)
+const ingressData = ref({} as any)
 
 const clusterList = ref([] as any)
 const selectCluster = ref("" as string)
@@ -370,11 +463,25 @@ onMounted(async () => {
 })
 
 const setInit = async () => {
-  selectInfra.value = ""
+  selectInfra.value = "VM"
   selectNsId.value = ""
   selectMci.value = ""
   selectVm.value = ""
-  hpaData.value = {}
+  hpaData.value = {
+    hpaEnabled: false,
+    hpaMinReplicas: 1,
+    hpaMaxReplicas: 10,
+    hpaCpuUtilization: 60,
+    hpaMemoryUtilization: 80
+  }
+  ingressData.value = {
+    ingressEnabled: false,
+    ingressHost: '',
+    ingressPath: '/',
+    ingressClass: 'nginx',
+    ingressTlsEnabled: false,
+    ingressTlsSecret: ''
+  }
 
   setInfraList()
   setSpecCheckFlag()
@@ -494,21 +601,23 @@ const onChangeForm = () => {
 
 const runInstall = async () => {
   let appList = [] as Array<String>
-  let params = {} as any
   let res = {} as any
 
   if (selectInfra.value === 'VM') {
     // History : 처음 설계와 방향이 달라져 현재는 Application 1개만 보냄 (기존에는 여러개의 APP을 받을 수 있었음)
     appList = inputApplications.value.split(",").map(item => item.toLowerCase().trim());
-    params = {
-      namespace: selectNsId.value,
-      mciId: selectMci.value,
-      vmId: selectVm.value,
-      catalogId: selectedCatalogIdx.value,
-      servicePort: inputServicePort.value
-    }
-
+    
+    let params = {} as any
     if (modalTitle.value == 'Application Installation') {
+      params = {
+        namespace: selectNsId.value,
+        mciId: selectMci.value,
+        vmId: selectVm.value,
+        catalogId: selectedCatalogIdx.value,
+        servicePort: inputServicePort.value,
+        username: "",
+        deploymentType: selectInfra.value,
+      }
       res = await runVmInstall(params)
     } else {
       res = await runVmAction(params)
@@ -524,10 +633,24 @@ const runInstall = async () => {
   else if (selectInfra.value === 'K8S') {
     // History : 처음 설계와 방향이 달라져 현재는 Application 1개만 보냄 (기존에는 여러개의 APP을 받을 수 있었음)
     appList = inputApplications.value.split(",").map(item => item.toLowerCase().trim());
-    params = {
+    let params = {
       namespace: selectNsId.value,
       clusterName: selectCluster.value,
       catalogId: selectedCatalogIdx.value,
+      servicePort: inputServicePort.value,
+      username: "",
+      deploymentType: selectInfra.value,
+      hpaEnabled: hpaData.value.hpaEnabled,
+      minReplicas: hpaData.value.hpaMinReplicas,
+      maxReplicas: hpaData.value.hpaMaxReplicas,
+      cpuThreshold: hpaData.value.hpaCpuUtilization,
+      memoryThreshold: hpaData.value.hpaMemoryUtilization,
+      ingressEnabled: ingressData.value.ingressEnabled,
+      ingressHost: ingressData.value.ingressHost,
+      ingressPath: ingressData.value.ingressPath,
+      ingressClass: ingressData.value.ingressClass,
+      ingressTlsEnabled: ingressData.value.ingressTlsEnabled,
+      ingressTlsSecret: ingressData.value.ingressTlsSecret
     }
 
     if(modalTitle.value == 'Application Installation') {
