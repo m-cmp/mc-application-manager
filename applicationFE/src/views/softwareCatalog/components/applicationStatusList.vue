@@ -32,6 +32,7 @@
     @ratingSubmitted="_getApplicationsStatusList"
     />
   <ApplicationDetailModal 
+    ref="applicationDetailModalRef"
     :deploymentId="selectedDeploymentId"
     />
 </template>
@@ -65,6 +66,7 @@ const applicationName = ref('' as string)
 const catalogId = ref(0 as number)
 const showRatingModal = ref(false)
 const selectedDeploymentId = ref(0 as number)
+const applicationDetailModalRef = ref()
 /**
  * @Title Life Cycle
  * @Desc 컬럼 set Callback 함수 호출 / ApplicationStatusList Callback 함수 호출
@@ -223,11 +225,23 @@ const openDetailModal = (cell: any) => {
       if ((window as any).bootstrap && (window as any).bootstrap.Modal) {
         const modalInstance = new (window as any).bootstrap.Modal(modal)
         modalInstance.show()
+        
+        // 모달이 완전히 열린 후 API 호출 (약간의 지연 후)
+        setTimeout(() => {
+          if (applicationDetailModalRef.value) {
+            applicationDetailModalRef.value.refreshData(selectedDeploymentId.value)
+          }
+        }, 100)
       } else {
         // Fallback: 직접 모달 표시
         modal.style.display = 'block'
         modal.classList.add('show')
         document.body.classList.add('modal-open')
+        
+        // API 호출
+        if (applicationDetailModalRef.value) {
+          applicationDetailModalRef.value.refreshData(selectedDeploymentId.value)
+        }
       }
     } catch (error) {
       console.error('Error opening detail modal:', error)

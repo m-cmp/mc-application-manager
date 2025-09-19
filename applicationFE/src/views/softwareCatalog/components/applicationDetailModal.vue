@@ -33,13 +33,13 @@
                       <strong>Default Port:</strong> {{ applicationDetail.defaultPort }}
                     </div>
                     <div class="col-md-3">
-                      <strong>Status:</strong> 
+                      <strong class="me-2">Status:</strong> 
                       <span :class="getStatusClass(applicationDetail.applicationStatus)">
                         {{ applicationDetail.applicationStatus }}
                       </span>
                     </div>
                     <div class="col-md-3">
-                      <strong>Health Check:</strong> 
+                      <strong class="me-2">Health Check:</strong> 
                       <span :class="applicationDetail.healthCheck ? 'text-success' : 'text-danger'">
                         {{ applicationDetail.healthCheck ? 'Healthy' : 'Unhealthy' }}
                       </span>
@@ -56,7 +56,7 @@
                 <div class="col-md-3">
                   <div class="card text-center">
                     <div class="card-body">
-                      <h5 class="card-title">{{ applicationDetail.cpuUsage }}%</h5>
+                      <h5 class="card-title">{{ applicationDetail.cpuUsage || 'N/A' }}%</h5>
                       <p class="card-text">CPU Usage</p>
                     </div>
                   </div>
@@ -64,7 +64,7 @@
                 <div class="col-md-3">
                   <div class="card text-center">
                     <div class="card-body">
-                      <h5 class="card-title">{{ applicationDetail.memoryUsage }}%</h5>
+                      <h5 class="card-title">{{ applicationDetail.memoryUsage || 'N/A' }}%</h5>
                       <p class="card-text">Memory Usage</p>
                     </div>
                   </div>
@@ -303,7 +303,7 @@
                     <tr v-for="log in applicationDetail.deploymentLogs" :key="log.id">
                       <td>{{ log.loggedAt }}</td>
                       <td>
-                        <span :class="getLogTypeClass(log.logType)">
+                        <span class="me-4 mt-2" :class="getLogTypeClass(log.logType)">
                           {{ log.logType }}
                         </span>
                       </td>
@@ -328,7 +328,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useToast } from 'vue-toastification'
 import { getApplicationDetail } from '@/api/softwareCatalog'
 
@@ -343,12 +343,27 @@ const toast = useToast()
 const loading = ref(false)
 const applicationDetail = ref(null as any)
 
+// computed로 deploymentId 관리
+const currentDeploymentId = ref(0 as number)
+
+// 강제로 API를 다시 호출하는 메서드
+const refreshData = (deploymentId: number) => {
+  currentDeploymentId.value = deploymentId
+  if (currentDeploymentId) {
+    loadApplicationDetail()
+  }
+}
+
+defineExpose({
+  refreshData
+})
+
 const loadApplicationDetail = async () => {
-  if (!props.deploymentId) return
+  if (!currentDeploymentId) return
   
   loading.value = true
   try {
-    const { data } = await getApplicationDetail(props.deploymentId)
+    const { data } = await getApplicationDetail(currentDeploymentId.value)
     if (data) {
       applicationDetail.value = data.integratedInfo
     }
@@ -464,13 +479,7 @@ const closeModal = () => {
   emit('close')
 }
 
-// Watch for deploymentId changes to reload data
-import { watch } from 'vue'
-watch(() => props.deploymentId, (newId) => {
-  if (newId) {
-    loadApplicationDetail()
-  }
-}, { immediate: true })
+
 </script>
 
 <style scoped>
