@@ -1386,6 +1386,8 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             if (!pullImageFromDockerHub(imageName, tag)) {
                 return false;
             }
+
+            
             
             // 3. 이미지 태그 생성
             String sourceImage = getSourceImageName(imageName, tag);

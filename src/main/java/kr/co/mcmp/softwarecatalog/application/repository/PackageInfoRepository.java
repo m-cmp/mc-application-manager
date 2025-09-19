@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
@@ -24,5 +25,5 @@ public interface PackageInfoRepository extends JpaRepository<PackageInfo, Long> 
     List<PackageInfo> findByCategoriesAndCatalogIsNull(String categories);
 
     @Query("SELECT DISTINCT p.packageVersion, p.catalog.id FROM PackageInfo p WHERE p.packageName = :packageName")
-    List<Object[]> findDistinctPackageVersionByPackageName(String packageName);
+    List<Object[]> findDistinctPackageVersionByPackageName(@Param("packageName") String packageName);
 }
