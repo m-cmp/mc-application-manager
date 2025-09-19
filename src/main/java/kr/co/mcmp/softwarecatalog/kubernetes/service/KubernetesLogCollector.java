@@ -37,6 +37,7 @@ public class KubernetesLogCollector {
 
     /**
      * Pod의 특정 레벨 로그를 수집합니다.
+     * 현재는 ERROR와 Pod 로그만 수집합니다.
      */
     public List<String> collectLogs(KubernetesClient client, String namespace, String podName, LogLevel level) {
         List<String> logs = new ArrayList<>();
@@ -58,8 +59,14 @@ public class KubernetesLogCollector {
                 return logs;
             }
 
-            // Pod의 모든 컨테이너에서 로그 수집
-            collectLogsFromAllContainers(client, namespace, podName, pod, logs, level);
+            // ERROR 로그만 수집 (DEBUG, INFO는 비활성화)
+            if (level == LogLevel.ERROR) {
+                collectLogsFromAllContainers(client, namespace, podName, pod, logs, level);
+            }
+            // DEBUG, INFO 로그 수집은 주석처리
+            // else if (level == LogLevel.DEBUG || level == LogLevel.INFO) {
+            //     collectLogsFromAllContainers(client, namespace, podName, pod, logs, level);
+            // }
 
             log.debug("Pod 로그 수집 완료 - 총 {} 줄", logs.size());
             
@@ -72,6 +79,7 @@ public class KubernetesLogCollector {
 
     /**
      * 앱 이름으로 Pod들을 찾아서 로그를 수집합니다.
+     * 현재는 ERROR와 Pod 로그만 수집합니다.
      */
     public List<String> collectAppLogs(KubernetesClient client, String namespace, String appName, LogLevel level) {
         List<String> allLogs = new ArrayList<>();
@@ -96,11 +104,20 @@ public class KubernetesLogCollector {
 
             log.debug("앱 '{}'과 관련된 Pod {} 개 발견", appName, pods.size());
 
-            // 각 Pod의 로그 수집
-            for (Pod pod : pods) {
-                String podName = pod.getMetadata().getName();
-                collectLogsFromAllContainers(client, namespace, podName, pod, allLogs, level);
+            // ERROR 로그만 수집 (DEBUG, INFO는 비활성화)
+            if (level == LogLevel.ERROR) {
+                for (Pod pod : pods) {
+                    String podName = pod.getMetadata().getName();
+                    collectLogsFromAllContainers(client, namespace, podName, pod, allLogs, level);
+                }
             }
+            // DEBUG, INFO 로그 수집은 주석처리
+            // else if (level == LogLevel.DEBUG || level == LogLevel.INFO) {
+            //     for (Pod pod : pods) {
+            //         String podName = pod.getMetadata().getName();
+            //         collectLogsFromAllContainers(client, namespace, podName, pod, allLogs, level);
+            //     }
+            // }
 
             log.debug("앱 로그 수집 완료 - 총 {} 줄", allLogs.size());
             
@@ -169,21 +186,34 @@ public class KubernetesLogCollector {
 
     /**
      * 로그 레벨에 따라 로그를 필터링합니다.
+     * 현재는 ERROR 로그만 필터링합니다.
      */
     private boolean shouldIncludeLog(String logLine, LogLevel level) {
         if (level == LogLevel.ALL) {
             return true;
         }
         
-        String lowerLogLine = logLine.toLowerCase();
-        
-        // 1. 구조화된 로그 형식 분석 (JSON, key=value 등)
-        if (isStructuredLog(lowerLogLine)) {
-            return analyzeStructuredLog(lowerLogLine, level);
+        // ERROR 로그만 필터링 (DEBUG, INFO는 비활성화)
+        if (level == LogLevel.ERROR) {
+            String lowerLogLine = logLine.toLowerCase();
+            
+            // 1. 구조화된 로그 형식 분석 (JSON, key=value 등)
+            if (isStructuredLog(lowerLogLine)) {
+                return analyzeStructuredLog(lowerLogLine, level);
+            }
+            
+            // 2. 일반적인 로그 키워드 기반 분류
+            return analyzeKeywordLog(lowerLogLine, level);
         }
         
-        // 2. 일반적인 로그 키워드 기반 분류
-        return analyzeKeywordLog(lowerLogLine, level);
+        // DEBUG, INFO 로그 필터링은 주석처리
+        // String lowerLogLine = logLine.toLowerCase();
+        // if (isStructuredLog(lowerLogLine)) {
+        //     return analyzeStructuredLog(lowerLogLine, level);
+        // }
+        // return analyzeKeywordLog(lowerLogLine, level);
+        
+        return false;
     }
     
     /**
@@ -202,6 +232,7 @@ public class KubernetesLogCollector {
     
     /**
      * 구조화된 로그를 분석합니다.
+     * 현재는 ERROR 로그만 분석합니다.
      */
     private boolean analyzeStructuredLog(String logLine, LogLevel level) {
         // level= 형식
@@ -209,15 +240,16 @@ public class KubernetesLogCollector {
             switch (level) {
                 case ERROR:
                     return logLine.matches(".*level=(error|fatal|panic|critical).*");
-                case WARN:
-                    return logLine.matches(".*level=(warn|warning).*") || 
-                           analyzeStructuredLog(logLine, LogLevel.ERROR);
-                case INFO:
-                    return logLine.matches(".*level=(info|information).*") ||
-                           analyzeStructuredLog(logLine, LogLevel.WARN);
-                case DEBUG:
-                    return logLine.matches(".*level=(debug|trace|verbose).*") ||
-                           analyzeStructuredLog(logLine, LogLevel.INFO);
+                // DEBUG, INFO, WARN 로그 분석은 주석처리
+                // case WARN:
+                //     return logLine.matches(".*level=(warn|warning).*") || 
+                //            analyzeStructuredLog(logLine, LogLevel.ERROR);
+                // case INFO:
+                //     return logLine.matches(".*level=(info|information).*") ||
+                //            analyzeStructuredLog(logLine, LogLevel.WARN);
+                // case DEBUG:
+                //     return logLine.matches(".*level=(debug|trace|verbose).*") ||
+                //            analyzeStructuredLog(logLine, LogLevel.INFO);
                 default:
                     return false;
             }
@@ -228,15 +260,16 @@ public class KubernetesLogCollector {
             switch (level) {
                 case ERROR:
                     return logLine.matches(".*\"level\"\\s*:\\s*\"(error|fatal|panic|critical)\".*");
-                case WARN:
-                    return logLine.matches(".*\"level\"\\s*:\\s*\"(warn|warning)\".*") ||
-                           analyzeStructuredLog(logLine, LogLevel.ERROR);
-                case INFO:
-                    return logLine.matches(".*\"level\"\\s*:\\s*\"(info|information)\".*") ||
-                           analyzeStructuredLog(logLine, LogLevel.WARN);
-                case DEBUG:
-                    return logLine.matches(".*\"level\"\\s*:\\s*\"(debug|trace|verbose)\".*") ||
-                           analyzeStructuredLog(logLine, LogLevel.INFO);
+                // DEBUG, INFO, WARN 로그 분석은 주석처리
+                // case WARN:
+                //     return logLine.matches(".*\"level\"\\s*:\\s*\"(warn|warning)\".*") ||
+                //            analyzeStructuredLog(logLine, LogLevel.ERROR);
+                // case INFO:
+                //     return logLine.matches(".*\"level\"\\s*:\\s*\"(info|information)\".*") ||
+                //            analyzeStructuredLog(logLine, LogLevel.WARN);
+                // case DEBUG:
+                //     return logLine.matches(".*\"level\"\\s*:\\s*\"(debug|trace|verbose)\".*") ||
+                //            analyzeStructuredLog(logLine, LogLevel.INFO);
                 default:
                     return false;
             }
@@ -247,15 +280,16 @@ public class KubernetesLogCollector {
             switch (level) {
                 case ERROR:
                     return logLine.matches(".*severity=(error|fatal|panic|critical).*");
-                case WARN:
-                    return logLine.matches(".*severity=(warn|warning).*") ||
-                           analyzeStructuredLog(logLine, LogLevel.ERROR);
-                case INFO:
-                    return logLine.matches(".*severity=(info|information).*") ||
-                           analyzeStructuredLog(logLine, LogLevel.WARN);
-                case DEBUG:
-                    return logLine.matches(".*severity=(debug|trace|verbose).*") ||
-                           analyzeStructuredLog(logLine, LogLevel.INFO);
+                // DEBUG, INFO, WARN 로그 분석은 주석처리
+                // case WARN:
+                //     return logLine.matches(".*severity=(warn|warning).*") ||
+                //            analyzeStructuredLog(logLine, LogLevel.ERROR);
+                // case INFO:
+                //     return logLine.matches(".*severity=(info|information).*") ||
+                //            analyzeStructuredLog(logLine, LogLevel.WARN);
+                // case DEBUG:
+                //     return logLine.matches(".*severity=(debug|trace|verbose).*") ||
+                //            analyzeStructuredLog(logLine, LogLevel.INFO);
                 default:
                     return false;
             }
@@ -266,6 +300,7 @@ public class KubernetesLogCollector {
     
     /**
      * 키워드 기반 로그를 분석합니다.
+     * 현재는 ERROR 로그만 분석합니다.
      */
     private boolean analyzeKeywordLog(String logLine, LogLevel level) {
         switch (level) {
@@ -276,30 +311,31 @@ public class KubernetesLogCollector {
                        logLine.matches(".*Exception.*") ||
                        logLine.matches(".*Failed.*") ||
                        logLine.matches(".*FATAL.*");
-            case WARN:
-                return logLine.matches(".*\\b(warn|warning|caution|notice)\\b.*") ||
-                       logLine.matches(".*\\[WARN\\].*") ||
-                       logLine.matches(".*WARNING:.*") ||
-                       logLine.matches(".*WARN:.*") ||
-                       analyzeKeywordLog(logLine, LogLevel.ERROR);
-            case INFO:
-                return logLine.matches(".*\\b(info|information|notice)\\b.*") ||
-                       logLine.matches(".*\\[INFO\\].*") ||
-                       logLine.matches(".*INFO:.*") ||
-                       logLine.matches(".*Starting.*") ||
-                       logLine.matches(".*Started.*") ||
-                       logLine.matches(".*Stopping.*") ||
-                       logLine.matches(".*Stopped.*") ||
-                       analyzeKeywordLog(logLine, LogLevel.WARN);
-            case DEBUG:
-                return logLine.matches(".*\\b(debug|trace|verbose|detail)\\b.*") ||
-                       logLine.matches(".*\\[DEBUG\\].*") ||
-                       logLine.matches(".*DEBUG:.*") ||
-                       logLine.matches(".*\\[TRACE\\].*") ||
-                       logLine.matches(".*TRACE:.*") ||
-                       analyzeKeywordLog(logLine, LogLevel.INFO);
+            // DEBUG, INFO, WARN 로그 분석은 주석처리
+            // case WARN:
+            //     return logLine.matches(".*\\b(warn|warning|caution|notice)\\b.*") ||
+            //            logLine.matches(".*\\[WARN\\].*") ||
+            //            logLine.matches(".*WARNING:.*") ||
+            //            logLine.matches(".*WARN:.*") ||
+            //            analyzeKeywordLog(logLine, LogLevel.ERROR);
+            // case INFO:
+            //     return logLine.matches(".*\\b(info|information|notice)\\b.*") ||
+            //            logLine.matches(".*\\[INFO\\].*") ||
+            //            logLine.matches(".*INFO:.*") ||
+            //            logLine.matches(".*Starting.*") ||
+            //            logLine.matches(".*Started.*") ||
+            //            logLine.matches(".*Stopping.*") ||
+            //            logLine.matches(".*Stopped.*") ||
+            //            analyzeKeywordLog(logLine, LogLevel.WARN);
+            // case DEBUG:
+            //     return logLine.matches(".*\\b(debug|trace|verbose|detail)\\b.*") ||
+            //            logLine.matches(".*\\[DEBUG\\].*") ||
+            //            logLine.matches(".*DEBUG:.*") ||
+            //            logLine.matches(".*\\[TRACE\\].*") ||
+            //            logLine.matches(".*TRACE:.*") ||
+            //            analyzeKeywordLog(logLine, LogLevel.INFO);
             default:
-                return true;
+                return false;
         }
     }
 
