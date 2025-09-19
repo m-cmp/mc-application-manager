@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import kr.co.mcmp.softwarecatalog.Ref.CatalogRefEntity;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
-import kr.co.mcmp.softwarecatalog.model.SoftwareSourceMapping;
+// import kr.co.mcmp.softwarecatalog.model.SoftwareSourceMapping;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -145,10 +145,12 @@ public class SoftwareCatalog {
     private String ingressTlsSecret; // TLS 시크릿 이름
 
     @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<PortMapping> ports = new ArrayList<>();
 
     @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
+    @Builder.Default
     private List<CatalogRefEntity> catalogRefs = new ArrayList<>();
     
     @OneToOne(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -159,9 +161,10 @@ public class SoftwareCatalog {
     @JsonManagedReference
     private HelmChart helmChart;
     
-    @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
-    private List<SoftwareSourceMapping> sourceMappings = new ArrayList<>();
+    // @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
+    // @JsonManagedReference
+    // @Builder.Default
+    // private List<SoftwareSourceMapping> sourceMappings = new ArrayList<>();
     
     public void addCatalogRef(CatalogRefEntity catalogRef) {
         this.catalogRefs.add(catalogRef);
@@ -173,15 +176,15 @@ public class SoftwareCatalog {
         catalogRef.setCatalog(null);
     }
     
-    public void addSourceMapping(SoftwareSourceMapping sourceMapping) {
-        this.sourceMappings.add(sourceMapping);
-        sourceMapping.setCatalog(this);
-    }
+    // public void addSourceMapping(SoftwareSourceMapping sourceMapping) {
+    //     this.sourceMappings.add(sourceMapping);
+    //     sourceMapping.setCatalog(this);
+    // }
     
-    public void removeSourceMapping(SoftwareSourceMapping sourceMapping) {
-        this.sourceMappings.remove(sourceMapping);
-        sourceMapping.setCatalog(null);
-    }
+    // public void removeSourceMapping(SoftwareSourceMapping sourceMapping) {
+    //     this.sourceMappings.remove(sourceMapping);
+    //     sourceMapping.setCatalog(null);
+    // }
 
     public void addPort(PortMapping port) {
         this.ports.add(port);

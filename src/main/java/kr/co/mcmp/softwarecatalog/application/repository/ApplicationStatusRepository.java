@@ -15,6 +15,7 @@ import kr.co.mcmp.softwarecatalog.users.Entity.User;
 
 @Repository
 public interface ApplicationStatusRepository extends JpaRepository<ApplicationStatus, Long> {
+    
     Optional<ApplicationStatus> findByCatalog(SoftwareCatalog catalog);
     Optional<ApplicationStatus> findByCatalogId(Long catalogId);
     ApplicationStatus findTopByCatalogOrderByCheckedAtDesc(SoftwareCatalog catalog);
@@ -47,4 +48,5 @@ public interface ApplicationStatusRepository extends JpaRepository<ApplicationSt
     
     void deleteByCatalog(SoftwareCatalog catalog);
     Optional<ApplicationStatus> findByDeploymentHistoryId(Long deploymentHistoryId);
+    
 }

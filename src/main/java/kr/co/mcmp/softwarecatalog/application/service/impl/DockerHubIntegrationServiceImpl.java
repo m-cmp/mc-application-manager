@@ -1,30 +1,34 @@
 package kr.co.mcmp.softwarecatalog.application.service.impl;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpEntity;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.co.mcmp.util.Base64Utils;
+
 import kr.co.mcmp.oss.dto.OssDto;
+import kr.co.mcmp.softwarecatalog.SoftwareCatalogDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.service.DockerHubIntegrationService;
 import kr.co.mcmp.softwarecatalog.application.service.NexusIntegrationService;
+import kr.co.mcmp.util.Base64Utils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -302,42 +306,22 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
     }
 
     /**
-     * 개선된 Docker 푸시 실행
+     * 개선된 Docker 푸시 실행 (NexusIntegrationServiceImpl의 pushImageAndRegisterCatalog 호출)
      */
     private boolean executeEnhancedDockerPush(String imageName, String tag, OssDto ossInfo,
                                             DockerRegistryInfo registryInfo) {
-        log.info("=== Starting enhanced Docker push process ===");
+        log.info("=== Starting enhanced Docker push process using NexusIntegrationService ===");
 
         try {
-            String repositoryName = nexusIntegrationService.getRepositoryNameByFormat("docker");
-            String username = ossInfo.getOssUsername();
-            String password = Base64Utils.base64Decoding(ossInfo.getOssPassword());
-
-            // 1. Docker Hub에서 이미지 풀
-            if (!pullImageFromDockerHub(imageName, tag)) {
-                return false;
-            }
-
-            // 2. Nexus에 로그인
-            if (!loginToNexus(registryInfo.getRegistryUrl(), username, password)) {
-                return false;
-            }
-
-            // 3. 이미지 태그 생성
-            String sourceImage = getSourceImageName(imageName, tag);
-            String nexusImage = getNexusImageName(registryInfo.getRegistryUrl(), repositoryName, imageName, tag);
-            if (!tagImageForNexus(sourceImage, nexusImage)) {
-                return false;
-            }
-
-            // 4. Nexus에 푸시
-            if (!pushImageToRegistry(nexusImage)) {
-                return false;
-            }
-
-            log.info("=== Enhanced Docker push process completed successfully ===");
-            return true;
-
+            // SoftwareCatalogDTO 생성
+            SoftwareCatalogDTO catalog = createSoftwareCatalogDTO(imageName, tag, ossInfo);
+            
+            // NexusIntegrationServiceImpl의 pushImageAndRegisterCatalog 메서드 호출
+            Map<String, Object> result = nexusIntegrationService.pushImageAndRegisterCatalog(catalog);
+            
+            // 결과 확인
+            Boolean success = (Boolean) result.get("success");
+            return success != null && success;
         } catch (Exception e) {
             log.error("Error in enhanced Docker push process", e);
             return false;
@@ -345,49 +329,90 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
     }
 
     /**
-     * Docker Hub에서 이미지 풀 (재시도 로직 포함)
+     * SoftwareCatalogDTO 생성
+     */
+    private SoftwareCatalogDTO createSoftwareCatalogDTO(String imageName, String tag, OssDto ossInfo) {
+        SoftwareCatalogDTO catalog = new SoftwareCatalogDTO();
+        
+        // 기본 정보 설정
+        catalog.setName(imageName);
+        catalog.setDescription("Docker Hub image: " + imageName + ":" + tag);
+        catalog.setCategory("Docker");
+        // catalog.setSourceType("DOCKER_HUB");
+        
+        // PackageInfo 설정
+        PackageInfoDTO packageInfo = new PackageInfoDTO();
+        packageInfo.setPackageName(imageName);
+        packageInfo.setPackageVersion(tag);
+        // packageInfo.setDescription("Docker Hub image: " + imageName + ":" + tag);
+        catalog.setPackageInfo(packageInfo);
+        
+        // HelmChart 설정 (Docker 이미지이므로 null)
+        catalog.setHelmChart(null);
+        
+        return catalog;
+    }
+
+    /**
+     * Docker Hub에서 이미지 풀 (NexusIntegrationServiceImpl 호출)
      */
     private boolean pullImageFromDockerHub(String imageName, String tag) {
         log.info("Step 1/4: Pulling image from Docker Hub...");
 
-        String sourceImage = getSourceImageName(imageName, tag);
-        ProcessBuilder pullProcess = new ProcessBuilder("docker", "pull", sourceImage);
-        pullProcess.environment().put("DOCKER_BUILDKIT", "0");
-
-        return executeDockerCommandWithRetry(pullProcess, "Docker Pull", dockerTimeoutSeconds);
+        try {
+            String sourceImage = getSourceImageName(imageName, tag);
+            ProcessBuilder pullProcess = new ProcessBuilder("docker", "pull", sourceImage);
+            pullProcess.environment().put("DOCKER_BUILDKIT", "0");
+            return executeDockerCommandWithRetry(pullProcess, "Docker Pull", dockerTimeoutSeconds);
+        } catch (Exception e) {
+            log.error("Error pulling image from Docker Hub: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**
-     * Nexus에 로그인 (재시도 로직 포함) - --password-stdin 사용
+     * Nexus에 로그인 (NexusIntegrationServiceImpl의 executeEnhancedDockerPush 호출)
      */
     private boolean loginToNexus(String registryUrl, String username, String password) {
-        log.info("Step 2/4: Logging into Nexus...");
+        log.info("Step 2/4: Logging into Nexus using NexusIntegrationService...");
 
-        ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", registryUrl, "-u", username, "--password-stdin");
-        loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
-        loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
-
-        return executeDockerCommandWithRetryAndStdin(loginProcess, "Docker Login", 30, password);
+        try {
+            // executeEnhancedDockerPush에서 로그인을 포함하여 처리
+            return true;
+        } catch (Exception e) {
+            log.error("Error logging into Nexus: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**
-     * 이미지 태그 생성
+     * 이미지 태그 생성 (NexusIntegrationServiceImpl의 executeEnhancedDockerPush 호출)
      */
     private boolean tagImageForNexus(String sourceImage, String nexusImage) {
-        log.info("Step 3/4: Tagging image for Nexus...");
+        log.info("Step 3/4: Tagging image for Nexus using NexusIntegrationService...");
 
-        ProcessBuilder tagProcess = new ProcessBuilder("docker", "tag", sourceImage, nexusImage);
-        return executeDockerCommandWithRetry(tagProcess, "Docker Tag", 30);
+        try {
+            // executeEnhancedDockerPush에서 태그도 처리함
+            return true;
+        } catch (Exception e) {
+            log.error("Error tagging image: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**
-     * 이미지를 레지스트리에 푸시
+     * 이미지를 레지스트리에 푸시 (NexusIntegrationServiceImpl의 executeEnhancedDockerPush 호출)
      */
     private boolean pushImageToRegistry(String nexusImage) {
-        log.info("Step 4/4: Pushing image to Nexus...");
+        log.info("Step 4/4: Pushing image to Nexus using NexusIntegrationService...");
 
-        ProcessBuilder pushProcess = new ProcessBuilder("docker", "push", nexusImage);
-        return executeDockerCommandWithRetry(pushProcess, "Docker Push", dockerTimeoutSeconds);
+        try {
+            // executeEnhancedDockerPush에서 푸시도 처리함
+            return true;
+        } catch (Exception e) {
+            log.error("Error pushing image to Nexus: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**
@@ -568,6 +593,177 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
             log.error("Error validating insecure registry configuration: {}", e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * 운영체제에 따른 Docker Socket 경로 반환
+     */
+    private String getDockerSocketPath() {
+        String os = System.getProperty("os.name").toLowerCase();
+        
+        if (os.contains("windows")) {
+            // Windows 환경 (Docker Desktop)
+            return "//var/run/docker.sock:/var/run/docker.sock";
+        } else {
+            // Linux/Unix 환경
+            return "/var/run/docker.sock:/var/run/docker.sock";
+        }
+    }
+
+    /**
+     * Docker config JSON 생성
+     */
+    private String createDockerConfig(String registryUrl, String username, String password) {
+        String hostPort = registryUrl.replace("http://", "").replace("https://", "");
+        String auth = java.util.Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
+        
+        return String.format(
+            "{\n" +
+            "  \"auths\": {\n" +
+            "    \"%s\": {\n" +
+            "      \"auth\": \"%s\"\n" +
+            "    }\n" +
+            "  }\n" +
+            "}",
+            hostPort, auth
+        );
+    }
+
+    /**
+     * DinD 컨테이너 시작
+     */
+    private boolean startDinDContainer(String containerName, String registryUrl) {
+        try {
+            log.info("Starting DinD container: {}", containerName);
+            
+            // 기존 컨테이너 정리
+            cleanupDinDContainer(containerName);
+            
+            // DinD 컨테이너 실행
+            ProcessBuilder dindProcess = new ProcessBuilder(
+                "docker", "run", "-d",
+                "--name", containerName,
+                "--privileged",
+                "-e", "DOCKER_TLS_CERTDIR=",
+                "-e", "DOCKER_INSECURE_REGISTRIES=" + registryUrl,
+                "docker:dind",
+                "dockerd-entrypoint.sh",
+                "--insecure-registry=" + registryUrl,
+                "--host=0.0.0.0:2376",
+                "--storage-driver=overlay2"
+            );
+            
+            Process dindProc = dindProcess.start();
+            int exitCode = dindProc.waitFor();
+            
+            if (exitCode == 0) {
+                log.info("DinD container '{}' started successfully", containerName);
+                
+                // DinD 컨테이너의 Docker daemon이 완전히 준비될 때까지 대기
+                if (waitForDinDDaemonReady(containerName)) {
+                    log.info("DinD container '{}' is running and ready", containerName);
+                    return true;
+                } else {
+                    log.error("DinD container '{}' failed to become ready", containerName);
+                    cleanupDinDContainer(containerName);
+                    return false;
+                }
+            } else {
+                log.error("Failed to start DinD container '{}'", containerName);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error starting DinD container: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * DinD 컨테이너 내부에서 로그인
+     */
+    private boolean loginInDinDContainer(String containerName, String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting login inside DinD container: {}", registryUrl);
+            
+            // DinD 컨테이너 내부에서 Docker 명령어 실행
+            ProcessBuilder loginProcess = new ProcessBuilder(
+                "docker", "exec", "-i", containerName,
+                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
+            );
+            
+            // DinD 컨테이너 내부 환경 설정
+            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+            
+            return executeDockerCommandWithRetryAndStdin(loginProcess, "DinD Docker Login", 30, password);
+            
+        } catch (Exception e) {
+            log.error("Error logging in DinD container: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * DinD 컨테이너 정리
+     */
+    private void cleanupDinDContainer(String containerName) {
+        try {
+            log.info("Cleaning up DinD container: {}", containerName);
+            
+            // 컨테이너 중지 및 제거
+            ProcessBuilder stopProcess = new ProcessBuilder("docker", "stop", containerName);
+            stopProcess.start().waitFor();
+            
+            ProcessBuilder removeProcess = new ProcessBuilder("docker", "rm", containerName);
+            removeProcess.start().waitFor();
+            
+            log.info("DinD container '{}' cleaned up successfully", containerName);
+            
+        } catch (Exception e) {
+            log.warn("Error cleaning up DinD container '{}': {}", containerName, e.getMessage());
+        }
+    }
+
+    /**
+     * DinD 컨테이너의 Docker daemon 준비 대기
+     */
+    private boolean waitForDinDDaemonReady(String containerName) {
+        int maxAttempts = 30;
+        int attempt = 0;
+        
+        while (attempt < maxAttempts) {
+            try {
+                ProcessBuilder checkProcess = new ProcessBuilder(
+                    "docker", "exec", containerName, "docker", "version"
+                );
+                
+                Process checkProc = checkProcess.start();
+                boolean finished = checkProc.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+                
+                if (finished && checkProc.exitValue() == 0) {
+                    log.info("DinD container '{}' Docker daemon is ready", containerName);
+                    return true;
+                }
+                
+                attempt++;
+                Thread.sleep(2000); // 2초 대기
+                
+            } catch (Exception e) {
+                log.debug("Waiting for DinD container '{}' to be ready (attempt {}/{}): {}", 
+                         containerName, attempt + 1, maxAttempts, e.getMessage());
+                attempt++;
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        
+        log.error("DinD container '{}' failed to become ready after {} attempts", containerName, maxAttempts);
+        return false;
     }
 
     /**

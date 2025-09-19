@@ -62,12 +62,21 @@ public class CatalogService {
             user = getUserByUsername(username);
         }
 
-        // 1. 내부 DB에 카탈로그 등록 (catalogRefs 제외)
+        // 1. 내부 DB에 카탈로그 등록
         SoftwareCatalog catalog = catalogDTO.toEntity();
-        catalog.setCatalogRefs(null); // 중복 저장 방지를 위해 일시적으로 null 설정
         catalog.setRegisteredBy(user);
         catalog.setCreatedAt(LocalDateTime.now());
         catalog.setUpdatedAt(LocalDateTime.now());
+
+        // catalogRefs 컬렉션 초기화 (null이 아닌 빈 리스트로 설정)
+        if (catalog.getCatalogRefs() != null) {
+            catalog.getCatalogRefs().clear();
+        }
+        
+        // sourceMappings 컬렉션 초기화 (null이 아닌 빈 리스트로 설정)
+        // if (catalog.getSourceMappings() != null) {
+        //     catalog.getSourceMappings().clear();
+        // }
 
         catalog = catalogRepository.save(catalog);
 
@@ -76,6 +85,7 @@ public class CatalogService {
             for (CatalogRefDTO refDTO : catalogDTO.getCatalogRefs()) {
                 CatalogRefEntity refEntity = refDTO.toEntity();
                 refEntity.setCatalog(catalog); // catalog id 설정
+                catalog.addCatalogRef(refEntity); // 연관관계 메서드 사용
                 catalogRefRepository.save(refEntity);
             }
         }
@@ -99,12 +109,23 @@ public class CatalogService {
         catalog.setCreatedAt(LocalDateTime.now());
         catalog.setUpdatedAt(LocalDateTime.now());
 
+        // catalogRefs 컬렉션 초기화 (null이 아닌 빈 리스트로 설정)
+        if (catalog.getCatalogRefs() != null) {
+            catalog.getCatalogRefs().clear();
+        }
+        
+        // sourceMappings 컬렉션 초기화 (null이 아닌 빈 리스트로 설정)
+        // if (catalog.getSourceMappings() != null) {
+        //     catalog.getSourceMappings().clear();
+        // }
+
         catalog = catalogRepository.save(catalog);
 
         if (catalogDTO.getCatalogRefs() != null && !catalogDTO.getCatalogRefs().isEmpty()) {
             for (CatalogRefDTO refDTO : catalogDTO.getCatalogRefs()) {
                 CatalogRefEntity refEntity = refDTO.toEntity();
                 refEntity.setCatalog(catalog);
+                catalog.addCatalogRef(refEntity); // 연관관계 메서드 사용
                 catalogRefRepository.save(refEntity);
             }
         }
