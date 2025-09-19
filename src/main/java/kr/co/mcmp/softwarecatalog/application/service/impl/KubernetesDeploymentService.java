@@ -22,12 +22,7 @@ public class KubernetesDeploymentService implements DeploymentService {
     
     @Override
     public DeploymentHistory deployApplication(DeploymentRequest request) {
-        return kubernetesService.deployApplication(
-            request.getNamespace(), 
-            request.getClusterName(), 
-            request.getCatalogId(), 
-            request.getUsername()
-        );
+        return kubernetesService.deployApplication(request);
     }
     
     @Override
@@ -38,5 +33,3 @@ public class KubernetesDeploymentService implements DeploymentService {
         return null; // K8S가 아닌 경우 null 반환
     }
 }
-
-

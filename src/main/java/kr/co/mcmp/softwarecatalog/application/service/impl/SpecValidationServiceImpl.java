@@ -67,8 +67,14 @@ public class SpecValidationServiceImpl implements SpecValidationService {
             double usedMemory = activeDeployments.stream().mapToDouble(d -> d.getCatalog().getRecommendedMemory()).sum();
 
             double availableCpu = Double.parseDouble(nodeSpec.getVCpu().getCount()) - usedCpu;
-            double availableMemory = Double.parseDouble(nodeSpec.getMem()) - usedMemory;
+            
+            // 메모리 값을 MB에서 GB로 변환
+            String memoryValue = getMemoryValueFromSpec(nodeSpec);
+            double nodeMemoryInGB = convertMemoryToGB(memoryValue);
+            double availableMemory = nodeMemoryInGB - usedMemory;
 
+            log.info("K8s Node Spec Check - Raw Memory Value: {}", memoryValue);
+            log.info("K8s Node Spec Check - Converted Memory: {} GB", nodeMemoryInGB);
             log.info("K8s Node Spec Check - Available vCPU: {}, Required vCPU: {}", availableCpu, catalog.getRecommendedCpu());
             log.info("K8s Node Spec Check - Available Memory: {} GiB, Required Memory: {} GiB", availableMemory, catalog.getRecommendedMemory());
 
@@ -144,6 +150,147 @@ public class SpecValidationServiceImpl implements SpecValidationService {
         } catch (Exception e) {
             log.error("Error retrieving spec for K8s cluster: {}", e.getMessage());
             throw new ApplicationException("Failed to retrieve spec for K8s cluster : " +  e.getMessage());
+        }
+    }
+    
+    /**
+     * K8sSpec에서 메모리 값을 추출합니다.
+     * 여러 필드와 keyValueList에서 메모리 관련 정보를 찾습니다.
+     * 
+     * @param spec K8sSpec 객체
+     * @return 메모리 값 문자열 (단위 포함)
+     */
+    private String getMemoryValueFromSpec(K8sSpec spec) {
+        // 1. mem 필드 확인
+        if (spec.getMem() != null && !spec.getMem().trim().isEmpty()) {
+            log.debug("Using mem field: {}", spec.getMem());
+            return spec.getMem();
+        }
+        
+        // 2. keyValueList에서 메모리 관련 키 찾기
+        if (spec.getKeyValueList() != null) {
+            for (K8sSpec.KeyValue kv : spec.getKeyValueList()) {
+                String key = kv.getKey();
+                String value = kv.getValue();
+                
+                if (value == null || value.trim().isEmpty()) {
+                    continue;
+                }
+                
+                // 다양한 메모리 관련 키 확인
+                if ("MemoryInMB".equals(key)) {
+                    log.debug("Found MemoryInMB: {}", value);
+                    return value + "MB";
+                } else if ("MemoryInGB".equals(key)) {
+                    log.debug("Found MemoryInGB: {}", value);
+                    return value + "GB";
+                } else if ("MemoryInGiB".equals(key)) {
+                    log.debug("Found MemoryInGiB: {}", value);
+                    return value + "GiB";
+                } else if ("MemorySizeMib".equals(key)) {
+                    log.debug("Found MemorySizeMib: {}", value);
+                    return value + "MiB";
+                } else if ("MemorySizeGib".equals(key)) {
+                    log.debug("Found MemorySizeGib: {}", value);
+                    return value + "GiB";
+                } else if ("Memory".equals(key)) {
+                    log.debug("Found Memory: {}", value);
+                    return value; // 단위가 이미 포함되어 있을 수 있음
+                } else if ("MemSize".equals(key)) {
+                    log.debug("Found MemSize: {}", value);
+                    return value; // 단위가 이미 포함되어 있을 수 있음
+                }
+            }
+        }
+        
+        log.warn("No memory value found in K8sSpec, returning default 4GB");
+        return "4GB"; // 기본값 (단위 명시)
+    }
+    
+    /**
+     * 메모리 값을 GB로 변환합니다.
+     * 다양한 메모리 단위를 지원합니다: KB, MB, GB, TB, KiB, MiB, GiB, TiB
+     * 
+     * @param memoryValue 메모리 값 (문자열)
+     * @return GB 단위의 메모리 값
+     */
+    private double convertMemoryToGB(String memoryValue) {
+        if (memoryValue == null || memoryValue.trim().isEmpty()) {
+            log.warn("Memory value is null or empty, returning 0");
+            return 0.0;
+        }
+        
+        try {
+            String trimmedValue = memoryValue.trim().toLowerCase();
+            
+            // 숫자만 추출
+            String numericValue = trimmedValue.replaceAll("[^0-9.]", "");
+            if (numericValue.isEmpty()) {
+                log.warn("No numeric value found in: {}", memoryValue);
+                return 0.0;
+            }
+            
+            double value = Double.parseDouble(numericValue);
+            
+            // 단위별 변환 (1024 기반)
+            if (trimmedValue.contains("tib")) {
+                // TiB를 GB로 변환 (1024^3)
+                double gbValue = value * 1024.0 * 1024.0;
+                log.debug("Converted {} TiB to {} GB", value, gbValue);
+                return gbValue;
+            } else if (trimmedValue.contains("tb")) {
+                // TB를 GB로 변환 (1000^3)
+                double gbValue = value * 1000.0 * 1000.0;
+                log.debug("Converted {} TB to {} GB", value, gbValue);
+                return gbValue;
+            } else if (trimmedValue.contains("gib")) {
+                // GiB는 이미 GB와 동일
+                log.debug("Memory value {} GiB is already in GB", value);
+                return value;
+            } else if (trimmedValue.contains("gb")) {
+                // GB는 그대로
+                log.debug("Memory value {} GB is already in GB", value);
+                return value;
+            } else if (trimmedValue.contains("mib")) {
+                // MiB를 GB로 변환 (1024로 나누기)
+                double gbValue = value / 1024.0;
+                log.debug("Converted {} MiB to {} GB", value, gbValue);
+                return gbValue;
+            } else if (trimmedValue.contains("mb")) {
+                // MB를 GB로 변환 (1000으로 나누기)
+                double gbValue = value / 1000.0;
+                log.debug("Converted {} MB to {} GB", value, gbValue);
+                return gbValue;
+            } else if (trimmedValue.contains("kib")) {
+                // KiB를 GB로 변환 (1024^2로 나누기)
+                double gbValue = value / (1024.0 * 1024.0);
+                log.debug("Converted {} KiB to {} GB", value, gbValue);
+                return gbValue;
+            } else if (trimmedValue.contains("kb")) {
+                // KB를 GB로 변환 (1000^2로 나누기)
+                double gbValue = value / (1000.0 * 1000.0);
+                log.debug("Converted {} KB to {} GB", value, gbValue);
+                return gbValue;
+            } else {
+                // 단위가 명시되지 않은 경우, 값의 크기로 추정
+                if (value >= 1000000) {
+                    // 1,000,000 이상이면 MB로 간주
+                    double gbValue = value / 1000.0;
+                    log.debug("No unit specified, assuming {} is MB, converted to {} GB", value, gbValue);
+                    return gbValue;
+                } else if (value >= 1000) {
+                    // 1,000 이상이면 GB로 간주
+                    log.debug("No unit specified, assuming {} is already in GB", value);
+                    return value;
+                } else {
+                    // 1,000 미만이면 GB로 간주 (소수점 포함)
+                    log.debug("No unit specified, assuming {} is already in GB", value);
+                    return value;
+                }
+            }
+        } catch (NumberFormatException e) {
+            log.warn("Error parsing memory value: {}, returning 0", memoryValue, e);
+            return 0.0;
         }
     }
 }

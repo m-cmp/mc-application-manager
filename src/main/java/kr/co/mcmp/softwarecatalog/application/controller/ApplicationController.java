@@ -4,7 +4,11 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,6 +26,8 @@ import kr.co.mcmp.softwarecatalog.application.model.OperationHistory;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOrchestrationService;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequestDTO;
+import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import org.springframework.web.bind.annotation.PathVariable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,40 +43,27 @@ public class ApplicationController {
     private final ApplicationOrchestrationService applicationOrchestrationService;
 
     @Operation(summary = "Deploy application to VM", description = "Deploy an application to a specific VM.")
-    @GetMapping("/vm/deploy")
+    @PostMapping("/vm/deploy")
     public ResponseEntity<ResponseWrapper<DeploymentHistory>> deployVmApplication(
-            @Parameter(description = "Namespace for deployment", required = true, example = "default") @RequestParam String namespace,
-            @Parameter(description = "MCIS (Multi-Cloud Infrastructure Service) ID", required = true, example = "mci-001") @RequestParam String mciId,
-            @Parameter(description = "Virtual Machine ID", required = true, example = "vm-001") @RequestParam String vmId,
-            @Parameter(description = "Catalog ID of the application to deploy", required = true, example = "123") @RequestParam Long catalogId,
-            @Parameter(description = "Service port number", required = true, example = "8080") @RequestParam Integer servicePort,
-            @Parameter(description = "Username for deployment (optional)", example = "admin") @RequestParam(required = false) String username) {
-        DeploymentRequest request = DeploymentRequest.forVm(namespace, mciId, vmId, catalogId, servicePort, username);
+            @Parameter(description = "Deployment request for VM", required = true) @RequestBody DeploymentRequestDTO requestDTO) {
+
+        // VM 배포 타입 설정
+        requestDTO.setDeploymentType(DeploymentType.VM);
         
-        // 스펙 검증 먼저 수행
-        boolean specValid = applicationOrchestrationService.checkSpecForVm(namespace, mciId, vmId, catalogId);
-        
+        DeploymentRequest request = requestDTO.toDeploymentRequest();
         DeploymentHistory result = applicationOrchestrationService.deployApplication(request);
-        
-        // 스펙 검증 실패 시 경고 메시지와 함께 응답
-        if (!specValid) {
-            ResponseWrapper<DeploymentHistory> response = new ResponseWrapper<>(result);
-            response.setDetail("Warning: Insufficient VM resources detected. Deployment may fail or perform poorly.");
-            return ResponseEntity.ok(response);
-        }
-        
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
     @Operation(summary = "Deploy application to K8s cluster", description = "Deploy an application to a specific K8s cluster.")
-    @GetMapping("/k8s/deploy")
+    @PostMapping("/k8s/deploy")
     public ResponseEntity<ResponseWrapper<DeploymentHistory>> deployK8sApplication(
-            @Parameter(description = "Kubernetes namespace for deployment", required = true, example = "default") @RequestParam String namespace,
-            @Parameter(description = "Kubernetes cluster name", required = true, example = "cluster-001") @RequestParam String clusterName,
-            @Parameter(description = "Catalog ID of the application to deploy", required = true, example = "123") @RequestParam Long catalogId,
-            @Parameter(description = "Username for deployment (optional)", example = "admin") @RequestParam(required = false) String username) {
-        DeploymentRequest request = DeploymentRequest.forKubernetes(namespace, clusterName, catalogId, username);
+            @Parameter(description = "Deployment request for K8s", required = true) @RequestBody DeploymentRequestDTO requestDTO) {
+
+        // K8s 배포 타입 설정
+        requestDTO.setDeploymentType(DeploymentType.K8S);
         
+        DeploymentRequest request = requestDTO.toDeploymentRequest();
         DeploymentHistory result = applicationOrchestrationService.deployApplication(request);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
@@ -169,50 +162,5 @@ public class ApplicationController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    // ===== Application Status/Deployment Related Query APIs =====
-    
-    @Operation(summary = "Get all application status", description = "Retrieve all application statuses.")
-    @GetMapping("/status/all")
-    public ResponseEntity<ResponseWrapper<List<ApplicationStatus>>> getAllApplicationStatus() {
-        List<ApplicationStatus> result = applicationService.getAllApplicationStatus();
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
-    @Operation(summary = "Get application error logs", description = "Retrieve error logs for a specific application status.")
-    @GetMapping("/error-logs/{applicationStatusId}")
-    public ResponseEntity<ResponseWrapper<List<String>>> getApplicationErrorLogs(
-            @Parameter(description = "Application status ID to get error logs for", required = true, example = "789") @PathVariable Long applicationStatusId) {
-        List<String> result = applicationService.getApplicationErrorLogs(applicationStatusId);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
-    @Operation(summary = "Get all deployment history", description = "Retrieve all deployment history.")
-    @GetMapping("/deployment-history/all")
-    public ResponseEntity<ResponseWrapper<List<DeploymentHistory>>> getAllDeploymentHistory() {
-        List<DeploymentHistory> result = applicationService.getAllDeploymentHistory();
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
-    @Operation(summary = "Get all deployment logs", description = "Retrieve all deployment logs.")
-    @GetMapping("/deployment-logs/all")
-    public ResponseEntity<ResponseWrapper<List<DeploymentLog>>> getAllDeploymentLogs() {
-        List<DeploymentLog> result = applicationService.getAllDeploymentLogs();
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
-    @Operation(summary = "Get all operation history", description = "Retrieve all operation history.")
-    @GetMapping("/operation-history/all")
-    public ResponseEntity<ResponseWrapper<List<OperationHistory>>> getAllOperationHistory() {
-        List<OperationHistory> result = applicationService.getAllOperationHistory();
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
-    @Operation(summary = "Get integrated application information", description = "Retrieve integrated information including status, deployment, and logs for a specific application.")
-    @GetMapping("/integrated/{catalogId}")
-    public ResponseEntity<ResponseWrapper<Map<String, Object>>> getIntegratedApplicationInfo(
-            @Parameter(description = "Catalog ID to get integrated information for", required = true, example = "123") @PathVariable Long catalogId) {
-        Map<String, Object> result = applicationService.getIntegratedApplicationInfo(catalogId);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
     
 }

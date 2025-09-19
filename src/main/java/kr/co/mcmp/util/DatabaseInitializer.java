@@ -21,16 +21,42 @@ public class DatabaseInitializer implements CommandLineRunner{
 
     @Override
     public void run(String... args) throws Exception {
-        if (isDatabaseEmpty()) {
+        // SOFTWARE_SOURCE_MAPPING 테이블이 비어있을 때만 실행 (이 테이블이 마지막에 생성되므로)
+        if (isSourceMappingEmpty() && isDatabaseEmpty()) {
+            System.out.println("데이터베이스 초기화를 시작합니다...");
             Resource resource = resourceLoader.getResource("classpath:import.sql");
             String sql = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
             jdbcTemplate.execute(sql);
+            System.out.println("데이터베이스 초기화가 완료되었습니다.");
+        } else {
+            System.out.println("데이터베이스가 이미 초기화되어 있습니다. 건너뜁니다.");
         }
     }
 
     private boolean isDatabaseEmpty() {
-        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM software_catalog", Long.class);
-        return count != null && count == 0;
+        try {
+            // SOFTWARE_CATALOG 테이블이 존재하는지 확인
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SOFTWARE_CATALOG", Long.class);
+            // 테이블이 존재하면 데이터 개수 확인
+            Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SOFTWARE_CATALOG", Long.class);
+            return count != null && count == 0;
+        } catch (Exception e) {
+            // 테이블이 존재하지 않으면 빈 데이터베이스로 간주
+            return true;
+        }
+    }
+    
+    private boolean isSourceMappingEmpty() {
+        try {
+            // SOFTWARE_SOURCE_MAPPING 테이블이 존재하는지 확인
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SOFTWARE_SOURCE_MAPPING", Long.class);
+            // 테이블이 존재하면 데이터 개수 확인
+            Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SOFTWARE_SOURCE_MAPPING", Long.class);
+            return count != null && count == 0;
+        } catch (Exception e) {
+            // 테이블이 존재하지 않으면 빈 데이터베이스로 간주
+            return true;
+        }
     }
 
 }

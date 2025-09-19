@@ -6,14 +6,15 @@ import java.util.Optional;
 
 import javax.persistence.EntityNotFoundException;
 
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 import io.fabric8.kubernetes.api.model.Pod;
 import kr.co.mcmp.softwarecatalog.CatalogRepository;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
+import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.constants.LogType;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
@@ -34,15 +35,61 @@ public class KubernetesService {
     private final ApplicationStatusRepository statusRepository;
     private final CatalogRepository catalogRepository;
     private final DeploymentLogRepository deploymentLogRepository;
-    private final KubernetesOperationService operationService;
     private final UserRepository userRepository;
 
+    /**
+     * DTO 기반 애플리케이션 배포 (새로운 방식)
+     */
+    public DeploymentHistory deployApplication(DeploymentRequest request) {
+        DeploymentHistory history = null;
+        SoftwareCatalog catalog = null;
+        try {
+            catalog = findCatalogById(request.getCatalogId());
+            // DTO를 포함하여 호출
+            history = deploymentService.deployApplication(
+                request.getNamespace(), 
+                request.getClusterName(), 
+                catalog, 
+                request.getUsername(), 
+                request
+            );
+            addDeploymentLog(history, LogType.INFO, "Deployment initiated successfully with DTO configuration.");
+            updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ActionType.INSTALL.name());
+            return historyRepository.save(history);
+        } catch (Exception e) {
+            log.error("애플리케이션 배포 중 오류 발생", e);
+            
+            if (history == null) {
+                // 배포 시작 전에 오류가 발생한 경우
+                history = createFailedDeploymentHistory(request.getNamespace(), request.getClusterName(), catalog, request.getUsername());
+                addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
+                historyRepository.save(history);
+            } else {
+                // 배포 중에 오류가 발생한 경우 (이미 생성된 history가 있음)
+                history.setStatus("FAILED");
+                addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
+                historyRepository.save(history);
+            }
+            
+            if (catalog != null) {
+                updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, "FAILED");
+            }
+            
+            throw new RuntimeException("애플리케이션 배포 실패", e);
+        }
+    }
+
+    /**
+     * 기존 방식 호환을 위한 메서드 (deprecated)
+     */
+    @Deprecated
     public DeploymentHistory deployApplication(String namespace, String clusterName, Long catalogId, String username) {
         DeploymentHistory history = null;
         SoftwareCatalog catalog = null;
         try {
             catalog = findCatalogById(catalogId);
-            history = deploymentService.deployApplication(namespace, clusterName, catalog, username);
+            // request 없이 호출 (기존 방식 유지)
+            history = deploymentService.deployApplication(namespace, clusterName, catalog, username, null);
             addDeploymentLog(history, LogType.INFO, "Deployment initiated successfully.");
             updateApplicationStatus(namespace, clusterName, catalog, ActionType.INSTALL.name());
             return historyRepository.save(history);
@@ -52,16 +99,19 @@ public class KubernetesService {
             if (history == null) {
                 // 배포 시작 전에 오류가 발생한 경우
                 history = createFailedDeploymentHistory(namespace, clusterName, catalog, username);
+                addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
+                historyRepository.save(history);
+            } else {
+                // 배포 중에 오류가 발생한 경우 (이미 생성된 history가 있음)
+                history.setStatus("FAILED");
+                addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
+                historyRepository.save(history);
             }
-            
-            history.setStatus("FAILED");
-            addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
             
             if (catalog != null) {
                 updateApplicationStatus(namespace, clusterName, catalog, "FAILED");
             }
             
-            historyRepository.save(history);
             throw new RuntimeException("애플리케이션 배포 실패", e);
         }
     }
@@ -72,6 +122,7 @@ public class KubernetesService {
                 .clusterName(clusterName)
                 .catalog(catalog)
                 .executedBy(userRepository.findByUsername(username).orElse(null))
+                .deploymentType(DeploymentType.K8S)
                 .status("FAILED")
                 .actionType(ActionType.INSTALL)
                 .executedAt(LocalDateTime.now())
@@ -81,7 +132,7 @@ public class KubernetesService {
     public void stopApplication(String namespace, String clusterName, Long catalogId, String username) {
         try {
             SoftwareCatalog catalog = findCatalogById(catalogId);
-            operationService.stopApplication(namespace, clusterName, catalog, username);
+            deploymentService.stopApplication(namespace, clusterName, catalog, username);
             updateApplicationStatus(namespace, clusterName, catalog, ActionType.STOP.name() );
         } catch (Exception e) {
             log.error("애플리케이션 중지 중 오류 발생", e);
@@ -92,7 +143,7 @@ public class KubernetesService {
     public void restartApplication(String namespace, String clusterName, Long catalogId, String username) {
         try {
             SoftwareCatalog catalog = findCatalogById(catalogId);
-            operationService.restartApplication(namespace, clusterName, catalog, username);
+            deploymentService.restartApplication(namespace, clusterName, catalog, username);
             updateApplicationStatus(namespace, clusterName, catalog, ActionType.RESTART.name());
         } catch (Exception e) {
             log.error("애플리케이션 재시작 중 오류 발생", e);
@@ -103,7 +154,7 @@ public class KubernetesService {
     public void uninstallApplication(String namespace, String clusterName, Long catalogId, String username) {
         try {
             SoftwareCatalog catalog = findCatalogById(catalogId);
-            operationService.uninstallApplication(namespace, clusterName, catalog, username);
+            deploymentService.uninstallApplication(namespace, clusterName, catalog, username);
             updateApplicationStatus(namespace, clusterName, catalog, ActionType.UNINSTALL.name());
         } catch (Exception e) {
             log.error("애플리케이션 제거 중 오류 발생", e);
@@ -157,13 +208,6 @@ public class KubernetesService {
                 .build();
     }
 
-    private ApplicationStatus createAndSaveApplicationStatus(String namespace, String clusterName, List<Pod> pods,
-            SoftwareCatalog catalog) {
-
-        ApplicationStatus status = createApplicationStatus(namespace, clusterName, catalog);
-        status.setPodStatus(getPodStatusSummary(pods));
-        return statusRepository.save(status);
-    }
 
     private String getPodStatusSummary(List<Pod> pods) {
         long runningPods = pods.stream()

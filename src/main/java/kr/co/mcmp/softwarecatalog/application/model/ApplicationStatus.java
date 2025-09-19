@@ -55,6 +55,9 @@ public class ApplicationStatus {
     @JoinColumn(name = "catalog_id")
     private SoftwareCatalog catalog;
 
+    @Column(name = "deployment_history_id")
+    private Long deploymentHistoryId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "deployment_type")
     private DeploymentType deploymentType; // VM or K8S
@@ -99,8 +102,35 @@ public class ApplicationStatus {
 
     @ElementCollection
     @CollectionTable(name = "APPLICATION_ERROR_LOGS", joinColumns = @JoinColumn(name = "application_status_id"))
-    @Column(name = "error_log")
+    @Column(name = "error_log", length = 2000)
     private List<String> errorLogs = new ArrayList<>();
 
+    @ElementCollection
+    @CollectionTable(name = "APPLICATION_INFO_LOGS", joinColumns = @JoinColumn(name = "application_status_id"))
+    @Column(name = "info_log", length = 2000)
+    private List<String> infoLogs = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(name = "APPLICATION_DEBUG_LOGS", joinColumns = @JoinColumn(name = "application_status_id"))
+    @Column(name = "debug_log", length = 2000)
+    private List<String> debugLogs = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(name = "APPLICATION_POD_LOGS", joinColumns = @JoinColumn(name = "application_status_id"))
+    @Column(name = "pod_log", length = 2000)
+    private List<String> podLogs = new ArrayList<>();
+
+    // 로그 중복 방지를 위한 해시 필드들
+    @Column(name = "error_logs_hash")
+    private String errorLogsHash;
+    
+    @Column(name = "info_logs_hash")
+    private String infoLogsHash;
+    
+    @Column(name = "debug_logs_hash")
+    private String debugLogsHash;
+    
+    @Column(name = "pod_logs_hash")
+    private String podLogsHash;
 
 }

@@ -27,7 +27,7 @@ public class SoftwareCatalogDTO {
     private String packageName;
 
     // 1. Package
-    private String sourceType;  // EX) DOCKERHUB / ARTIFACTHUB / ...ETC (FIXED_VALUE)
+    // sourceType은 SOFTWARE_SOURCE_MAPPING에서 관리
     private String category;
     private PackageInfoDTO packageInfo;
     private HelmChartDTO helmChart;
@@ -92,7 +92,6 @@ public class SoftwareCatalogDTO {
                 .id(entity.getId())
 
                 // 1. Package
-                .sourceType(entity.getSourceType())
                 .category(entity.getCategory())
                 .packageInfo(entity.getPackageInfo() != null ? PackageInfoDTO.fromEntity(entity.getPackageInfo()) : null)
                 .helmChart(entity.getHelmChart() != null ? HelmChartDTO.fromEntity(entity.getHelmChart()) : null)
@@ -158,7 +157,6 @@ public class SoftwareCatalogDTO {
                 .id(this.id)
 
                 // 1. Package
-                .sourceType(this.sourceType)
                 .category(this.category)
                 .packageInfo(this.packageInfo != null ? this.packageInfo.toEntity() : null)
                 .helmChart(this.helmChart != null ? this.helmChart.toEntity() : null)

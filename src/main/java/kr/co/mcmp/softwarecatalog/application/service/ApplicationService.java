@@ -101,4 +101,14 @@ public interface ApplicationService {
      * @return 통합된 애플리케이션 정보
      */
     Map<String, Object> getIntegratedApplicationInfo(Long catalogId);
+    
+    /**
+     * 특정 배포의 모든 상태/배포/로그 정보를 통합 조회합니다.
+     *
+     * @param deploymentId 배포 ID
+     * @return 통합된 애플리케이션 정보
+     */
+    Map<String, Object> getIntegratedApplicationInfoByDeploymentId(Long deploymentId);
+    
+    String updateIngressConfiguration(Long catalogId, Map<String, Object> ingressConfig);
 }

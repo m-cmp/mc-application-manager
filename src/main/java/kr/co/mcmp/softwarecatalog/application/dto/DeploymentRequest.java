@@ -60,6 +60,21 @@ public class DeploymentRequest {
      */
     private java.util.Map<String, Object> additionalConfig;
     
+    // HPA 설정
+    private Boolean hpaEnabled;
+    private Integer minReplicas;
+    private Integer maxReplicas;
+    private Double cpuThreshold;
+    private Double memoryThreshold;
+    
+    // Ingress 설정
+    private Boolean ingressEnabled;
+    private String ingressHost;
+    private String ingressPath;
+    private String ingressClass;
+    private Boolean ingressTlsEnabled;
+    private String ingressTlsSecret;
+    
     /**
      * VM 배포 요청을 생성합니다.
      */

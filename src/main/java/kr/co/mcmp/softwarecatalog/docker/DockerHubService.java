@@ -131,7 +131,7 @@ public class DockerHubService {
                 .homepage((String) imageData.get("homepage"))
                 .repositoryUrl((String) imageData.get("repository_url"))
                 .documentationUrl((String) imageData.get("documentation_url"))
-                .sourceType("DOCKERHUB")
+                // sourceType은 SOFTWARE_SOURCE_MAPPING에서 관리
                 .packageName(request.getName())
                 .build();
     }

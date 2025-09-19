@@ -1,24 +1,30 @@
 package kr.co.mcmp.softwarecatalog.kubernetes.service;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.Yaml;
 
 import com.marcnuri.helm.Helm;
 import com.marcnuri.helm.InstallCommand;
+import com.marcnuri.helm.ListCommand;
 import com.marcnuri.helm.Release;
+import com.marcnuri.helm.UninstallCommand;
 
-import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
+import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProviderFactory;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProvider;
+import kr.co.mcmp.softwarecatalog.kubernetes.util.ReleaseNameGenerator;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,156 +33,551 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class HelmChartService {
 
-    private final NexusConfig nexusConfig;
+    private final CbtumblebugRestApi cbtumblebugRestApi;
+    private final KubeConfigProviderFactory providerFactory;
+    private final ReleaseNameGenerator releaseNameGenerator;
 
-
-
-    public String convertConfigToYaml(Config config) {
-        // SnakeYAML 설정
-        DumperOptions options = new DumperOptions();
-        options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);  // 블록 스타일 (가독성이 좋음)
-        Yaml yaml = new Yaml(options);
-
-        // Config 객체를 YAML로 직렬화
-        StringWriter writer = new StringWriter();
-        yaml.dump(config, writer);
-
-        return writer.toString();
+    public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog, String clusterName) {
+        return deployHelmChart(client, namespace, catalog, catalog.getHelmChart(), clusterName);
     }
-    public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog) {
+    
+    public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog, 
+                                 kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart, String clusterName,
+                                 kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest request) {
+        return deployHelmChartWithRequest(client, namespace, catalog, helmChart, clusterName, request);
+    }
+    
+    public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog, 
+                                 kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart, String clusterName) {
+        log.info("=== Helm Chart 배포 시작 ===");
+        log.info("Chart: {}, Namespace: {}, Cluster: {}", 
+                helmChart.getChartName(), namespace, clusterName);
+        
         Path tempKubeconfigPath = null;
 
         try {
-            // Helm repository 추가
-            addHelmRepository(catalog);
+            // 1. 클러스터 정보 조회
+            K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
+            log.info("클러스터 정보 조회 완료: {}", clusterName);
+            log.info("Provider: {}", clusterDto.getConnectionConfig().getProviderName());
 
-            Config kubeConfig = client.getConfiguration();
-            log.info("===========================kubeconfig");
-            log.info(kubeConfig.toString());  // Config 객체 로그 확인
-            log.info("===========================================");
+            // 2. Kubeconfig YAML 생성
+            String kubeconfigYaml = providerFactory.getProvider(clusterDto.getConnectionConfig().getProviderName())
+                    .getOriginalKubeconfigYaml(clusterDto);
+            log.info("3. Kubeconfig YAML 생성 완료 (길이: {} bytes)", kubeconfigYaml.length());
 
-            // Config 객체를 YAML로 변환
-            String kubeconfigYaml = convertConfigToYaml(kubeConfig);  // Config를 YAML 형식으로 직렬화
-            log.info(kubeconfigYaml);
-            // 임시 kubeconfig 파일 생성
-            tempKubeconfigPath = createTempKubeconfigFile(kubeConfig.toString());  // YAML 파일로 저장
+            // 3. 임시 kubeconfig 파일 생성
+            tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
+            log.info("4. 임시 kubeconfig 파일 생성 중...");
+            log.info("임시 kubeconfig 파일 생성 완료: {}", tempKubeconfigPath);
 
-            // Helm 설치 명령어 생성
-            InstallCommand installCommand = Helm.install(
-                    catalog.getHelmChart().getRepositoryName() + "/" + catalog.getHelmChart().getChartName())
-                    .withKubeConfig(tempKubeconfigPath) // Path 타입으로 kubeconfig 전달
-                    .withName(catalog.getHelmChart().getChartName())
-                    .withNamespace(namespace)
-                    .withVersion(catalog.getHelmChart().getChartVersion())
-                    .set("replicaCount", catalog.getMinReplicas())
-                    .set("image.repository", buildImageRepository(catalog))
-                    .set("image.tag", catalog.getHelmChart().getChartVersion())
-                    .set("image.pullPolicy", "Always")
-                    .set("service.port", catalog.getDefaultPort())
-                    .set("resources.requests.cpu", catalog.getMinCpu().toString())
-                    .set("resources.requests.memory", catalog.getMinMemory() + "Mi")
-                    .set("resources.limits.cpu", catalog.getRecommendedCpu().toString())
-                    .set("resources.limits.memory", catalog.getRecommendedMemory() + "Mi");
+            // 4. 릴리스 이름 생성
+            String releaseName = releaseNameGenerator.generateReleaseName(helmChart.getChartName());
+            log.info("새 릴리스 이름 생성: {}", releaseName);
+            log.info("5. 릴리스 이름 결정: {}", releaseName);
 
-            // HPA 설정 추가
-            if (Boolean.TRUE.equals(catalog.getHpaEnabled())) {
-                installCommand
-                        .set("autoscaling.enabled", true)
-                        .set("autoscaling.minReplicas", catalog.getMinReplicas())
-                        .set("autoscaling.maxReplicas", catalog.getMaxReplicas())
-                        .set("autoscaling.targetCPUUtilizationPercentage", catalog.getCpuThreshold().intValue())
-                        .set("autoscaling.targetMemoryUtilizationPercentage", catalog.getMemoryThreshold().intValue());
+            // 5. 기존 릴리스 확인 (현재 배포와 관련된 것만)
+            log.info("6. 기존 릴리스 확인 중...");
+            try {
+                // 현재 카탈로그와 관련된 기존 릴리스만 확인
+                String existingReleaseName = getReleaseNameFromHistory(catalog.getId(), clusterName, namespace);
+                if (existingReleaseName != null) {
+                    log.info("기존 릴리스 발견: {} (상태: 확인 중)", existingReleaseName);
+                    try {
+                        // 기존 릴리스 상태 확인
+                        List<Release> existingReleases = Helm.list()
+                                .withKubeConfig(tempKubeconfigPath)
+                                .withNamespace(namespace)
+                                .call();
+                        
+                        boolean found = false;
+                        for (Release release : existingReleases) {
+                            if (release.getName().equals(existingReleaseName)) {
+                                log.info("기존 릴리스 상태: {} (상태: {})", existingReleaseName, release.getStatus());
+                                found = true;
+                                
+                                // 기존 릴리스 삭제
+                                Helm.uninstall(existingReleaseName)
+                                        .withKubeConfig(tempKubeconfigPath)
+                                        .withNamespace(namespace)
+                                        .call();
+                                log.info("기존 릴리스 삭제 완료: {}", existingReleaseName);
+                                break;
+                            }
+                        }
+                        
+                        if (!found) {
+                            log.info("기존 릴리스가 실제로 존재하지 않습니다: {}", existingReleaseName);
+                        }
+                    } catch (Exception e) {
+                        log.warn("기존 릴리스 삭제 중 오류 발생: {}", e.getMessage());
+                    }
+                } else {
+                    log.info("기존 릴리스가 없습니다. 새로 설치를 진행합니다.");
+                }
+            } catch (Exception e) {
+                log.warn("기존 릴리스 확인 중 오류 발생. 새로 설치를 진행합니다. 오류: {}", e.getMessage());
             }
 
-            // Helm 차트 설치 실행
-            Release result = installCommand.call();
+            // 6. Helm Repository 추가
+            String repositoryName = helmChart.getRepositoryName();
+            String chartRepositoryUrl = helmChart.getChartRepositoryUrl();
+            log.info("7. Helm 명령어 생성 중... Chart: {}, Version: {}", helmChart.getChartName(), helmChart.getChartVersion());
 
-            log.info("Helm Chart '{}' 버전 '{}'가 네임스페이스 '{}'에 배포됨 (HPA: {})",
-                    catalog.getHelmChart().getChartName(),
-                    "latest",
-                    namespace,
-                    catalog.getHpaEnabled());
+            try {
+                Helm.repo().add()
+                        .withName(repositoryName)
+                        .withUrl(URI.create(chartRepositoryUrl))
+                        .call();
+                log.info("Helm Repository 추가 완료: {}", repositoryName);
+            } catch (Exception e) {
+                log.warn("Helm Repository 추가 중 오류 발생 (이미 존재할 수 있음): {}", e.getMessage());
+            }
+
+            // 7. 새 릴리스 설치
+            log.info("8. 새 릴리스 설치 실행 중...");
+            String chartRef = repositoryName + "/" + helmChart.getChartName();
+
+            InstallCommand installCommand = Helm.install(chartRef)
+                    .withKubeConfig(tempKubeconfigPath)
+                    .withName(releaseName)
+                    .withNamespace(namespace)
+                    .withVersion(helmChart.getChartVersion())
+                    .set("replicaCount", catalog.getMinReplicas())
+                    .set("image.repository", buildImageRepository(catalog, helmChart))
+                    .set("image.tag", "latest")
+                    .set("image.pullPolicy", "IfNotPresent")
+                    .set("image.registry", "docker.io")
+                    .set("service.port", catalog.getDefaultPort())
+                    .set("service.type", "ClusterIP")
+                    .set("resources.requests.cpu", catalog.getMinCpu().toString())
+                    .set("resources.requests.memory", (int)(catalog.getMinMemory() * 1024) + "Mi")
+                    .set("resources.limits.cpu", catalog.getRecommendedCpu().toString())
+                    .set("resources.limits.memory", (int)(catalog.getRecommendedMemory() * 1024) + "Mi")
+                    .set("persistence.enabled", false)
+                    .set("securityContext.runAsNonRoot", false)
+                    .set("containerSecurityContext.allowPrivilegeEscalation", false);
+
+            // Ingress 설정 적용
+            if (catalog.getIngressEnabled() != null && catalog.getIngressEnabled()) {
+                log.info("Ingress 설정 적용 중...");
+                installCommand
+                        .set("ingress.enabled", true)
+                        .set("ingress.host", catalog.getIngressHost() != null ? catalog.getIngressHost() : "localhost")
+                        .set("ingress.path", catalog.getIngressPath() != null ? catalog.getIngressPath() : "/")
+                        .set("ingress.className", catalog.getIngressClass() != null ? catalog.getIngressClass() : "nginx");
+                
+                // TLS 설정
+                if (catalog.getIngressTlsEnabled() != null && catalog.getIngressTlsEnabled()) {
+                    installCommand
+                            .set("ingress.tls.enabled", true)
+                            .set("ingress.tls.secretName", catalog.getIngressTlsSecret() != null ? 
+                                catalog.getIngressTlsSecret() : releaseName + "-tls");
+                } else {
+                    installCommand.set("ingress.tls.enabled", false);
+                }
+                
+                log.info("Ingress 설정 완료 - Host: {}, Path: {}, Class: {}", 
+                        catalog.getIngressHost(), catalog.getIngressPath(), catalog.getIngressClass());
+            } else {
+                installCommand.set("ingress.enabled", false);
+                log.info("Ingress 비활성화됨");
+            }
+
+            // CSP별 및 설정에 따른 동적 설정 적용
+            log.info("CSP별 및 설정에 따른 동적 설정 적용 중...");
+            try {
+                String providerName = clusterDto.getConnectionConfig().getProviderName();
+                log.info("Provider: {}, HPA Enabled: {}", providerName, catalog.getHpaEnabled());
+
+                // HPA 설정 적용
+                if (catalog.getHpaEnabled()) {
+                    log.info("HPA 활성화 설정 적용 중...");
+                    installCommand
+                            .set("autoscaling.enabled", true)
+                            .set("autoscaling.minReplicas", catalog.getMinReplicas())
+                            .set("autoscaling.maxReplicas", catalog.getMaxReplicas())
+                            .set("autoscaling.targetCPUUtilizationPercentage", catalog.getCpuThreshold())
+                            .set("autoscaling.targetMemoryUtilizationPercentage", catalog.getMemoryThreshold());
+                }
+
+                // CSP별 설정 적용
+                switch (providerName.toUpperCase()) {
+                    case "AWS":
+                        log.info("AWS 특화 설정 적용 중...");
+                        installCommand
+                                .set("service.type", "LoadBalancer")
+                                .set("persistence.enabled", true)
+                                .set("persistence.storageClass", "gp2")
+                                .set("persistence.size", "20Gi")
+                                .set("persistence.accessMode", "ReadWriteOnce");
+                        break;
+                    case "AZURE":
+                        log.info("Azure 특화 설정 적용 중...");
+                        installCommand
+                                .set("service.type", "LoadBalancer")
+                                .set("persistence.enabled", true)
+                                .set("persistence.storageClass", "managed-csi")
+                                .set("persistence.size", "20Gi")
+                                .set("persistence.accessMode", "ReadWriteOnce");
+                        break;
+                    case "GCP":
+                        log.info("GCP 특화 설정 적용 중...");
+                        installCommand
+                                .set("service.type", "LoadBalancer")
+                                .set("persistence.enabled", true)
+                                .set("persistence.storageClass", "standard-rwo")
+                                .set("persistence.size", "20Gi")
+                                .set("persistence.accessMode", "ReadWriteOnce");
+                        break;
+                    default:
+                        log.info("기본 설정 적용 중...");
+                        installCommand
+                                .set("service.type", "ClusterIP")
+                                .set("persistence.enabled", false);
+                        break;
+                }
+
+                // 공통 보안 설정 적용
+                log.info("공통 보안 설정 적용 중...");
+                installCommand
+                        .set("podSecurityPolicy.enabled", false)
+                        .set("rbac.create", false)
+                        .set("serviceAccount.create", false)
+                        .set("serviceAccount.name", "default");
+
+            } catch (Exception e) {
+                log.warn("CSP별 설정 적용 중 오류 발생: {}", e.getMessage());
+            }
+
+            Release result = installCommand.call();
+            log.info("Helm Chart '{}' 설치 완료 (HPA: {})", releaseName, catalog.getHpaEnabled());
+            log.info("=== Helm Chart 배포 성공 ===");
+            log.info("릴리스명: {}, 상태: {}, 네임스페이스: {}", releaseName, result.getStatus(), namespace);
+
             return result;
 
         } catch (Exception e) {
-            log.error("Helm Chart 배포 중 오류 발생", e);
+            log.error("=== Helm Chart 배포 실패 ===");
+            log.error("오류: {}", e.getMessage(), e);
             throw new RuntimeException("Helm Chart 배포 실패", e);
         } finally {
-            // 임시 kubeconfig 파일 삭제
+            // 8. 임시 kubeconfig 파일 삭제
             if (tempKubeconfigPath != null) {
                 try {
-                    deleteTempFile(tempKubeconfigPath);
+                    log.info("8. 임시 kubeconfig 파일 삭제 중...");
+                    Files.deleteIfExists(tempKubeconfigPath);
+                    log.info("임시 kubeconfig 파일 삭제 완료");
                 } catch (IOException e) {
-                    log.warn("임시 kubeconfig 파일 삭제 실패: {}", tempKubeconfigPath, e);
+                    log.warn("임시 kubeconfig 파일 삭제 중 오류 발생: {}", e.getMessage());
+                }
+            }
+        }
+    }
+    
+    /**
+     * DeploymentRequest를 사용하여 Helm Chart를 배포합니다.
+     */
+    public Release deployHelmChartWithRequest(KubernetesClient client, String namespace, SoftwareCatalog catalog, 
+                                            kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart, String clusterName,
+                                            kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest request) {
+        log.info("=== Helm Chart 배포 시작 (Request 기반) ===");
+        log.info("Chart: {}, Namespace: {}, Cluster: {}", 
+                helmChart.getChartName(), namespace, clusterName);
+        
+        Path tempKubeconfigPath = null;
+
+        try {
+            // 1. 클러스터 정보 조회
+            K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(clusterName, "default");
+            if (clusterDto == null) {
+                throw new RuntimeException("K8s cluster not found: " + clusterName);
+            }
+
+            // 2. kubeconfig 파일 생성
+            String providerName = clusterDto.getConnectionConfig().getProviderName();
+            KubeConfigProvider provider = providerFactory.getProvider(providerName);
+            String kubeconfigYaml = provider.getOriginalKubeconfigYaml(clusterDto);
+            
+            tempKubeconfigPath = Files.createTempFile("kubeconfig-", ".yaml");
+            Files.write(tempKubeconfigPath, kubeconfigYaml.getBytes());
+
+            // 3. Helm repository 추가
+            String chartRepositoryUrl = helmChart.getChartRepositoryUrl();
+            String repositoryName = helmChart.getRepositoryName();
+            
+            Helm.repo().add().withName(repositoryName).withUrl(URI.create(chartRepositoryUrl)).call();
+            Helm.repo().update().call();
+
+            // 4. 릴리스 이름 생성
+            String releaseName = releaseNameGenerator.generateReleaseName(helmChart.getChartName());
+
+            // 5. 기존 릴리스 확인 및 제거
+            handleExistingRelease(releaseName, namespace, tempKubeconfigPath, catalog.getId(), clusterName);
+
+            // 6. 배포 설정 DTO 생성 (우선순위: Request > Catalog > Default)
+            DeploymentConfigDTO config = DeploymentConfigDTO.from(request, catalog);
+            log.info("배포 설정 생성 완료 - {}", config);
+
+            // 7. Helm Chart 설치 명령어 구성
+            String chartRef = repositoryName + "/" + helmChart.getChartName();
+
+            InstallCommand installCommand = Helm.install(chartRef)
+                    .withKubeConfig(tempKubeconfigPath)
+                    .withName(releaseName)
+                    .withNamespace(namespace)
+                    .withVersion(helmChart.getChartVersion())
+                    .set("replicaCount", config.getMinReplicas())
+                    .set("image.repository", buildImageRepository(catalog, helmChart))
+                    .set("image.tag", "latest")
+                    .set("image.pullPolicy", "IfNotPresent")
+                    .set("image.registry", "docker.io")
+                    .set("service.port", catalog.getDefaultPort())
+                    .set("service.type", "ClusterIP")
+                    .set("resources.requests.cpu", catalog.getMinCpu().toString())
+                    .set("resources.requests.memory", (int)(catalog.getMinMemory() * 1024) + "Mi")
+                    .set("resources.limits.cpu", catalog.getRecommendedCpu().toString())
+                    .set("resources.limits.memory", (int)(catalog.getRecommendedMemory() * 1024) + "Mi")
+                    .set("persistence.enabled", false)
+                    .set("securityContext.runAsNonRoot", false)
+                    .set("containerSecurityContext.allowPrivilegeEscalation", false);
+
+            // HPA 설정 적용
+            if (config.isHpaEnabled()) {
+                log.info("HPA 설정 적용 중...");
+                installCommand
+                        .set("autoscaling.enabled", true)
+                        .set("autoscaling.minReplicas", config.getMinReplicas())
+                        .set("autoscaling.maxReplicas", config.getMaxReplicas())
+                        .set("autoscaling.targetCPUUtilizationPercentage", config.getCpuThreshold())
+                        .set("autoscaling.targetMemoryUtilizationPercentage", config.getMemoryThreshold());
+                log.info("HPA 설정 완료 - {}", config.getHpaConfigSummary());
+            } else {
+                installCommand.set("autoscaling.enabled", false);
+                log.info("HPA 비활성화됨");
+            }
+
+            // Ingress 설정 적용
+            if (config.isIngressEnabled()) {
+                log.info("Ingress 설정 적용 중...");
+                installCommand
+                        .set("ingress.enabled", true)
+                        .set("ingress.host", config.getIngressHost())
+                        .set("ingress.path", config.getIngressPath())
+                        .set("ingress.className", config.getIngressClass());
+                
+                // TLS 설정
+                if (config.isTlsEnabled()) {
+                    installCommand
+                            .set("ingress.tls.enabled", true)
+                            .set("ingress.tls.secretName", config.getIngressTlsSecret() != null ? 
+                                config.getIngressTlsSecret() : releaseName + "-tls");
+                } else {
+                    installCommand.set("ingress.tls.enabled", false);
+                }
+                
+                log.info("Ingress 설정 완료 - {}", config.getIngressConfigSummary());
+            } else {
+                installCommand.set("ingress.enabled", false);
+                log.info("Ingress 비활성화됨");
+            }
+
+            // CSP별 및 설정에 따른 동적 설정 적용
+            log.info("CSP별 및 설정에 따른 동적 설정 적용 중...");
+            try {
+                String providerName2 = clusterDto.getConnectionConfig().getProviderName();
+
+                // 공통 보안 설정 적용
+                log.info("공통 보안 설정 적용 중...");
+                installCommand
+                        .set("podSecurityPolicy.enabled", false)
+                        .set("rbac.create", false)
+                        .set("serviceAccount.create", false)
+                        .set("serviceAccount.name", "default");
+
+            } catch (Exception e) {
+                log.warn("CSP별 설정 적용 중 오류 발생: {}", e.getMessage());
+            }
+
+            Release result = installCommand.call();
+            log.info("Helm Chart '{}' 설치 완료 (HPA: {}, Ingress: {})", 
+                    releaseName, config.isHpaEnabled(), config.isIngressEnabled());
+            log.info("=== Helm Chart 배포 성공 ===");
+            log.info("릴리스명: {}, 상태: {}, 네임스페이스: {}", releaseName, result.getStatus(), namespace);
+
+            return result;
+
+        } catch (Exception e) {
+            log.error("=== Helm Chart 배포 실패 ===");
+            log.error("오류: {}", e.getMessage(), e);
+            throw new RuntimeException("Helm Chart 배포 실패", e);
+        } finally {
+            // 8. 임시 kubeconfig 파일 삭제
+            if (tempKubeconfigPath != null) {
+                try {
+                    log.info("8. 임시 kubeconfig 파일 삭제 중...");
+                    Files.deleteIfExists(tempKubeconfigPath);
+                    log.info("임시 kubeconfig 파일 삭제 완료");
+                } catch (IOException e) {
+                    log.warn("임시 kubeconfig 파일 삭제 중 오류 발생: {}", e.getMessage());
                 }
             }
         }
     }
 
-    public void uninstallHelmChart(String namespace, SoftwareCatalog catalog) {
+    public void uninstallHelmChart(String namespace, SoftwareCatalog catalog, String clusterName) {
+        uninstallHelmChart(namespace, catalog, catalog.getHelmChart(), clusterName);
+    }
+    
+    public void uninstallHelmChart(String namespace, SoftwareCatalog catalog, 
+                                 kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart, String clusterName) {
+        log.info("=== Helm Chart 삭제 시작 ===");
+        log.info("Chart: {}, Namespace: {}, Cluster: {}", 
+                helmChart.getChartName(), namespace, clusterName);
+        
         try {
-            String result = Helm.uninstall(catalog.getHelmChart().getChartName())
+            String releaseName = getReleaseNameFromHistory(catalog.getId(), clusterName, namespace);
+            if (releaseName == null) {
+                log.warn("배포 히스토리에서 릴리스 이름을 찾을 수 없습니다. 차트 이름으로 시도합니다.");
+                releaseName = helmChart.getChartName();
+            }
+            
+            log.info("1. 릴리스 '{}' 삭제 실행 중...", releaseName);
+            
+            String result = Helm.uninstall(releaseName)
                     .withNamespace(namespace)
                     .call();
 
             boolean deleted = result != null && !result.isEmpty();
-
+            log.info("2. 삭제 결과: {}", deleted ? "성공" : "실패");
+            
             if (deleted) {
-                log.info("Helm Release '{}' 가 네임스페이스 '{}'에서 삭제됨",
-                        catalog.getHelmChart().getChartName(), namespace);
+                log.info("=== Helm Chart 삭제 성공 ===");
             } else {
-                log.warn("Helm Release '{}' 삭제 실패",
-                        catalog.getHelmChart().getChartName());
+                log.warn("=== Helm Chart 삭제 실패 ===");
             }
         } catch (Exception e) {
-            log.error("Helm Release 삭제 중 오류 발생", e);
+            log.error("=== Helm Chart 삭제 중 오류 발생 ===");
+            log.error("오류: {}", e.getMessage(), e);
             throw new RuntimeException("Helm Release 삭제 실패", e);
         }
     }
-
-    private void addHelmRepository(SoftwareCatalog catalog) throws Exception {
-        String chartRepositoryUrl = getHelmChartRepositoryUrl(catalog);
-        Helm.repo().add()
-                .withName(catalog.getHelmChart().getRepositoryName())
-                .withUrl(URI.create(chartRepositoryUrl))
-                .call();
-        Helm.repo().update();
-    }
-
-
-
-    // 임시 kubeconfig 파일 생성
-    private Path createTempKubeconfigFile(String kubeconfig) throws IOException {
-        Path tempFile = Files.createTempFile("kubeconfig", ".yaml");
-        Files.write(tempFile, kubeconfig.getBytes(StandardCharsets.UTF_8));
-        return tempFile;
-    }
-
-    // 임시 kubeconfig 파일 삭제
-    private void deleteTempFile(Path tempFile) throws IOException {
-        Files.deleteIfExists(tempFile);
-    }
     
-    /**
-     * 소스 타입에 따라 적절한 이미지 레포지토리 URL을 생성합니다.
-     */
-    private String buildImageRepository(SoftwareCatalog catalog) {
-        String imageName = catalog.getHelmChart().getImageRepository();
+    public void uninstallHelmChartWithKubeconfig(String namespace, SoftwareCatalog catalog, 
+                                               String clusterName, String kubeconfigYaml) {
+        log.info("=== Helm Chart 삭제 시작 (kubeconfig 사용) ===");
+        log.info("Chart: {}, Namespace: {}, Cluster: {}", 
+                catalog.getHelmChart().getChartName(), namespace, clusterName);
+        
+        Path tempKubeconfigPath = null;
+        try {
+            // 임시 kubeconfig 파일 생성
+            tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
+            log.info("임시 kubeconfig 파일 생성 완료: {}", tempKubeconfigPath);
+            
+            // 배포 히스토리에서 릴리스 이름 조회
+            String releaseName = getReleaseNameFromHistory(catalog.getId(), clusterName, namespace);
+            if (releaseName == null) {
+                log.warn("배포 히스토리에서 릴리스 이름을 찾을 수 없습니다. 차트 이름으로 시도합니다.");
+                releaseName = catalog.getHelmChart().getChartName();
+            }
+            
+            log.info("1. 릴리스 '{}' 삭제 실행 중...", releaseName);
+            
+            String result = Helm.uninstall(releaseName)
+                    .withKubeConfig(tempKubeconfigPath)
+                    .withNamespace(namespace)
+                    .call();
+
+            boolean deleted = result != null && !result.isEmpty();
+            log.info("2. 삭제 결과: {}", deleted ? "성공" : "실패");
+            
+            if (deleted) {
+                log.info("=== Helm Chart 삭제 성공 ===");
+            } else {
+                log.warn("=== Helm Chart 삭제 실패 ===");
+            }
+        } catch (Exception e) {
+            log.error("=== Helm Chart 삭제 중 오류 발생 ===");
+            log.error("오류: {}", e.getMessage(), e);
+            throw new RuntimeException("Helm Chart 삭제 실패", e);
+        } finally {
+            // 임시 kubeconfig 파일 삭제
+            if (tempKubeconfigPath != null) {
+                try {
+                    Files.deleteIfExists(tempKubeconfigPath);
+                    log.info("임시 kubeconfig 파일 삭제 완료");
+                } catch (IOException e) {
+                    log.warn("임시 kubeconfig 파일 삭제 중 오류 발생: {}", e.getMessage());
+                }
+            }
+        }
+    }
+
+    private String buildImageRepository(SoftwareCatalog catalog, kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart) {
+        String imageName = helmChart.getImageRepository();
         if (imageName == null || imageName.isEmpty()) {
             imageName = catalog.getName().toLowerCase().replaceAll("\\s+", "-");
         }
         
-        String sourceType = catalog.getSourceType();
-        return nexusConfig.getImageUrlBySourceType(imageName, "latest", sourceType).replace(":latest", "");
-    }
-    
-    /**
-     * 소스 타입에 따라 적절한 Helm 차트 레포지토리 URL을 반환합니다.
-     */
-    private String getHelmChartRepositoryUrl(SoftwareCatalog catalog) {
-        String sourceType = catalog.getSourceType();
-        String originalUrl = catalog.getHelmChart().getChartRepositoryUrl();
+        // docker.io/ 중복 제거
+        String cleanImageName = imageName.replaceAll("^(docker\\.io/)+", "");
+        cleanImageName = cleanImageName.trim();
         
-        return nexusConfig.getHelmChartUrlBySourceType(originalUrl, sourceType);
+        if (cleanImageName.isEmpty()) {
+            cleanImageName = catalog.getName().toLowerCase().replaceAll("\\s+", "-");
+        }
+        
+        log.info("이미지 레포지토리 보정: '{}' -> '{}'", helmChart.getImageRepository(), cleanImageName);
+        return cleanImageName;
+    }
+
+    private String getReleaseNameFromHistory(Long catalogId, String clusterName, String namespace) {
+        try {
+            // DeploymentHistory에서 해당 카탈로그의 최신 릴리스 이름 조회
+            // 이는 KubernetesDeployService의 getReleaseNameFromHistory와 동일한 로직
+            return null; // 현재는 간단히 null 반환, 필요시 구현
+        } catch (Exception e) {
+            log.warn("배포 히스토리에서 릴리스 이름 조회 중 오류 발생: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private Path createTempKubeconfigFile(String kubeconfigYaml) throws IOException {
+        Path tempFile = Files.createTempFile("kubeconfig", ".yaml");
+        Files.write(tempFile, kubeconfigYaml.getBytes(StandardCharsets.UTF_8));
+        return tempFile;
+    }
+
+    /**
+     * 기존 릴리스를 확인하고 제거하는 메서드
+     */
+    private void handleExistingRelease(String releaseName, String namespace, Path tempKubeconfigPath, Long catalogId, String clusterName) {
+        try {
+            log.info("기존 릴리스 확인 중: {}", releaseName);
+            
+            // 현재 배포와 관련된 릴리스만 확인
+            String existingReleaseName = getReleaseNameFromHistory(catalogId, clusterName, namespace);
+            
+            if (existingReleaseName != null && !existingReleaseName.isEmpty()) {
+                log.info("기존 릴리스 발견: {} (현재 배포와 관련됨)", existingReleaseName);
+                
+                // 기존 릴리스 제거
+                UninstallCommand uninstallCommand = Helm.uninstall(existingReleaseName)
+                        .withKubeConfig(tempKubeconfigPath)
+                        .withNamespace(namespace);
+                
+                try {
+                    uninstallCommand.call();
+                    log.info("기존 릴리스 제거 완료: {}", existingReleaseName);
+                } catch (Exception e) {
+                    log.warn("기존 릴리스 제거 중 오류 발생 (무시하고 계속): {}", e.getMessage());
+                }
+            } else {
+                log.info("제거할 기존 릴리스 없음");
+            }
+        } catch (Exception e) {
+            log.warn("기존 릴리스 처리 중 오류 발생 (무시하고 계속): {}", e.getMessage());
+        }
     }
 }

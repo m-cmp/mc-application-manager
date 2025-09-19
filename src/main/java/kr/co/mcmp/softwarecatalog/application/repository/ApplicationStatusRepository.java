@@ -46,4 +46,5 @@ public interface ApplicationStatusRepository extends JpaRepository<ApplicationSt
     void deleteAllByCatalogId(@Param("catalogId") Long catalogId);
     
     void deleteByCatalog(SoftwareCatalog catalog);
+    Optional<ApplicationStatus> findByDeploymentHistoryId(Long deploymentHistoryId);
 }

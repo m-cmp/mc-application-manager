@@ -124,9 +124,8 @@ public class DockerDeploymentService implements DeploymentService {
     private String buildImageUrl(SoftwareCatalogDTO catalog) {
         String imageName = catalog.getPackageInfo().getPackageName().toLowerCase();
         String imageTag = catalog.getPackageInfo().getPackageVersion().toLowerCase();
-        String sourceType = catalog.getSourceType();
-        
-        return nexusConfig.getImageUrlBySourceType(imageName, imageTag, sourceType);
+        // sourceType은 SOFTWARE_SOURCE_MAPPING에서 관리하므로 기본값 사용
+        return nexusConfig.getImageUrlBySourceType(imageName, imageTag, "DOCKERHUB");
     }
     
     private Map<String, String> convertToMap(DeploymentParameters params) {
