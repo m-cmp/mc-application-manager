@@ -70,7 +70,7 @@ public class DeploymentHistory {
     @Column(name = "executed_at", nullable = false)
     private LocalDateTime executedAt; // 배포 작업 실행 시간
     
-    @Column(name = "executed_at", nullable = false)
+    @Column(name = "updated_at", nullable = true)
     private LocalDateTime updatedAt; // 배포 작업 업데이트 시간
 
     @ManyToOne
