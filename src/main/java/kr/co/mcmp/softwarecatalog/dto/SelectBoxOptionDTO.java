@@ -1,18 +1,39 @@
 package kr.co.mcmp.softwarecatalog.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class SelectBoxOptionDTO {
-    private String value;
-    private String label;
-    private String description;
+	private String value;
+	private String label;
+	private String description;
+
+	public SelectBoxOptionDTO() {}
+
+	public SelectBoxOptionDTO(String value, String label, String description) {
+		this.value = value;
+		this.label = label;
+		this.description = description;
+	}
+
+	public String getValue() {
+		return value;
+	}
+
+	public void setValue(String value) {
+		this.value = value;
+	}
+
+	public String getLabel() {
+		return label;
+	}
+
+	public void setLabel(String label) {
+		this.label = label;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
 }

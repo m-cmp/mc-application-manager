@@ -62,12 +62,29 @@ public interface ApplicationOrchestrationService {
     List<DeploymentLog> getDeploymentLogs(Long deploymentId, String username);
     
     /**
+     * DeploymentHistoryId를 기반으로 애플리케이션을 삭제합니다.
+     * 
+     * @param deploymentHistoryId 배포 히스토리 ID
+     * @param reason 삭제 사유
+     * @param username 사용자명
+     * @return 삭제 결과
+     */
+    Map<String, Object> deleteApplicationByDeploymentHistoryId(Long deploymentHistoryId, String reason, String username);
+    
+    /**
      * 최신 애플리케이션 상태를 조회합니다.
      * 
      * @param username 사용자명
      * @return 애플리케이션 상태
      */
     ApplicationStatusDto getLatestApplicationStatus(String username);
+    
+    /**
+     * 모든 배포 히스토리를 조회합니다.
+     * 
+     * @return 배포 히스토리 목록
+     */
+    List<DeploymentHistory> getAllDeploymentHistory();
     
     /**
      * VM 스펙을 검증합니다.

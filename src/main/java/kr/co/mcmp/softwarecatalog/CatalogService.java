@@ -20,6 +20,7 @@ import kr.co.mcmp.softwarecatalog.category.entity.IngressConfig;
 import kr.co.mcmp.softwarecatalog.category.repository.IngressConfigRepository;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;
+import kr.co.mcmp.softwarecatalog.service.SoftwareSourceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
@@ -52,6 +53,7 @@ public class CatalogService {
     private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final ApplicationStatusRepository applicationStatusRepository;
     private final EntityManager entityManager;
+    private final SoftwareSourceService softwareSourceService;
 
     @Transactional
     public SoftwareCatalogDTO createCatalog(SoftwareCatalogDTO catalogDTO, String username) {
@@ -78,19 +80,8 @@ public class CatalogService {
             }
         }
 
-        // 3. sourceType에 따라 기존 데이터 조회하고 catalogId 업데이트
-        if (catalogDTO.getSourceType() != null) {
-            if ("DOCKERHUB".equalsIgnoreCase(catalogDTO.getSourceType()) ) {
-                // DOCKERHUB인 경우 PACKAGE_INFO 테이블에서 조회 후 catalogId 업데이트
-                updatePackageInfoCatalogId(catalog, catalogDTO);
-            } else if ("ARTIFACTHUB".equalsIgnoreCase(catalogDTO.getSourceType())) {
-                // ARTIFACTHUB인 경우 HELM_CHART 테이블에서 조회 후 catalogId 업데이트
-                updateHelmChartCatalogId(catalog, catalogDTO);
-                if(catalogDTO.getIngressEnabled()){
-                    saveIngressConfig(catalog, catalogDTO.getIngressUrl());
-                }
-            }
-        }
+        // 3. SOFTWARE_SOURCE_MAPPING을 통해 소스 타입 관리
+        // 이 부분은 별도의 소스 매핑 관리 로직으로 처리
 
         SoftwareCatalogDTO result = SoftwareCatalogDTO.fromEntity(catalog);
 
@@ -135,7 +126,9 @@ public class CatalogService {
 
         List<CatalogRefEntity> refs = catalogRefRepository.findByCatalogId(catalogId);
 
-        if("ARTIFACTHUB".equals(dto.getSourceType())) {
+        // SOFTWARE_SOURCE_MAPPING을 통해 ArtifactHub 소스 확인
+        boolean hasArtifactHubSource = softwareSourceService.getArtifactHubSource(catalogId).isPresent();
+        if(hasArtifactHubSource) {
             IngressConfig ingressConfig = ingressConfigRepository.findByCatalogId(catalogId);
             if(ingressConfig != null){
                 dto.setIngressEnabled(true);
@@ -255,7 +248,9 @@ public class CatalogService {
             }
         }
 
-        if("ARTIFACTHUB".equalsIgnoreCase(catalogDTO.getSourceType()) ) {
+        // SOFTWARE_SOURCE_MAPPING을 통해 ArtifactHub 소스 확인
+        boolean hasArtifactHubSource = softwareSourceService.getArtifactHubSource(catalogId).isPresent();
+        if(hasArtifactHubSource) {
             if(catalogDTO.getIngressEnabled()){
                 ingressConfigRepository.deleteAllByCatalogId(catalogId);
                 entityManager.flush();
@@ -314,7 +309,7 @@ public class CatalogService {
         catalog.setName(dto.getName());
         catalog.setDescription(dto.getDescription());
         catalog.setCategory(dto.getCategory());
-        catalog.setSourceType(dto.getSourceType());
+        // sourceType은 SOFTWARE_SOURCE_MAPPING에서 관리하므로 제거
         catalog.setLogoUrlLarge(dto.getLogoUrlLarge());
         catalog.setLogoUrlSmall(dto.getLogoUrlSmall());
         catalog.setSummary(dto.getSummary());

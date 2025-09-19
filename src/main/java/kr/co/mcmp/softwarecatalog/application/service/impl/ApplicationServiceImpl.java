@@ -1,5 +1,6 @@
 package kr.co.mcmp.softwarecatalog.application.service.impl;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -10,12 +11,15 @@ import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
 import kr.co.mcmp.softwarecatalog.application.model.OperationHistory;
+import kr.co.mcmp.softwarecatalog.application.dto.IntegratedApplicationInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentLogRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.OperationHistoryRepository;
+import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
+import kr.co.mcmp.softwarecatalog.CatalogRepository;
 import kr.co.mcmp.softwarecatalog.category.dto.KeyValueDTO;
 import kr.co.mcmp.softwarecatalog.category.dto.SoftwareCatalogRequestDTO;
 import org.springframework.stereotype.Service;
@@ -49,6 +53,8 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final DeploymentLogRepository deploymentLogRepository;
     
     private final OperationHistoryRepository operationHistoryRepository;
+    
+    private final CatalogRepository catalogRepository;
 
     // ===== 넥서스 연동 관련 메서드 (애플리케이션 배포/운영용) =====
     
@@ -312,7 +318,215 @@ public class ApplicationServiceImpl implements ApplicationService {
         result.put("errorLogsWithStatus", errorLogsWithStatus);
         log.debug("Found {} error logs with status for catalog ID {}", errorLogsWithStatus.size(), catalogId);
         
+        // INFO 로그 조회 (각 애플리케이션 상태별)
+        List<Map<String, Object>> infoLogsWithStatus = new ArrayList<>();
+        for (ApplicationStatus status : applicationStatuses) {
+            Map<String, Object> statusWithInfo = new HashMap<>();
+            statusWithInfo.put("applicationStatus", status);
+            statusWithInfo.put("infoLogs", status.getInfoLogs());
+            infoLogsWithStatus.add(statusWithInfo);
+        }
+        result.put("infoLogsWithStatus", infoLogsWithStatus);
+        log.debug("Found {} info logs with status for catalog ID {}", infoLogsWithStatus.size(), catalogId);
+        
+        // DEBUG 로그 조회 (각 애플리케이션 상태별)
+        List<Map<String, Object>> debugLogsWithStatus = new ArrayList<>();
+        for (ApplicationStatus status : applicationStatuses) {
+            Map<String, Object> statusWithDebug = new HashMap<>();
+            statusWithDebug.put("applicationStatus", status);
+            statusWithDebug.put("debugLogs", status.getDebugLogs());
+            debugLogsWithStatus.add(statusWithDebug);
+        }
+        result.put("debugLogsWithStatus", debugLogsWithStatus);
+        log.debug("Found {} debug logs with status for catalog ID {}", debugLogsWithStatus.size(), catalogId);
+        
+        // Pod 로그 조회 (각 애플리케이션 상태별)
+        List<Map<String, Object>> podLogsWithStatus = new ArrayList<>();
+        for (ApplicationStatus status : applicationStatuses) {
+            Map<String, Object> statusWithPod = new HashMap<>();
+            statusWithPod.put("applicationStatus", status);
+            statusWithPod.put("podLogs", status.getPodLogs());
+            podLogsWithStatus.add(statusWithPod);
+        }
+        result.put("podLogsWithStatus", podLogsWithStatus);
+        log.debug("Found {} pod logs with status for catalog ID {}", podLogsWithStatus.size(), catalogId);
+        
         log.info("Successfully retrieved integrated application info for catalog ID: {}", catalogId);
         return result;
+    }
+    
+    /**
+     * 특정 배포의 모든 상태/배포/로그 정보를 통합 조회합니다.
+     */
+    @Override
+    public Map<String, Object> getIntegratedApplicationInfoByDeploymentId(Long deploymentId) {
+        log.info("Getting integrated application info for deployment ID: {}", deploymentId);
+        
+        // 배포 이력 조회
+        DeploymentHistory deploymentHistory = deploymentHistoryRepository.findById(deploymentId)
+                .orElseThrow(() -> new RuntimeException("Deployment not found with ID: " + deploymentId));
+        
+        // 해당 배포의 카탈로그 ID로 애플리케이션 상태 조회
+        Long catalogId = deploymentHistory.getCatalog().getId();
+        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId).map(List::of).orElse(List.of());
+        
+        // 해당 배포의 로그 조회
+        List<DeploymentLog> logs = deploymentLogRepository.findByDeploymentIdOrderByLoggedAtDesc(deploymentId);
+        
+        // 운영 이력 조회
+        List<OperationHistory> operations = new ArrayList<>();
+        for (ApplicationStatus status : applicationStatuses) {
+            operations.addAll(operationHistoryRepository.findByApplicationStatusId(status.getId()));
+        }
+        
+        // 에러 로그 조회
+        List<String> errorLogs = new ArrayList<>();
+        for (ApplicationStatus status : applicationStatuses) {
+            errorLogs.addAll(status.getErrorLogs());
+        }
+        
+        // 간소화된 DTO로 변환
+        IntegratedApplicationInfoDTO dto = convertToIntegratedDTO(deploymentHistory, applicationStatuses, logs, operations, errorLogs, 
+                applicationStatuses.isEmpty() ? List.of() : applicationStatuses.get(0).getInfoLogs(),
+                applicationStatuses.isEmpty() ? List.of() : applicationStatuses.get(0).getDebugLogs(),
+                applicationStatuses.isEmpty() ? List.of() : applicationStatuses.get(0).getPodLogs());
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("integratedInfo", dto);
+        
+        log.info("Successfully retrieved integrated application info for deployment ID: {}", deploymentId);
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public String updateIngressConfiguration(Long catalogId, Map<String, Object> ingressConfig) {
+        log.info("Updating Ingress configuration for catalog ID: {}", catalogId);
+        
+        SoftwareCatalog catalog = catalogRepository.findById(catalogId)
+                .orElseThrow(() -> new RuntimeException("Software catalog not found with ID: " + catalogId));
+        
+        // Ingress 설정 업데이트
+        if (ingressConfig.containsKey("enabled")) {
+            catalog.setIngressEnabled((Boolean) ingressConfig.get("enabled"));
+        }
+        if (ingressConfig.containsKey("host")) {
+            catalog.setIngressHost((String) ingressConfig.get("host"));
+        }
+        if (ingressConfig.containsKey("path")) {
+            catalog.setIngressPath((String) ingressConfig.get("path"));
+        }
+        if (ingressConfig.containsKey("class")) {
+            catalog.setIngressClass((String) ingressConfig.get("class"));
+        }
+        if (ingressConfig.containsKey("tlsEnabled")) {
+            catalog.setIngressTlsEnabled((Boolean) ingressConfig.get("tlsEnabled"));
+        }
+        if (ingressConfig.containsKey("tlsSecret")) {
+            catalog.setIngressTlsSecret((String) ingressConfig.get("tlsSecret"));
+        }
+        
+        catalog.setUpdatedAt(LocalDateTime.now());
+        catalogRepository.save(catalog);
+        
+        log.info("Successfully updated Ingress configuration for catalog ID: {}", catalogId);
+        return "Ingress configuration updated successfully";
+    }
+    
+    /**
+     * 엔티티들을 간소화된 DTO로 변환합니다.
+     */
+    private IntegratedApplicationInfoDTO convertToIntegratedDTO(
+            DeploymentHistory deploymentHistory, 
+            List<ApplicationStatus> applicationStatuses, 
+            List<DeploymentLog> logs, 
+            List<OperationHistory> operations, 
+            List<String> errorLogs,
+            List<String> infoLogs,
+            List<String> debugLogs,
+            List<String> podLogs) {
+        
+        // 기본 배포 정보 설정
+        IntegratedApplicationInfoDTO.IntegratedApplicationInfoDTOBuilder builder = IntegratedApplicationInfoDTO.builder()
+                .deploymentId(deploymentHistory.getId())
+                .catalogId(deploymentHistory.getCatalog().getId())
+                .catalogName(deploymentHistory.getCatalog().getName())
+                .catalogDescription(deploymentHistory.getCatalog().getDescription())
+                .catalogCategory(deploymentHistory.getCatalog().getCategory())
+                .defaultPort(deploymentHistory.getCatalog().getDefaultPort())
+                .logoUrlLarge(deploymentHistory.getCatalog().getLogoUrlLarge())
+                .logoUrlSmall(deploymentHistory.getCatalog().getLogoUrlSmall())
+                // Ingress 정보 설정
+                .ingressEnabled(deploymentHistory.getCatalog().getIngressEnabled())
+                .ingressHost(deploymentHistory.getCatalog().getIngressHost())
+                .ingressPath(deploymentHistory.getCatalog().getIngressPath())
+                .ingressClass(deploymentHistory.getCatalog().getIngressClass())
+                .ingressTlsEnabled(deploymentHistory.getCatalog().getIngressTlsEnabled())
+                .ingressTlsSecret(deploymentHistory.getCatalog().getIngressTlsSecret())
+                .deploymentType(deploymentHistory.getDeploymentType())
+                .namespace(deploymentHistory.getNamespace())
+                .clusterName(deploymentHistory.getClusterName())
+                .mciId(deploymentHistory.getMciId())
+                .vmId(deploymentHistory.getVmId())
+                .publicIp(deploymentHistory.getPublicIp())
+                .actionType(deploymentHistory.getActionType())
+                .status(deploymentHistory.getStatus())
+                .executedAt(deploymentHistory.getExecutedAt())
+                .executedBy(deploymentHistory.getExecutedBy() != null ? deploymentHistory.getExecutedBy().getUsername() : null)
+                .cloudProvider(deploymentHistory.getCloudProvider())
+                .cloudRegion(deploymentHistory.getCloudRegion())
+                .servicePort(deploymentHistory.getServicePort())
+                .podStatus(deploymentHistory.getPodStatus())
+                .releaseName(deploymentHistory.getReleaseName())
+                .errorLogs(errorLogs)
+                .infoLogs(infoLogs)
+                .debugLogs(debugLogs)
+                .podLogs(podLogs);
+        
+        // 애플리케이션 상태 정보 설정 (가장 최근 상태 사용)
+        if (!applicationStatuses.isEmpty()) {
+            ApplicationStatus latestStatus = applicationStatuses.get(0);
+            builder.applicationStatus(latestStatus.getStatus())
+                   .cpuUsage(latestStatus.getCpuUsage())
+                   .memoryUsage(latestStatus.getMemoryUsage())
+                   .networkIn(latestStatus.getNetworkIn())
+                   .networkOut(latestStatus.getNetworkOut())
+                   .healthCheck(latestStatus.getIsHealthCheck())
+                   .portAccessible(latestStatus.getIsPortAccessible())
+                   .lastCheckedAt(latestStatus.getCheckedAt())
+                   // 추가 상태 정보
+                   .mciId(latestStatus.getMciId())
+                   .vmId(latestStatus.getVmId())
+                   .publicIp(latestStatus.getPublicIp())
+                   .servicePort(latestStatus.getServicePort())
+                   .podStatus(latestStatus.getPodStatus());
+        }
+        
+        // 배포 로그 변환
+        List<IntegratedApplicationInfoDTO.DeploymentLogSummaryDTO> deploymentLogSummaries = logs.stream()
+                .map(log -> IntegratedApplicationInfoDTO.DeploymentLogSummaryDTO.builder()
+                        .id(log.getId())
+                        .logType(log.getLogType().toString())
+                        .logMessage(log.getLogMessage())
+                        .loggedAt(log.getLoggedAt())
+                        .build())
+                .collect(Collectors.toList());
+        builder.deploymentLogs(deploymentLogSummaries);
+        
+        // 운영 이력 변환
+        List<IntegratedApplicationInfoDTO.OperationHistorySummaryDTO> operationSummaries = operations.stream()
+                .map(op -> IntegratedApplicationInfoDTO.OperationHistorySummaryDTO.builder()
+                        .id(op.getId())
+                        .operationType(op.getOperationType())
+                        .reason(op.getReason())
+                        .detailReason(op.getDetailReason())
+                        .status("COMPLETED") // OperationHistory에는 status 필드가 없으므로 기본값 설정
+                        .executedAt(op.getCreatedAt())
+                        .executedBy(op.getExecutedBy() != null ? op.getExecutedBy().getUsername() : null)
+                        .build())
+                .collect(Collectors.toList());
+        builder.operationHistories(operationSummaries);
+        
+        return builder.build();
     }
 }

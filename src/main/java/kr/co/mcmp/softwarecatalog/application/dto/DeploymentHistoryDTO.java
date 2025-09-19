@@ -30,6 +30,7 @@ public class DeploymentHistoryDTO {
     private String cloudRegion;
     private Integer servicePort;
     private String podStatus;
+    private String releaseName;
 
     public DeploymentHistoryDTO(DeploymentHistory entity) {
         this.id = entity.getId();
@@ -47,5 +48,6 @@ public class DeploymentHistoryDTO {
         this.cloudRegion = entity.getCloudRegion();
         this.servicePort = entity.getServicePort();
         this.podStatus = entity.getPodStatus();
+        this.releaseName = entity.getReleaseName();
     }
 }

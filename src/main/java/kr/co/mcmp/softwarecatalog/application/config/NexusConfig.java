@@ -100,13 +100,19 @@ public class NexusConfig {
             switch (sourceType.toUpperCase()) {
                 case "DOCKERHUB":
                     if (useExternalDockerHub) {
-                        return "docker.io/" + imageName + ":" + tag;
+                        // 정규식으로 docker.io/ 중복 완전 제거 후 추가
+                        String cleanImageName = imageName.replaceAll("^(docker\\.io/)+", "");
+                        String result = "docker.io/" + cleanImageName + ":" + tag;
+                        System.out.println("NexusConfig DOCKERHUB: '" + imageName + "' -> '" + cleanImageName + "' -> '" + result + "'");
+                        return result;
                     } else {
                         return getDockerImageUrl(imageName, tag);
                     }
                 case "ARTIFACTHUB":
                     if (useExternalArtifactHub) {
-                        return "docker.io/" + imageName + ":" + tag;
+                        // 정규식으로 docker.io/ 중복 완전 제거 후 추가
+                        String cleanImageName = imageName.replaceAll("^(docker\\.io/)+", "");
+                        return "docker.io/" + cleanImageName + ":" + tag;
                     } else {
                         return getDockerImageUrl(imageName, tag);
                     }

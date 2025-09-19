@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import kr.co.mcmp.softwarecatalog.Ref.CatalogRefEntity;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
+import kr.co.mcmp.softwarecatalog.model.SoftwareSourceMapping;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -48,8 +49,7 @@ public class SoftwareCatalog {
     @Column(columnDefinition="VARCHAR(255) NOT NULL DEFAULT ''", name="CATEGORY")
     private String category;    // 소프트웨어 카탈로그 (예 : DB, WAS 등)
 
-    @Column(name = "source_type", nullable = true)
-    private String sourceType;  // 소프트웨어의 출처 (예: DOCKERHUB, ARTIFACTHUB)
+    // source_type은 SOFTWARE_SOURCE_MAPPING에서 관리
 
     @Column(columnDefinition="VARCHAR(5000) NOT NULL DEFAULT ''", name="DESCRIPTION")
     private String description; // 상세 설명
@@ -125,6 +125,25 @@ public class SoftwareCatalog {
     @Column(name = "max_replicas")
     private Integer maxReplicas; // 최대 복제 수
 
+    // Ingress 관련 필드들
+    @Column(name = "ingress_enabled")
+    private Boolean ingressEnabled; // Ingress 활성화 여부
+
+    @Column(name = "ingress_host")
+    private String ingressHost; // Ingress 호스트 (예: app.example.com)
+
+    @Column(name = "ingress_path")
+    private String ingressPath; // Ingress 경로 (예: /app)
+
+    @Column(name = "ingress_class")
+    private String ingressClass; // Ingress 클래스 (예: nginx, traefik)
+
+    @Column(name = "ingress_tls_enabled")
+    private Boolean ingressTlsEnabled; // TLS 활성화 여부
+
+    @Column(name = "ingress_tls_secret")
+    private String ingressTlsSecret; // TLS 시크릿 이름
+
     @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PortMapping> ports = new ArrayList<>();
 
@@ -140,6 +159,10 @@ public class SoftwareCatalog {
     @JsonManagedReference
     private HelmChart helmChart;
     
+    @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<SoftwareSourceMapping> sourceMappings = new ArrayList<>();
+    
     public void addCatalogRef(CatalogRefEntity catalogRef) {
         this.catalogRefs.add(catalogRef);
         catalogRef.setCatalog(this);
@@ -148,6 +171,16 @@ public class SoftwareCatalog {
     public void removeCatalogRef(CatalogRefEntity catalogRef) {
         this.catalogRefs.remove(catalogRef);
         catalogRef.setCatalog(null);
+    }
+    
+    public void addSourceMapping(SoftwareSourceMapping sourceMapping) {
+        this.sourceMappings.add(sourceMapping);
+        sourceMapping.setCatalog(this);
+    }
+    
+    public void removeSourceMapping(SoftwareSourceMapping sourceMapping) {
+        this.sourceMappings.remove(sourceMapping);
+        sourceMapping.setCatalog(null);
     }
 
     public void addPort(PortMapping port) {

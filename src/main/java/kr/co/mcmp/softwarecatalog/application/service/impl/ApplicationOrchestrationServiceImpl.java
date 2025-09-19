@@ -1,7 +1,10 @@
 package kr.co.mcmp.softwarecatalog.application.service.impl;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.persistence.EntityNotFoundException;
@@ -20,6 +23,7 @@ import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sSpec;
 import kr.co.mcmp.ape.cbtumblebug.dto.Spec;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationHistoryService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOperationService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOrchestrationService;
@@ -45,6 +49,7 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
     private final SpecValidationService specValidationService;
     private final List<DeploymentService> deploymentServices;
     private final List<ApplicationOperationService> operationServices;
+    private final DeploymentHistoryRepository deploymentHistoryRepository;
     
     @Override
     public DeploymentHistory deployApplication(DeploymentRequest request) {
@@ -189,6 +194,98 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
                 .filter(service -> service.getSupportedDeploymentType() == deploymentType)
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("No operation service found for type: " + deploymentType));
+    }
+    
+    @Override
+    public Map<String, Object> deleteApplicationByDeploymentHistoryId(Long deploymentHistoryId, String reason, String username) {
+        log.info("Deleting application by deployment history ID: {}", deploymentHistoryId);
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // 1. DeploymentHistory 조회
+            DeploymentHistory deploymentHistory = deploymentHistoryRepository.findById(deploymentHistoryId)
+                    .orElseThrow(() -> new EntityNotFoundException("Deployment history not found with ID: " + deploymentHistoryId));
+            
+            // 2. ApplicationStatus 조회 (deploymentHistoryId로)
+            Optional<ApplicationStatus> applicationStatusOpt = applicationStatusRepository
+                    .findByDeploymentHistoryId(deploymentHistoryId);
+            
+            if (applicationStatusOpt.isPresent()) {
+                ApplicationStatus applicationStatus = applicationStatusOpt.get();
+                
+                // 3. 배포 타입에 따른 삭제 처리
+                if (deploymentHistory.getDeploymentType() == DeploymentType.K8S) {
+                    // K8s 배포 삭제
+                    deleteK8sApplication(deploymentHistory, applicationStatus, reason, username);
+                } else if (deploymentHistory.getDeploymentType() == DeploymentType.VM) {
+                    // VM 배포 삭제
+                    deleteVmApplication(deploymentHistory, applicationStatus, reason, username);
+                }
+                
+                // 4. ApplicationStatus 삭제
+                applicationStatusRepository.delete(applicationStatus);
+                log.info("ApplicationStatus deleted for deployment history ID: {}", deploymentHistoryId);
+            }
+            
+            // 5. DeploymentHistory 상태 업데이트
+            deploymentHistory.setStatus("DELETED");
+            deploymentHistory.setUpdatedAt(LocalDateTime.now());
+            deploymentHistoryRepository.save(deploymentHistory);
+            
+            result.put("success", true);
+            result.put("message", "Application deleted successfully");
+            result.put("deploymentHistoryId", deploymentHistoryId);
+            result.put("deploymentType", deploymentHistory.getDeploymentType());
+            
+            log.info("Successfully deleted application for deployment history ID: {}", deploymentHistoryId);
+            
+        } catch (Exception e) {
+            log.error("Failed to delete application for deployment history ID: {}", deploymentHistoryId, e);
+            result.put("success", false);
+            result.put("message", "Failed to delete application: " + e.getMessage());
+            result.put("deploymentHistoryId", deploymentHistoryId);
+        }
+        
+        return result;
+    }
+    
+    private void deleteK8sApplication(DeploymentHistory deploymentHistory, ApplicationStatus applicationStatus, String reason, String username) {
+        try {
+            // K8s 배포 삭제 로직
+            log.info("Deleting K8s application - Namespace: {}, Cluster: {}", 
+                    applicationStatus.getNamespace(), applicationStatus.getClusterName());
+            
+            // TODO: 실제 K8s 리소스 삭제 로직 구현
+            // - Helm release uninstall
+            // - 관련 리소스 정리
+            
+        } catch (Exception e) {
+            log.error("Failed to delete K8s application", e);
+            throw new RuntimeException("K8s application deletion failed", e);
+        }
+    }
+    
+    private void deleteVmApplication(DeploymentHistory deploymentHistory, ApplicationStatus applicationStatus, String reason, String username) {
+        try {
+            // VM 배포 삭제 로직
+            log.info("Deleting VM application - MCI: {}, VM: {}", 
+                    applicationStatus.getMciId(), applicationStatus.getVmId());
+            
+            // TODO: 실제 VM 컨테이너 삭제 로직 구현
+            // - Docker container stop/remove
+            // - 관련 리소스 정리
+            
+        } catch (Exception e) {
+            log.error("Failed to delete VM application", e);
+            throw new RuntimeException("VM application deletion failed", e);
+        }
+    }
+
+    @Override
+    public List<DeploymentHistory> getAllDeploymentHistory() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getAllDeploymentHistory'");
     }
 }
 

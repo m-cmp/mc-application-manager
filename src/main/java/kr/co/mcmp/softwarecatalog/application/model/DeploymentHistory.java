@@ -69,6 +69,9 @@ public class DeploymentHistory {
 
     @Column(name = "executed_at", nullable = false)
     private LocalDateTime executedAt; // 배포 작업 실행 시간
+    
+    @Column(name = "executed_at", nullable = false)
+    private LocalDateTime updatedAt; // 배포 작업 업데이트 시간
 
     @ManyToOne
     @JoinColumn(name = "executed_by")
@@ -88,4 +91,7 @@ public class DeploymentHistory {
 
     @Column(name = "pod_status")
     private String podStatus; // Pod 상태 (K8S 전용)
+    
+    @Column(name = "release_name")
+    private String releaseName; // Helm 릴리스 이름 (K8S 전용)
 }

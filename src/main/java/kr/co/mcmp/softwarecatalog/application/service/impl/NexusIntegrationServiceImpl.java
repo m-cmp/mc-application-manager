@@ -144,14 +144,15 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
      */
     @Override
     public Map<String, Object> registerToNexus(SoftwareCatalogDTO catalog) {
-        log.info("Registering application to Nexus: {} (Source: {})", catalog.getName(), catalog.getSourceType());
+        log.info("Registering application to Nexus: {} (Source: DOCKERHUB)", catalog.getName());
         
         try {
             Map<String, Object> result = new HashMap<>();
             
             // 하이브리드 모드에서 소스 타입에 따라 처리미너ㄹㄹ
             if (nexusConfig.isHybridMode()) {
-                switch (catalog.getSourceType().toUpperCase()) {
+                // sourceType은 SOFTWARE_SOURCE_MAPPING에서 관리하므로 기본값 사용
+                switch ("DOCKERHUB") {
                     case "DOCKERHUB":
                         if (nexusConfig.isUseExternalDockerHub()) {
                             result.put("success", true);

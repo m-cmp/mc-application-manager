@@ -24,6 +24,7 @@ import lombok.Setter;
 public class ApplicationStatusDto {
     private Long id;
     private Long catalogId;
+    private Long deploymentHistoryId;
     private String applicationName;
     private DeploymentType deploymentType;
     private String namespace;
@@ -42,12 +43,12 @@ public class ApplicationStatusDto {
     private String podStatus;
     private LocalDateTime checkedAt;
     private Long executedById;
-    private List<String> errorLogs;
 
     public static ApplicationStatusDto fromEntity(ApplicationStatus entity) {
         return ApplicationStatusDto.builder()
                 .id(entity.getId())
                 .catalogId(entity.getCatalog() != null ? entity.getCatalog().getId() : null)
+                .deploymentHistoryId(entity.getDeploymentHistoryId())
                 .applicationName(entity.getCatalog() != null ? entity.getCatalog().getName() : null)
                 .deploymentType(entity.getDeploymentType())
                 .namespace(entity.getNamespace())
@@ -66,7 +67,6 @@ public class ApplicationStatusDto {
                 .podStatus(entity.getPodStatus())
                 .checkedAt(entity.getCheckedAt())
                 .executedById(entity.getExecutedBy() != null ? entity.getExecutedBy().getId() : null)
-                .errorLogs(new ArrayList<>(entity.getErrorLogs()))
                 .build();
     }
 
@@ -83,7 +83,6 @@ public class ApplicationStatusDto {
         entity.setServicePort(this.servicePort);
         entity.setPodStatus(this.podStatus);
         entity.setCheckedAt(this.checkedAt);
-        entity.setErrorLogs(new ArrayList<>(this.errorLogs));
 
         if (this.catalogId != null) {
             SoftwareCatalog catalog = new SoftwareCatalog();

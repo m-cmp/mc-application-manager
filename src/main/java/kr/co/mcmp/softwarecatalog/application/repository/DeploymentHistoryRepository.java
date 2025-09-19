@@ -44,4 +44,16 @@ public interface DeploymentHistoryRepository extends JpaRepository<DeploymentHis
     void deleteByCatalog(SoftwareCatalog catalog);
     
     Long countByCatalogIdAndStatusAndActionType(Long catalogId, String status, ActionType actionType);
+    
+    // 릴리스 이름 관련 쿼리
+    DeploymentHistory findTopByCatalogIdAndClusterNameAndNamespaceAndActionTypeOrderByExecutedAtDesc(
+        Long catalogId, String clusterName, String namespace, ActionType actionType);
+    
+    List<DeploymentHistory> findByCatalogIdAndClusterNameAndNamespaceAndActionTypeOrderByExecutedAtDesc(
+        Long catalogId, String clusterName, String namespace, ActionType actionType);
+    
+    DeploymentHistory findByReleaseNameAndNamespace(String releaseName, String namespace);
+    
+    List<DeploymentHistory> findByNamespaceAndClusterNameAndActionTypeAndStatus(
+        String namespace, String clusterName, ActionType actionType, String status);
 }
