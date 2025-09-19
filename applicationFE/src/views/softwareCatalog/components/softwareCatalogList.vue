@@ -17,7 +17,7 @@
         <div class="card">
           <div class="list-group card-list-group" id="sc-list-group">
             <div 
-              class="list-group-item" 
+              class="list-group-item pe-1" 
               v-for="(catalog, idx) in catalogList" 
               :key="idx">
               <div class="row g-2 align-items-center">
@@ -28,7 +28,7 @@
                 </div>
                 
                 <!-- Catalog Name -->
-                <div class="col" @click="showSoftwareCatalogDetail(idx)">
+                <div class="col-5" @click="showSoftwareCatalogDetail(idx)">
                   {{ catalog.name }}
                   
                   <!-- Catalog Summary -->
@@ -36,17 +36,37 @@
                     {{ catalog.summary }}
                   </div>
                 </div>
+
+                <div class="col-3 d-flex justify-content-end"  @click="showSoftwareCatalogDetail(idx)">
+                  <span class="text-muted" style="width: auto; text-align: right;">
+                    <IconStarFilled class="icon me-1" width="12" height="12" stroke-width="1" color="#e5b942" />
+                    <span style="color: #e5b942">
+                      {{ catalog.averageRating || 0 }}
+                    </span>
+                    <span style="color: #e5b942;">
+                      ({{ catalog.ratingCount || 0 }})
+                    </span>
+                  </span>
+                  <span class="text-muted" style="width: 80px; text-align: right;">
+                    <IconCloudDownload class="icon me-1" width="12" height="12" stroke-width="1" color="gray" />
+                    <span style="color: gray;">
+                      {{ catalog.downloadCount || 0 }} 
+                    </span>
+                  </span>
+                </div>
                 
                 <!-- Catalog Category -->
-                <div class="col-auto text-muted">
+                <div class="col-3 text-muted">
                   <div class="d-flex justify-content-end">
                     <div class="mouse-hover">
                       <IconEdit class="me-2 cursor-pointer" size="15" stroke-width="2" data-bs-toggle="modal" data-bs-target="#modal-wizard" @click="onClickUpdate(catalog.id)" />
                       <IconTrash class="cursor-pointer" size="15" stroke-width="2" @click="onClickDelete(catalog)" />
                     </div>
                   </div>
-                  <div class="d-flex justify-content-end">
-                    {{ catalog.category }}
+                  <div class="d-flex justify-content-end"  @click="showSoftwareCatalogDetail(idx)">
+                    <span class="text-muted">
+                      {{ catalog.category.length > 25 ? catalog.category.substring(0, 25) + "..." : catalog.category}}
+                    </span>
                   </div>
                 </div>
 
@@ -171,13 +191,13 @@
          DOCKERHUB
         </h3>
         <div 
-          v-if="dockerHubSearchList.length == 0"
+          v-if="dockerHubSearchList.length <= 0"
           class="col-md-6 col-lg-12" 
           id="resultDockerHubEmpty">
           There are no related Container Images found.
         </div>
 
-        <div class="row row-cards" id="resultDockerHubSearch">
+        <div v-if="dockerHubSearchList.length > 0" class="row row-cards" id="resultDockerHubSearch">
           <div 
             v-for="(result, idx) in dockerHubSearchList" 
             class="col-md-6 col-lg-12" 
@@ -206,27 +226,6 @@
                   <div class="d-flex justify-content-end me-2 mt-4 mouse-hover">
                     <IconDownload class="cursor-pointer" size="20" stroke-width="2" @click="onClickUpload(result, 'DockerHub')" />
                   </div>
-                  <!-- <div class="dropdown">
-                    <a 
-                      href="#" 
-                      class="link-secondary" 
-                      @click="toggleDropdown(`dockerhub-dropdown-${idx}`)">
-                      <IconDots 
-                        class="icon" 
-                        size="24"
-                        stroke-width="2"/>
-                    </a>
-                    <div :id="`dockerhub-dropdown-${idx}`" class="dropdown-menu dropdown-menu-end" :class="{ 'show': activeDropdown === `dockerhub-dropdown-${idx}` }">
-                      <a 
-                        class="dropdown-item" 
-                        @click="onClickMovePageDockerHub">
-                        Go to the page
-                      </a>
-                      <a class="dropdown-item" href="#">
-                        Copy file/image to repository
-                      </a>
-                    </div>
-                  </div> -->
                 </div>
               </div>
             </div>
@@ -234,16 +233,17 @@
         </div>
         <div class="mt-5">
           <h3 class="mb-3">
-            ARTIFACTHUB
+            ARTIFACTHUB 
           </h3>
           <div 
-            v-if="artifactHubSearchList.length == 0"
+            v-if="artifactHubSearchList.length <= 0"
             class="col-md-6 col-lg-12" 
             id="resultArtifactHubEmpty">
             There are no related Helm Charts found.
           </div>
 
           <div 
+            v-if="artifactHubSearchList.length > 0"
             class="row row-cards" 
             id="resultArtifactHubSearch">
             <div 
@@ -269,22 +269,6 @@
                     <div class="d-flex justify-content-end me-2 mt-4 mouse-hover">
                       <IconDownload class="cursor-pointer" size="20" stroke-width="2" @click="onClickUpload(result, 'ArtifactHub')" />
                     </div>
-                    <!-- <div class="dropdown">
-                      <a 
-                        href="#" 
-                        class="link-secondary" 
-                        @click="toggleDropdown(`artifacthub-dropdown-${idx}`)">
-                        <IconDots class="icon" width="24" height="24" stroke-width="2"/>
-                      </a>
-                      <div :id="`artifacthub-dropdown-${idx}`" class="dropdown-menu dropdown-menu-end" :class="{ 'show': activeDropdown === `artifacthub-dropdown-${idx}` }">
-                        <a class="dropdown-item" @click="onClickMovePageArtifactHub">
-                          Go to the page
-                        </a>
-                        <a class="dropdown-item" href="#">
-                          Copy file/image to repository
-                        </a>
-                      </div>
-                    </div> -->
                   </div>
                 </div>
               </div>
@@ -323,7 +307,7 @@
 </template>
 <script setup lang="ts">
 // Component
-import { IconDots, IconDownload, IconEdit, IconRowRemove, IconSearch, IconTrash, IconUpload } from '@tabler/icons-vue'
+import { IconDots, IconDownload, IconEdit, IconRowRemove, IconSearch, IconTrash, IconUpload, IconStar, IconCloud, IconCloudFilled, IconStarFilled, IconCloudDown, IconCloudDownload } from '@tabler/icons-vue'
 // @ts-ignore
 import SoftwareCatalogForm from './softwareCatalogForm.vue';
 // @ts-ignore

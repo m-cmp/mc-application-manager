@@ -26,6 +26,14 @@
     :applicationName="applicationName"
     @getApplicationsStatusList="_getApplicationsStatusList"
     />
+  <ApplicationRatingModal 
+    :catalogId="catalogId"
+    :applicationName="applicationName"
+    @ratingSubmitted="_getApplicationsStatusList"
+    />
+  <ApplicationDetailModal 
+    :deploymentId="selectedDeploymentId"
+    />
 </template>
 <script setup lang="ts">
 import Tabulator from '@/components/Table/Tabulator.vue'
@@ -36,6 +44,8 @@ import { useToast } from 'vue-toastification';
 import { getApplicationsStatus } from '@/api/softwareCatalog';
 import { IconRefresh } from '@tabler/icons-vue'
 import ApplicationActionConfirm from './applicationActionConfirm.vue';
+import ApplicationRatingModal from './applicationRatingModal.vue';
+import ApplicationDetailModal from './applicationDetailModal.vue';
 
 const toast = useToast()
 /**
@@ -52,6 +62,9 @@ const actionModalTitle = ref('' as string)
 const applicationStatusId = ref(0 as number)
 const deploymentType = ref('' as string)
 const applicationName = ref('' as string)
+const catalogId = ref(0 as number)
+const showRatingModal = ref(false)
+const selectedDeploymentId = ref(0 as number)
 /**
  * @Title Life Cycle
  * @Desc 컬럼 set Callback 함수 호출 / ApplicationStatusList Callback 함수 호출
@@ -113,26 +126,44 @@ const setColumns = () => {
       title: "Infra",
       width: '25%',
       formatter: infraFormatter,
+      cellClick: function (e, cell) {
+        openDetailModal(cell)
+      }
     },
     {
       title: "Application",
       field: "applicationName",
-      width: '15%'
+      width: '15%',
+      cellClick: function (e, cell) {
+        openDetailModal(cell)
+      },
+      formatter: function(cell) {
+        return `<div style="cursor: pointer; color:">${cell.getValue()}</div>`
+      }
     },
     {
       title: "Status",
-      width: '15%',
+      width: '13%',
       formatter: statusFormatter,
+      cellClick: function (e, cell) {
+        openDetailModal(cell)
+      }
     },
     
     {
       title: "CheckedAt",
       field: "checkedAt",
-      width: '20%'
+      width: '17%',
+      cellClick: function (e, cell) {
+        openDetailModal(cell)
+      },
+      formatter: function(cell) {
+        return `<div style="cursor: pointer;">${cell.getValue()}</div>`
+      }
     },
     {
       title: "Action",
-      width: '25%',
+      width: '30%',
       formatter: actionButtonFormatter,
       cellClick: async function (e, cell) {
         const target = e.target as HTMLElement;
@@ -159,6 +190,11 @@ const setColumns = () => {
           params.operation = 'UNINSTALL'
           await _applicationAction(params)
         }
+        else if (btnFlag === 'rating-btn') {
+          params.operation = 'RATING'
+          catalogId.value = cell.getRow().getData().catalogId || 1; // catalogId 설정
+          await _applicationAction(params)
+        }
       }
     }
   ]
@@ -176,6 +212,29 @@ const _applicationAction = async (params: {
   applicationName.value = params.applicationName
 }
 
+const openDetailModal = (cell: any) => {
+  const rowData = cell.getRow().getData()
+  selectedDeploymentId.value = rowData.deploymentId || rowData.id
+  
+  // Bootstrap 모달 열기
+  const modal = document.getElementById('application-detail-modal')
+  if (modal) {
+    try {
+      if ((window as any).bootstrap && (window as any).bootstrap.Modal) {
+        const modalInstance = new (window as any).bootstrap.Modal(modal)
+        modalInstance.show()
+      } else {
+        // Fallback: 직접 모달 표시
+        modal.style.display = 'block'
+        modal.classList.add('show')
+        document.body.classList.add('modal-open')
+      }
+    } catch (error) {
+      console.error('Error opening detail modal:', error)
+    }
+  }
+}
+
 
 const infraFormatter = (cell: any) => {
   const infraType = cell.getRow().getData().deploymentType
@@ -183,13 +242,12 @@ const infraFormatter = (cell: any) => {
     cell.getRow().getData().vmId ? cell.getRow().getData().vmId :
     cell.getRow().getData().clusterName ? cell.getRow().getData().clusterName : '-'
   return `
-    <div>
-      <p>
+    <div style="cursor: pointer;">
+      <p style="margin: 0;">
         ${infraType} (${infraName})
-      <p>
+      </p>
     </div>
   ` 
-  
 }
 
 /**
@@ -200,7 +258,7 @@ const statusFormatter = (cell: any) => {
   const status = cell.getRow().getData().status
   if (status === 'RUNNING') {
     return `
-      <div>
+      <div style="cursor: pointer;">
         <span class="status status-green">  
           <span class="status-dot"></span>
             ${status}
@@ -209,7 +267,7 @@ const statusFormatter = (cell: any) => {
   }
   else if (status === 'RESTART' || status === 'IN_PROGRESS' ) {
   return `
-    <div>
+    <div style="cursor: pointer;">
       <span class="status status-primary">  
         <span class="status-dot"></span>
           ${status}
@@ -218,7 +276,7 @@ const statusFormatter = (cell: any) => {
   }
   else if (status === 'NOT_FOUND' ) {
   return `
-    <div>
+    <div style="cursor: pointer;">
       <span class="status status-yellow">  
         <span class="status-dot"></span>
           ${status}
@@ -227,7 +285,7 @@ const statusFormatter = (cell: any) => {
   }
   else {
     return `
-  <div>
+  <div style="cursor: pointer;">
     <span class="status status-red">  
       <span class="status-dot"></span>
         ${status}
@@ -263,6 +321,13 @@ const actionButtonFormatter = () => {
       data-bs-toggle='modal' 
       data-bs-target='#action-confirm'>
       Uninstall
+    </button>
+    <button
+      class='btn btn-ghost-info d-none d-sm-inline-block'
+      id='rating-btn'
+      data-bs-toggle='modal' 
+      data-bs-target='#rating-modal'>
+      Rating
     </button>
   </div>`;
 }
