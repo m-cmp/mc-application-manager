@@ -1446,7 +1446,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         }
         
         // 기본 방법으로 시도
-        ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", cleanRegistryUrl, "-u", username, "--password-stdin");
+        ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", cleanRegistryUrl, "-u", username, "--password", password);
         
         // Docker 환경 변수 설정
         loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
@@ -1461,7 +1461,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             log.info("Set DOCKER_INSECURE_REGISTRIES environment variable: {}", newInsecureRegistries);
         }
         
-        return executeDockerCommandWithRetryAndStdin(loginProcess, "Docker Login", 30, password);
+        return executeDockerCommandWithRetry(loginProcess, "Docker Login", 30);
     }
     
     /**
@@ -1739,14 +1739,14 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // DinD 컨테이너 내부에서 Docker 명령어 실행 (interactive 플래그 추가)
             ProcessBuilder loginProcess = new ProcessBuilder(
                 "docker", "exec", "-i", containerName,
-                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
+                "docker", "login", "http://" + registryUrl, "-u", username, "--password", password
             );
             
             // DinD 컨테이너 내부 환경 설정
             loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
             loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
             
-            return executeDockerCommandWithRetryAndStdin(loginProcess, "DinD Docker Login", 30, password);
+            return executeDockerCommandWithRetry(loginProcess, "DinD Docker Login", 30);
             
         } catch (Exception e) {
             log.error("Error logging in DinD container: {}", e.getMessage());
@@ -1841,7 +1841,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             }
             
             // 3. 기본 환경 변수 방법 - HTTP 프로토콜 명시적 사용
-            ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin");
+            ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", "http://" + registryUrl, "-u", username, "--password", password);
             
             // 모든 가능한 환경 변수 설정
             loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
@@ -1861,7 +1861,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             
             log.info("Set multiple Docker environment variables for insecure registry with HTTP protocol");
             
-            return executeDockerCommandWithRetryAndStdin(loginProcess, "Docker Login (Environment)", 30, password);
+            return executeDockerCommandWithRetry(loginProcess, "Docker Login (Environment)", 30);
             
         } catch (Exception e) {
             log.error("Error trying login with environment variables: {}", e.getMessage());
@@ -1916,7 +1916,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         try {
             log.info("Attempting Docker login with direct connection: {}", registryUrl);
             
-            ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", registryUrl, "-u", username, "--password-stdin");
+            ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", registryUrl, "-u", username, "--password", password);
             
             // Docker daemon 설정
             loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
@@ -1930,7 +1930,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // Docker daemon host 설정
             loginProcess.environment().put("DOCKER_HOST", "tcp://localhost:2375");
             
-            return executeDockerCommandWithRetryAndStdin(loginProcess, "Docker Login (Direct)", 30, password);
+            return executeDockerCommandWithRetry(loginProcess, "Docker Login (Direct)", 30);
             
         } catch (Exception e) {
             log.error("Error in Docker login with direct connection: {}", e.getMessage());
@@ -1950,7 +1950,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 "docker", "login", 
                 registryUrl, 
                 "-u", username, 
-                "--password-stdin"
+                "--password", password
             );
             
             // 기본 환경 변수 설정
@@ -1958,7 +1958,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
             loginProcess.environment().put("DOCKER_BUILDKIT", "0");
             
-            return executeDockerCommandWithRetryAndStdin(loginProcess, "Docker Login (Flags)", 30, password);
+            return executeDockerCommandWithRetry(loginProcess, "Docker Login (Flags)", 30);
             
         } catch (Exception e) {
             log.error("Error in Docker login with command flags: {}", e.getMessage());
