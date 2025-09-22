@@ -1418,17 +1418,15 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         
         String sourceImage = getSourceImageName(imageName, tag);
         
-        // DinD 컨테이너 내부에서 pull 실행
-        String containerName = "dind-mc-application-manager-sonatype-nexus-5500"; // 하드코딩된 컨테이너 이름 사용
-        
+        // 컨테이너 내부에서 직접 pull 실행
         ProcessBuilder pullProcess = new ProcessBuilder(
-            "docker", "exec", "-i", containerName,
             "docker", "pull", sourceImage
         );
         
-        // DinD 컨테이너 내부 환경 설정
+        // 컨테이너 내부 환경 설정
         pullProcess.environment().put("DOCKER_TLS_VERIFY", "0");
         pullProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+        pullProcess.environment().put("DOCKER_BUILDKIT", "0");
         
         return executeDockerCommandWithRetry(pullProcess, "Docker Pull", dockerTimeoutSeconds);
     }
@@ -1492,21 +1490,99 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     }
     
     /**
-     * Docker-in-Docker 전략으로 로그인 시도
+     * 컨테이너 내부 Docker daemon을 사용하여 로그인 시도
      */
     private boolean tryDockerInDockerStrategy(String registryUrl, String username, String password) {
         try {
-            log.info("Attempting Docker-in-Docker strategy for insecure registry: {}", registryUrl);
+            log.info("Attempting container internal Docker daemon strategy for insecure registry: {}", registryUrl);
             
-            // 1. DinD 컨테이너에서 insecure registry로 Docker daemon 시작
-            if (startDinDWithInsecureRegistry(registryUrl)) {
-                // 2. DinD 컨테이너 내부에서 로그인 시도
-                return loginInDinDContainer(registryUrl, username, password);
+            // 컨테이너 내부 Docker daemon이 준비될 때까지 대기
+            if (waitForContainerDockerDaemonReady()) {
+                // 컨테이너 내부에서 직접 로그인 시도
+                return loginInContainer(registryUrl, username, password);
             }
             
             return false;
         } catch (Exception e) {
-            log.error("Error in Docker-in-Docker strategy: {}", e.getMessage());
+            log.error("Error in container Docker daemon strategy: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 컨테이너 내부 Docker daemon이 준비될 때까지 대기
+     */
+    private boolean waitForContainerDockerDaemonReady() {
+        try {
+            log.info("Waiting for container internal Docker daemon to be ready");
+            
+            int maxAttempts = 30; // 30초 대기
+            int attempt = 0;
+            
+            while (attempt < maxAttempts) {
+                attempt++;
+                log.info("Checking container Docker daemon readiness (attempt {}/{}):", attempt, maxAttempts);
+                
+                // 컨테이너 내부에서 docker info 실행하여 daemon 준비 상태 확인
+                ProcessBuilder infoProcess = new ProcessBuilder(
+                    "docker", "info"
+                );
+                
+                Process infoProc = infoProcess.start();
+                int exitCode = infoProc.waitFor();
+                
+                if (exitCode == 0) {
+                    String output = new String(infoProc.getInputStream().readAllBytes());
+                    log.info("Container Docker daemon is ready: {}", output);
+                    
+                    // insecure registries 설정 확인
+                    boolean hasInsecureRegistry = output.contains("Insecure Registries:") && 
+                                               output.contains("mc-application-manager-sonatype-nexus:5500");
+                    
+                    if (hasInsecureRegistry) {
+                        log.info("Container Docker daemon has insecure registry configured: mc-application-manager-sonatype-nexus:5500");
+                        return true;
+                    } else {
+                        log.warn("Container Docker daemon does not have insecure registry configured, waiting...");
+                    }
+                } else {
+                    log.warn("Container Docker daemon not ready yet (exit code: {}), waiting...", exitCode);
+                }
+                
+                Thread.sleep(1000);
+            }
+            
+            log.error("Container Docker daemon failed to become ready within {} seconds", maxAttempts);
+            return false;
+            
+        } catch (Exception e) {
+            log.error("Error waiting for container Docker daemon to be ready: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 컨테이너 내부에서 직접 로그인 시도
+     */
+    private boolean loginInContainer(String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting login in container: {}", registryUrl);
+            
+            // 컨테이너 내부에서 직접 Docker 명령어 실행
+            ProcessBuilder loginProcess = new ProcessBuilder(
+                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
+            );
+            
+            // 컨테이너 내부 환경 설정
+            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
+            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
+            
+            return executeDockerCommandWithRetryAndStdin(loginProcess, "Container Docker Login", 30, password);
+            
+        } catch (Exception e) {
+            log.error("Error logging in container: {}", e.getMessage());
             return false;
         }
     }
@@ -1894,14 +1970,15 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private boolean tagImageForNexus(String sourceImage, String nexusImage) {
         log.info("Step 3/4: Tagging image for Nexus...");
         
-        // DinD 컨테이너 내부에서 tag 실행
-        String cleanRegistryUrl = nexusImage.split("/")[0];
-        String containerName = "dind-" + cleanRegistryUrl.replaceAll("[:.]", "-");
-        
+        // 컨테이너 내부에서 직접 tag 실행
         ProcessBuilder tagProcess = new ProcessBuilder(
-            "docker", "exec", "-i", containerName,
             "docker", "tag", sourceImage, nexusImage
         );
+        
+        // 컨테이너 내부 환경 설정
+        tagProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+        tagProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+        tagProcess.environment().put("DOCKER_BUILDKIT", "0");
         
         return executeDockerCommandWithRetry(tagProcess, "Docker Tag", 30);
     }
@@ -1912,18 +1989,15 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private boolean pushImageToRegistry(String nexusImage) {
         log.info("Step 4/4: Pushing image to Nexus...");
         
-        // DinD 컨테이너 내부에서 push 실행
-        String cleanRegistryUrl = nexusImage.split("/")[0];
-        String containerName = "dind-" + cleanRegistryUrl.replaceAll("[:.]", "-");
-        
+        // 컨테이너 내부에서 직접 push 실행
         ProcessBuilder pushProcess = new ProcessBuilder(
-            "docker", "exec", "-i", containerName,
             "docker", "push", nexusImage
         );
         
-        // DinD 컨테이너 내부 환경 설정
+        // 컨테이너 내부 환경 설정
         pushProcess.environment().put("DOCKER_TLS_VERIFY", "0");
         pushProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+        pushProcess.environment().put("DOCKER_BUILDKIT", "0");
         
         return executeDockerCommandWithRetry(pushProcess, "Docker Push", dockerTimeoutSeconds);
     }
