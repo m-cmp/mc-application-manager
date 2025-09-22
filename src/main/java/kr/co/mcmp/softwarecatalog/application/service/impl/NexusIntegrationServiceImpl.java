@@ -1435,6 +1435,8 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         // 프로토콜 제거한 URL 사용
         String cleanRegistryUrl = registryUrl.replaceFirst("^https?://", "");
         
+        log.info("cleanRegistryUrl : " + cleanRegistryUrl + ", username : " + username + ", password : " + password);
+        
         // 사용자가 테스트한 간단한 명령어 사용
         ProcessBuilder loginProcess = new ProcessBuilder(
             "docker", "login", "http://" + cleanRegistryUrl, "-u", username, "--password", password
@@ -2018,7 +2020,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private DockerCommandResult executeDockerCommand(ProcessBuilder processBuilder, String commandDescription, long timeoutSeconds) {
         try {
             // Docker 명령어에 insecure registry 설정 적용
-            applyInsecureRegistryToDockerCommand(processBuilder, "mc-application-manager-sonatype-nexus:5500");
+            // applyInsecureRegistryToDockerCommand(processBuilder, "mc-application-manager-sonatype-nexus:5500");
             
             Process process = processBuilder.start();
             
@@ -2334,17 +2336,6 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             
             // docker login이나 docker push 명령어인 경우
             if (command.contains("login") || command.contains("push")) {
-                // TLS 비활성화 환경변수 설정
-                processBuilder.environment().put("DOCKER_TLS_VERIFY", "0");
-                processBuilder.environment().put("DOCKER_CONTENT_TRUST", "0");
-                processBuilder.environment().put("DOCKER_BUILDKIT", "0");
-                processBuilder.environment().put("DOCKER_INSECURE_REGISTRIES", cleanUrl);
-                
-                // TLS 인증서 경로 제거
-                processBuilder.environment().remove("DOCKER_CERT_PATH");
-                processBuilder.environment().remove("DOCKER_TLS_CERTDIR");
-                processBuilder.environment().remove("DOCKER_CONFIG");
-                
                 log.info("Applied insecure registry settings to Docker command: {}", cleanUrl);
             }
             
