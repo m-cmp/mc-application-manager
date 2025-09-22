@@ -101,7 +101,6 @@ services:
     volumes:
       - ./db/application:/db/application
       - /var/run/docker.sock:/var/run/docker.sock  # Docker 소켓 마운트
-      - /usr/bin/docker:/usr/bin/docker            # Docker 바이너리 마운트
     environment:
       - DDL_AUTO=update     # create-drop or update
       - DB_USER=application # Please CHANGE ME

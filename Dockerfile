@@ -1,10 +1,8 @@
+FROM docker:20.10-cli AS docker-cli
 FROM openjdk:17 AS prod
 
-# Docker CLI 설치 (Debian/Ubuntu용)
-RUN apt-get update && \
-    apt-get install -y curl && \
-    curl -fsSL https://get.docker.com | sh && \
-    rm -rf /var/lib/apt/lists/*
+# Docker CLI만 복사 (더 가벼움)
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 
 COPY ./build/libs/am.jar am.jar
 ENTRYPOINT ["java", "-jar","am.jar"]
