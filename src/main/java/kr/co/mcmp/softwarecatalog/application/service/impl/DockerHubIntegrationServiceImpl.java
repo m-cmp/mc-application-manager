@@ -31,14 +31,17 @@ import kr.co.mcmp.softwarecatalog.application.service.NexusIntegrationService;
 import kr.co.mcmp.util.Base64Utils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Docker Hub 연동 서비스 구현체 (개선된 버전)
  */
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationService {
+
+    private static final Logger log = LoggerFactory.getLogger(DockerHubIntegrationServiceImpl.class);
 
     @Autowired
     private RestTemplate restTemplate;
@@ -630,64 +633,65 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
     }
 
     /**
-     * Docker 로그인 시도 (직접 Docker 명령어 우선, DinD fallback)
+     * 컨테이너 내부 Docker daemon 사용
      */
     private boolean startDinDContainer(String containerName, String registryUrl) {
         try {
-            log.info("Attempting Docker login strategy: {}", containerName);
+            log.info("Using container internal Docker daemon: {}", containerName);
             
-            // 1. 직접 Docker 명령어로 로그인 시도
-            boolean directLoginResult = loginDirectlyToRegistry(registryUrl, "admin", "123456");
-            if (directLoginResult) {
-                log.info("Direct Docker login successful, skipping DinD container");
+            // 컨테이너 내부 Docker daemon이 준비될 때까지 대기
+            if (waitForContainerDockerDaemonReady()) {
+                log.info("Container Docker daemon is ready");
                 return true;
-            }
-            
-            // 2. DinD 컨테이너 사용 (fallback)
-            log.info("Direct login failed, starting DinD container: {}", containerName);
-            
-            // 기존 컨테이너 정리
-            cleanupDinDContainer(containerName);
-            
-            // DinD 컨테이너 실행 (devopsmindset/openjdk-docker:dind-java17 사용)
-            ProcessBuilder dindProcess = new ProcessBuilder(
-                "docker", "run", "-d",
-                "--name", containerName,
-                "--privileged",
-                "-e", "DOCKER_TLS_CERTDIR=",
-                "-e", "DOCKER_TLS_VERIFY=0",
-                "-e", "DOCKER_CONTENT_TRUST=0",
-                "-e", "DOCKER_BUILDKIT=0",
-                "-e", "DOCKER_INSECURE_REGISTRIES=" + registryUrl,
-                "devopsmindset/openjdk-docker:dind-java17",
-                "dockerd-entrypoint.sh",
-                "--insecure-registry=" + registryUrl,
-                "--host=0.0.0.0:2375",
-                "--storage-driver=overlay2"
-            );
-            
-            Process dindProc = dindProcess.start();
-            int exitCode = dindProc.waitFor();
-            
-            if (exitCode == 0) {
-                log.info("DinD container '{}' started successfully", containerName);
-                
-                // DinD 컨테이너의 Docker daemon이 완전히 준비될 때까지 대기
-                if (waitForDinDDaemonReady(containerName)) {
-                    log.info("DinD container '{}' is running and ready", containerName);
-                    return true;
-                } else {
-                    log.error("DinD container '{}' failed to become ready", containerName);
-                    cleanupDinDContainer(containerName);
-                    return false;
-                }
             } else {
-                log.error("Failed to start DinD container '{}'", containerName);
+                log.error("Container Docker daemon failed to become ready");
                 return false;
             }
             
         } catch (Exception e) {
-            log.error("Error in Docker login strategy: {}", e.getMessage());
+            log.error("Error in container Docker daemon strategy: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 컨테이너 내부 Docker daemon이 준비될 때까지 대기
+     */
+    private boolean waitForContainerDockerDaemonReady() {
+        try {
+            log.info("Waiting for container internal Docker daemon to be ready");
+            
+            int maxAttempts = 30; // 30초 대기
+            int attempt = 0;
+            
+            while (attempt < maxAttempts) {
+                attempt++;
+                log.info("Checking container Docker daemon readiness (attempt {}/{}):", attempt, maxAttempts);
+                
+                // 컨테이너 내부에서 docker info 실행하여 daemon 준비 상태 확인
+                ProcessBuilder infoProcess = new ProcessBuilder(
+                    "docker", "info"
+                );
+                
+                Process infoProc = infoProcess.start();
+                int exitCode = infoProc.waitFor();
+                
+                if (exitCode == 0) {
+                    String output = new String(infoProc.getInputStream().readAllBytes());
+                    log.info("Container Docker daemon is ready: {}", output);
+                    return true;
+                } else {
+                    log.warn("Container Docker daemon not ready yet (exit code: {}), waiting...", exitCode);
+                }
+                
+                Thread.sleep(1000);
+            }
+            
+            log.error("Container Docker daemon failed to become ready within {} seconds", maxAttempts);
+            return false;
+            
+        } catch (Exception e) {
+            log.error("Error waiting for container Docker daemon to be ready: {}", e.getMessage());
             return false;
         }
     }
@@ -719,37 +723,27 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
     }
 
     /**
-     * DinD 컨테이너 내부에서 로그인
+     * 컨테이너 내부에서 직접 로그인
      */
     private boolean loginInDinDContainer(String containerName, String registryUrl, String username, String password) {
         try {
-            log.info("Attempting login inside DinD container: {}", registryUrl);
+            log.info("Attempting login in container: {}", registryUrl);
             
-            // DinD 컨테이너 내부에서 Docker 명령어 실행 (TLS 완전 비활성화)
+            // 컨테이너 내부에서 직접 Docker 명령어 실행
             ProcessBuilder loginProcess = new ProcessBuilder(
-                "docker", "exec", "-i", containerName,
-                "sh", "-c", 
-                "DOCKER_TLS_VERIFY=0 DOCKER_CONTENT_TRUST=0 DOCKER_BUILDKIT=0 docker login --username " + username + " --password-stdin http://" + registryUrl
+                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
             );
             
-            // DinD 컨테이너 내부 환경 설정 - TLS 완전 비활성화
+            // 컨테이너 내부 환경 설정
             loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
             loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
             loginProcess.environment().put("DOCKER_BUILDKIT", "0");
             loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
             
-            // TLS 인증서 관련 환경 변수 완전 제거
-            loginProcess.environment().remove("DOCKER_CERT_PATH");
-            loginProcess.environment().remove("DOCKER_TLS_CERTDIR");
-            loginProcess.environment().remove("DOCKER_CONFIG");
-            
-            // Docker daemon 설정 (TLS 비활성화)
-            loginProcess.environment().put("DOCKER_HOST", "tcp://localhost:2375");
-            
-            return executeDockerCommandWithRetryAndStdin(loginProcess, "DinD Docker Login", 30, password);
+            return executeDockerCommandWithRetryAndStdin(loginProcess, "Container Docker Login", 30, password);
             
         } catch (Exception e) {
-            log.error("Error logging in DinD container: {}", e.getMessage());
+            log.error("Error logging in container: {}", e.getMessage());
             return false;
         }
     }
@@ -776,44 +770,11 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
     }
 
     /**
-     * DinD 컨테이너의 Docker daemon 준비 대기
+     * DinD 컨테이너의 Docker daemon 준비 대기 (deprecated - use waitForContainerDockerDaemonReady)
      */
     private boolean waitForDinDDaemonReady(String containerName) {
-        int maxAttempts = 60; // 60초 대기 (30초 → 60초로 증가)
-        int attempt = 0;
-        
-        while (attempt < maxAttempts) {
-            try {
-                ProcessBuilder checkProcess = new ProcessBuilder(
-                    "docker", "exec", containerName, "docker", "version"
-                );
-                
-                Process checkProc = checkProcess.start();
-                boolean finished = checkProc.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
-                
-                if (finished && checkProc.exitValue() == 0) {
-                    log.info("DinD container '{}' Docker daemon is ready", containerName);
-                    return true;
-                }
-                
-                attempt++;
-                Thread.sleep(2000); // 2초 대기
-                
-            } catch (Exception e) {
-                log.debug("Waiting for DinD container '{}' to be ready (attempt {}/{}): {}", 
-                         containerName, attempt + 1, maxAttempts, e.getMessage());
-                attempt++;
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    return false;
-                }
-            }
-        }
-        
-        log.error("DinD container '{}' failed to become ready after {} attempts", containerName, maxAttempts);
-        return false;
+        // 이 메서드는 더 이상 사용되지 않음 - waitForContainerDockerDaemonReady 사용
+        return waitForContainerDockerDaemonReady();
     }
 
     /**
