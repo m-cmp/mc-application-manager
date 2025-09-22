@@ -24,6 +24,13 @@ public interface PackageInfoRepository extends JpaRepository<PackageInfo, Long> 
 
     List<PackageInfo> findByCategories(String categories);
     List<PackageInfo> findByCategoriesAndCatalogIsNull(String categories);
+    
+    // 대소문자 구분 없이 카테고리로 조회
+    @Query("SELECT p FROM PackageInfo p WHERE LOWER(p.categories) = LOWER(:categories)")
+    List<PackageInfo> findByCategoriesIgnoreCase(@Param("categories") String categories);
+    
+    @Query("SELECT p FROM PackageInfo p WHERE LOWER(p.categories) = LOWER(:categories) AND p.catalog IS NULL")
+    List<PackageInfo> findByCategoriesIgnoreCaseAndCatalogIsNull(@Param("categories") String categories);
 
     @Query("SELECT DISTINCT p.packageVersion, p.catalog.id FROM PackageInfo p WHERE p.packageName = :packageName")
     List<Object[]> findDistinctPackageVersionByPackageName(@Param("packageName") String packageName);

@@ -60,7 +60,23 @@ public class DockerHubService {
             Map<String, Object> pushResult = dockerHubIntegrationService.pushImageToNexus(request.getName(),
                     request.getTag());
 
-            // 3. Docker Hub 에서 조회된 Application 정보 Entity set
+            // 3. Nexus 이미지 URL 생성
+            String nexusImageUrl = null;
+            if ((Boolean) pushResult.get("success")) {
+                nexusImageUrl = (String) pushResult.get("fullImageUrl");
+                if (nexusImageUrl == null) {
+                    // fullImageUrl이 없으면 직접 생성
+                    String nexusRegistry = (String) pushResult.get("nexusRegistry");
+                    String repository = (String) pushResult.get("repository");
+                    if (nexusRegistry != null && repository != null) {
+                        nexusImageUrl = nexusRegistry + "/" + repository + "/" + 
+                                       request.getName() + ":" + request.getTag();
+                    }
+                }
+                log.info("Nexus image URL generated: {}", nexusImageUrl);
+            }
+
+            // 4. Docker Hub 에서 조회된 Application 정보 Entity set
             PackageInfo entity = PackageInfo.builder()
                     .architectures(
                             request.getRatePlans().get(0) != null ?
@@ -96,7 +112,7 @@ public class DockerHubService {
                             request.getRatePlans().get(0) != null ?
                                     request.getRatePlans().get(0).getRepositories().get(0) != null ? request.getRatePlans().get(0).getRepositories().get(0).getPull_count() : null
                                     : null)
-                    .repositoryUrl("https://hub.docker.com/_/" + request.getName() + "/tags")
+                    .repositoryUrl(nexusImageUrl != null ? nexusImageUrl : "https://hub.docker.com/_/" + request.getName() + "/tags")
                     .starCount(request.getStarCount())
                     .build();
 
@@ -107,6 +123,9 @@ public class DockerHubService {
             result.put("message", "Docker Hub image registered successfully");
             // result.put("catalog", savedCatalog);
             result.put("nexusPush", pushResult);
+            if (nexusImageUrl != null) {
+                result.put("nexusImageUrl", nexusImageUrl);
+            }
 
         } catch (Exception e) {
             log.error("Failed to register Docker Hub image: {}:{}", request.getName(), request.getTag(), e);

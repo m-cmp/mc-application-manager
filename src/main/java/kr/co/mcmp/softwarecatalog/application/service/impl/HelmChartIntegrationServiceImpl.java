@@ -379,36 +379,36 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
                 imageRepository = nexusImageRepository;
                 log.info("Using Nexus image repository: {}", imageRepository);
             } else {
-                // Nexus 이미지가 없으면 요청 데이터 또는 기본값 사용
-                imageRepository = request.getImageRepository();
-                if (imageRepository == null || imageRepository.trim().isEmpty()) {
+                // Nexus 이미지가 없으면 요청 데이터에서 외부 경로를 내부 Nexus 경로로 변환
+                String originalImageRepository = request.getImageRepository();
+                if (originalImageRepository != null && !originalImageRepository.trim().isEmpty()) {
+                    // 외부 이미지 경로를 내부 Nexus 경로로 변환
+                    imageRepository = convertToNexusImagePath(originalImageRepository);
+                    log.info("Converted external image path to Nexus path: {} -> {}", originalImageRepository, imageRepository);
+                } else {
                     // Chart 이름을 기반으로 기본 이미지 저장소 설정
                     imageRepository = request.getName().toLowerCase().replaceAll("\\s+", "-");
                 }
             }
             helmChart.setImageRepository(imageRepository);
             
-            // Repository 정보 설정
+            // Repository 정보 설정 - 항상 Nexus 정보 사용
             if (request.getRepository() != null) {
                 helmChart.setRepositoryDisplayName(request.getRepository().getName() != null ? 
-                    request.getRepository().getName().toUpperCase() : "");
+                    request.getRepository().getName().toUpperCase() : "NEXUS-HELM");
                 helmChart.setRepositoryName(request.getRepository().getName() != null ? 
-                    request.getRepository().getName() : "");
-                helmChart.setRepositoryOfficial(request.getRepository().isOfficial());
-                
-                // Repository URL이 있으면 업데이트
-                if (request.getRepository().getUrl() != null && !request.getRepository().getUrl().trim().isEmpty()) {
-                    helmChart.setChartRepositoryUrl(request.getRepository().getUrl());
-                    log.info("Updated chart repository URL: {}", request.getRepository().getUrl());
-                }
+                    request.getRepository().getName() : "nexus-helm");
+                helmChart.setRepositoryOfficial(false); // Nexus는 공식 저장소가 아님
             } else {
                 // Repository 정보가 없으면 Nexus 기본값 설정
                 helmChart.setRepositoryDisplayName("NEXUS-HELM");
                 helmChart.setRepositoryName("nexus-helm");
                 helmChart.setRepositoryOfficial(false);
-                helmChart.setChartRepositoryUrl(getNexusRepositoryUrl());
-                log.info("Set Nexus repository information");
             }
+            
+            // Repository URL은 항상 Nexus URL로 설정
+            helmChart.setChartRepositoryUrl(getNexusRepositoryUrl());
+            log.info("Set Nexus repository URL: {}", getNexusRepositoryUrl());
             helmChart.setValuesFile(request.getDocumentationUrl());
             // helmChart.setLicense(request.getLicense());
 
@@ -431,20 +431,16 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
      * 기본 HelmChart 엔티티를 생성합니다.
      */
     private HelmChart createBaseHelmChart(HelmChartRegistrationRequest request, User user) {
-        // Repository URL 설정 - 요청에서 받은 repository.url 사용
-        String repositoryUrl;
-        if (request.getRepository() != null && request.getRepository().getUrl() != null && !request.getRepository().getUrl().trim().isEmpty()) {
-            repositoryUrl = request.getRepository().getUrl();
-            log.info("Using provided repository URL: {}", repositoryUrl);
-        } else {
-            // repository.url이 없으면 Nexus Helm Repository URL 사용
-            repositoryUrl = getNexusRepositoryUrl();
-            log.info("Using Nexus repository URL: {}", repositoryUrl);
-        }
+        // Repository URL 설정 - 항상 Nexus Helm Repository URL 사용
+        String repositoryUrl = getNexusRepositoryUrl();
+        log.info("Using Nexus repository URL: {}", repositoryUrl);
 
-        // imageRepository 설정 - null이거나 빈 문자열이면 기본값 사용
+        // imageRepository 설정 - 외부 경로를 내부 Nexus 경로로 변환
         String imageRepository = request.getImageRepository();
-        if (imageRepository == null || imageRepository.trim().isEmpty()) {
+        if (imageRepository != null && !imageRepository.trim().isEmpty()) {
+            // 외부 이미지 경로를 내부 Nexus 경로로 변환
+            imageRepository = convertToNexusImagePath(imageRepository);
+        } else {
             // Chart 이름을 기반으로 기본 이미지 저장소 설정
             imageRepository = request.getName().toLowerCase().replaceAll("\\s+", "-");
         }
@@ -476,6 +472,49 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
     }
 
     /**
+     * 외부 이미지 경로를 내부 Nexus 경로로 변환합니다.
+     */
+    private String convertToNexusImagePath(String externalImagePath) {
+        try {
+            // 외부 이미지 경로에서 이미지 이름과 태그 추출
+            String imageName = externalImagePath;
+            String tag = "latest";
+            
+            if (externalImagePath.contains(":")) {
+                String[] parts = externalImagePath.split(":");
+                imageName = parts[0];
+                tag = parts[1];
+            }
+            
+            // docker.io/ 접두사 제거
+            if (imageName.startsWith("docker.io/")) {
+                imageName = imageName.substring("docker.io/".length());
+            }
+            
+            // Nexus 정보 가져오기
+            OssDto nexusInfo = nexusIntegrationService.getNexusInfoFromDB();
+            String dockerRepositoryName = nexusIntegrationService.getRepositoryNameByFormat("docker");
+            int dockerPort = nexusConfig.getDockerPort();
+            
+            // Nexus 이미지 경로 생성 (Docker 레지스트리 URL 사용)
+            String nexusHost = nexusInfo.getOssUrl().replace("http://", "").replace("https://", "");
+            if (nexusHost.contains(":")) {
+                // 포트가 이미 포함된 경우 호스트만 추출
+                nexusHost = nexusHost.split(":")[0];
+            }
+            String nexusImagePath = nexusHost + ":" + dockerPort + 
+                                   "/" + dockerRepositoryName + "/" + imageName + ":" + tag;
+            
+            return nexusImagePath;
+            
+        } catch (Exception e) {
+            log.error("Failed to convert external image path to Nexus path: {}", externalImagePath, e);
+            // 변환 실패 시 원본 경로 반환
+            return externalImagePath;
+        }
+    }
+
+    /**
      * ArtifactHub API 응답에서 데이터를 추출하여 HelmChart에 설정합니다.
      */
     private void extractAndSetArtifactHubData(HelmChart helmChart, Map<String, Object> chartData) {
@@ -494,10 +533,12 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         @SuppressWarnings("unchecked")
         Map<String, Object> repository = (Map<String, Object>) chartData.get("repository");
         if (repository != null) {
-            setStringValue(helmChart::setChartRepositoryUrl, repository.get("url"));
+            // Repository URL은 항상 Nexus URL로 설정
+            helmChart.setChartRepositoryUrl(getNexusRepositoryUrl());
             setStringValue(helmChart::setRepositoryName, repository.get("name"));
             setStringValue(helmChart::setRepositoryDisplayName, repository.get("display_name"));
-            setBooleanValue(helmChart::setRepositoryOfficial, repository.get("official"));
+            helmChart.setRepositoryOfficial(false); // Nexus는 공식 저장소가 아님
+            log.info("Set Nexus repository URL: {}", getNexusRepositoryUrl());
         }
 
         // 불린 값 설정

@@ -132,14 +132,39 @@ public class ApplicationServiceImpl implements ApplicationService {
         else if(PackageType.valueOf("HELM").equals(dto.getTarget()))
             result = helmChartRepository.findDistinctCategories();
 
-        // String -> KeyValueDTO 변환
-        return result.stream()
+        log.info("Raw categories from DB: {}", result);
+
+        // String -> KeyValueDTO 변환 후 대소문자 구분 없이 중복 제거
+        List<KeyValueDTO> finalResult = result.stream()
                 .filter(Objects::nonNull) // null 값 제거
-                .map(category -> KeyValueDTO.builder()
-                        .key(category)
-                        .value(category) // 필요하다면 다른 값 매핑 가능
-                        .build())
+                .filter(category -> !category.trim().isEmpty()) // 빈 문자열 제거
+                .map(category -> {
+                    // 공백 정규화 (모든 종류의 공백을 일반 공백으로 변환)
+                    String normalizedCategory = category.replaceAll("\\s+", " ").trim();
+                    return KeyValueDTO.builder()
+                            .key(normalizedCategory)
+                            .value(normalizedCategory)
+                            .build();
+                })
+                .collect(Collectors.toMap(
+                        keyValueDto -> keyValueDto.getKey().toLowerCase().trim(), // 키를 소문자로 변환하고 공백 제거하여 중복 제거
+                        keyValueDto -> keyValueDto, // 원본 DTO 유지
+                        (existing, replacement) -> {
+                            log.info("Duplicate found: '{}' and '{}' - keeping '{}'", 
+                                    replacement.getKey(), existing.getKey(), existing.getKey());
+                            return existing; // 중복 시 기존 값 유지
+                        },
+                        LinkedHashMap::new // 순서 유지
+                ))
+                .values()
+                .stream()
                 .collect(Collectors.toList());
+
+        log.info("Final deduplicated categories: {}", finalResult.stream()
+                .map(KeyValueDTO::getKey)
+                .collect(Collectors.toList()));
+
+        return finalResult;
     }
 
 
@@ -156,28 +181,70 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         // VM
         if(PackageType.valueOf("DOCKER").equals(dto.getTarget())) {
-            List<PackageInfo> packageInfoList = packageInfoRepository.findByCategories(dto.getCategory());
+            List<PackageInfo> packageInfoList = packageInfoRepository.findByCategoriesIgnoreCase(dto.getCategory());
+            log.info("Found {} package info records for category: {} (case-insensitive)", packageInfoList.size(), dto.getCategory());
+            
             result = packageInfoList.stream()
                     .filter(Objects::nonNull)
-                    .map(packageInfo -> KeyValueDTO.builder()
-                            .key(packageInfo.getPackageName())
-                            .value(packageInfo.getPackageName())
-                            .build())
+                    .map(packageInfo -> {
+                        // 패키지명과 ID 로깅
+                        log.info("PackageInfo ID: {}, Name: '{}'", packageInfo.getId(), packageInfo.getPackageName());
+                        
+                        // 패키지명 정규화 (공백 정규화)
+                        String normalizedName = packageInfo.getPackageName() != null ? 
+                                packageInfo.getPackageName().replaceAll("\\s+", " ").trim() : "";
+                        return KeyValueDTO.builder()
+                                .key(normalizedName)
+                                .value(normalizedName)
+                                .build();
+                    })
                     .collect(Collectors.toList());
         }
 
         // K8S
         else if(PackageType.valueOf("HELM").equals(dto.getTarget())) {
-            List<HelmChart> helmChartList = helmChartRepository.findByCategory(dto.getCategory());
+            List<HelmChart> helmChartList = helmChartRepository.findByCategoryIgnoreCase(dto.getCategory());
+            log.info("Found {} helm chart records for category: {} (case-insensitive)", helmChartList.size(), dto.getCategory());
             result = helmChartList.stream()
-                    .map(helmChart -> KeyValueDTO.builder()
-                            .key(helmChart.getChartName())
-                            .value(helmChart.getChartName())
-                            .build())  // 헬름차트 전용 변환 메서드
+                    .map(helmChart -> {
+                        // 차트명 정규화 (공백 정규화)
+                        String normalizedName = helmChart.getChartName() != null ? 
+                                helmChart.getChartName().replaceAll("\\s+", " ").trim() : "";
+                        return KeyValueDTO.builder()
+                                .key(normalizedName)
+                                .value(normalizedName)
+                                .build();
+                    })
                     .collect(Collectors.toList());
         }
 
-        return result;
+        log.info("Raw packages from DB: {}", result.stream()
+                .map(KeyValueDTO::getKey)
+                .collect(Collectors.toList()));
+
+        // 대소문자 구분 없이 중복 제거
+        List<KeyValueDTO> finalResult = result.stream()
+                .filter(Objects::nonNull)
+                .filter(keyValueDto -> keyValueDto.getKey() != null && !keyValueDto.getKey().trim().isEmpty())
+                .collect(Collectors.toMap(
+                        keyValueDto -> keyValueDto.getKey().toLowerCase().trim(), // 키를 소문자로 변환하고 공백 제거하여 중복 제거
+                        keyValueDto -> keyValueDto, // 원본 DTO 유지
+                        (existing, replacement) -> {
+                            log.info("Duplicate package found: '{}' and '{}' - keeping '{}'", 
+                                    replacement.getKey(), existing.getKey(), existing.getKey());
+                            return existing; // 중복 시 기존 값 유지
+                        },
+                        LinkedHashMap::new // 순서 유지
+                ))
+                .values()
+                .stream()
+                .collect(Collectors.toList());
+
+        log.info("Final deduplicated packages: {}", finalResult.stream()
+                .map(KeyValueDTO::getKey)
+                .collect(Collectors.toList()));
+
+        return finalResult;
     }
 
     /**
