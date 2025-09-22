@@ -37,7 +37,7 @@ public class CommonModuleRepositoryService {
         repositoryService.createRepository(repositoryDto);
     }
 
-    public void updateRepository(String module, CommonRepository.RepositoryDto repositoryDto) {
+    public void updateRepository(String module, CommonRepository.RepositoryDto repositoryDto) { 
         CommonRepositoryService repositoryService = getRepositoryService(module);
         repositoryService.updateRepository(repositoryDto);
     }

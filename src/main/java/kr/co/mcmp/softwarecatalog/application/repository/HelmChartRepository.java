@@ -3,7 +3,6 @@ package kr.co.mcmp.softwarecatalog.application.repository;
 import java.util.List;
 import java.util.Optional;
 
-import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -29,6 +28,13 @@ public interface HelmChartRepository extends JpaRepository<HelmChart, Long> {
     List<HelmChart> findByCategory(String category);
     List<HelmChart> findByCategoryAndCatalogIsNull(String category);
     List<HelmChart> findByChartNameAndChartVersion(String chartName, String chartVersion);
+    
+    // 대소문자 구분 없이 카테고리로 조회
+    @Query("SELECT hc FROM HelmChart hc WHERE LOWER(hc.category) = LOWER(:category)")
+    List<HelmChart> findByCategoryIgnoreCase(@Param("category") String category);
+    
+    @Query("SELECT hc FROM HelmChart hc WHERE LOWER(hc.category) = LOWER(:category) AND hc.catalog IS NULL")
+    List<HelmChart> findByCategoryIgnoreCaseAndCatalogIsNull(@Param("category") String category);
 
     @Query("SELECT DISTINCT hc.chartVersion, hc.catalog.id FROM HelmChart hc WHERE hc.chartName = :chartName")
     List<Object[]> findDistinctPackageVersionByChartName(@Param("chartName") String chartName);

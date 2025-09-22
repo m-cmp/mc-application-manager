@@ -91,6 +91,7 @@ services:
   mc-application-manager:
     image: cloudbaristaorg/mc-application-manager:edge
     container_name: application-manager
+    privileged: true  # Docker-in-Docker를 위한 privileged 모드
     networks:
       - external_network
     ports:
@@ -99,6 +100,8 @@ services:
         protocol: tcp
     volumes:
       - ./db/application:/db/application
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker 소켓 마운트
+      - /usr/bin/docker:/usr/bin/docker            # Docker 바이너리 마운트
     environment:
       - DDL_AUTO=update     # create-drop or update
       - DB_USER=application # Please CHANGE ME
