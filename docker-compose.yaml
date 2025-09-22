@@ -111,16 +111,6 @@ services:
       - TUMBLEBUG_PORT=1323
       - TUMBLEBUG_ID=default
       - TUMBLEBUG_PASSWORD=default
-      - NEXUS_URL=nexus-repository
-      - NEXUS_PORT=8081
-      - NEXUS_DOCKER_PORT=5000
-      - NEXUS_USERNAME=admin
-      - NEXUS_PASSWORD=123456
-      - NEXUS_DOCKER_REPOSITORY=docker-hosted
-      - NEXUS_HELM_REPOSITORY=helm-hosted
-      - NEXUS_HYBRID_MODE=true
-      - NEXUS_USE_EXTERNAL_DOCKER_HUB=true
-      - NEXUS_USE_EXTERNAL_ARTIFACT_HUB=true
     healthcheck: # for cb-application-manager
       test: ["CMD", "nc", "-vz", "localhost", "1324"]
       interval: 1m
