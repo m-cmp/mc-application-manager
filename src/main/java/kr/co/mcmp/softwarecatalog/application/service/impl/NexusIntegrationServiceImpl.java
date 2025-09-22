@@ -1624,13 +1624,17 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                     
                     // insecure registries 설정 확인
                     boolean hasInsecureRegistry = output.contains("Insecure Registries:") && 
-                                               output.contains("210.217.178.130:5500");
+                                               (output.contains("210.217.178.130:5500") || 
+                                                output.contains("mc-application-manager-sonatype-nexus:5500"));
                     
                     if (hasInsecureRegistry) {
-                        log.info("DinD daemon has insecure registry configured: 210.217.178.130:5500");
+                        log.info("DinD daemon has insecure registry configured: {}", 
+                               output.contains("210.217.178.130:5500") ? "210.217.178.130:5500" : "mc-application-manager-sonatype-nexus:5500");
                         return true;
                     } else {
                         log.warn("DinD daemon does not have insecure registry configured, waiting...");
+                        log.warn("Looking for: 210.217.178.130:5500 or mc-application-manager-sonatype-nexus:5500");
+                        log.warn("Found insecure registries: {}", output);
                     }
                 } else {
                     log.warn("DinD daemon not ready yet (exit code: {}), waiting...", exitCode);
@@ -1981,7 +1985,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private DockerCommandResult executeDockerCommand(ProcessBuilder processBuilder, String commandDescription, long timeoutSeconds) {
         try {
             // Docker 명령어에 insecure registry 설정 적용
-            applyInsecureRegistryToDockerCommand(processBuilder, "210.217.178.130:5500");
+            applyInsecureRegistryToDockerCommand(processBuilder, "mc-application-manager-sonatype-nexus:5500");
             
             Process process = processBuilder.start();
             
