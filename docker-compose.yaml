@@ -100,7 +100,7 @@ services:
         protocol: tcp
     volumes:
       - ./db/application:/db/application
-      - dind-storage:/var/lib/docker  # DinD용 Docker 데이터 볼륨
+      #- dind-storage:/var/lib/docker  # DinD용 Docker 데이터 볼륨
       - /var/run:/var/run  # DinD 소켓용
     environment:
       - DDL_AUTO=update     # create-drop or update
@@ -118,5 +118,5 @@ services:
       retries: 3
       start_period: 30s
 
-volumes:
-  dind-storage:
+#volumes:
+#  dind-storage:
