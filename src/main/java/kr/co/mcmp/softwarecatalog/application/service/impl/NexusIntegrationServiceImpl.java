@@ -902,8 +902,10 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             String dockerRepo = parseDockerRepositoryFromResponse(responseStr);
             
             if (dockerRepo != null && !dockerRepo.isEmpty()) {
-                log.info("Successfully found Docker repository: {}", dockerRepo);
-                return dockerRepo;
+                // Docker repository name은 소문자여야 함
+                String normalizedDockerRepo = dockerRepo.toLowerCase();
+                log.info("Successfully found Docker repository: {} (normalized to: {})", dockerRepo, normalizedDockerRepo);
+                return normalizedDockerRepo;
             } else {
                 log.error("No Docker repository found in Nexus. Available repositories: {}", responseStr);
                 throw new RuntimeException("No Docker repository found in Nexus");
@@ -1231,10 +1233,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             String repositoryName = parseRepositoryByFormatFromResponse(responseStr, format);
             
             if (repositoryName != null && !repositoryName.isEmpty()) {
-                // Docker repository name은 소문자여야 함
-                String normalizedRepositoryName = repositoryName.toLowerCase();
-                log.info("Successfully found {} repository: {} (normalized to: {})", format, repositoryName, normalizedRepositoryName);
-                return normalizedRepositoryName;
+                return repositoryName;
             } else {
                 log.error("No {} repository found in Nexus. Available repositories: {}", format, responseStr);
                 throw new RuntimeException("No " + format + " repository found in Nexus");
