@@ -686,21 +686,26 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
         try {
             log.info("Attempting login inside DinD container: {}", registryUrl);
             
-            // DinD 컨테이너 내부에서 Docker 명령어 실행
+            // DinD 컨테이너 내부에서 Docker 명령어 실행 (TLS 완전 비활성화)
             ProcessBuilder loginProcess = new ProcessBuilder(
                 "docker", "exec", "-i", containerName,
-                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
+                "sh", "-c", 
+                "DOCKER_TLS_VERIFY=0 DOCKER_CONTENT_TRUST=0 DOCKER_BUILDKIT=0 docker login --username " + username + " --password-stdin http://" + registryUrl
             );
             
-            // DinD 컨테이너 내부 환경 설정
+            // DinD 컨테이너 내부 환경 설정 - TLS 완전 비활성화
             loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
             loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
             loginProcess.environment().put("DOCKER_BUILDKIT", "0");
             loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
-            loginProcess.environment().put("DOCKER_REGISTRY_INSECURE", "true");
-            // TLS 인증서 관련 환경 변수 제거
+            
+            // TLS 인증서 관련 환경 변수 완전 제거
             loginProcess.environment().remove("DOCKER_CERT_PATH");
             loginProcess.environment().remove("DOCKER_TLS_CERTDIR");
+            loginProcess.environment().remove("DOCKER_CONFIG");
+            
+            // Docker daemon 설정 (TLS 비활성화)
+            loginProcess.environment().put("DOCKER_HOST", "tcp://localhost:2375");
             
             return executeDockerCommandWithRetryAndStdin(loginProcess, "DinD Docker Login", 30, password);
             
