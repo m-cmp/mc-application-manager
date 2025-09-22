@@ -2742,7 +2742,8 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         String fullImageName = imageName.contains("/") ? imageName : imageName;
         // 프로토콜 제거 (http:// 또는 https://)
         String cleanRegistryUrl = registryUrl.replaceFirst("^https?://", "");
-        return cleanRegistryUrl + "/" + repositoryName + "/" + fullImageName + ":" + tag;
+        // repositoryName을 제거하여 hello-world처럼 최상위에 저장
+        return cleanRegistryUrl + "/" + fullImageName + ":" + tag;
     }
     
     /**
