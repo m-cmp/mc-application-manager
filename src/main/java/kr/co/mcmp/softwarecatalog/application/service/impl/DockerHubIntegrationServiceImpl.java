@@ -734,11 +734,21 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
                 "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
             );
             
-            // 컨테이너 내부 환경 설정
+            // 컨테이너 내부 환경 설정 - TLS 완전 비활성화
             loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
             loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
             loginProcess.environment().put("DOCKER_BUILDKIT", "0");
             loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
+            loginProcess.environment().put("DOCKER_REGISTRY_INSECURE", "true");
+            loginProcess.environment().put("DOCKER_DAEMON_INSECURE_REGISTRIES", registryUrl);
+            
+            // TLS 인증서 관련 환경 변수 완전 제거
+            loginProcess.environment().remove("DOCKER_CERT_PATH");
+            loginProcess.environment().remove("DOCKER_TLS_CERTDIR");
+            loginProcess.environment().remove("DOCKER_CONFIG");
+            
+            // Docker daemon 설정 (TLS 비활성화)
+            loginProcess.environment().put("DOCKER_HOST", "unix:///var/run/docker.sock");
             
             return executeDockerCommandWithRetryAndStdin(loginProcess, "Container Docker Login", 30, password);
             
