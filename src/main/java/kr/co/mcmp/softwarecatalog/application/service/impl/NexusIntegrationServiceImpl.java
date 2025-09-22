@@ -1568,28 +1568,20 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         try {
             log.info("Attempting login in container: {}", registryUrl);
             
-            // 컨테이너 내부에서 직접 Docker 명령어 실행
+            // 컨테이너 내부에서 직접 Docker 명령어 실행 (TLS 완전 비활성화)
             ProcessBuilder loginProcess = new ProcessBuilder(
-                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
+                "sh", "-c", 
+                "DOCKER_TLS_VERIFY=0 DOCKER_CONTENT_TRUST=0 DOCKER_BUILDKIT=0 DOCKER_INSECURE_REGISTRIES=" + registryUrl + 
+                " DOCKER_REGISTRY_INSECURE=true DOCKER_DAEMON_INSECURE_REGISTRIES=" + registryUrl + 
+                " DOCKER_HOST=unix:///var/run/docker.sock docker login http://" + registryUrl + " -u " + username + " --password " + password
             );
             
-            // 컨테이너 내부 환경 설정 - TLS 완전 비활성화
-            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
-            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
-            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
-            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
-            loginProcess.environment().put("DOCKER_REGISTRY_INSECURE", "true");
-            loginProcess.environment().put("DOCKER_DAEMON_INSECURE_REGISTRIES", registryUrl);
-            
-            // TLS 인증서 관련 환경 변수 완전 제거
+            // 환경 변수 제거 (sh -c에서 이미 설정했으므로)
             loginProcess.environment().remove("DOCKER_CERT_PATH");
             loginProcess.environment().remove("DOCKER_TLS_CERTDIR");
             loginProcess.environment().remove("DOCKER_CONFIG");
             
-            // Docker daemon 설정 (TLS 비활성화)
-            loginProcess.environment().put("DOCKER_HOST", "unix:///var/run/docker.sock");
-            
-            return executeDockerCommandWithRetryAndStdin(loginProcess, "Container Docker Login", 30, password);
+            return executeDockerCommandWithRetry(loginProcess, "Container Docker Login", 30);
             
         } catch (Exception e) {
             log.error("Error logging in container: {}", e.getMessage());
