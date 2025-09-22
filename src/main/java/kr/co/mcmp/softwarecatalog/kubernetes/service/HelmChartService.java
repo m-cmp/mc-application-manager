@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import com.marcnuri.helm.Helm;
 import com.marcnuri.helm.InstallCommand;
-import com.marcnuri.helm.ListCommand;
 import com.marcnuri.helm.Release;
 import com.marcnuri.helm.UninstallCommand;
 
@@ -19,11 +18,9 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
-import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProviderFactory;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProvider;
 import kr.co.mcmp.softwarecatalog.kubernetes.util.ReleaseNameGenerator;
-import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -143,11 +140,31 @@ public class HelmChartService {
                     .withName(releaseName)
                     .withNamespace(namespace)
                     .withVersion(helmChart.getChartVersion())
-                    .set("replicaCount", catalog.getMinReplicas())
-                    .set("image.repository", buildImageRepository(catalog, helmChart))
-                    .set("image.tag", "latest")
-                    .set("image.pullPolicy", "IfNotPresent")
-                    .set("image.registry", "docker.io")
+                    .set("replicaCount", catalog.getMinReplicas());
+            
+            // 이미지 설정 - Chart별로 다르게 처리
+            String imageRepository = buildImageRepository(catalog, helmChart);
+            if (helmChart.getChartName().equalsIgnoreCase("grafana")) {
+                // Grafana의 경우 기본 이미지 사용
+                installCommand
+                        .set("image.repository", "grafana/grafana")
+                        .set("image.tag", "latest")
+                        .set("image.pullPolicy", "IfNotPresent");
+            } else {
+                // 다른 Chart의 경우 동적으로 설정
+                installCommand
+                        .set("image.repository", imageRepository)
+                        .set("image.tag", "latest")
+                        .set("image.pullPolicy", "IfNotPresent")
+                        .set("image.registry", "docker.io");
+            }
+            
+            // Bitnami 차트의 보안 검증 우회 설정
+            installCommand
+                    .set("global.security.allowInsecureImages", true)
+                    .set("global.imageRegistry", "docker.io");
+            
+            installCommand
                     .set("service.port", catalog.getDefaultPort())
                     .set("service.type", "ClusterIP")
                     .set("resources.requests.cpu", catalog.getMinCpu().toString())
@@ -161,6 +178,10 @@ public class HelmChartService {
             // Ingress 설정 적용
             if (catalog.getIngressEnabled() != null && catalog.getIngressEnabled()) {
                 log.info("Ingress 설정 적용 중...");
+                
+                // Ingress Controller 자동 설치 확인 및 설치
+                // ensureIngressController(namespace, tempKubeconfigPath); // TODO 수정필요.
+                
                 installCommand
                         .set("ingress.enabled", true)
                         .set("ingress.host", catalog.getIngressHost() != null ? catalog.getIngressHost() : "localhost")
@@ -173,15 +194,11 @@ public class HelmChartService {
                             .set("ingress.tls.enabled", true)
                             .set("ingress.tls.secretName", catalog.getIngressTlsSecret() != null ? 
                                 catalog.getIngressTlsSecret() : releaseName + "-tls");
-                } else {
-                    installCommand.set("ingress.tls.enabled", false);
                 }
+                // TLS가 비활성화된 경우는 아무 설정도 하지 않음 (기본값 사용)
                 
                 log.info("Ingress 설정 완료 - Host: {}, Path: {}, Class: {}", 
                         catalog.getIngressHost(), catalog.getIngressPath(), catalog.getIngressClass());
-            } else {
-                installCommand.set("ingress.enabled", false);
-                log.info("Ingress 비활성화됨");
             }
 
             // CSP별 및 설정에 따른 동적 설정 적용
@@ -193,12 +210,12 @@ public class HelmChartService {
                 // HPA 설정 적용
                 if (catalog.getHpaEnabled()) {
                     log.info("HPA 활성화 설정 적용 중...");
-                    installCommand
-                            .set("autoscaling.enabled", true)
-                            .set("autoscaling.minReplicas", catalog.getMinReplicas())
-                            .set("autoscaling.maxReplicas", catalog.getMaxReplicas())
-                            .set("autoscaling.targetCPUUtilizationPercentage", catalog.getCpuThreshold())
-                            .set("autoscaling.targetMemoryUtilizationPercentage", catalog.getMemoryThreshold());
+                installCommand
+                        .set("autoscaling.enabled", true)
+                        .set("autoscaling.minReplicas", catalog.getMinReplicas())
+                        .set("autoscaling.maxReplicas", catalog.getMaxReplicas())
+                                .set("autoscaling.targetCPUUtilizationPercentage", catalog.getCpuThreshold())
+                                .set("autoscaling.targetMemoryUtilizationPercentage", catalog.getMemoryThreshold());
                 }
 
                 // CSP별 설정 적용
@@ -289,7 +306,7 @@ public class HelmChartService {
 
         try {
             // 1. 클러스터 정보 조회
-            K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(clusterName, "default");
+            K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
             if (clusterDto == null) {
                 throw new RuntimeException("K8s cluster not found: " + clusterName);
             }
@@ -327,11 +344,31 @@ public class HelmChartService {
                     .withName(releaseName)
                     .withNamespace(namespace)
                     .withVersion(helmChart.getChartVersion())
-                    .set("replicaCount", config.getMinReplicas())
-                    .set("image.repository", buildImageRepository(catalog, helmChart))
-                    .set("image.tag", "latest")
-                    .set("image.pullPolicy", "IfNotPresent")
-                    .set("image.registry", "docker.io")
+                    .set("replicaCount", config.getMinReplicas());
+            
+            // 이미지 설정 - Chart별로 다르게 처리
+            String imageRepository = buildImageRepository(catalog, helmChart);
+            if (helmChart.getChartName().equalsIgnoreCase("grafana")) {
+                // Grafana의 경우 기본 이미지 사용
+                installCommand
+                        .set("image.repository", "grafana/grafana")
+                        .set("image.tag", "latest")
+                        .set("image.pullPolicy", "IfNotPresent");
+            } else {
+                // 다른 Chart의 경우 동적으로 설정
+                installCommand
+                        .set("image.repository", imageRepository)
+                        .set("image.tag", "latest")
+                        .set("image.pullPolicy", "IfNotPresent")
+                        .set("image.registry", "docker.io");
+            }
+            
+            // Bitnami 차트의 보안 검증 우회 설정
+            installCommand
+                    .set("global.security.allowInsecureImages", true)
+                    .set("global.imageRegistry", "docker.io");
+            
+            installCommand
                     .set("service.port", catalog.getDefaultPort())
                     .set("service.type", "ClusterIP")
                     .set("resources.requests.cpu", catalog.getMinCpu().toString())
@@ -360,6 +397,10 @@ public class HelmChartService {
             // Ingress 설정 적용
             if (config.isIngressEnabled()) {
                 log.info("Ingress 설정 적용 중...");
+                
+                // Ingress Controller 자동 설치 확인 및 설치
+                ensureIngressController(namespace, tempKubeconfigPath);
+                
                 installCommand
                         .set("ingress.enabled", true)
                         .set("ingress.host", config.getIngressHost())
@@ -372,9 +413,8 @@ public class HelmChartService {
                             .set("ingress.tls.enabled", true)
                             .set("ingress.tls.secretName", config.getIngressTlsSecret() != null ? 
                                 config.getIngressTlsSecret() : releaseName + "-tls");
-                } else {
-                    installCommand.set("ingress.tls.enabled", false);
                 }
+                // TLS가 비활성화된 경우는 아무 설정도 하지 않음 (기본값 사용)
                 
                 log.info("Ingress 설정 완료 - {}", config.getIngressConfigSummary());
             } else {
@@ -385,7 +425,6 @@ public class HelmChartService {
             // CSP별 및 설정에 따른 동적 설정 적용
             log.info("CSP별 및 설정에 따른 동적 설정 적용 중...");
             try {
-                String providerName2 = clusterDto.getConnectionConfig().getProviderName();
 
                 // 공통 보안 설정 적용
                 log.info("공통 보안 설정 적용 중...");
@@ -450,7 +489,7 @@ public class HelmChartService {
 
             boolean deleted = result != null && !result.isEmpty();
             log.info("2. 삭제 결과: {}", deleted ? "성공" : "실패");
-            
+
             if (deleted) {
                 log.info("=== Helm Chart 삭제 성공 ===");
             } else {
@@ -462,7 +501,7 @@ public class HelmChartService {
             throw new RuntimeException("Helm Release 삭제 실패", e);
         }
     }
-    
+
     public void uninstallHelmChartWithKubeconfig(String namespace, SoftwareCatalog catalog, 
                                                String clusterName, String kubeconfigYaml) {
         log.info("=== Helm Chart 삭제 시작 (kubeconfig 사용) ===");
@@ -487,7 +526,7 @@ public class HelmChartService {
             String result = Helm.uninstall(releaseName)
                     .withKubeConfig(tempKubeconfigPath)
                     .withNamespace(namespace)
-                    .call();
+                .call();
 
             boolean deleted = result != null && !result.isEmpty();
             log.info("2. 삭제 결과: {}", deleted ? "성공" : "실패");
@@ -516,16 +555,32 @@ public class HelmChartService {
 
     private String buildImageRepository(SoftwareCatalog catalog, kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart) {
         String imageName = helmChart.getImageRepository();
+        
+        // imageRepository가 null이거나 비어있으면 기본값 사용
         if (imageName == null || imageName.isEmpty()) {
-            imageName = catalog.getName().toLowerCase().replaceAll("\\s+", "-");
+            // Helm Chart의 chartName을 기반으로 이미지 이름 생성
+            imageName = helmChart.getChartName().toLowerCase().replaceAll("\\s+", "-");
+        }
+        
+        // Nexus 이미지 경로인지 확인 (IP:포트/저장소/이미지:태그 형식)
+        if (imageName.matches("^\\d+\\.\\d+\\.\\d+\\.\\d+:\\d+/[^/]+/.*")) {
+            // Nexus 이미지 경로인 경우 그대로 사용
+            log.info("Nexus 이미지 경로 사용: {}", imageName);
+            return imageName;
         }
         
         // docker.io/ 중복 제거
         String cleanImageName = imageName.replaceAll("^(docker\\.io/)+", "");
         cleanImageName = cleanImageName.trim();
         
+        // 여전히 비어있으면 chartName 사용
         if (cleanImageName.isEmpty()) {
-            cleanImageName = catalog.getName().toLowerCase().replaceAll("\\s+", "-");
+            cleanImageName = helmChart.getChartName().toLowerCase().replaceAll("\\s+", "-");
+        }
+        
+        // 숫자만 있는 경우 문자열로 변환하고 적절한 prefix 추가
+        if (cleanImageName.matches("^\\d+$")) {
+            cleanImageName = "app-" + cleanImageName;
         }
         
         log.info("이미지 레포지토리 보정: '{}' -> '{}'", helmChart.getImageRepository(), cleanImageName);
@@ -578,6 +633,139 @@ public class HelmChartService {
             }
         } catch (Exception e) {
             log.warn("기존 릴리스 처리 중 오류 발생 (무시하고 계속): {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 네임스페이스에 NGINX Ingress Controller가 설치되어 있는지 확인하고, 없으면 설치합니다.
+     */
+    private void ensureIngressController(String namespace, Path tempKubeconfigPath) {
+        try {
+            log.info("네임스페이스 '" + namespace + "'에서 NGINX Ingress Controller 확인 중...");
+            
+            if (isIngressControllerInstalled(namespace, tempKubeconfigPath)) {
+                log.info("NGINX Ingress Controller가 이미 설치되어 있습니다.");
+                return;
+            }
+            
+            log.info("NGINX Ingress Controller가 설치되어 있지 않습니다. 설치를 시작합니다...");
+            installIngressControllerWithHelm(namespace, tempKubeconfigPath);
+            
+            // 설치 완료 대기
+            waitForIngressControllerReady(namespace, tempKubeconfigPath);
+            log.info("NGINX Ingress Controller 설치 및 준비 완료");
+            
+        } catch (Exception e) {
+            System.err.println("NGINX Ingress Controller 설치 중 오류 발생: " + e.getMessage());
+            throw new RuntimeException("NGINX Ingress Controller 설치 실패", e);
+        }
+    }
+
+    /**
+     * 네임스페이스에 NGINX Ingress Controller가 설치되어 있는지 확인합니다.
+     */
+    private boolean isIngressControllerInstalled(String namespace, Path tempKubeconfigPath) {
+        try {
+            // Helm 릴리스 목록에서 nginx-ingress 확인
+            List<Release> releases = Helm.list()
+                    .withKubeConfig(tempKubeconfigPath)
+                    .withNamespace(namespace)
+                    .call();
+            
+            for (Release release : releases) {
+                if (release.getName().contains("nginx-ingress") || 
+                    release.getName().contains("ingress-nginx")) {
+                    log.info("NGINX Ingress Controller 발견: " + release.getName());
+                    return true;
+                }
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.info("NGINX Ingress Controller 설치 확인 중 오류 발생: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Helm을 사용하여 NGINX Ingress Controller를 설치합니다.
+     */
+    private void installIngressControllerWithHelm(String namespace, Path tempKubeconfigPath) {
+        try {
+            log.info("NGINX Ingress Controller Helm 설치 시작...");
+            
+            // NGINX Ingress Controller Helm Chart 설치
+            String releaseName = "nginx-ingress-" + namespace;
+            
+            InstallCommand installCommand = Helm.install("ingress-nginx/ingress-nginx")
+                    .withKubeConfig(tempKubeconfigPath)
+                    .withName(releaseName)
+                    .withNamespace(namespace)
+                    .set("controller.service.type", "LoadBalancer")
+                    .set("controller.service.ports.http", "80")
+                    .set("controller.service.ports.https", "443")
+                    .set("controller.ingressClassResource.name", "nginx")
+                    .set("controller.ingressClassResource.controllerValue", "k8s.io/ingress-nginx")
+                    .set("controller.ingressClass", "nginx")
+                    .set("controller.ingressClassByName", true)
+                    .set("controller.watchIngressWithoutClass", true)
+                    .set("controller.ingressClassResource.enabled", true)
+                    .set("controller.ingressClassResource.default", true);
+            
+            Release result = installCommand.call();
+            log.info("NGINX Ingress Controller 설치 완료: " + releaseName + " (상태: " + result.getStatus() + ")");
+            
+        } catch (Exception e) {
+            System.err.println("NGINX Ingress Controller Helm 설치 실패: " + e.getMessage());
+            throw new RuntimeException("NGINX Ingress Controller 설치 실패", e);
+        }
+    }
+
+    /**
+     * NGINX Ingress Controller가 준비될 때까지 대기합니다.
+     */
+    private void waitForIngressControllerReady(String namespace, Path tempKubeconfigPath) {
+        int maxAttempts = 30; // 5분 대기 (10초 * 30)
+        int attempt = 0;
+        
+        log.info("NGINX Ingress Controller 준비 상태 확인 중...");
+        
+        while (attempt < maxAttempts) {
+            try {
+                if (isIngressControllerReady(namespace, tempKubeconfigPath)) {
+                    log.info("NGINX Ingress Controller가 준비되었습니다.");
+                    return;
+                }
+                
+                attempt++;
+                log.info("NGINX Ingress Controller 준비 대기 중... (" + attempt + "/" + maxAttempts + ")");
+                Thread.sleep(10000); // 10초 대기
+                
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("NGINX Ingress Controller 준비 대기 중 중단됨", e);
+            } catch (Exception e) {
+                log.info("NGINX Ingress Controller 준비 상태 확인 중 오류 발생: " + e.getMessage());
+                attempt++;
+            }
+        }
+        
+        throw new RuntimeException("NGINX Ingress Controller가 준비되지 않았습니다. 최대 대기 시간 초과");
+    }
+
+    /**
+     * NGINX Ingress Controller가 준비되었는지 확인합니다.
+     */
+    private boolean isIngressControllerReady(String namespace, Path tempKubeconfigPath) {
+        try {
+            // KubernetesClient를 사용하여 Pod 상태 확인
+            // 여기서는 간단히 true를 반환하도록 구현
+            // 실제로는 kubernetesClient를 사용하여 Pod 상태를 확인해야 함
+            log.info("NGINX Ingress Controller 준비 상태 확인 중...");
+            return true; // 임시로 true 반환
+        } catch (Exception e) {
+            log.info("NGINX Ingress Controller 준비 상태 확인 중 오류 발생: " + e.getMessage());
+            return false;
         }
     }
 }

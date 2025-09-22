@@ -19,6 +19,7 @@ import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerHealthInfo;
+import kr.co.mcmp.softwarecatalog.docker.service.DockerLogCollector;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,6 +33,7 @@ public class DockerMonitoringService {
     private final DockerClientFactory dockerClientFactory;
     private final ContainerStatsCollector containerStatsCollector;
     private final ContainerLogCollector containerLogCollector;
+    private final DockerLogCollector dockerLogCollector;
     private final CbtumblebugRestApi cbtumblebugRestApi;
 
     @Value("${docker.monitoring.interval:60000}")
@@ -86,8 +88,8 @@ public class DockerMonitoringService {
             ContainerHealthInfo healthInfo = containerStatsCollector.collectContainerStats(dockerClient, containerId);
             updateApplicationStatus(status, deployment, healthInfo);
             if (isThresholdExceeded(deployment.getCatalog(), healthInfo)) {
-                List<String> errorLogs = containerLogCollector.collectErrorLogs(dockerClient, containerId);
-                status.setErrorLogs(errorLogs);
+                // UnifiedLog를 사용하여 에러 로그 수집
+                dockerLogCollector.collectAndSaveLogs(deployment.getId(), deployment.getVmId(), containerId);
             }
 
             applicationStatusRepository.save(status);

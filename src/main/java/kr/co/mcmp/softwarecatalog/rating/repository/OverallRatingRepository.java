@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -96,4 +97,11 @@ public interface OverallRatingRepository extends JpaRepository<OverallRating, Lo
      */
     @Query("SELECT COUNT(r) FROM OverallRating r WHERE r.createdAt >= CURRENT_DATE - 30")
     Long findOverallRecentRatingsCount();
+
+    /**
+     * 카탈로그 ID로 모든 평가 삭제
+     */
+    @Modifying
+    @Query("DELETE FROM OverallRating r WHERE r.catalogId = :catalogId")
+    void deleteByCatalogId(@Param("catalogId") Long catalogId);
 }

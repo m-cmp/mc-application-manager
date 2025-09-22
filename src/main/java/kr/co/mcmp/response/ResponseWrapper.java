@@ -41,4 +41,20 @@ public class ResponseWrapper<T> implements Serializable {
     	this.detail = detail;
     }
     
+    public ResponseWrapper(T data, String message) {
+        this(data);
+        this.message = message;
+    }
+    
+    public static <T> ResponseWrapper<T> success(T data) {
+        return new ResponseWrapper<>(data);
+    }
+    
+    public static <T> ResponseWrapper<T> error(String message) {
+        ResponseWrapper<T> wrapper = new ResponseWrapper<>();
+        wrapper.setCode(ResponseCode.INTERNAL_SERVER_ERROR.getCode());
+        wrapper.setMessage(message);
+        return wrapper;
+    }
+    
 }

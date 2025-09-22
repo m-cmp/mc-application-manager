@@ -12,6 +12,7 @@ import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
 import kr.co.mcmp.softwarecatalog.application.model.OperationHistory;
 import kr.co.mcmp.softwarecatalog.application.dto.IntegratedApplicationInfoDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.UnifiedLogDTO;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
 import kr.co.mcmp.softwarecatalog.application.service.NexusIntegrationService;
+import kr.co.mcmp.softwarecatalog.application.service.UnifiedLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -55,6 +57,8 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final OperationHistoryRepository operationHistoryRepository;
     
     private final CatalogRepository catalogRepository;
+    
+    private final UnifiedLogService unifiedLogService;
 
     // ===== 넥서스 연동 관련 메서드 (애플리케이션 배포/운영용) =====
     
@@ -234,7 +238,12 @@ public class ApplicationServiceImpl implements ApplicationService {
             log.warn("Application status not found for ID: {}", applicationStatusId);
             return List.of();
         }
-        return status.getErrorLogs();
+        
+        // UnifiedLog에서 ERROR 로그 조회
+        List<UnifiedLogDTO> errorLogs = unifiedLogService.getLogsByApplicationStatusIdAndSeverity(applicationStatusId, "ERROR");
+        return errorLogs.stream()
+                .map(UnifiedLogDTO::getLogMessage)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -307,49 +316,23 @@ public class ApplicationServiceImpl implements ApplicationService {
         result.put("operationHistoriesWithStatus", operationHistoriesWithStatus);
         log.debug("Found {} operation histories with status for catalog ID {}", operationHistoriesWithStatus.size(), catalogId);
         
-        // 에러 로그 조회 (각 애플리케이션 상태별)
-        List<Map<String, Object>> errorLogsWithStatus = new ArrayList<>();
-        for (ApplicationStatus status : applicationStatuses) {
-            Map<String, Object> statusWithErrors = new HashMap<>();
-            statusWithErrors.put("applicationStatus", status);
-            statusWithErrors.put("errorLogs", status.getErrorLogs());
-            errorLogsWithStatus.add(statusWithErrors);
-        }
-        result.put("errorLogsWithStatus", errorLogsWithStatus);
-        log.debug("Found {} error logs with status for catalog ID {}", errorLogsWithStatus.size(), catalogId);
+        // 통합 로그 조회 (UnifiedLog 테이블 사용)
+        List<UnifiedLogDTO> allErrorLogs = new ArrayList<>();
+        List<UnifiedLogDTO> allPodLogs = new ArrayList<>();
         
-        // INFO 로그 조회 (각 애플리케이션 상태별)
-        List<Map<String, Object>> infoLogsWithStatus = new ArrayList<>();
         for (ApplicationStatus status : applicationStatuses) {
-            Map<String, Object> statusWithInfo = new HashMap<>();
-            statusWithInfo.put("applicationStatus", status);
-            statusWithInfo.put("infoLogs", status.getInfoLogs());
-            infoLogsWithStatus.add(statusWithInfo);
+            // 각 애플리케이션 상태의 ERROR 로그 조회
+            List<UnifiedLogDTO> errorLogs = unifiedLogService.getLogsByApplicationStatusIdAndSeverity(status.getId(), "ERROR");
+            allErrorLogs.addAll(errorLogs);
+            
+            // 각 애플리케이션 상태의 KUBERNETES 로그 조회
+            List<UnifiedLogDTO> podLogs = unifiedLogService.getLogsByApplicationStatusIdAndModule(status.getId(), "KUBERNETES");
+            allPodLogs.addAll(podLogs);
         }
-        result.put("infoLogsWithStatus", infoLogsWithStatus);
-        log.debug("Found {} info logs with status for catalog ID {}", infoLogsWithStatus.size(), catalogId);
         
-        // DEBUG 로그 조회 (각 애플리케이션 상태별)
-        List<Map<String, Object>> debugLogsWithStatus = new ArrayList<>();
-        for (ApplicationStatus status : applicationStatuses) {
-            Map<String, Object> statusWithDebug = new HashMap<>();
-            statusWithDebug.put("applicationStatus", status);
-            statusWithDebug.put("debugLogs", status.getDebugLogs());
-            debugLogsWithStatus.add(statusWithDebug);
-        }
-        result.put("debugLogsWithStatus", debugLogsWithStatus);
-        log.debug("Found {} debug logs with status for catalog ID {}", debugLogsWithStatus.size(), catalogId);
-        
-        // Pod 로그 조회 (각 애플리케이션 상태별)
-        List<Map<String, Object>> podLogsWithStatus = new ArrayList<>();
-        for (ApplicationStatus status : applicationStatuses) {
-            Map<String, Object> statusWithPod = new HashMap<>();
-            statusWithPod.put("applicationStatus", status);
-            statusWithPod.put("podLogs", status.getPodLogs());
-            podLogsWithStatus.add(statusWithPod);
-        }
-        result.put("podLogsWithStatus", podLogsWithStatus);
-        log.debug("Found {} pod logs with status for catalog ID {}", podLogsWithStatus.size(), catalogId);
+        result.put("errorLogs", allErrorLogs);
+        result.put("podLogs", allPodLogs);
+        log.debug("Found {} error logs and {} pod logs for catalog ID {}", allErrorLogs.size(), allPodLogs.size(), catalogId);
         
         log.info("Successfully retrieved integrated application info for catalog ID: {}", catalogId);
         return result;
@@ -379,17 +362,12 @@ public class ApplicationServiceImpl implements ApplicationService {
             operations.addAll(operationHistoryRepository.findByApplicationStatusId(status.getId()));
         }
         
-        // 에러 로그 조회
-        List<String> errorLogs = new ArrayList<>();
-        for (ApplicationStatus status : applicationStatuses) {
-            errorLogs.addAll(status.getErrorLogs());
-        }
+        // 통합 로그에서 에러 로그와 파드 로그 조회
+        List<UnifiedLogDTO> errorLogs = unifiedLogService.getLogsByDeploymentIdAndSeverity(deploymentId, "ERROR");
+        List<UnifiedLogDTO> podLogs = unifiedLogService.getLogsByDeploymentIdAndModule(deploymentId, "KUBERNETES");
         
         // 간소화된 DTO로 변환
-        IntegratedApplicationInfoDTO dto = convertToIntegratedDTO(deploymentHistory, applicationStatuses, logs, operations, errorLogs, 
-                applicationStatuses.isEmpty() ? List.of() : applicationStatuses.get(0).getInfoLogs(),
-                applicationStatuses.isEmpty() ? List.of() : applicationStatuses.get(0).getDebugLogs(),
-                applicationStatuses.isEmpty() ? List.of() : applicationStatuses.get(0).getPodLogs());
+        IntegratedApplicationInfoDTO dto = convertToIntegratedDTOWithUnifiedLogs(deploymentHistory, applicationStatuses, logs, operations, errorLogs, podLogs);
         
         Map<String, Object> result = new HashMap<>();
         result.put("integratedInfo", dto);
@@ -478,10 +456,8 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .servicePort(deploymentHistory.getServicePort())
                 .podStatus(deploymentHistory.getPodStatus())
                 .releaseName(deploymentHistory.getReleaseName())
-                .errorLogs(errorLogs)
-                .infoLogs(infoLogs)
-                .debugLogs(debugLogs)
-                .podLogs(podLogs);
+                .errorLogs(convertToErrorLogsDTO(errorLogs))
+                .podLogs(convertToPodLogsDTO(podLogs));
         
         // 애플리케이션 상태 정보 설정 (가장 최근 상태 사용)
         if (!applicationStatuses.isEmpty()) {
@@ -528,5 +504,203 @@ public class ApplicationServiceImpl implements ApplicationService {
         builder.operationHistories(operationSummaries);
         
         return builder.build();
+    }
+    
+    @Override
+    public IntegratedApplicationInfoDTO getIntegratedApplicationInfoByDeploymentIdAsDTO(Long deploymentId) {
+        log.info("Getting integrated application info for deployment ID: {}", deploymentId);
+        
+        // 배포 이력 조회
+        DeploymentHistory deploymentHistory = deploymentHistoryRepository.findById(deploymentId)
+                .orElseThrow(() -> new RuntimeException("Deployment not found with ID: " + deploymentId));
+        
+        // 해당 배포의 카탈로그 ID로 애플리케이션 상태 조회
+        Long catalogId = deploymentHistory.getCatalog().getId();
+        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId).map(List::of).orElse(List.of());
+        
+        // 해당 배포의 로그 조회
+        List<DeploymentLog> logs = deploymentLogRepository.findByDeploymentIdOrderByLoggedAtDesc(deploymentId);
+        
+        // 운영 이력 조회
+        List<OperationHistory> operations = new ArrayList<>();
+        for (ApplicationStatus status : applicationStatuses) {
+            operations.addAll(operationHistoryRepository.findByApplicationStatusId(status.getId()));
+        }
+        
+        // 통합 로그에서 에러 로그와 파드 로그 조회
+        List<UnifiedLogDTO> errorLogs = unifiedLogService.getLogsByDeploymentIdAndSeverity(deploymentId, "ERROR");
+        List<UnifiedLogDTO> podLogs = unifiedLogService.getLogsByDeploymentIdAndModule(deploymentId, "KUBERNETES");
+        
+        // DTO로 변환
+        return convertToIntegratedDTOWithUnifiedLogs(deploymentHistory, applicationStatuses, logs, operations, errorLogs, podLogs);
+    }
+    
+    /**
+     * 통합 로그를 사용하여 DTO로 변환합니다.
+     */
+    private IntegratedApplicationInfoDTO convertToIntegratedDTOWithUnifiedLogs(
+            DeploymentHistory deploymentHistory, 
+            List<ApplicationStatus> applicationStatuses, 
+            List<DeploymentLog> logs, 
+            List<OperationHistory> operations, 
+            List<UnifiedLogDTO> errorLogs,
+            List<UnifiedLogDTO> podLogs) {
+        
+        // 기본 배포 정보 설정
+        IntegratedApplicationInfoDTO.IntegratedApplicationInfoDTOBuilder builder = IntegratedApplicationInfoDTO.builder()
+                .deploymentId(deploymentHistory.getId())
+                .catalogId(deploymentHistory.getCatalog().getId())
+                .catalogName(deploymentHistory.getCatalog().getName())
+                .catalogDescription(deploymentHistory.getCatalog().getDescription())
+                .catalogCategory(deploymentHistory.getCatalog().getCategory())
+                .defaultPort(deploymentHistory.getCatalog().getDefaultPort())
+                .logoUrlLarge(deploymentHistory.getCatalog().getLogoUrlLarge())
+                .logoUrlSmall(deploymentHistory.getCatalog().getLogoUrlSmall())
+                .deploymentType(deploymentHistory.getDeploymentType())
+                .namespace(deploymentHistory.getNamespace())
+                .clusterName(deploymentHistory.getClusterName())
+                .mciId(deploymentHistory.getMciId())
+                .vmId(deploymentHistory.getVmId())
+                .publicIp(deploymentHistory.getPublicIp())
+                .actionType(deploymentHistory.getActionType())
+                .status(deploymentHistory.getStatus())
+                .executedAt(deploymentHistory.getExecutedAt())
+                .executedBy(deploymentHistory.getExecutedBy() != null ? deploymentHistory.getExecutedBy().getUsername() : null)
+                .cloudProvider(deploymentHistory.getCloudProvider())
+                .cloudRegion(deploymentHistory.getCloudRegion())
+                .servicePort(deploymentHistory.getServicePort())
+                .releaseName(deploymentHistory.getReleaseName());
+        
+        // 애플리케이션 상태 정보 설정
+        if (!applicationStatuses.isEmpty()) {
+            ApplicationStatus latestStatus = applicationStatuses.get(0);
+            builder.applicationStatus(latestStatus.getStatus())
+                    .cpuUsage(latestStatus.getCpuUsage())
+                    .memoryUsage(latestStatus.getMemoryUsage())
+                    .networkIn(latestStatus.getNetworkIn())
+                    .networkOut(latestStatus.getNetworkOut())
+                    .healthCheck(latestStatus.getIsHealthCheck())
+                    .portAccessible(latestStatus.getIsPortAccessible())
+                    .lastCheckedAt(latestStatus.getCheckedAt())
+                    .podStatus(latestStatus.getPodStatus());
+        }
+        
+        // Ingress 정보 설정
+        builder.ingressEnabled(deploymentHistory.getCatalog().getIngressEnabled())
+                .ingressHost(deploymentHistory.getCatalog().getIngressHost())
+                .ingressPath(deploymentHistory.getCatalog().getIngressPath())
+                .ingressClass(deploymentHistory.getCatalog().getIngressClass())
+                .ingressTlsEnabled(deploymentHistory.getCatalog().getIngressTlsEnabled())
+                .ingressTlsSecret(deploymentHistory.getCatalog().getIngressTlsSecret());
+        
+        // 배포 로그 설정
+        List<IntegratedApplicationInfoDTO.DeploymentLogSummaryDTO> logSummaries = logs.stream()
+                .map(log -> IntegratedApplicationInfoDTO.DeploymentLogSummaryDTO.builder()
+                        .id(log.getId())
+                        .logType(log.getLogType().toString())
+                        .logMessage(log.getLogMessage())
+                        .loggedAt(log.getLoggedAt())
+                        .build())
+                .collect(Collectors.toList());
+        builder.deploymentLogs(logSummaries);
+        
+        // 운영 이력 설정
+        List<IntegratedApplicationInfoDTO.OperationHistorySummaryDTO> operationSummaries = operations.stream()
+                .map(op -> IntegratedApplicationInfoDTO.OperationHistorySummaryDTO.builder()
+                        .id(op.getId())
+                        .operationType(op.getOperationType())
+                        .reason(op.getReason())
+                        .detailReason(op.getDetailReason())
+                        .status("COMPLETED")
+                        .executedAt(op.getCreatedAt())
+                        .executedBy(op.getExecutedBy() != null ? op.getExecutedBy().getUsername() : null)
+                        .build())
+                .collect(Collectors.toList());
+        builder.operationHistories(operationSummaries);
+        
+        // 에러 로그 설정 (통합 로그 사용)
+        IntegratedApplicationInfoDTO.ErrorLogsDTO errorLogsDTO = IntegratedApplicationInfoDTO.ErrorLogsDTO.builder()
+                .logs(errorLogs.stream()
+                        .map(log -> IntegratedApplicationInfoDTO.ErrorLogItemDTO.builder()
+                                .id(log.getId())
+                                .logMessage(log.getLogMessage())
+                                .loggedAt(log.getLoggedAt())
+                                .errorCode(null) // UnifiedLog에 errorCode 필드가 없으므로 null
+                                .severity(log.getSeverity())
+                                .module(log.getModule())
+                                .podName(log.getPodName())
+                                .containerName(log.getContainerName())
+                                .build())
+                        .collect(Collectors.toList()))
+                .totalCount(errorLogs.size())
+                .lastErrorTime(errorLogs.isEmpty() ? null : errorLogs.get(0).getLoggedAt().toString())
+                .severity("ERROR")
+                .build();
+        builder.errorLogs(errorLogsDTO);
+        
+        // 파드 로그 설정 (통합 로그 사용)
+        IntegratedApplicationInfoDTO.PodLogsDTO podLogsDTO = IntegratedApplicationInfoDTO.PodLogsDTO.builder()
+                .logs(podLogs.stream()
+                        .map(log -> IntegratedApplicationInfoDTO.PodLogItemDTO.builder()
+                                .id(log.getId())
+                                .logMessage(log.getLogMessage())
+                                .loggedAt(log.getLoggedAt())
+                                .severity(log.getSeverity())
+                                .module(log.getModule())
+                                .podName(log.getPodName())
+                                .containerName(log.getContainerName())
+                                .namespace(log.getNamespace())
+                                .build())
+                        .collect(Collectors.toList()))
+                .totalCount(podLogs.size())
+                .lastLogTime(podLogs.isEmpty() ? null : podLogs.get(0).getLoggedAt().toString())
+                .podStatus(applicationStatuses.isEmpty() ? null : applicationStatuses.get(0).getPodStatus())
+                .podName(podLogs.isEmpty() ? null : podLogs.get(0).getPodName())
+                .build();
+        builder.podLogs(podLogsDTO);
+        
+        // infoLogs와 debugLogs는 통합 로그로 대체되어 제거됨
+        
+        return builder.build();
+    }
+    
+    /**
+     * List<String>을 ErrorLogsDTO로 변환
+     */
+    private IntegratedApplicationInfoDTO.ErrorLogsDTO convertToErrorLogsDTO(List<String> errorLogs) {
+        List<IntegratedApplicationInfoDTO.ErrorLogItemDTO> logItems = errorLogs.stream()
+                .map(logMessage -> IntegratedApplicationInfoDTO.ErrorLogItemDTO.builder()
+                        .logMessage(logMessage)
+                        .loggedAt(LocalDateTime.now())
+                        .severity("ERROR")
+                        .build())
+                .collect(Collectors.toList());
+        
+        return IntegratedApplicationInfoDTO.ErrorLogsDTO.builder()
+                .logs(logItems)
+                .totalCount(logItems.size())
+                .lastErrorTime(logItems.isEmpty() ? null : logItems.get(0).getLoggedAt().toString())
+                .severity("ERROR")
+                .build();
+    }
+    
+    /**
+     * List<String>을 PodLogsDTO로 변환
+     */
+    private IntegratedApplicationInfoDTO.PodLogsDTO convertToPodLogsDTO(List<String> podLogs) {
+        List<IntegratedApplicationInfoDTO.PodLogItemDTO> logItems = podLogs.stream()
+                .map(logMessage -> IntegratedApplicationInfoDTO.PodLogItemDTO.builder()
+                        .logMessage(logMessage)
+                        .loggedAt(LocalDateTime.now())
+                        .severity("INFO")
+                        .build())
+                .collect(Collectors.toList());
+        
+        return IntegratedApplicationInfoDTO.PodLogsDTO.builder()
+                .logs(logItems)
+                .totalCount(logItems.size())
+                .lastLogTime(logItems.isEmpty() ? null : logItems.get(0).getLoggedAt().toString())
+                .podStatus("Running")
+                .build();
     }
 }

@@ -5,6 +5,7 @@ import java.util.Map;
 
 import kr.co.mcmp.softwarecatalog.category.dto.KeyValueDTO;
 import kr.co.mcmp.softwarecatalog.category.dto.SoftwareCatalogRequestDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.IntegratedApplicationInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
@@ -109,6 +110,14 @@ public interface ApplicationService {
      * @return 통합된 애플리케이션 정보
      */
     Map<String, Object> getIntegratedApplicationInfoByDeploymentId(Long deploymentId);
+    
+    /**
+     * 특정 배포의 통합 애플리케이션 정보를 DTO로 조회합니다.
+     *
+     * @param deploymentId 배포 ID
+     * @return 통합된 애플리케이션 정보 DTO
+     */
+    IntegratedApplicationInfoDTO getIntegratedApplicationInfoByDeploymentIdAsDTO(Long deploymentId);
     
     String updateIngressConfiguration(Long catalogId, Map<String, Object> ingressConfig);
 }

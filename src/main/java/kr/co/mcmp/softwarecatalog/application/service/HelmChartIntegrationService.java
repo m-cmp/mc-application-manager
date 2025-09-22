@@ -45,4 +45,14 @@ public interface HelmChartIntegrationService {
      * @return 푸시 결과
      */
     Map<String, Object> pushHelmChartToNexus(HelmChartRegistrationRequest request);
+    
+    /**
+     * 기존 Helm Chart의 imageRepository를 업데이트합니다.
+     * 
+     * @param helmChartId Helm Chart ID
+     * @param imageName 이미지 이름 (null이면 chartName 사용)
+     * @param tag 이미지 태그 (null이면 latest 사용)
+     * @return 업데이트 결과
+     */
+    Map<String, Object> updateImageRepository(Long helmChartId, String imageName, String tag);
 }

@@ -2,6 +2,7 @@ package kr.co.mcmp.softwarecatalog;
 
 import javax.persistence.*;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 
 @Entity
@@ -29,5 +30,6 @@ public class PortMapping {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "CATALOG_ID")
+    @JsonIgnore
     private SoftwareCatalog catalog;
 }

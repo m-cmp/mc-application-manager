@@ -2,6 +2,7 @@ package kr.co.mcmp.softwarecatalog.kubernetes.service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -11,6 +12,9 @@ import org.springframework.stereotype.Component;
 
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import kr.co.mcmp.softwarecatalog.application.dto.UnifiedLogDTO;
+import kr.co.mcmp.softwarecatalog.application.service.UnifiedLogService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -19,13 +23,51 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class KubernetesLogCollector {
+    
+    private final UnifiedLogService unifiedLogService;
 
     /**
      * Pod의 에러 로그만 수집합니다.
      */
     public List<String> collectErrorLogs(KubernetesClient client, String namespace, String podName) {
         return collectLogs(client, namespace, podName, LogLevel.ERROR);
+    }
+    
+    /**
+     * Pod의 로그를 수집하고 UnifiedLog에 저장합니다.
+     */
+    public void collectAndSaveLogs(KubernetesClient client, Long deploymentId, String namespace, String podName, String containerName, String clusterName) {
+        try {
+            log.info("Starting Kubernetes log collection and save for deployment: {}, namespace: {}, pod: {}", 
+                    deploymentId, namespace, podName);
+            
+            // Pod 존재 여부 및 상태 확인
+            Pod pod = client.pods().inNamespace(namespace).withName(podName).get();
+            if (pod == null) {
+                log.warn("Pod를 찾을 수 없습니다: {}", podName);
+                return;
+            }
+            
+            // Pod가 초기화 중이거나 실행 중이 아닌 경우 로그 수집 건너뛰기
+            String podPhase = pod.getStatus().getPhase();
+            if (!"Running".equals(podPhase)) {
+                log.debug("Pod가 실행 중이 아니므로 로그 수집을 건너뜁니다 - Pod: {}, Phase: {}", podName, podPhase);
+                return;
+            }
+            
+            // ERROR 로그 수집 및 저장
+            collectAndSaveErrorLogs(client, deploymentId, namespace, podName, containerName, clusterName);
+            
+            // Pod 상태 로그 수집 및 저장
+            collectAndSavePodLogs(client, deploymentId, namespace, podName, containerName, clusterName, pod);
+            
+            log.info("Completed Kubernetes log collection and save for deployment: {}", deploymentId);
+            
+        } catch (Exception e) {
+            log.error("Kubernetes log collection and save failed for deployment: {}, pod: {}", deploymentId, podName, e);
+        }
     }
 
     /**
@@ -336,6 +378,97 @@ public class KubernetesLogCollector {
             //            analyzeKeywordLog(logLine, LogLevel.INFO);
             default:
                 return false;
+        }
+    }
+    
+    /**
+     * ERROR 로그를 수집하고 UnifiedLog에 저장합니다.
+     */
+    private void collectAndSaveErrorLogs(KubernetesClient client, Long deploymentId, String namespace, String podName, String containerName, String clusterName) {
+        try {
+            List<String> errorLogs = collectLogs(client, namespace, podName, LogLevel.ERROR);
+            
+            for (String logMessage : errorLogs) {
+                UnifiedLogDTO logDTO = UnifiedLogDTO.builder()
+                        .deploymentId(deploymentId)
+                        .loggedAt(LocalDateTime.now())
+                        .severity(UnifiedLogDTO.LogSeverity.ERROR.getValue())
+                        .module(UnifiedLogDTO.LogSourceType.KUBERNETES.getValue())
+                        .logMessage(logMessage)
+                        .namespace(namespace)
+                        .podName(podName)
+                        .containerName(containerName)
+                        .clusterName(clusterName)
+                        .errorCode("K8S_ERROR")
+                        .build();
+                
+                unifiedLogService.saveLog(logDTO);
+            }
+            
+            log.debug("Saved {} error logs for deployment: {}, pod: {}", errorLogs.size(), deploymentId, podName);
+            
+        } catch (Exception e) {
+            log.error("Failed to collect and save error logs for deployment: {}, pod: {}", deploymentId, podName, e);
+        }
+    }
+    
+    /**
+     * Pod 상태 로그를 수집하고 UnifiedLog에 저장합니다.
+     */
+    private void collectAndSavePodLogs(KubernetesClient client, Long deploymentId, String namespace, String podName, String containerName, String clusterName, Pod pod) {
+        try {
+            List<String> podLogs = new ArrayList<>();
+            
+            // Pod 상태 정보 수집
+            String podPhase = pod.getStatus().getPhase();
+            String podStatus = String.format("Pod Status: %s", podPhase);
+            podLogs.add(podStatus);
+            
+            // Pod가 실행 중인 경우 추가 정보 수집
+            if ("Running".equals(podPhase)) {
+                podLogs.add("Pod is running normally");
+                
+                // 컨테이너 상태 정보 수집
+                if (pod.getStatus().getContainerStatuses() != null) {
+                    for (var containerStatus : pod.getStatus().getContainerStatuses()) {
+                        String statusContainerName = containerStatus.getName();
+                        boolean ready = containerStatus.getReady();
+                        String state = containerStatus.getState().toString();
+                        String containerStatusMsg = String.format("Container %s: %s (Ready: %s)", statusContainerName, state, ready);
+                        podLogs.add(containerStatusMsg);
+                        
+                        // 마지막 전환 시간
+                        if (containerStatus.getLastState() != null && containerStatus.getLastState().getTerminated() != null) {
+                            String lastTransitionTime = containerStatus.getLastState().getTerminated().getFinishedAt();
+                            if (lastTransitionTime != null) {
+                                podLogs.add(String.format("Last transition time: %s", lastTransitionTime));
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Pod 로그를 UnifiedLog에 저장
+            for (String logMessage : podLogs) {
+                UnifiedLogDTO logDTO = UnifiedLogDTO.builder()
+                        .deploymentId(deploymentId)
+                        .loggedAt(LocalDateTime.now())
+                        .severity(UnifiedLogDTO.LogSeverity.INFO.getValue())
+                        .module(UnifiedLogDTO.LogSourceType.KUBERNETES.getValue())
+                        .logMessage(logMessage)
+                        .namespace(namespace)
+                        .podName(podName)
+                        .containerName(containerName)
+                        .clusterName(clusterName)
+                        .build();
+                
+                unifiedLogService.saveLog(logDTO);
+            }
+            
+            log.debug("Saved {} pod logs for deployment: {}, pod: {}", podLogs.size(), deploymentId, podName);
+            
+        } catch (Exception e) {
+            log.error("Failed to collect and save pod logs for deployment: {}, pod: {}", deploymentId, podName, e);
         }
     }
 

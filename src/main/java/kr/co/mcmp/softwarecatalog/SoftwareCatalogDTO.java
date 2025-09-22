@@ -31,7 +31,8 @@ public class SoftwareCatalogDTO {
     private String category;
     private PackageInfoDTO packageInfo;
     private HelmChartDTO helmChart;
-
+    private String target;
+    
     // 2. General
     private String name;
     private String summary;

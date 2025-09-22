@@ -4,17 +4,18 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.CollectionTable;
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
-import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
@@ -100,37 +101,12 @@ public class ApplicationStatus {
     @JoinColumn(name = "executed_by")
     private User executedBy;
 
-    @ElementCollection
-    @CollectionTable(name = "APPLICATION_ERROR_LOGS", joinColumns = @JoinColumn(name = "application_status_id"))
-    @Column(name = "error_log", length = 2000)
-    private List<String> errorLogs = new ArrayList<>();
+    // 통합 로그와의 관계 (OneToMany)
+    @OneToMany(mappedBy = "applicationStatus", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<UnifiedLog> unifiedLogs = new ArrayList<>();
 
-    @ElementCollection
-    @CollectionTable(name = "APPLICATION_INFO_LOGS", joinColumns = @JoinColumn(name = "application_status_id"))
-    @Column(name = "info_log", length = 2000)
-    private List<String> infoLogs = new ArrayList<>();
-
-    @ElementCollection
-    @CollectionTable(name = "APPLICATION_DEBUG_LOGS", joinColumns = @JoinColumn(name = "application_status_id"))
-    @Column(name = "debug_log", length = 2000)
-    private List<String> debugLogs = new ArrayList<>();
-
-    @ElementCollection
-    @CollectionTable(name = "APPLICATION_POD_LOGS", joinColumns = @JoinColumn(name = "application_status_id"))
-    @Column(name = "pod_log", length = 2000)
-    private List<String> podLogs = new ArrayList<>();
-
-    // 로그 중복 방지를 위한 해시 필드들
-    @Column(name = "error_logs_hash")
-    private String errorLogsHash;
-    
-    @Column(name = "info_logs_hash")
-    private String infoLogsHash;
-    
-    @Column(name = "debug_logs_hash")
-    private String debugLogsHash;
-    
-    @Column(name = "pod_logs_hash")
-    private String podLogsHash;
+    // 로그 중복 방지를 위한 통합 해시 필드
+    @Column(name = "unified_logs_hash")
+    private String unifiedLogsHash;
 
 }

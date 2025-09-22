@@ -28,6 +28,7 @@ public interface HelmChartRepository extends JpaRepository<HelmChart, Long> {
 
     List<HelmChart> findByCategory(String category);
     List<HelmChart> findByCategoryAndCatalogIsNull(String category);
+    List<HelmChart> findByChartNameAndChartVersion(String chartName, String chartVersion);
 
     @Query("SELECT DISTINCT hc.chartVersion, hc.catalog.id FROM HelmChart hc WHERE hc.chartName = :chartName")
     List<Object[]> findDistinctPackageVersionByChartName(@Param("chartName") String chartName);
