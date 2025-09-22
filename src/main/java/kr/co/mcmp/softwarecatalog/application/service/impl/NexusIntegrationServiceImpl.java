@@ -1499,9 +1499,17 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             log.info("Attempting Docker-in-Docker strategy for insecure registry: {}", registryUrl);
             
             // 1. DinD 컨테이너에서 insecure registry로 Docker daemon 시작
-            if (startDinDWithInsecureRegistry(registryUrl)) {
+            boolean dindStarted = startDinDWithInsecureRegistry(registryUrl);
+            log.info("DinD container started: {}", dindStarted);
+            
+            if (dindStarted) {
                 // 2. DinD 컨테이너 내부에서 로그인 시도
-                return loginInDinDContainer(registryUrl, username, password);
+                log.info("Attempting login inside DinD container...");
+                boolean loginResult = loginInDinDContainer(registryUrl, username, password);
+                log.info("DinD container login result: {}", loginResult);
+                return loginResult;
+            } else {
+                log.warn("DinD container failed to start, skipping DinD login strategy");
             }
             
             return false;
@@ -1524,17 +1532,21 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // 기존 DinD 컨테이너 정리
             cleanupDinDContainers(containerName);
             
-            // DinD 컨테이너 실행 명령어 (사용자 제안 방식)
+            // DinD 컨테이너 실행 명령어 (TLS 완전 비활성화)
             ProcessBuilder dindProcess = new ProcessBuilder(
                 "docker", "run", "-d",
                 "--name", containerName,
                 "--privileged",
                 "-e", "DOCKER_TLS_CERTDIR=",
+                "-e", "DOCKER_TLS_VERIFY=0",
+                "-e", "DOCKER_CONTENT_TRUST=0",
+                "-e", "DOCKER_BUILDKIT=0",
                 "-e", "DOCKER_INSECURE_REGISTRIES=" + registryUrl,
                 "docker:dind",
                 "dockerd-entrypoint.sh",
                 "--insecure-registry=" + registryUrl,
-                "--host=0.0.0.0:2376",
+                "--host=0.0.0.0:2375",
+                "--tls=false",
                 "--storage-driver=overlay2"
             );
             
@@ -1545,7 +1557,10 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 log.info("DinD container '{}' started successfully", containerName);
                 
                 // DinD 컨테이너의 Docker daemon이 완전히 준비될 때까지 대기
-                if (waitForDinDDaemonReady(containerName)) {
+                boolean daemonReady = waitForDinDDaemonReady(containerName);
+                log.info("DinD daemon ready: {}", daemonReady);
+                
+                if (daemonReady) {
                     log.info("DinD container '{}' is running and ready", containerName);
                     return true;
                 } else {
@@ -1662,21 +1677,26 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // 컨테이너 이름 생성 (레지스트리 URL 기반)
             String containerName = "dind-" + registryUrl.replaceAll("[:.]", "-");
             
-            // DinD 컨테이너 내부에서 Docker 명령어 실행 (interactive 플래그 추가)
+            // DinD 컨테이너 내부에서 Docker 명령어 실행 (TLS 완전 비활성화)
             ProcessBuilder loginProcess = new ProcessBuilder(
                 "docker", "exec", "-i", containerName,
-                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
+                "sh", "-c", 
+                "DOCKER_TLS_VERIFY=0 DOCKER_CONTENT_TRUST=0 DOCKER_BUILDKIT=0 docker login --username " + username + " --password-stdin http://" + registryUrl
             );
             
-            // DinD 컨테이너 내부 환경 설정
+            // DinD 컨테이너 내부 환경 설정 - TLS 완전 비활성화
             loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
             loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
             loginProcess.environment().put("DOCKER_BUILDKIT", "0");
             loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
-            loginProcess.environment().put("DOCKER_REGISTRY_INSECURE", "true");
-            // TLS 인증서 관련 환경 변수 제거
+            
+            // TLS 인증서 관련 환경 변수 완전 제거
             loginProcess.environment().remove("DOCKER_CERT_PATH");
             loginProcess.environment().remove("DOCKER_TLS_CERTDIR");
+            loginProcess.environment().remove("DOCKER_CONFIG");
+            
+            // Docker daemon 설정 (TLS 비활성화)
+            loginProcess.environment().put("DOCKER_HOST", "tcp://localhost:2375");
             
             return executeDockerCommandWithRetryAndStdin(loginProcess, "DinD Docker Login", 30, password);
             
