@@ -729,18 +729,10 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
         try {
             log.info("Attempting login in container: {}", registryUrl);
             
-            // 컨테이너 내부에서 직접 Docker 명령어 실행 (TLS 완전 비활성화)
+            // 사용자가 테스트한 간단한 명령어 사용
             ProcessBuilder loginProcess = new ProcessBuilder(
-                "sh", "-c", 
-                "DOCKER_TLS_VERIFY=0 DOCKER_CONTENT_TRUST=0 DOCKER_BUILDKIT=0 DOCKER_INSECURE_REGISTRIES=" + registryUrl + 
-                " DOCKER_REGISTRY_INSECURE=true DOCKER_DAEMON_INSECURE_REGISTRIES=" + registryUrl + 
-                " DOCKER_HOST=unix:///var/run/docker.sock docker login http://" + registryUrl + " -u " + username + " --password " + password
+                "docker", "login", "http://" + registryUrl, "-u", username, "--password", password
             );
-            
-            // 환경 변수 제거 (sh -c에서 이미 설정했으므로)
-            loginProcess.environment().remove("DOCKER_CERT_PATH");
-            loginProcess.environment().remove("DOCKER_TLS_CERTDIR");
-            loginProcess.environment().remove("DOCKER_CONFIG");
             
             return executeDockerCommandWithRetry(loginProcess, "Container Docker Login", 30);
             

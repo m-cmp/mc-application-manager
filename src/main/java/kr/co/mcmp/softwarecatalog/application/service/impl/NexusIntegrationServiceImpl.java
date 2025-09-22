@@ -1418,21 +1418,16 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         
         String sourceImage = getSourceImageName(imageName, tag);
         
-        // 컨테이너 내부에서 직접 pull 실행
+        // 간단한 pull 명령어
         ProcessBuilder pullProcess = new ProcessBuilder(
             "docker", "pull", sourceImage
         );
-        
-        // 컨테이너 내부 환경 설정
-        pullProcess.environment().put("DOCKER_TLS_VERIFY", "0");
-        pullProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
-        pullProcess.environment().put("DOCKER_BUILDKIT", "0");
         
         return executeDockerCommandWithRetry(pullProcess, "Docker Pull", dockerTimeoutSeconds);
     }
     
     /**
-     * Nexus에 로그인 (재시도 로직 포함) - --password-stdin 사용
+     * Nexus에 로그인 (간단한 버전)
      */
     private boolean loginToNexus(String registryUrl, String username, String password) {
         log.info("Step 2/4: Logging into Nexus...");
@@ -1440,26 +1435,10 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         // 프로토콜 제거한 URL 사용
         String cleanRegistryUrl = registryUrl.replaceFirst("^https?://", "");
         
-        // Docker daemon을 insecure registry로 시작하는 방법 시도
-        if (tryLoginWithInsecureRegistry(cleanRegistryUrl, username, password)) {
-            return true;
-        }
-        
-        // 기본 방법으로 시도
-        ProcessBuilder loginProcess = new ProcessBuilder("docker", "login", cleanRegistryUrl, "-u", username, "--password", password);
-        
-        // Docker 환경 변수 설정
-        loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
-        loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
-        loginProcess.environment().put("DOCKER_BUILDKIT", "0");
-        
-        // insecure registry 설정을 환경 변수로 추가
-        String insecureRegistries = System.getenv("DOCKER_INSECURE_REGISTRIES");
-        if (insecureRegistries == null || !insecureRegistries.contains(cleanRegistryUrl)) {
-            String newInsecureRegistries = insecureRegistries == null ? cleanRegistryUrl : insecureRegistries + "," + cleanRegistryUrl;
-            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", newInsecureRegistries);
-            log.info("Set DOCKER_INSECURE_REGISTRIES environment variable: {}", newInsecureRegistries);
-        }
+        // 사용자가 테스트한 간단한 명령어 사용
+        ProcessBuilder loginProcess = new ProcessBuilder(
+            "docker", "login", "http://" + cleanRegistryUrl, "-u", username, "--password", password
+        );
         
         return executeDockerCommandWithRetry(loginProcess, "Docker Login", 30);
     }
@@ -1568,18 +1547,10 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         try {
             log.info("Attempting login in container: {}", registryUrl);
             
-            // 컨테이너 내부에서 직접 Docker 명령어 실행 (TLS 완전 비활성화)
+            // 사용자가 테스트한 간단한 명령어 사용
             ProcessBuilder loginProcess = new ProcessBuilder(
-                "sh", "-c", 
-                "DOCKER_TLS_VERIFY=0 DOCKER_CONTENT_TRUST=0 DOCKER_BUILDKIT=0 DOCKER_INSECURE_REGISTRIES=" + registryUrl + 
-                " DOCKER_REGISTRY_INSECURE=true DOCKER_DAEMON_INSECURE_REGISTRIES=" + registryUrl + 
-                " DOCKER_HOST=unix:///var/run/docker.sock docker login http://" + registryUrl + " -u " + username + " --password " + password
+                "docker", "login", "http://" + registryUrl, "-u", username, "--password", password
             );
-            
-            // 환경 변수 제거 (sh -c에서 이미 설정했으므로)
-            loginProcess.environment().remove("DOCKER_CERT_PATH");
-            loginProcess.environment().remove("DOCKER_TLS_CERTDIR");
-            loginProcess.environment().remove("DOCKER_CONFIG");
             
             return executeDockerCommandWithRetry(loginProcess, "Container Docker Login", 30);
             
@@ -1954,9 +1925,9 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             );
             
             // 기본 환경 변수 설정
-            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
-            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
-            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
+            // loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+            // loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+            // loginProcess.environment().put("DOCKER_BUILDKIT", "0");
             
             return executeDockerCommandWithRetry(loginProcess, "Docker Login (Flags)", 30);
             
@@ -1972,15 +1943,10 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private boolean tagImageForNexus(String sourceImage, String nexusImage) {
         log.info("Step 3/4: Tagging image for Nexus...");
         
-        // 컨테이너 내부에서 직접 tag 실행
+        // 간단한 tag 명령어
         ProcessBuilder tagProcess = new ProcessBuilder(
             "docker", "tag", sourceImage, nexusImage
         );
-        
-        // 컨테이너 내부 환경 설정
-        tagProcess.environment().put("DOCKER_TLS_VERIFY", "0");
-        tagProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
-        tagProcess.environment().put("DOCKER_BUILDKIT", "0");
         
         return executeDockerCommandWithRetry(tagProcess, "Docker Tag", 30);
     }
@@ -1991,15 +1957,10 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private boolean pushImageToRegistry(String nexusImage) {
         log.info("Step 4/4: Pushing image to Nexus...");
         
-        // 컨테이너 내부에서 직접 push 실행
+        // 간단한 push 명령어
         ProcessBuilder pushProcess = new ProcessBuilder(
             "docker", "push", nexusImage
         );
-        
-        // 컨테이너 내부 환경 설정
-        pushProcess.environment().put("DOCKER_TLS_VERIFY", "0");
-        pushProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
-        pushProcess.environment().put("DOCKER_BUILDKIT", "0");
         
         return executeDockerCommandWithRetry(pushProcess, "Docker Push", dockerTimeoutSeconds);
     }
