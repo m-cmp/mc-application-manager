@@ -286,9 +286,8 @@
     @close="onDeleteModalClose" />
     
   <SoftwareCatalogWizard 
+    ref="wizardModal"
     :mode="wizardMode"
-    :catalog-id="selectCatalogId"
-    :catalog-info="selectCatalogInfo"
     @created="_getSoftwareCatalogList"
     @updated="_getSoftwareCatalogList" />
     
@@ -347,6 +346,9 @@ const deleteConfirmModal = ref<any>(null)
 const uploadFormModal = ref<any>(null)
 const uploadData = ref({} as any)
 
+// 위저드 모달 관련 상태
+const wizardModal = ref<any>(null)
+
 const searchKeyword = ref("")
 const dockerHubSearchList = ref([] as any)
 const artifactHubSearchList = ref([] as any)
@@ -387,10 +389,16 @@ const onClickRegist = () => {
   wizardMode.value = 'new'
   selectCatalogId.value = null
   selectCatalogInfo.value = {}
-  // formMode.value = 'new'
   selectCatalogIdx.value = 0;
   repositoryApplicationInfo.value = {}
   repositoryName.value = ""
+  
+  // 모달이 열린 후 초기화
+  setTimeout(() => {
+    if (wizardModal.value && typeof wizardModal.value.initForCreate === 'function') {
+      wizardModal.value.initForCreate()
+    }
+  }, 100)
 }
 
 /**
@@ -495,7 +503,13 @@ const onClickUpdate = (catalogId: number) => {
   selectCatalogId.value = catalogId
   selectCatalogInfo.value = selectedCatalog || {}
   wizardMode.value = 'update'
-  // formMode.value = 'update'
+  
+  // 모달이 열린 후 업데이트용 초기화
+  setTimeout(() => {
+    if (wizardModal.value && typeof wizardModal.value.initForUpdate === 'function') {
+      wizardModal.value.initForUpdate(catalogId, selectedCatalog)
+    }
+  }, 100)
 }
 
 const onClickDelete = (catalog: any) => {
