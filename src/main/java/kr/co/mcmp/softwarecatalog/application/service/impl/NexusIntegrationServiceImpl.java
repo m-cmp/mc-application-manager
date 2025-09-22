@@ -1419,7 +1419,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         String sourceImage = getSourceImageName(imageName, tag);
         
         // DinD 컨테이너 내부에서 pull 실행
-        String containerName = "dind-210-217-178-130-5500"; // 하드코딩된 컨테이너 이름 사용
+        String containerName = "dind-mc-application-manager-sonatype-nexus-5500"; // 하드코딩된 컨테이너 이름 사용
         
         ProcessBuilder pullProcess = new ProcessBuilder(
             "docker", "exec", "-i", containerName,
@@ -1492,64 +1492,21 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     }
     
     /**
-     * Docker-in-Docker 전략으로 로그인 시도 (직접 Docker 명령어 사용)
+     * Docker-in-Docker 전략으로 로그인 시도
      */
     private boolean tryDockerInDockerStrategy(String registryUrl, String username, String password) {
         try {
-            log.info("Attempting direct Docker login strategy for insecure registry: {}", registryUrl);
+            log.info("Attempting Docker-in-Docker strategy for insecure registry: {}", registryUrl);
             
-            // 1. 직접 Docker 명령어로 로그인 시도
-            boolean loginResult = loginDirectlyToRegistry(registryUrl, username, password);
-            log.info("Direct Docker login result: {}", loginResult);
-            
-            if (loginResult) {
-                return true;
-            }
-            
-            // 2. DinD 컨테이너 사용 (fallback)
-            log.info("Direct login failed, trying DinD container approach...");
-            boolean dindStarted = startDinDWithInsecureRegistry(registryUrl);
-            log.info("DinD container started: {}", dindStarted);
-            
-            if (dindStarted) {
-                // 3. DinD 컨테이너 내부에서 로그인 시도
-                log.info("Attempting login inside DinD container...");
-                boolean dindLoginResult = loginInDinDContainer(registryUrl, username, password);
-                log.info("DinD container login result: {}", dindLoginResult);
-                return dindLoginResult;
-            } else {
-                log.warn("DinD container failed to start, skipping DinD login strategy");
+            // 1. DinD 컨테이너에서 insecure registry로 Docker daemon 시작
+            if (startDinDWithInsecureRegistry(registryUrl)) {
+                // 2. DinD 컨테이너 내부에서 로그인 시도
+                return loginInDinDContainer(registryUrl, username, password);
             }
             
             return false;
         } catch (Exception e) {
-            log.error("Error in Docker login strategy: {}", e.getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * 직접 Docker 명령어로 레지스트리 로그인
-     */
-    private boolean loginDirectlyToRegistry(String registryUrl, String username, String password) {
-        try {
-            log.info("Attempting direct Docker login to registry: {}", registryUrl);
-            
-            // 직접 Docker 명령어 실행
-            ProcessBuilder loginProcess = new ProcessBuilder(
-                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
-            );
-            
-            // Docker 환경 설정
-            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
-            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
-            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
-            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
-            
-            return executeDockerCommandWithRetryAndStdin(loginProcess, "Direct Docker Login", 30, password);
-            
-        } catch (Exception e) {
-            log.error("Error in direct Docker login: {}", e.getMessage());
+            log.error("Error in Docker-in-Docker strategy: {}", e.getMessage());
             return false;
         }
     }
@@ -1567,42 +1524,28 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // 기존 DinD 컨테이너 정리
             cleanupDinDContainers(containerName);
             
-            // DinD 컨테이너 실행 명령어 (devopsmindset/openjdk-docker:dind-java17 사용)
+            // DinD 컨테이너 실행 명령어 (사용자 제안 방식)
             ProcessBuilder dindProcess = new ProcessBuilder(
                 "docker", "run", "-d",
                 "--name", containerName,
                 "--privileged",
-                // "-e", "DOCKER_TLS_CERTDIR=",
-                "-e", "DOCKER_TLS_VERIFY=0",
-                "-e", "DOCKER_CONTENT_TRUST=0",
-                "-e", "DOCKER_BUILDKIT=0",
+                "-e", "DOCKER_TLS_CERTDIR=",
                 "-e", "DOCKER_INSECURE_REGISTRIES=" + registryUrl,
-                "devopsmindset/openjdk-docker:dind-java17",
+                "docker:dind",
                 "dockerd-entrypoint.sh",
                 "--insecure-registry=" + registryUrl,
-                "--host=0.0.0.0:2375",
+                "--host=0.0.0.0:2376",
                 "--storage-driver=overlay2"
             );
             
             Process dindProc = dindProcess.start();
             int exitCode = dindProc.waitFor();
             
-            // DinD 컨테이너 시작 결과 로그
-            String dindOutput = new String(dindProc.getInputStream().readAllBytes());
-            String dindError = new String(dindProc.getErrorStream().readAllBytes());
-            log.info("DinD container start output: {}", dindOutput);
-            if (!dindError.isEmpty()) {
-                log.warn("DinD container start error: {}", dindError);
-            }
-            
             if (exitCode == 0) {
                 log.info("DinD container '{}' started successfully", containerName);
                 
                 // DinD 컨테이너의 Docker daemon이 완전히 준비될 때까지 대기
-                boolean daemonReady = waitForDinDDaemonReady(containerName);
-                log.info("DinD daemon ready: {}", daemonReady);
-                
-                if (daemonReady) {
+                if (waitForDinDDaemonReady(containerName)) {
                     log.info("DinD container '{}' is running and ready", containerName);
                     return true;
                 } else {
@@ -1611,7 +1554,6 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 }
             } else {
                 log.error("Failed to start DinD container '{}', exit code: {}", containerName, exitCode);
-                log.error("DinD container start error output: {}", dindError);
                 return false;
             }
             
@@ -1682,17 +1624,13 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                     
                     // insecure registries 설정 확인
                     boolean hasInsecureRegistry = output.contains("Insecure Registries:") && 
-                                               (output.contains("210.217.178.130:5500") || 
-                                                output.contains("mc-application-manager-sonatype-nexus:5500"));
+                                               output.contains("210.217.178.130:5500");
                     
                     if (hasInsecureRegistry) {
-                        log.info("DinD daemon has insecure registry configured: {}", 
-                               output.contains("210.217.178.130:5500") ? "210.217.178.130:5500" : "mc-application-manager-sonatype-nexus:5500");
+                        log.info("DinD daemon has insecure registry configured: 210.217.178.130:5500");
                         return true;
                     } else {
                         log.warn("DinD daemon does not have insecure registry configured, waiting...");
-                        log.warn("Looking for: 210.217.178.130:5500 or mc-application-manager-sonatype-nexus:5500");
-                        log.warn("Found insecure registries: {}", output);
                     }
                 } else {
                     log.warn("DinD daemon not ready yet (exit code: {}), waiting...", exitCode);
@@ -1720,26 +1658,15 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // 컨테이너 이름 생성 (레지스트리 URL 기반)
             String containerName = "dind-" + registryUrl.replaceAll("[:.]", "-");
             
-            // DinD 컨테이너 내부에서 Docker 명령어 실행 (TLS 완전 비활성화)
+            // DinD 컨테이너 내부에서 Docker 명령어 실행 (interactive 플래그 추가)
             ProcessBuilder loginProcess = new ProcessBuilder(
                 "docker", "exec", "-i", containerName,
-                "sh", "-c", 
-                "DOCKER_TLS_VERIFY=0 DOCKER_CONTENT_TRUST=0 DOCKER_BUILDKIT=0 docker login --username " + username + " --password-stdin http://" + registryUrl
+                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
             );
             
-            // DinD 컨테이너 내부 환경 설정 - TLS 완전 비활성화
+            // DinD 컨테이너 내부 환경 설정
             loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
             loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
-            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
-            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
-            
-            // TLS 인증서 관련 환경 변수 완전 제거
-            loginProcess.environment().remove("DOCKER_CERT_PATH");
-            loginProcess.environment().remove("DOCKER_TLS_CERTDIR");
-            loginProcess.environment().remove("DOCKER_CONFIG");
-            
-            // Docker daemon 설정 (TLS 비활성화)
-            loginProcess.environment().put("DOCKER_HOST", "tcp://localhost:2375");
             
             return executeDockerCommandWithRetryAndStdin(loginProcess, "DinD Docker Login", 30, password);
             
@@ -2054,7 +1981,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private DockerCommandResult executeDockerCommand(ProcessBuilder processBuilder, String commandDescription, long timeoutSeconds) {
         try {
             // Docker 명령어에 insecure registry 설정 적용
-            applyInsecureRegistryToDockerCommand(processBuilder, "mc-application-manager-sonatype-nexus:5500");
+            applyInsecureRegistryToDockerCommand(processBuilder, "210.217.178.130:5500");
             
             Process process = processBuilder.start();
             
