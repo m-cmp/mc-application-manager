@@ -1671,6 +1671,12 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // DinD 컨테이너 내부 환경 설정
             loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
             loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
+            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
+            loginProcess.environment().put("DOCKER_REGISTRY_INSECURE", "true");
+            // TLS 인증서 관련 환경 변수 제거
+            loginProcess.environment().remove("DOCKER_CERT_PATH");
+            loginProcess.environment().remove("DOCKER_TLS_CERTDIR");
             
             return executeDockerCommandWithRetryAndStdin(loginProcess, "DinD Docker Login", 30, password);
             
