@@ -729,7 +729,7 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
         try {
             log.info("Attempting login in container: {}", registryUrl);
             
-            // 사용자가 테스트한 간단한 명령어 사용
+            // 사용자가 테스트한 간단한 명령어 사용 (HTTP 프로토콜 명시)
             ProcessBuilder loginProcess = new ProcessBuilder(
                 "docker", "login", "http://" + registryUrl, "-u", username, "--password", password
             );

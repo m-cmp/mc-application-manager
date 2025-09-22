@@ -1231,8 +1231,10 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             String repositoryName = parseRepositoryByFormatFromResponse(responseStr, format);
             
             if (repositoryName != null && !repositoryName.isEmpty()) {
-                log.info("Successfully found {} repository: {}", format, repositoryName);
-                return repositoryName;
+                // Docker repository name은 소문자여야 함
+                String normalizedRepositoryName = repositoryName.toLowerCase();
+                log.info("Successfully found {} repository: {} (normalized to: {})", format, repositoryName, normalizedRepositoryName);
+                return normalizedRepositoryName;
             } else {
                 log.error("No {} repository found in Nexus. Available repositories: {}", format, responseStr);
                 throw new RuntimeException("No " + format + " repository found in Nexus");
@@ -1436,8 +1438,8 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         String cleanRegistryUrl = registryUrl.replaceFirst("^https?://", "");
         
         log.info("cleanRegistryUrl : " + cleanRegistryUrl + ", username : " + username + ", password : " + password);
-        
-        // 사용자가 테스트한 간단한 명령어 사용
+
+        // 사용자가 테스트한 간단한 명령어 사용 (HTTP 프로토콜 명시)
         ProcessBuilder loginProcess = new ProcessBuilder(
             "docker", "login", "http://" + cleanRegistryUrl, "-u", username, "--password", password
         );
@@ -1549,7 +1551,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         try {
             log.info("Attempting login in container: {}", registryUrl);
             
-            // 사용자가 테스트한 간단한 명령어 사용
+            // 사용자가 테스트한 간단한 명령어 사용 (HTTP 프로토콜 명시)
             ProcessBuilder loginProcess = new ProcessBuilder(
                 "docker", "login", "http://" + registryUrl, "-u", username, "--password", password
             );
