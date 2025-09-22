@@ -2,6 +2,8 @@ package kr.co.mcmp.service.oss.repository;
 
 import kr.co.mcmp.dto.oss.repository.CommonRepository;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -9,6 +11,10 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class CommonModuleRepositoryService {
+
+
+    @Value("${docker.registry.port:5500}")
+    private int dockerRegistryPort;
 
     private final CommonRepositoryFactory repositoryFactory;
 
@@ -23,6 +29,10 @@ public class CommonModuleRepositoryService {
     }
 
     public void createRepository(String module, CommonRepository.RepositoryDto repositoryDto) {
+        repositoryDto.getDocker().setHttpPort(dockerRegistryPort);
+        repositoryDto.getDocker().setHttpsPort(dockerRegistryPort + 100);
+
+
         CommonRepositoryService repositoryService = getRepositoryService(module);
         repositoryService.createRepository(repositoryDto);
     }
