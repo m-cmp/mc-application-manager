@@ -1546,12 +1546,19 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 "dockerd-entrypoint.sh",
                 "--insecure-registry=" + registryUrl,
                 "--host=0.0.0.0:2375",
-                "--tls=false",
                 "--storage-driver=overlay2"
             );
             
             Process dindProc = dindProcess.start();
             int exitCode = dindProc.waitFor();
+            
+            // DinD 컨테이너 시작 결과 로그
+            String dindOutput = new String(dindProc.getInputStream().readAllBytes());
+            String dindError = new String(dindProc.getErrorStream().readAllBytes());
+            log.info("DinD container start output: {}", dindOutput);
+            if (!dindError.isEmpty()) {
+                log.warn("DinD container start error: {}", dindError);
+            }
             
             if (exitCode == 0) {
                 log.info("DinD container '{}' started successfully", containerName);
@@ -1569,6 +1576,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 }
             } else {
                 log.error("Failed to start DinD container '{}', exit code: {}", containerName, exitCode);
+                log.error("DinD container start error output: {}", dindError);
                 return false;
             }
             
