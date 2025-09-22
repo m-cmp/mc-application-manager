@@ -630,26 +630,39 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
     }
 
     /**
-     * DinD 컨테이너 시작
+     * Docker 로그인 시도 (직접 Docker 명령어 우선, DinD fallback)
      */
     private boolean startDinDContainer(String containerName, String registryUrl) {
         try {
-            log.info("Starting DinD container: {}", containerName);
+            log.info("Attempting Docker login strategy: {}", containerName);
+            
+            // 1. 직접 Docker 명령어로 로그인 시도
+            boolean directLoginResult = loginDirectlyToRegistry(registryUrl, "admin", "123456");
+            if (directLoginResult) {
+                log.info("Direct Docker login successful, skipping DinD container");
+                return true;
+            }
+            
+            // 2. DinD 컨테이너 사용 (fallback)
+            log.info("Direct login failed, starting DinD container: {}", containerName);
             
             // 기존 컨테이너 정리
             cleanupDinDContainer(containerName);
             
-            // DinD 컨테이너 실행
+            // DinD 컨테이너 실행 (devopsmindset/openjdk-docker:dind-java17 사용)
             ProcessBuilder dindProcess = new ProcessBuilder(
                 "docker", "run", "-d",
                 "--name", containerName,
                 "--privileged",
                 "-e", "DOCKER_TLS_CERTDIR=",
+                "-e", "DOCKER_TLS_VERIFY=0",
+                "-e", "DOCKER_CONTENT_TRUST=0",
+                "-e", "DOCKER_BUILDKIT=0",
                 "-e", "DOCKER_INSECURE_REGISTRIES=" + registryUrl,
-                "docker:dind",
+                "devopsmindset/openjdk-docker:dind-java17",
                 "dockerd-entrypoint.sh",
                 "--insecure-registry=" + registryUrl,
-                "--host=0.0.0.0:2376",
+                "--host=0.0.0.0:2375",
                 "--storage-driver=overlay2"
             );
             
@@ -674,7 +687,33 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
             }
             
         } catch (Exception e) {
-            log.error("Error starting DinD container: {}", e.getMessage());
+            log.error("Error in Docker login strategy: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 직접 Docker 명령어로 레지스트리 로그인
+     */
+    private boolean loginDirectlyToRegistry(String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting direct Docker login to registry: {}", registryUrl);
+            
+            // 직접 Docker 명령어 실행
+            ProcessBuilder loginProcess = new ProcessBuilder(
+                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
+            );
+            
+            // Docker 환경 설정
+            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
+            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
+            
+            return executeDockerCommandWithRetryAndStdin(loginProcess, "Direct Docker Login", 30, password);
+            
+        } catch (Exception e) {
+            log.error("Error in direct Docker login: {}", e.getMessage());
             return false;
         }
     }

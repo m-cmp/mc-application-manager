@@ -1492,29 +1492,64 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     }
     
     /**
-     * Docker-in-Docker 전략으로 로그인 시도
+     * Docker-in-Docker 전략으로 로그인 시도 (직접 Docker 명령어 사용)
      */
     private boolean tryDockerInDockerStrategy(String registryUrl, String username, String password) {
         try {
-            log.info("Attempting Docker-in-Docker strategy for insecure registry: {}", registryUrl);
+            log.info("Attempting direct Docker login strategy for insecure registry: {}", registryUrl);
             
-            // 1. DinD 컨테이너에서 insecure registry로 Docker daemon 시작
+            // 1. 직접 Docker 명령어로 로그인 시도
+            boolean loginResult = loginDirectlyToRegistry(registryUrl, username, password);
+            log.info("Direct Docker login result: {}", loginResult);
+            
+            if (loginResult) {
+                return true;
+            }
+            
+            // 2. DinD 컨테이너 사용 (fallback)
+            log.info("Direct login failed, trying DinD container approach...");
             boolean dindStarted = startDinDWithInsecureRegistry(registryUrl);
             log.info("DinD container started: {}", dindStarted);
             
             if (dindStarted) {
-                // 2. DinD 컨테이너 내부에서 로그인 시도
+                // 3. DinD 컨테이너 내부에서 로그인 시도
                 log.info("Attempting login inside DinD container...");
-                boolean loginResult = loginInDinDContainer(registryUrl, username, password);
-                log.info("DinD container login result: {}", loginResult);
-                return loginResult;
+                boolean dindLoginResult = loginInDinDContainer(registryUrl, username, password);
+                log.info("DinD container login result: {}", dindLoginResult);
+                return dindLoginResult;
             } else {
                 log.warn("DinD container failed to start, skipping DinD login strategy");
             }
             
             return false;
         } catch (Exception e) {
-            log.error("Error in Docker-in-Docker strategy: {}", e.getMessage());
+            log.error("Error in Docker login strategy: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 직접 Docker 명령어로 레지스트리 로그인
+     */
+    private boolean loginDirectlyToRegistry(String registryUrl, String username, String password) {
+        try {
+            log.info("Attempting direct Docker login to registry: {}", registryUrl);
+            
+            // 직접 Docker 명령어 실행
+            ProcessBuilder loginProcess = new ProcessBuilder(
+                "docker", "login", "http://" + registryUrl, "-u", username, "--password-stdin"
+            );
+            
+            // Docker 환경 설정
+            loginProcess.environment().put("DOCKER_TLS_VERIFY", "0");
+            loginProcess.environment().put("DOCKER_CONTENT_TRUST", "0");
+            loginProcess.environment().put("DOCKER_BUILDKIT", "0");
+            loginProcess.environment().put("DOCKER_INSECURE_REGISTRIES", registryUrl);
+            
+            return executeDockerCommandWithRetryAndStdin(loginProcess, "Direct Docker Login", 30, password);
+            
+        } catch (Exception e) {
+            log.error("Error in direct Docker login: {}", e.getMessage());
             return false;
         }
     }
@@ -1532,17 +1567,17 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             // 기존 DinD 컨테이너 정리
             cleanupDinDContainers(containerName);
             
-            // DinD 컨테이너 실행 명령어 (TLS 완전 비활성화)
+            // DinD 컨테이너 실행 명령어 (devopsmindset/openjdk-docker:dind-java17 사용)
             ProcessBuilder dindProcess = new ProcessBuilder(
                 "docker", "run", "-d",
                 "--name", containerName,
                 "--privileged",
-                "-e", "DOCKER_TLS_CERTDIR=",
+                // "-e", "DOCKER_TLS_CERTDIR=",
                 "-e", "DOCKER_TLS_VERIFY=0",
                 "-e", "DOCKER_CONTENT_TRUST=0",
                 "-e", "DOCKER_BUILDKIT=0",
                 "-e", "DOCKER_INSECURE_REGISTRIES=" + registryUrl,
-                "docker:dind",
+                "devopsmindset/openjdk-docker:dind-java17",
                 "dockerd-entrypoint.sh",
                 "--insecure-registry=" + registryUrl,
                 "--host=0.0.0.0:2375",
