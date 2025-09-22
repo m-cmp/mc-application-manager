@@ -26,6 +26,7 @@
           <div v-show="currentStep === 1">
             <div class="mb-3">
               <label class="form-label required">Target</label>
+              {{ catalogDto.target }}
               <div class="d-flex align-items-center">
                 <div class="form-check me-3">
                   <input class="form-check-input" type="radio" name="target" value="VM" v-model="catalogDto.target" id="targetVM" :disabled="props.mode === 'update'"/>
@@ -318,8 +319,6 @@ import type { PackageInfoDTO } from '../../type/type'
 interface Props {
   show?: boolean
   mode?: string
-  catalogId?: number | null
-  catalogInfo?: any
 }
 const props = defineProps<Props>()
 const emit = defineEmits(['created', 'updated'])
@@ -332,13 +331,13 @@ const isInitializing = ref(false)
 // 모달이 열렸는지 여부를 나타내는 플래그
 const isModalOpen = ref(false)
 const catalogId = ref(0 as any)
+const catalogInfo = ref({} as any)
 
 // ------------------------------------------------------------ Life Cycle ------------------------------------------------------------
 const wizardModal = ref<HTMLElement | null>(null)
 const isDataLoaded = ref(false) // 데이터 로딩 중복 방지 플래그
 
 onMounted(() => {
-  catalogId.value = props.catalogId
   if (wizardModal.value) {
     wizardModal.value.addEventListener('show.bs.modal', handleModalShow as EventListener)
     wizardModal.value.addEventListener('hide.bs.modal', handleModalHide as EventListener)
@@ -352,15 +351,7 @@ onBeforeUnmount(() => {
   }
 })
 
-// mode나 catalogId가 변경되면 즉시 모달 처리 로직 실행
-watch(() => [props.mode, props.catalogId], ([newMode, newCatalogId], [oldMode, oldCatalogId]) => {
-  if (newCatalogId && newMode === 'update') {
-    currentStep.value = 1
-    catalogId.value = newCatalogId
-    // catalogId를 받으면 바로 초기 데이터 로딩 실행
-    loadCatalogDataWithCategoryInit()
-  }
-})
+// props로 전달받던 데이터는 이제 메서드를 통해 설정
 
 // ------------------------------------------------------------ Life Cycle ------------------------------------------------------------
 
@@ -656,25 +647,26 @@ const update = async () => {
 
 // catalogInfo를 이용해 초기 카테고리 설정 후 데이터 로드
 const loadCatalogDataWithCategoryInit = async () => {
-
   try {
     if (!catalogId.value) return
     
-    // 부모로부터 받은 catalogInfo를 이용해 초기 카테고리 설정
-    if (props.catalogInfo && props.catalogInfo.category) {
+    // 내부 catalogInfo를 이용해 초기 카테고리 설정
+    if (catalogInfo.value && catalogInfo.value.category) {
       // 초기화 플래그 설정
       isInitializing.value = true
       
       // target 설정 (sourceType으로부터 추론)
-      catalogDto.value.target = props.catalogInfo.sourceType === 'DOCKERHUB' ? 'VM' : 'K8S'
-      catalogDto.value.category = props.catalogInfo.category
-      if(props.catalogInfo.sourceType === 'DOCKERHUB') {
-        catalogDto.value.packageName = props.catalogInfo.packageInfo.packageName
-        catalogDto.value.version = props.catalogInfo.packageInfo.packageVersion
-      } else if(props.catalogInfo.sourceType === 'ARTIFACTHUB') {
-        catalogDto.value.packageName = props.catalogInfo.helmChart.chartName
-        catalogDto.value.version = props.catalogInfo.helmChart.chartVersion
+      catalogDto.value.target = catalogInfo.value.packageInfo !== null ? 'VM' : 'K8S'
+
+      catalogDto.value.category = catalogInfo.value.category
+      if(catalogInfo.value.packageInfo !== null) {
+        catalogDto.value.packageName = catalogInfo.value.packageInfo.packageName
+        catalogDto.value.version = catalogInfo.value.packageInfo.packageVersion
+      } else if(catalogInfo.value.helmChart !== null) {
+        catalogDto.value.packageName = catalogInfo.value.helmChart.chartName
+        catalogDto.value.version = catalogInfo.value.helmChart.chartVersion
       }
+
       // 초기화 플래그 해제
       isInitializing.value = false
     }
@@ -700,14 +692,14 @@ const loadCatalogData = async () => {
     catalogDto.value = {
       ...catalogDto.value,
       ...data,
-      target: data.sourceType === 'DOCKERHUB' ? 'VM' : 'K8S'
+      target: data.packageInfo !== null ? 'VM' : 'K8S'
     }
 
-    if(data.sourceType === 'DOCKERHUB') {
+    if(data.packageInfo !== null) {
       catalogDto.value.packageName = data.packageInfo.packageName
       catalogDto.value.version = data.packageInfo.packageVersion
     }
-    if(data.sourceType === 'ARTIFACTHUB') {
+    if(data.helmChart !== null) {
       catalogDto.value.packageName = data.helmChart.chartName
       catalogDto.value.version = data.helmChart.chartVersion
     }
@@ -861,6 +853,27 @@ const _getVersionList = async () => {
     versionList.value = data
   }
 }
+
+// 새로운 카탈로그 생성을 위한 초기화
+const initForCreate = () => {
+  reset()
+  currentStep.value = 1
+}
+
+// 카탈로그 업데이트를 위한 데이터 설정
+const initForUpdate = (id: number, info: any) => {
+  catalogId.value = id
+  catalogInfo.value = info
+  currentStep.value = 1
+  loadCatalogDataWithCategoryInit()
+}
+
+// 부모 컴포넌트에서 접근 가능하도록 메서드 노출
+defineExpose({
+  loadCatalogDataWithCategoryInit,
+  initForCreate,
+  initForUpdate
+})
 
 </script>
 
