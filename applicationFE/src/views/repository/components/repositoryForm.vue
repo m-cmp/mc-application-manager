@@ -206,17 +206,17 @@ const onClickSubmit = async () => {
   }
   
   // Docker format인 경우 포트 검증
-  if (repositoryFormData.value.format === 'docker') {
-    if (!httpPort.value || httpPort.value <= 0) {
-      toast.error('Please enter valid HTTP port.');
-      return;
-    }
+  // if (repositoryFormData.value.format === 'docker') {
+  //   if (!httpPort.value || httpPort.value <= 0) {
+  //     toast.error('Please enter valid HTTP port.');
+  //     return;
+  //   }
     
-    if (!httpsPort.value || httpsPort.value <= 0) {
-      toast.error('Please enter valid HTTPS port.');
-      return;
-    }
-  }
+  //   if (!httpsPort.value || httpsPort.value <= 0) {
+  //     toast.error('Please enter valid HTTPS port.');
+  //     return;
+  //   }
+  // }
 
   repositoryFormData.value.storage = {
     "blobStoreName": "default",
