@@ -1624,10 +1624,10 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                     
                     // insecure registries 설정 확인
                     boolean hasInsecureRegistry = output.contains("Insecure Registries:") && 
-                                               output.contains("210.217.178.130:5500");
+                                               output.contains("mc-application-manager-sonatype-nexus:5500");
                     
                     if (hasInsecureRegistry) {
-                        log.info("DinD daemon has insecure registry configured: 210.217.178.130:5500");
+                        log.info("DinD daemon has insecure registry configured: mc-application-manager-sonatype-nexus:5500");
                         return true;
                     } else {
                         log.warn("DinD daemon does not have insecure registry configured, waiting...");
