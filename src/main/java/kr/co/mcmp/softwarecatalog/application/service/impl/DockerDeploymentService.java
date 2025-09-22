@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.VmAccessInfo;
 import kr.co.mcmp.softwarecatalog.CatalogService;
+import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalogDTO;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.constants.LogType;
@@ -43,7 +44,16 @@ public class DockerDeploymentService implements DeploymentService {
     
     @Override
     public DeploymentHistory deployApplication(DeploymentRequest request) {
+        // PackageInfo가 포함된 완전한 카탈로그 정보 조회
         SoftwareCatalogDTO catalog = catalogService.getCatalog(request.getCatalogId());
+        // SoftwareCatalogDTO catalog = catalogService.getSoftwareCatalogDTO(catalogEntity);
+        
+        // PackageInfo 로딩 상태 확인
+        log.info("Catalog ID: {}, PackageInfo: {}", request.getCatalogId(), catalog.getPackageInfo());
+        if (catalog.getPackageInfo() == null) {
+            log.error("PackageInfo is null for catalog ID: {}", request.getCatalogId());
+        }
+        
         User user = userService.findUserByUsername(request.getUsername()).orElse(null);
         DeploymentHistory history = applicationHistoryService.createDeploymentHistory(request, user);
 

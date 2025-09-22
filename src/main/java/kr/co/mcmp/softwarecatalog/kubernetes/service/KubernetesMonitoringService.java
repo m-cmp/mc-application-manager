@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -41,15 +42,15 @@ public class KubernetesMonitoringService {
 
     @Scheduled(fixedRate = 60000) // 1분마다 실행
     public void monitorKubernetesResources() {
-        log.info("Starting Kubernetes resource monitoring");
+        log.debug("Starting Kubernetes resource monitoring");
 
         List<DeploymentHistory> activeDeployments = getActiveK8sDeployments();
-        log.info("Found {} active K8S deployments to monitor", activeDeployments.size());
+        log.debug("Found {} active K8S deployments to monitor", activeDeployments.size());
 
         for (DeploymentHistory deployment : activeDeployments) {
             String namespace = deployment.getNamespace();
             String clusterName = deployment.getClusterName();
-            log.info("Monitoring deployment: ID={}, Namespace={}, Cluster={}, CatalogId={}", 
+            log.debug("Monitoring deployment: ID={}, Namespace={}, Cluster={}, CatalogId={}", 
                     deployment.getId(), namespace, clusterName, deployment.getCatalog().getId());
 
             try (KubernetesClient client = clientFactory.getClient(namespace, clusterName)) {
@@ -99,6 +100,7 @@ public class KubernetesMonitoringService {
         return activeDeployments;
     }
 
+    @Transactional
     private void updateApplicationStatus(DeploymentHistory deployment, KubernetesClient client) {
         String namespace = deployment.getNamespace();
         String clusterName = deployment.getClusterName();
@@ -120,7 +122,7 @@ public class KubernetesMonitoringService {
 
         // 모든 Pod 목록 가져오기
         List<Pod> allPods = client.pods().inNamespace(namespace).list().getItems();
-        log.info("All pod names in namespace '{}': {}", namespace, 
+        log.debug("All pod names in namespace '{}': {}", namespace, 
                 allPods.stream()
                     .map(pod -> pod.getMetadata().getName())
                     .collect(Collectors.joining(", ")));
@@ -138,12 +140,13 @@ public class KubernetesMonitoringService {
                 })
                 .collect(Collectors.toList());
                 
-        log.info("Filtered pods for app '{}': {}", appName, 
+        log.debug("Filtered pods for app '{}': {}", appName, 
                 pods.stream()
                     .map(pod -> pod.getMetadata().getName())
                     .collect(Collectors.joining(", ")));
             
 
+        // 최신 ApplicationStatus 조회 (기존 메서드 사용)
         ApplicationStatus status = statusRepository.findTopByCatalogIdOrderByCheckedAtDesc(catalogId)
                 .orElse(ApplicationStatus.builder()
                         .deploymentType(DeploymentType.K8S)
@@ -168,7 +171,7 @@ public class KubernetesMonitoringService {
             String phase = pod.getStatus().getPhase();
             String podName = pod.getMetadata().getName();
             
-            log.info("Pod '{}' status: {}", podName, phase);
+            log.debug("Pod '{}' status: {}", podName, phase);
             
             // Pod 상태별 카운트
             switch (phase.toUpperCase()) {
@@ -217,7 +220,7 @@ public class KubernetesMonitoringService {
                 runningPods, pods.size(), pendingPods, failedPods, unknownPods);
         status.setPodStatus(podStatusSummary);
         
-        log.info("Pod status summary for app '{}': {}", appName, podStatusSummary);
+        log.debug("Pod status summary for app '{}': {}", appName, podStatusSummary);
 
         Map<String, Object> resourceUsage = getResourceUsagePercentage(client, namespace, appName, pods, runningPods, pendingPods, failedPods);
         status.setCpuUsage((Double) resourceUsage.get("cpuPercentage"));
@@ -234,99 +237,49 @@ public class KubernetesMonitoringService {
         // 로그 수집 및 저장
         collectAndSaveLogs(client, namespace, appName, status, pods);
 
-        log.info("Updating ApplicationStatus for catalogId={}, status={}, podStatus={}, cpuUsage={}, memoryUsage={}", 
+        log.debug("Updating ApplicationStatus for catalogId={}, status={}, podStatus={}, cpuUsage={}, memoryUsage={}", 
                 catalogId, status.getStatus(), status.getPodStatus(), status.getCpuUsage(), status.getMemoryUsage());
         
         statusRepository.save(status);
-        log.info("ApplicationStatus saved successfully for catalogId={}", catalogId);
+        log.debug("ApplicationStatus saved successfully for catalogId={}", catalogId);
     }
 
     /**
-     * 로그를 수집하고 ApplicationStatus에 저장합니다.
-     * 중복 로그를 방지하기 위해 해시를 사용합니다.
+     * 로그를 수집하고 UnifiedLog에 저장합니다.
+     * 기존의 개별 로그 테이블 대신 통합 로그 테이블을 사용합니다.
      */
     private void collectAndSaveLogs(KubernetesClient client, String namespace, String appName, 
                                    ApplicationStatus status, List<Pod> pods) {
         try {
-            log.debug("로그 수집 시작 - Namespace: {}, App: {}", namespace, appName);
+            log.debug("UnifiedLog 수집 시작 - Namespace: {}, App: {}", namespace, appName);
             
-            // LazyInitializationException 방지를 위해 로그 리스트를 미리 초기화
-            List<String> existingErrorLogs = new ArrayList<>(status.getErrorLogs());
-            List<String> existingInfoLogs = new ArrayList<>(status.getInfoLogs());
-            List<String> existingDebugLogs = new ArrayList<>(status.getDebugLogs());
-            List<String> existingPodLogs = new ArrayList<>(status.getPodLogs());
-            
-            // 에러 로그 수집 및 증분 저장
-            List<String> newErrorLogs = logCollector.collectAppLogs(client, namespace, appName, 
-                    KubernetesLogCollector.LogLevel.ERROR);
-            if (!newErrorLogs.isEmpty() && LogHashUtil.hasNewLogs(newErrorLogs, existingErrorLogs)) {
-                List<String> uniqueNewErrorLogs = LogHashUtil.extractNewLogs(newErrorLogs, existingErrorLogs);
-                
-                // 기존 로그에 새로운 로그 추가 (최대 50개 유지)
-                List<String> combinedErrorLogs = new ArrayList<>(existingErrorLogs);
-                combinedErrorLogs.addAll(uniqueNewErrorLogs);
-                
-                // 최대 50개로 제한
-                if (combinedErrorLogs.size() > 50) {
-                    combinedErrorLogs = combinedErrorLogs.subList(combinedErrorLogs.size() - 50, combinedErrorLogs.size());
-                }
-                
-                status.setErrorLogs(combinedErrorLogs);
-                status.setErrorLogsHash(LogHashUtil.calculateLogsHash(combinedErrorLogs, 20));
-                log.debug("에러 로그 {} 줄 추가 완료 (새로운 로그: {} 줄)", combinedErrorLogs.size(), uniqueNewErrorLogs.size());
-            } else {
-                log.debug("에러 로그 변경 없음 - 건너뜀");
+            // 배포 ID 가져오기
+            Long deploymentId = status.getDeploymentHistoryId();
+            if (deploymentId == null) {
+                log.warn("Deployment ID가 null입니다. 로그 수집을 건너뜁니다. - Namespace: {}, App: {}", namespace, appName);
+                return;
             }
             
-            // INFO 레벨 로그 수집 및 증분 저장
-            List<String> newInfoLogs = logCollector.collectAppLogs(client, namespace, appName, 
-                    KubernetesLogCollector.LogLevel.INFO);
-            if (!newInfoLogs.isEmpty() && LogHashUtil.hasNewLogs(newInfoLogs, existingInfoLogs)) {
-                List<String> uniqueNewInfoLogs = LogHashUtil.extractNewLogs(newInfoLogs, existingInfoLogs);
+            // 각 Pod에 대해 로그 수집 및 저장
+            for (Pod pod : pods) {
+                String podName = pod.getMetadata().getName();
+                String clusterName = client.getNamespace() != null ? client.getNamespace() : "default";
                 
-                // 기존 로그에 새로운 로그 추가 (최대 50개 유지)
-                List<String> combinedInfoLogs = new ArrayList<>(existingInfoLogs);
-                combinedInfoLogs.addAll(uniqueNewInfoLogs);
-                
-                // 최대 50개로 제한
-                if (combinedInfoLogs.size() > 50) {
-                    combinedInfoLogs = combinedInfoLogs.subList(combinedInfoLogs.size() - 50, combinedInfoLogs.size());
+                // 컨테이너 이름 가져오기 (첫 번째 컨테이너 사용)
+                String containerName = "default";
+                if (pod.getStatus() != null && pod.getStatus().getContainerStatuses() != null && 
+                    !pod.getStatus().getContainerStatuses().isEmpty()) {
+                    containerName = pod.getStatus().getContainerStatuses().get(0).getName();
                 }
                 
-                status.setInfoLogs(combinedInfoLogs);
-                status.setInfoLogsHash(LogHashUtil.calculateLogsHash(combinedInfoLogs, 20));
-                log.debug("INFO 로그 {} 줄 추가 완료 (새로운 로그: {} 줄)", combinedInfoLogs.size(), uniqueNewInfoLogs.size());
-            } else {
-                log.debug("INFO 로그 변경 없음 - 건너뜀");
+                // KubernetesLogCollector를 사용하여 로그 수집 및 UnifiedLog에 저장
+                logCollector.collectAndSaveLogs(client, deploymentId, namespace, podName, containerName, clusterName);
             }
             
-            // DEBUG 레벨 로그 수집 및 증분 저장
-            List<String> newDebugLogs = logCollector.collectAppLogs(client, namespace, appName, 
-                    KubernetesLogCollector.LogLevel.DEBUG);
-            if (!newDebugLogs.isEmpty() && LogHashUtil.hasNewLogs(newDebugLogs, existingDebugLogs)) {
-                List<String> uniqueNewDebugLogs = LogHashUtil.extractNewLogs(newDebugLogs, existingDebugLogs);
-                
-                // 기존 로그에 새로운 로그 추가 (최대 30개 유지)
-                List<String> combinedDebugLogs = new ArrayList<>(existingDebugLogs);
-                combinedDebugLogs.addAll(uniqueNewDebugLogs);
-                
-                // 최대 30개로 제한
-                if (combinedDebugLogs.size() > 30) {
-                    combinedDebugLogs = combinedDebugLogs.subList(combinedDebugLogs.size() - 30, combinedDebugLogs.size());
-                }
-                
-                status.setDebugLogs(combinedDebugLogs);
-                status.setDebugLogsHash(LogHashUtil.calculateLogsHash(combinedDebugLogs, 20));
-                log.debug("DEBUG 로그 {} 줄 추가 완료 (새로운 로그: {} 줄)", combinedDebugLogs.size(), uniqueNewDebugLogs.size());
-            } else {
-                log.debug("DEBUG 로그 변경 없음 - 건너뜀");
-            }
-            
-            // Pod별 상세 로그 수집 및 중복 확인
-            collectPodSpecificLogsWithHash(client, namespace, pods, status);
+            log.debug("UnifiedLog 수집 완료 - Namespace: {}, App: {}, Pods: {}", namespace, appName, pods.size());
             
         } catch (Exception e) {
-            log.error("로그 수집 중 오류 발생 - App: {}, Error: {}", appName, e.getMessage(), e);
+            log.error("UnifiedLog 수집 중 오류 발생 - App: {}, Error: {}", appName, e.getMessage(), e);
         }
     }
 
@@ -400,15 +353,22 @@ public class KubernetesMonitoringService {
                 // Pod 이벤트 정보 수집
                 podLogs.add(String.format("[%s] Last transition time: %s", podName, 
                     pod.getStatus().getStartTime() != null ? pod.getStatus().getStartTime() : "Unknown"));
+                
+                // UnifiedLog를 사용하여 Pod 로그 수집
+                String containerName = "default";
+                if (pod.getStatus().getContainerStatuses() != null && !pod.getStatus().getContainerStatuses().isEmpty()) {
+                    containerName = pod.getStatus().getContainerStatuses().get(0).getName();
+                }
+                String clusterName = client.getNamespace() != null ? client.getNamespace() : "default";
+                
+                logCollector.collectAndSaveLogs(client, status.getDeploymentHistoryId(), namespace, podName, containerName, clusterName);
             }
             
-            // Pod 로그 변경 확인 및 저장
-            if (!podLogs.isEmpty() && LogHashUtil.hasLogsChanged(podLogs, status.getPodLogsHash())) {
-                status.setPodLogs(podLogs);
-                status.setPodLogsHash(LogHashUtil.calculateLogsHash(podLogs, 20));
-                log.debug("Pod별 로그 {} 줄 수집 완료 (변경됨)", podLogs.size());
+            // UnifiedLog를 사용하여 Pod 로그 수집
+            if (!podLogs.isEmpty()) {
+                log.debug("Pod별 로그 {} 줄 수집 완료", podLogs.size());
             } else {
-                log.debug("Pod 로그 변경 없음 - 건너뜀");
+                log.debug("Pod 로그 없음 - 건너뜀");
             }
             
         } catch (Exception e) {
@@ -496,10 +456,18 @@ public class KubernetesMonitoringService {
                 // Pod 이벤트 정보 수집 (간단한 형태)
                 podLogs.add(String.format("[%s] Last transition time: %s", podName, 
                     pod.getStatus().getStartTime() != null ? pod.getStatus().getStartTime() : "Unknown"));
+                
+                // UnifiedLog를 사용하여 Pod 로그 수집
+                String containerName = "default";
+                if (pod.getStatus().getContainerStatuses() != null && !pod.getStatus().getContainerStatuses().isEmpty()) {
+                    containerName = pod.getStatus().getContainerStatuses().get(0).getName();
+                }
+                String clusterName = client.getNamespace() != null ? client.getNamespace() : "default";
+                
+                logCollector.collectAndSaveLogs(client, status.getDeploymentHistoryId(), namespace, podName, containerName, clusterName);
             }
             
             if (!podLogs.isEmpty()) {
-                status.setPodLogs(podLogs);
                 log.debug("Pod별 로그 {} 줄 수집 완료", podLogs.size());
             }
             
@@ -521,7 +489,7 @@ public class KubernetesMonitoringService {
             if (readyReplicas == null || readyReplicas == 0) {
                 log.error("Metrics Server is not ready. Check its status and logs.");
             } else {
-                log.info("Metrics Server is running with {} ready replicas", readyReplicas);
+                log.debug("Metrics Server is running with {} ready replicas", readyReplicas);
             }
         }
     }
@@ -535,21 +503,21 @@ public class KubernetesMonitoringService {
                 .withNamespaced(true)
                 .build();
 
-        // log.info("appName : " + appName);
+        // log.debug("appName : " + appName);
         List<GenericKubernetesResource> podMetrics = client.genericKubernetesResources(context)
                 .inNamespace(namespace)
                 // .withLabel("app", appName)
                 .list()
                 .getItems();
 
-        log.info("Found {} pod metrics in namespace {}", podMetrics.size(), namespace);
+        log.debug("Found {} pod metrics in namespace {}", podMetrics.size(), namespace);
         
         // Pod metrics 상세 정보 로깅
         if (!podMetrics.isEmpty()) {
-            log.info("Pod metrics details:");
+            log.debug("Pod metrics details:");
             podMetrics.forEach(metric -> {
                 String podName = metric.getMetadata().getName();
-                log.info("  - Pod: {}, starts with {}: {}", podName, appName.toLowerCase(), podName.startsWith(appName.toLowerCase()));
+                log.debug("  - Pod: {}, starts with {}: {}", podName, appName.toLowerCase(), podName.startsWith(appName.toLowerCase()));
             });
         }
 
@@ -593,7 +561,7 @@ public class KubernetesMonitoringService {
                             }
                         }
                         podCount++;
-                        log.info("Processed pod metric for app '{}': {} (total pods: {})", appName, podName, podCount);
+                        log.debug("Processed pod metric for app '{}': {} (total pods: {})", appName, podName, podCount);
                     }
                 } catch (Exception e) {
                     log.error("Error processing pod metric for {}: {}", podName, e.getMessage(), e);
@@ -601,7 +569,7 @@ public class KubernetesMonitoringService {
             }
         }
         
-        log.info("Final pod count for app '{}': {}, total CPU usage: {}, total memory usage: {}", 
+        log.debug("Final pod count for app '{}': {}, total CPU usage: {}, total memory usage: {}", 
                 appName, podCount, totalCpuUsage, totalMemoryUsage);
 
         double totalCpuCapacity = getTotalCpuCapacity(client);
@@ -672,7 +640,7 @@ public class KubernetesMonitoringService {
         result.put("status", status);
         result.put("port", primaryPort);
 
-        log.info("Final status for app '{}': {} (podCount: {}, pods.size: {})", 
+        log.debug("Final status for app '{}': {} (podCount: {}, pods.size: {})", 
                 appName, status, podCount, pods.size());
 
         return result;
@@ -765,7 +733,7 @@ public class KubernetesMonitoringService {
     }
 
     private void installMetricsServer(KubernetesClient client) throws IOException {
-        log.info("Metrics Server not found. Installing...");
+        log.debug("Metrics Server not found. Installing...");
 
         String metricsServerYaml = "";
         try {
@@ -775,7 +743,7 @@ public class KubernetesMonitoringService {
         }
         client.resourceList(metricsServerYaml).createOrReplace();
 
-        log.info("Metrics Server installation completed");
+        log.debug("Metrics Server installation completed");
         try {
             waitForMetricsServerReady(client);
         } catch (InterruptedException e) {
@@ -791,7 +759,7 @@ public class KubernetesMonitoringService {
     }
 
     private void waitForMetricsServerReady(KubernetesClient client) throws InterruptedException {
-        log.info("Waiting for Metrics Server to be ready...");
+        log.debug("Waiting for Metrics Server to be ready...");
         int maxAttempts = 30;
         int attempt = 0;
         while (attempt < maxAttempts) {
@@ -799,7 +767,7 @@ public class KubernetesMonitoringService {
                     .get();
             if (metricsServer != null && metricsServer.getStatus().getReadyReplicas() != null
                     && metricsServer.getStatus().getReadyReplicas() > 0) {
-                log.info("Metrics Server is ready");
+                log.debug("Metrics Server is ready");
                 return;
             }
             Thread.sleep(10000); // 10초 대기

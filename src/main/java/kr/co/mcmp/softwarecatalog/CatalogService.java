@@ -10,11 +10,14 @@ import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
+import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.DeploymentLogRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
 import kr.co.mcmp.softwarecatalog.rating.repository.OverallRatingRepository;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
+import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import kr.co.mcmp.softwarecatalog.util.NumberFormatUtil;
 import kr.co.mcmp.softwarecatalog.category.entity.IngressConfig;
 import kr.co.mcmp.softwarecatalog.category.repository.IngressConfigRepository;
@@ -51,6 +54,7 @@ public class CatalogService {
     private final PortMappingRepository portMappingRepository;
     private final OverallRatingRepository overallRatingRepository;
     private final DeploymentHistoryRepository deploymentHistoryRepository;
+    private final DeploymentLogRepository deploymentLogRepository;
     private final ApplicationStatusRepository applicationStatusRepository;
     private final EntityManager entityManager;
     private final SoftwareSourceService softwareSourceService;
@@ -62,12 +66,21 @@ public class CatalogService {
             user = getUserByUsername(username);
         }
 
-        // 1. 내부 DB에 카탈로그 등록 (catalogRefs 제외)
+        // 1. 내부 DB에 카탈로그 등록
         SoftwareCatalog catalog = catalogDTO.toEntity();
-        catalog.setCatalogRefs(null); // 중복 저장 방지를 위해 일시적으로 null 설정
         catalog.setRegisteredBy(user);
         catalog.setCreatedAt(LocalDateTime.now());
         catalog.setUpdatedAt(LocalDateTime.now());
+
+        // catalogRefs 컬렉션 초기화 (null이 아닌 빈 리스트로 설정)
+        if (catalog.getCatalogRefs() != null) {
+            catalog.getCatalogRefs().clear();
+        }
+        
+        // sourceMappings 컬렉션 초기화 (null이 아닌 빈 리스트로 설정)
+        // if (catalog.getSourceMappings() != null) {
+        //     catalog.getSourceMappings().clear();
+        // }
 
         catalog = catalogRepository.save(catalog);
 
@@ -76,11 +89,22 @@ public class CatalogService {
             for (CatalogRefDTO refDTO : catalogDTO.getCatalogRefs()) {
                 CatalogRefEntity refEntity = refDTO.toEntity();
                 refEntity.setCatalog(catalog); // catalog id 설정
+                catalog.addCatalogRef(refEntity); // 연관관계 메서드 사용
                 catalogRefRepository.save(refEntity);
             }
         }
 
-        // 3. SOFTWARE_SOURCE_MAPPING을 통해 소스 타입 관리
+        // 3. PackageInfo 또는 HelmChart 저장
+        if (catalogDTO.getPackageInfo() != null) {
+            savePackageInfo(catalog, catalogDTO.getPackageInfo());
+        } else if (catalogDTO.getHelmChart() != null) {
+            saveHelmChart(catalog, catalogDTO.getHelmChart());
+        } else {
+            // PackageInfo가 없는 경우 version, sourceType, packageName으로 기존 PackageInfo 조회 및 업데이트
+            updateCatalogMappings(catalog, catalogDTO);
+        }
+
+        // 4. SOFTWARE_SOURCE_MAPPING을 통해 소스 타입 관리
         // 이 부분은 별도의 소스 매핑 관리 로직으로 처리
 
         SoftwareCatalogDTO result = SoftwareCatalogDTO.fromEntity(catalog);
@@ -99,12 +123,23 @@ public class CatalogService {
         catalog.setCreatedAt(LocalDateTime.now());
         catalog.setUpdatedAt(LocalDateTime.now());
 
+        // catalogRefs 컬렉션 초기화 (null이 아닌 빈 리스트로 설정)
+        if (catalog.getCatalogRefs() != null) {
+            catalog.getCatalogRefs().clear();
+        }
+        
+        // sourceMappings 컬렉션 초기화 (null이 아닌 빈 리스트로 설정)
+        // if (catalog.getSourceMappings() != null) {
+        //     catalog.getSourceMappings().clear();
+        // }
+
         catalog = catalogRepository.save(catalog);
 
         if (catalogDTO.getCatalogRefs() != null && !catalogDTO.getCatalogRefs().isEmpty()) {
             for (CatalogRefDTO refDTO : catalogDTO.getCatalogRefs()) {
                 CatalogRefEntity refEntity = refDTO.toEntity();
                 refEntity.setCatalog(catalog);
+                catalog.addCatalogRef(refEntity); // 연관관계 메서드 사용
                 catalogRefRepository.save(refEntity);
             }
         }
@@ -113,6 +148,9 @@ public class CatalogService {
             savePackageInfo(catalog, catalogDTO.getPackageInfo());
         } else if (catalogDTO.getHelmChart() != null) {
             saveHelmChart(catalog, catalogDTO.getHelmChart());
+        } else {
+            // PackageInfo가 없는 경우 version, sourceType, packageName으로 기존 PackageInfo 조회 및 업데이트
+            updateCatalogMappings(catalog, catalogDTO);
         }
 
         return SoftwareCatalogDTO.fromEntity(catalog);
@@ -147,6 +185,14 @@ public class CatalogService {
         helmChartRepository.findByCatalogId(catalogId).ifPresent(helmChart -> dto.setHelmChart(HelmChartDTO.fromEntity(helmChart)));
 
         return dto;
+    }
+
+    /**
+     * 카탈로그 엔티티만 조회 (DTO 변환 없이)
+     */
+    public SoftwareCatalog getCatalogEntity(Long catalogId) {
+        return catalogRepository.findById(catalogId)
+                .orElseThrow(() -> new EntityNotFoundException("Catalog not found"));
     }
 
     public List<SoftwareCatalogDTO> getAllCatalogs() {
@@ -280,23 +326,48 @@ public class CatalogService {
         log.info("Starting deletion process for catalog ID: {}", catalogId);
 
         try {
-            // 1. HelmChart의 catalog_id를 NULL로 (Repository 사용)
+            // 1. DEPLOYMENT_HISTORY 조회 (DEPLOYMENT_LOG 삭제를 위해)
+            List<DeploymentHistory> deployments = deploymentHistoryRepository.findByCatalogIdOrderByExecutedAtDesc(catalogId);
+            
+            // 2. DEPLOYMENT_LOG 삭제 (외래키 제약조건 해결)
+            if (!deployments.isEmpty()) {
+                deploymentLogRepository.deleteByDeployments(deployments);
+                entityManager.flush();
+            }
+
+            // 3. APPLICATION_STATUS 삭제 (외래키 제약조건 해결)
+            applicationStatusRepository.deleteAllByCatalogId(catalogId);
+            entityManager.flush();
+
+            // 4. DEPLOYMENT_HISTORY 삭제 (외래키 제약조건 해결)
+            deploymentHistoryRepository.deleteAllByCatalogId(catalogId);
+            entityManager.flush();
+
+            // 5. OVERALL_RATING 삭제 (외래키 제약조건 해결)
+            overallRatingRepository.deleteByCatalogId(catalogId);
+            entityManager.flush();
+
+            // 6. PackageInfo의 catalog_id를 NULL로 (Repository 사용)
+            packageInfoRepository.unlinkCatalogByCatalogId(catalogId);
+            entityManager.flush();
+
+            // 7. HelmChart의 catalog_id를 NULL로 (Repository 사용)
             helmChartRepository.unlinkCatalogByCatalogId(catalogId);
             entityManager.flush();
 
-            // 2. IngressConfig 삭제 (외래키 제약 조건 때문에 먼저 삭제)
+            // 8. IngressConfig 삭제 (외래키 제약 조건 때문에 먼저 삭제)
             ingressConfigRepository.deleteAllByCatalogId(catalogId);
             entityManager.flush();
 
-            // 3. PortMapping 삭제
+            // 9. PortMapping 삭제
             portMappingRepository.deleteAllByCatalogId(catalogId);
             entityManager.flush();
 
-            // 4. CatalogRef 삭제
+            // 10. CatalogRef 삭제
             catalogRefRepository.deleteAllByCatalogId(catalogId);
             entityManager.flush();
 
-            // 5. 마지막으로 Catalog 삭제 (Repository bulk delete)
+            // 11. 마지막으로 Catalog 삭제 (Repository bulk delete)
             catalogRepository.deleteByIdBulk(catalogId);
             entityManager.flush();
         } catch (Exception e) {
@@ -342,6 +413,90 @@ public class CatalogService {
         HelmChart helmChart = helmChartDTO.toEntity();
         helmChart.setCatalog(catalog);
         helmChartRepository.save(helmChart);
+    }
+
+    /**
+     * 카탈로그 정보로부터 PackageInfo 또는 HelmChart를 조회하고 업데이트합니다.
+     */
+    private void updateCatalogMappings(SoftwareCatalog catalog, SoftwareCatalogDTO catalogDTO) {
+        try {
+            String packageName = catalogDTO.getPackageName();
+            String version = catalogDTO.getVersion();
+            String target = catalogDTO.getTarget();
+            String category = catalogDTO.getCategory();
+
+            log.info("Updating {} with packageName: {}, version: {}, category: {}",
+                    target, packageName, version, category);
+
+            if ("K8S".equalsIgnoreCase(target)) {
+                // K8S인 경우 HelmChart 테이블에서 chart_name과 chart_version으로 조회
+                updateHelmChartMapping(catalog, packageName, version, category);
+            } else {
+                // DOCKER인 경우 PackageInfo 테이블에서 package_name과 package_version으로 조회
+                updatePackageInfoMapping(catalog, packageName, version, category);
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to update from catalog", e);
+        }
+    }
+
+    /**
+     * HelmChart를 조회하고 업데이트합니다.
+     */
+    private void updateHelmChartMapping(SoftwareCatalog catalog, String chartName, String chartVersion, String category) {
+        try {
+            log.info("Searching for HelmChart with chartName: {}, chartVersion: {}", chartName, chartVersion);
+
+            // chart_name과 chart_version으로 기존 HelmChart 조회 (catalog_id가 null인 것)
+            List<HelmChart> existingHelmCharts = helmChartRepository.findByChartNameAndChartVersion(chartName, chartVersion);
+
+            HelmChart targetHelmChart = existingHelmCharts.stream()
+                    .filter(chart -> chart.getCatalog() == null) // catalog_id가 null인 것만
+                    .findFirst()
+                    .orElse(null);
+
+            if (targetHelmChart != null) {
+                // catalogId만 업데이트 (기존 데이터는 그대로 유지)
+                targetHelmChart.setCatalog(catalog);
+                helmChartRepository.save(targetHelmChart);
+                log.info("Updated HelmChart catalogId: {} -> {}", targetHelmChart.getId(), catalog.getId());
+            } else {
+                log.warn("No matching HelmChart found for chartName: {}, chartVersion: {}", chartName, chartVersion);
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to update HelmChart from catalog", e);
+        }
+    }
+
+    /**
+     * PackageInfo를 조회하고 업데이트합니다.
+     */
+    private void updatePackageInfoMapping(SoftwareCatalog catalog, String packageName, String packageVersion, String category) {
+        try {
+            log.info("Searching for PackageInfo with packageName: {}, packageVersion: {}", packageName, packageVersion);
+
+            // package_name과 package_version으로 기존 PackageInfo 조회 (catalog_id가 null인 것)
+            List<PackageInfo> existingPackageInfos = packageInfoRepository.findByPackageNameAndPackageVersion(packageName, packageVersion);
+
+            PackageInfo targetPackageInfo = existingPackageInfos.stream()
+                    .filter(pkg -> pkg.getCatalog() == null) // catalog_id가 null인 것만
+                    .findFirst()
+                    .orElse(null);
+
+            if (targetPackageInfo != null) {
+                // catalogId만 업데이트 (기존 데이터는 그대로 유지)
+                targetPackageInfo.setCatalog(catalog);
+                packageInfoRepository.save(targetPackageInfo);
+                log.info("Updated PackageInfo catalogId: {} -> {}", targetPackageInfo.getId(), catalog.getId());
+            } else {
+                log.warn("No matching PackageInfo found for packageName: {}, packageVersion: {}", packageName, packageVersion);
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to update PackageInfo from catalog", e);
+        }
     }
 
     public List<CombinedCatalogDTO> getAllCatalogsWithNexusInfo() {
@@ -390,7 +545,7 @@ public class CatalogService {
         return combinedDTO;
     }
 
-    private SoftwareCatalogDTO getSoftwareCatalogDTO(SoftwareCatalog catalog) {
+    public SoftwareCatalogDTO getSoftwareCatalogDTO(SoftwareCatalog catalog) {
         SoftwareCatalogDTO dto = SoftwareCatalogDTO.fromEntity(catalog);
 
         List<CatalogRefDTO> refDTOs = catalogRefRepository.findByCatalogId(catalog.getId()).stream()

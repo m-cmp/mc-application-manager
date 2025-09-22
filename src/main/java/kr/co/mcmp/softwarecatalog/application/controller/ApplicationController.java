@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.co.mcmp.response.ResponseWrapper;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.dto.ApplicationStatusDto;
+import kr.co.mcmp.softwarecatalog.application.dto.IntegratedApplicationInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
@@ -160,6 +161,19 @@ public class ApplicationController {
     public ResponseEntity<ResponseWrapper<List<Object>>> getAllApplicationsFromNexus() {
         List<Object> result = applicationService.getAllApplicationsFromNexus();
         return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+    
+    @Operation(summary = "Get integrated application information by deployment ID", description = "Retrieve integrated information including status, deployment, and logs for a specific deployment.")
+    @GetMapping("/integrated/deployment/{deploymentId}")
+    public ResponseEntity<ResponseWrapper<IntegratedApplicationInfoDTO>> getIntegratedApplicationInfo(
+            @Parameter(description = "Deployment ID to get integrated information for", required = true, example = "1") @PathVariable Long deploymentId) {
+        try {
+            IntegratedApplicationInfoDTO result = applicationService.getIntegratedApplicationInfoByDeploymentIdAsDTO(deploymentId);
+            return ResponseEntity.ok(new ResponseWrapper<>(result));
+        } catch (Exception e) {
+            log.error("Failed to get integrated application info for deployment: {}", deploymentId, e);
+            return ResponseEntity.badRequest().body(new ResponseWrapper<>(null, "Failed to get integrated application info: " + e.getMessage()));
+        }
     }
 
     

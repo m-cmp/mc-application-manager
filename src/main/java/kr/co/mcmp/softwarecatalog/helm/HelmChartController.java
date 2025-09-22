@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.co.mcmp.response.ResponseWrapper;
 import kr.co.mcmp.softwarecatalog.application.dto.HelmChartRegistrationRequest;
+import kr.co.mcmp.softwarecatalog.application.service.HelmChartIntegrationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class HelmChartController {
 
-    private final ApplicationHelmChartService helmChartService;
+    private final HelmChartIntegrationService helmChartService;
 
     @Operation(summary = "Search ArtifactHub Helm Charts", description = "Search Helm Charts from ArtifactHub.")
     @GetMapping("/search")
@@ -53,6 +54,12 @@ public class HelmChartController {
             @RequestBody HelmChartRegistrationRequest request,
             @RequestParam(required = false) String username) {
         Map<String, Object> result = helmChartService.registerHelmChart(request, username);
+        
+        // 오류 발생 시 적절한 HTTP 상태 코드 반환
+        if (!(Boolean) result.get("success")) {
+            return ResponseEntity.badRequest().body(new ResponseWrapper<>(result));
+        }
+        
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
@@ -82,13 +89,26 @@ public class HelmChartController {
                 .repository(
                         HelmChartRegistrationRequest.Repository.builder()
                                 .url(repositoryUrl != null ? repositoryUrl : "")
+                                .name(chartName) // repository name도 설정
+                                .official(false) // 기본값
                                 .build()
                 )
                 .documentationUrl(documentationUrl != null ? documentationUrl : "")
-                .imageRepository(imageRepository != null ? imageRepository : "")
+                .imageRepository(imageRepository != null && !imageRepository.trim().isEmpty() ? imageRepository : chartName.toLowerCase().replaceAll("\\s+", "-"))
                 .build();
 
         Map<String, Object> result = helmChartService.registerHelmChart(request, "admin");
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+
+    @Operation(summary = "Update Helm Chart image repository", description = "Update imageRepository field for existing Helm Chart by pushing image to Nexus.")
+    @PostMapping("/update-image-repository/{helmChartId}")
+    public ResponseEntity<ResponseWrapper<Map<String, Object>>> updateImageRepository(
+            @PathVariable Long helmChartId,
+            @RequestParam(required = false) String imageName,
+            @RequestParam(required = false) String tag) {
+        
+        Map<String, Object> result = helmChartService.updateImageRepository(helmChartId, imageName, tag);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 }

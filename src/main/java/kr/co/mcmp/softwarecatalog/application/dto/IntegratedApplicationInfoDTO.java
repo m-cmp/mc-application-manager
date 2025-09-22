@@ -70,10 +70,10 @@ public class IntegratedApplicationInfoDTO {
     // 로그 정보
     private List<DeploymentLogSummaryDTO> deploymentLogs;
     private List<OperationHistorySummaryDTO> operationHistories;
-    private List<String> errorLogs;
-    private List<String> infoLogs;
-    private List<String> debugLogs;
-    private List<String> podLogs;
+    private ErrorLogsDTO errorLogs;
+    private PodLogsDTO podLogs;
+    // private List<String> infoLogs;
+    // private List<String> debugLogs;
     
     @Getter
     @Setter
@@ -100,5 +100,62 @@ public class IntegratedApplicationInfoDTO {
         private String status;
         private LocalDateTime executedAt;
         private String executedBy;
+    }
+    
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ErrorLogsDTO {
+        private List<ErrorLogItemDTO> logs;
+        private Integer totalCount;
+        private String lastErrorTime;
+        private String severity;
+    }
+    
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ErrorLogItemDTO {
+        private Long id;
+        private String logMessage;
+        private LocalDateTime loggedAt;
+        private String errorCode;
+        private String severity;
+        private String module;
+        private String podName;
+        private String containerName;
+    }
+    
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PodLogsDTO {
+        private List<PodLogItemDTO> logs;
+        private Integer totalCount;
+        private String lastLogTime;
+        private String podStatus;
+        private String podName;
+    }
+    
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PodLogItemDTO {
+        private Long id;
+        private String logMessage;
+        private LocalDateTime loggedAt;
+        private String severity;
+        private String module;
+        private String podName;
+        private String containerName;
+        private String namespace;
     }
 }
