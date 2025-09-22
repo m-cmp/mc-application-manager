@@ -56,7 +56,7 @@
                 <div class="col-md-3">
                   <div class="card text-center">
                     <div class="card-body">
-                      <h5 class="card-title">{{ applicationDetail.cpuUsage || 'N/A' }}%</h5>
+                      <h5 class="card-title">{{ applicationDetail.cpuUsage }}%</h5>
                       <p class="card-text">CPU Usage</p>
                     </div>
                   </div>
@@ -64,7 +64,7 @@
                 <div class="col-md-3">
                   <div class="card text-center">
                     <div class="card-body">
-                      <h5 class="card-title">{{ applicationDetail.memoryUsage || 'N/A' }}%</h5>
+                      <h5 class="card-title">{{ applicationDetail.memoryUsage }}%</h5>
                       <p class="card-text">Memory Usage</p>
                     </div>
                   </div>
@@ -137,10 +137,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-if="applicationDetail.errorLogs.length === 0">
-                      <td colspan="5" class="text-center text-muted">No error logs available</td>
-                    </tr>
-                    <tr v-for="log in applicationDetail.errorLogs" :key="log.id">
+                    <tr v-if="applicationDetail.errorLogs.length > 0" v-for="log in applicationDetail.errorLogs" :key="log.errorCode">
                       <td>{{ log.loggedAt }}</td>
                       <td>{{ log.errorCode }}</td>
                       <td>
@@ -150,6 +147,10 @@
                       </td>
                       <td>{{ log.module }}</td>
                       <td>{{ log.logMessage }}</td>
+                    </tr>
+
+                    <tr v-else>
+                      <td colspan="5" class="text-center text-muted">No error logs available</td>
                     </tr>
                   </tbody>
                 </table>
