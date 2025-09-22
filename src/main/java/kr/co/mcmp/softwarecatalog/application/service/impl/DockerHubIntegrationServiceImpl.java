@@ -729,7 +729,7 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
      * DinD 컨테이너의 Docker daemon 준비 대기
      */
     private boolean waitForDinDDaemonReady(String containerName) {
-        int maxAttempts = 30;
+        int maxAttempts = 60; // 60초 대기 (30초 → 60초로 증가)
         int attempt = 0;
         
         while (attempt < maxAttempts) {

@@ -1595,7 +1595,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         try {
             log.info("Waiting for DinD daemon to be ready: {}", containerName);
             
-            int maxAttempts = 30; // 30초 대기
+            int maxAttempts = 60; // 60초 대기 (30초 → 60초로 증가)
             int attempt = 0;
             
             while (attempt < maxAttempts) {

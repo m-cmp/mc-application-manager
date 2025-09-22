@@ -100,7 +100,7 @@ services:
         protocol: tcp
     volumes:
       - ./db/application:/db/application
-      - dind-storage:/var/lib/docker  # DinD용 Docker 데이터 볼륨
+      #- dind-storage:/var/lib/docker  # DinD용 Docker 데이터 볼륨
       - /var/run:/var/run  # DinD 소켓용
     environment:
       - DDL_AUTO=update     # create-drop or update
@@ -111,16 +111,6 @@ services:
       - TUMBLEBUG_PORT=1323
       - TUMBLEBUG_ID=default
       - TUMBLEBUG_PASSWORD=default
-      - NEXUS_URL=nexus-repository
-      - NEXUS_PORT=8081
-      - NEXUS_DOCKER_PORT=5000
-      - NEXUS_USERNAME=admin
-      - NEXUS_PASSWORD=123456
-      - NEXUS_DOCKER_REPOSITORY=docker-hosted
-      - NEXUS_HELM_REPOSITORY=helm-hosted
-      - NEXUS_HYBRID_MODE=true
-      - NEXUS_USE_EXTERNAL_DOCKER_HUB=true
-      - NEXUS_USE_EXTERNAL_ARTIFACT_HUB=true
     healthcheck: # for cb-application-manager
       test: ["CMD", "nc", "-vz", "localhost", "1324"]
       interval: 1m
@@ -128,5 +118,5 @@ services:
       retries: 3
       start_period: 30s
 
-volumes:
-  dind-storage:
+#volumes:
+#  dind-storage:
