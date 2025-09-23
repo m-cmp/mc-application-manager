@@ -17,8 +17,8 @@ public interface DockerHubInterface {
     //https://hub.docker.com/v2/namespaces/{keyword}/repositories
 
     @GetMapping(value="/api/search/v3/catalog/search")
-    DockerHubCatalog searchCatalog(@RequestParam("query") String keyword,
-                                  @RequestParam(required=false, value="badges", defaultValue="official") String badges);
+    DockerHubCatalog searchCatalog(@RequestParam("query") String keyword)
+                                //   @RequestParam(required=false, value="badges", defaultValue="official") String badges);
     //https://hub.docker.com/api/search/v3/catalog/search?query=ubuntu&badges=official
 
 
