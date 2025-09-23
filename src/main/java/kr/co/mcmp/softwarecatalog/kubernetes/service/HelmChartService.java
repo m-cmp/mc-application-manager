@@ -416,17 +416,33 @@ public class HelmChartService {
                 helmChart.getChartName(), namespace, clusterName);
         
         try {
-            String releaseName = getReleaseNameFromHistory(catalog.getId(), clusterName, namespace);
-            if (releaseName == null) {
-                log.warn("배포 히스토리에서 릴리스 이름을 찾을 수 없습니다. 차트 이름으로 시도합니다.");
-                releaseName = helmChart.getChartName();
-            }
+            // kubeconfig 생성
+            String kubeconfigYaml = getKubeconfigForCluster(namespace, clusterName);
+            java.nio.file.Path tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
             
-            log.info("1. 릴리스 '{}' 삭제 실행 중...", releaseName);
-            
-            runHelmUninstallCli(releaseName, namespace, null);
+            try {
+                String releaseName = getReleaseNameFromHistory(catalog.getId(), clusterName, namespace);
+                if (releaseName == null) {
+                    log.warn("배포 히스토리에서 릴리스 이름을 찾을 수 없습니다. 차트 이름으로 시도합니다.");
+                    releaseName = helmChart.getChartName();
+                }
+                
+                log.info("1. 릴리스 '{}' 삭제 실행 중...", releaseName);
+                
+                runHelmUninstallCli(releaseName, namespace, tempKubeconfigPath);
 
-            log.info("2. 삭제 결과: 성공");
+                log.info("2. 삭제 결과: 성공");
+            } finally {
+                // 임시 kubeconfig 파일 삭제
+                if (tempKubeconfigPath != null) {
+                    try {
+                        java.nio.file.Files.deleteIfExists(tempKubeconfigPath);
+                        log.info("임시 kubeconfig 파일 삭제 완료");
+                    } catch (IOException e) {
+                        log.warn("임시 kubeconfig 파일 삭제 중 오류 발생: {}", e.getMessage());
+                    }
+                }
+            }
             log.info("=== Helm Chart 삭제 성공 ===");
         } catch (Exception e) {
             log.error("=== Helm Chart 삭제 중 오류 발생 ===");
