@@ -99,7 +99,7 @@ public class DockerOperationService {
     private boolean checkImageExists(DockerClient dockerClient, String imageName) {
         try {
             dockerClient.inspectImageCmd(imageName).exec();
-            return true;
+            return true; 
         } catch (NotFoundException e) {
             return false;
         }
