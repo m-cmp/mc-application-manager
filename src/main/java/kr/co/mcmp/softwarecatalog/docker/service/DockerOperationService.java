@@ -21,6 +21,7 @@ import com.github.dockerjava.api.model.Ports;
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerDeployResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
 
 @Service
 @Slf4j
@@ -28,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DockerOperationService {
     
     private final DockerClientFactory dockerClientFactory;
+    private final NexusConfig nexusConfig;
 
     public ContainerDeployResult runDockerContainer(String host, Map<String, String> deployParams) {
         try (DockerClient dockerClient = dockerClientFactory.getDockerClient(host)) {
@@ -105,9 +107,21 @@ public class DockerOperationService {
 
     private void pullImage(DockerClient dockerClient, String imageName) throws InterruptedException {
         try {
-            dockerClient.pullImageCmd(imageName)
-                .exec(new PullImageResultCallback())
-                .awaitCompletion(5, TimeUnit.MINUTES);
+            // Nexus 설정에 따라 pull 소스 결정
+            if (nexusConfig.isHybridMode()) {
+                // 하이브리드 모드: Docker Hub에서 직접 pull
+                log.info("Pulling image from Docker Hub: {}", imageName);
+                dockerClient.pullImageCmd(imageName)
+                    .exec(new PullImageResultCallback())
+                    .awaitCompletion(5, TimeUnit.MINUTES);
+            } else {
+                // Nexus 모드: Nexus 레지스트리에서 pull
+                String nexusImageName = convertToNexusImageName(imageName);
+                log.info("Pulling image from Nexus: {} -> {}", imageName, nexusImageName);
+                dockerClient.pullImageCmd(nexusImageName)
+                    .exec(new PullImageResultCallback())
+                    .awaitCompletion(5, TimeUnit.MINUTES);
+            }
         } catch (NotFoundException e) {
             log.error("Image not found: {}", imageName);
             throw e;
@@ -163,6 +177,22 @@ public class DockerOperationService {
             // 기본적으로 컨테이너가 계속 실행되도록 함
             return new String[]{"tail", "-f", "/dev/null"};
         }
+    }
+    
+    /**
+     * Docker Hub 이미지명을 Nexus 이미지명으로 변환합니다.
+     */
+    private String convertToNexusImageName(String dockerHubImageName) {
+        // docker.io/ 제거
+        String cleanImageName = dockerHubImageName.replaceFirst("^docker\\.io/", "");
+        
+        // Nexus 레지스트리 URL과 Docker 레포지토리명을 사용하여 변환
+        String nexusImageName = nexusConfig.getDockerRegistryUrl() + "/" + 
+                               nexusConfig.getDockerRepository() + "/" + 
+                               cleanImageName;
+        
+        log.info("Converted image name: {} -> {}", dockerHubImageName, nexusImageName);
+        return nexusImageName;
     }
 
     public String getDockerContainerStatus(String host, String containerId) {

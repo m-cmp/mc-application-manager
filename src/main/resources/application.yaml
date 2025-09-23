@@ -80,9 +80,9 @@ nexus:
   password: ${NEXUS_PASSWORD:123456}
   docker-repository: ${NEXUS_DOCKER_REPOSITORY:docker-hosted}
   helm-repository: ${NEXUS_HELM_REPOSITORY:helm-hosted}
-  hybrid-mode: ${NEXUS_HYBRID_MODE:true}
-  use-external-docker-hub: ${NEXUS_USE_EXTERNAL_DOCKER_HUB:true}
-  use-external-artifact-hub: ${NEXUS_USE_EXTERNAL_ARTIFACT_HUB:true}
+  hybrid-mode: ${NEXUS_HYBRID_MODE:false}
+  use-external-docker-hub: ${NEXUS_USE_EXTERNAL_DOCKER_HUB:false}
+  use-external-artifact-hub: ${NEXUS_USE_EXTERNAL_ARTIFACT_HUB:false}
 
 file:
   upload:
