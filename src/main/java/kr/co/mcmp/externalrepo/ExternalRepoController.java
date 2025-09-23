@@ -28,10 +28,10 @@ public class ExternalRepoController {
     ExternalRepoService outSvc;
 
 
-    @Operation(summary = "Get dockerHub catalog (image search)")
+    @Operation(summary = "Get dockerHub catalog (official images only)")
     @GetMapping("/dockerhub/{keyword}")
     public ResponseWrapper<DockerHubCatalog> getDockerHubList(@PathVariable String keyword){
-        logger.info("testString: {}", keyword);
+        logger.info("Searching Docker Hub (Official images only): {}", keyword);
         if(keyword != null) {
             return new ResponseWrapper<>(outSvc.searchDockerHubCatalog(keyword));
         }else{
@@ -50,9 +50,10 @@ public class ExternalRepoController {
         return null;
     }
 
-    @Operation(summary = "Get artifactHub package list (helm search)")
+    @Operation(summary = "Get artifactHub package list (official packages only)")
     @GetMapping("/artifacthub/{keyword}")
     public ResponseWrapper<ArtifactHubPackage> getArtifactHubList(@PathVariable String keyword){
+        logger.info("Searching ArtifactHub (Official packages only): {}", keyword);
         if(keyword != null) {
             return new ResponseWrapper<>(outSvc.searchArtifactHubPackage(keyword));
         }else{
