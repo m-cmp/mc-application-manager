@@ -24,24 +24,24 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 통합 로그 컨트롤러
+ * Unified Log Controller
  */
 @RestController
 @RequestMapping("/api/logs")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Unified Log Management", description = "통합 로그 관리 API")
+@Tag(name = "Unified Log Management", description = "Unified log management API")
 public class UnifiedLogController {
     
     private final UnifiedLogService unifiedLogService;
     
     /**
-     * 배포 ID로 로그 조회
+     * Get logs by deployment ID
      */
     @GetMapping("/deployment/{deploymentId}")
-    @Operation(summary = "배포 ID로 로그 조회", description = "특정 배포의 모든 로그를 조회합니다.")
+    @Operation(summary = "Get logs by deployment ID", description = "Retrieve all logs for a specific deployment.")
     public ResponseEntity<ResponseWrapper<List<UnifiedLogDTO>>> getLogsByDeploymentId(
-            @Parameter(description = "배포 ID") @PathVariable Long deploymentId) {
+            @Parameter(description = "Deployment ID") @PathVariable Long deploymentId) {
         try {
             List<UnifiedLogDTO> logs = unifiedLogService.getLogsByDeploymentId(deploymentId);
             return ResponseEntity.ok(ResponseWrapper.success(logs));
@@ -52,13 +52,13 @@ public class UnifiedLogController {
     }
     
     /**
-     * 배포 ID와 모듈로 로그 조회
+     * Get logs by deployment ID and module
      */
     @GetMapping("/deployment/{deploymentId}/module/{module}")
-    @Operation(summary = "배포 ID와 모듈로 로그 조회", description = "특정 배포의 특정 모듈 로그를 조회합니다.")
+    @Operation(summary = "Get logs by deployment ID and module", description = "Retrieve logs for a specific module of a specific deployment.")
     public ResponseEntity<ResponseWrapper<List<UnifiedLogDTO>>> getLogsByDeploymentIdAndModule(
-            @Parameter(description = "배포 ID") @PathVariable Long deploymentId,
-            @Parameter(description = "모듈 (KUBERNETES, DOCKER, APPLICATION, SYSTEM)") @PathVariable String module) {
+            @Parameter(description = "Deployment ID") @PathVariable Long deploymentId,
+            @Parameter(description = "Module (KUBERNETES, DOCKER, APPLICATION, SYSTEM)") @PathVariable String module) {
         try {
             List<UnifiedLogDTO> logs = unifiedLogService.getLogsByDeploymentIdAndModule(deploymentId, module);
             return ResponseEntity.ok(ResponseWrapper.success(logs));
@@ -69,13 +69,13 @@ public class UnifiedLogController {
     }
     
     /**
-     * 배포 ID와 심각도로 로그 조회
+     * Get logs by deployment ID and severity
      */
     @GetMapping("/deployment/{deploymentId}/severity/{severity}")
-    @Operation(summary = "배포 ID와 심각도로 로그 조회", description = "특정 배포의 특정 심각도 로그를 조회합니다.")
+    @Operation(summary = "Get logs by deployment ID and severity", description = "Retrieve logs for a specific severity level of a specific deployment.")
     public ResponseEntity<ResponseWrapper<List<UnifiedLogDTO>>> getLogsByDeploymentIdAndSeverity(
-            @Parameter(description = "배포 ID") @PathVariable Long deploymentId,
-            @Parameter(description = "심각도 (ERROR, WARN, INFO, DEBUG)") @PathVariable String severity) {
+            @Parameter(description = "Deployment ID") @PathVariable Long deploymentId,
+            @Parameter(description = "Severity (ERROR, WARN, INFO, DEBUG)") @PathVariable String severity) {
         try {
             List<UnifiedLogDTO> logs = unifiedLogService.getLogsByDeploymentIdAndSeverity(deploymentId, severity);
             return ResponseEntity.ok(ResponseWrapper.success(logs));
@@ -86,13 +86,13 @@ public class UnifiedLogController {
     }
     
     /**
-     * 네임스페이스와 파드 이름으로 로그 조회
+     * Get logs by namespace and pod name
      */
     @GetMapping("/kubernetes")
-    @Operation(summary = "쿠버네티스 로그 조회", description = "네임스페이스와 파드 이름으로 쿠버네티스 로그를 조회합니다.")
+    @Operation(summary = "Get Kubernetes logs", description = "Retrieve Kubernetes logs by namespace and pod name.")
     public ResponseEntity<ResponseWrapper<List<UnifiedLogDTO>>> getKubernetesLogs(
-            @Parameter(description = "네임스페이스") @RequestParam String namespace,
-            @Parameter(description = "파드 이름") @RequestParam String podName) {
+            @Parameter(description = "Namespace") @RequestParam String namespace,
+            @Parameter(description = "Pod name") @RequestParam String podName) {
         try {
             List<UnifiedLogDTO> logs = unifiedLogService.getLogsByNamespaceAndPodName(namespace, podName);
             return ResponseEntity.ok(ResponseWrapper.success(logs));
@@ -103,10 +103,10 @@ public class UnifiedLogController {
     }
     
     /**
-     * VM ID로 도커 로그 조회
+     * Get Docker logs by VM ID
      */
     @GetMapping("/docker")
-    @Operation(summary = "도커 로그 조회", description = "VM ID로 도커 로그를 조회합니다.")
+    @Operation(summary = "Get Docker logs", description = "Retrieve Docker logs by VM ID.")
     public ResponseEntity<ResponseWrapper<List<UnifiedLogDTO>>> getDockerLogs(
             @Parameter(description = "VM ID") @RequestParam String vmId) {
         try {
@@ -119,13 +119,13 @@ public class UnifiedLogController {
     }
     
     /**
-     * 시간 범위로 로그 조회
+     * Get logs by time range
      */
     @GetMapping("/time-range")
-    @Operation(summary = "시간 범위로 로그 조회", description = "시작 시간과 종료 시간으로 로그를 조회합니다.")
+    @Operation(summary = "Get logs by time range", description = "Retrieve logs within a specific time range.")
     public ResponseEntity<ResponseWrapper<List<UnifiedLogDTO>>> getLogsByTimeRange(
-            @Parameter(description = "시작 시간 (yyyy-MM-ddTHH:mm:ss)") @RequestParam String startTime,
-            @Parameter(description = "종료 시간 (yyyy-MM-ddTHH:mm:ss)") @RequestParam String endTime) {
+            @Parameter(description = "Start time (yyyy-MM-ddTHH:mm:ss)") @RequestParam String startTime,
+            @Parameter(description = "End time (yyyy-MM-ddTHH:mm:ss)") @RequestParam String endTime) {
         try {
             LocalDateTime start = LocalDateTime.parse(startTime);
             LocalDateTime end = LocalDateTime.parse(endTime);
@@ -138,12 +138,12 @@ public class UnifiedLogController {
     }
     
     /**
-     * 페이지네이션으로 로그 조회
+     * Get logs with pagination
      */
     @GetMapping("/deployment/{deploymentId}/paged")
-    @Operation(summary = "페이지네이션으로 로그 조회", description = "특정 배포의 로그를 페이지네이션으로 조회합니다.")
+    @Operation(summary = "Get logs with pagination", description = "Retrieve logs for a specific deployment with pagination.")
     public ResponseEntity<ResponseWrapper<Page<UnifiedLogDTO>>> getLogsWithPagination(
-            @Parameter(description = "배포 ID") @PathVariable Long deploymentId,
+            @Parameter(description = "Deployment ID") @PathVariable Long deploymentId,
             Pageable pageable) {
         try {
             Page<UnifiedLogDTO> logs = unifiedLogService.getLogsByDeploymentIdWithPagination(deploymentId, pageable);
@@ -155,12 +155,12 @@ public class UnifiedLogController {
     }
     
     /**
-     * 로그 통계 조회 (모듈별)
+     * Get log statistics by module
      */
     @GetMapping("/deployment/{deploymentId}/statistics/module")
-    @Operation(summary = "모듈별 로그 통계", description = "특정 배포의 모듈별 로그 통계를 조회합니다.")
+    @Operation(summary = "Get log statistics by module", description = "Retrieve log statistics by module for a specific deployment.")
     public ResponseEntity<ResponseWrapper<List<Object[]>>> getLogStatisticsByModule(
-            @Parameter(description = "배포 ID") @PathVariable Long deploymentId) {
+            @Parameter(description = "Deployment ID") @PathVariable Long deploymentId) {
         try {
             List<Object[]> statistics = unifiedLogService.getLogStatisticsByModule(deploymentId);
             return ResponseEntity.ok(ResponseWrapper.success(statistics));
@@ -171,12 +171,12 @@ public class UnifiedLogController {
     }
     
     /**
-     * 로그 통계 조회 (심각도별)
+     * Get log statistics by severity
      */
     @GetMapping("/deployment/{deploymentId}/statistics/severity")
-    @Operation(summary = "심각도별 로그 통계", description = "특정 배포의 심각도별 로그 통계를 조회합니다.")
+    @Operation(summary = "Get log statistics by severity", description = "Retrieve log statistics by severity level for a specific deployment.")
     public ResponseEntity<ResponseWrapper<List<Object[]>>> getLogStatisticsBySeverity(
-            @Parameter(description = "배포 ID") @PathVariable Long deploymentId) {
+            @Parameter(description = "Deployment ID") @PathVariable Long deploymentId) {
         try {
             List<Object[]> statistics = unifiedLogService.getLogStatisticsBySeverity(deploymentId);
             return ResponseEntity.ok(ResponseWrapper.success(statistics));
@@ -187,16 +187,16 @@ public class UnifiedLogController {
     }
     
     /**
-     * 쿠버네티스 로그 수집
+     * Collect Kubernetes logs
      */
     // @PostMapping("/collect/kubernetes")
-    // @Operation(summary = "쿠버네티스 로그 수집", description = "쿠버네티스에서 로그를 수집합니다.")
+    // @Operation(summary = "Collect Kubernetes logs", description = "Collect logs from Kubernetes.")
     // public ResponseEntity<ResponseWrapper<String>> collectKubernetesLogs(
-    //         @Parameter(description = "배포 ID") @RequestParam Long deploymentId,
-    //         @Parameter(description = "네임스페이스") @RequestParam String namespace,
-    //         @Parameter(description = "파드 이름") @RequestParam String podName,
-    //         @Parameter(description = "컨테이너 이름") @RequestParam(required = false) String containerName,
-    //         @Parameter(description = "클러스터 이름") @RequestParam(required = false) String clusterName) {
+    //         @Parameter(description = "Deployment ID") @RequestParam Long deploymentId,
+    //         @Parameter(description = "Namespace") @RequestParam String namespace,
+    //         @Parameter(description = "Pod name") @RequestParam String podName,
+    //         @Parameter(description = "Container name") @RequestParam(required = false) String containerName,
+    //         @Parameter(description = "Cluster name") @RequestParam(required = false) String clusterName) {
     //     try {
     //         unifiedLogService.collectKubernetesLogs(deploymentId, namespace, podName, containerName, clusterName);
     //         return ResponseEntity.ok(ResponseWrapper.success("Kubernetes logs collected successfully"));
@@ -207,14 +207,14 @@ public class UnifiedLogController {
     // }
     
     /**
-     * 도커 로그 수집
+     * Collect Docker logs
      */
     // @PostMapping("/collect/docker")
-    // @Operation(summary = "도커 로그 수집", description = "도커에서 로그를 수집합니다.")
+    // @Operation(summary = "Collect Docker logs", description = "Collect logs from Docker.")
     // public ResponseEntity<ResponseWrapper<String>> collectDockerLogs(
-    //         @Parameter(description = "배포 ID") @RequestParam Long deploymentId,
+    //         @Parameter(description = "Deployment ID") @RequestParam Long deploymentId,
     //         @Parameter(description = "VM ID") @RequestParam String vmId,
-    //         @Parameter(description = "컨테이너 이름") @RequestParam(required = false) String containerName) {
+    //         @Parameter(description = "Container name") @RequestParam(required = false) String containerName) {
     //     try {
     //         unifiedLogService.collectDockerLogs(deploymentId, vmId, containerName);
     //         return ResponseEntity.ok(ResponseWrapper.success("Docker logs collected successfully"));
@@ -225,12 +225,12 @@ public class UnifiedLogController {
     // }
     
     /**
-     * 배포 ID로 로그 삭제
+     * Delete logs by deployment ID
      */
     @DeleteMapping("/deployment/{deploymentId}")
-    @Operation(summary = "배포 로그 삭제", description = "특정 배포의 모든 로그를 삭제합니다.")
+    @Operation(summary = "Delete deployment logs", description = "Delete all logs for a specific deployment.")
     public ResponseEntity<ResponseWrapper<String>> deleteLogsByDeploymentId(
-            @Parameter(description = "배포 ID") @PathVariable Long deploymentId) {
+            @Parameter(description = "Deployment ID") @PathVariable Long deploymentId) {
         try {
             unifiedLogService.deleteLogsByDeploymentId(deploymentId);
             return ResponseEntity.ok(ResponseWrapper.success("Logs deleted successfully"));
@@ -241,12 +241,12 @@ public class UnifiedLogController {
     }
     
     /**
-     * 애플리케이션 상태 ID로 로그 조회
+     * Get logs by application status ID
      */
     @GetMapping("/application-status/{applicationStatusId}")
-    @Operation(summary = "애플리케이션 상태 ID로 로그 조회", description = "특정 애플리케이션 상태의 모든 로그를 조회합니다.")
+    @Operation(summary = "Get logs by application status ID", description = "Retrieve all logs for a specific application status.")
     public ResponseEntity<ResponseWrapper<List<UnifiedLogDTO>>> getLogsByApplicationStatusId(
-            @Parameter(description = "애플리케이션 상태 ID") @PathVariable Long applicationStatusId) {
+            @Parameter(description = "Application status ID") @PathVariable Long applicationStatusId) {
         try {
             List<UnifiedLogDTO> logs = unifiedLogService.getLogsByApplicationStatusId(applicationStatusId);
             return ResponseEntity.ok(ResponseWrapper.success(logs));
@@ -257,13 +257,13 @@ public class UnifiedLogController {
     }
     
     /**
-     * 애플리케이션 상태 ID와 모듈로 로그 조회
+     * Get logs by application status ID and module
      */
     @GetMapping("/application-status/{applicationStatusId}/module/{module}")
-    @Operation(summary = "애플리케이션 상태 ID와 모듈로 로그 조회", description = "특정 애플리케이션 상태의 특정 모듈 로그를 조회합니다.")
+    @Operation(summary = "Get logs by application status ID and module", description = "Retrieve logs for a specific module of a specific application status.")
     public ResponseEntity<ResponseWrapper<List<UnifiedLogDTO>>> getLogsByApplicationStatusIdAndModule(
-            @Parameter(description = "애플리케이션 상태 ID") @PathVariable Long applicationStatusId,
-            @Parameter(description = "모듈 (KUBERNETES, DOCKER, APPLICATION, SYSTEM)") @PathVariable String module) {
+            @Parameter(description = "Application status ID") @PathVariable Long applicationStatusId,
+            @Parameter(description = "Module (KUBERNETES, DOCKER, APPLICATION, SYSTEM)") @PathVariable String module) {
         try {
             List<UnifiedLogDTO> logs = unifiedLogService.getLogsByApplicationStatusIdAndModule(applicationStatusId, module);
             return ResponseEntity.ok(ResponseWrapper.success(logs));
@@ -274,13 +274,13 @@ public class UnifiedLogController {
     }
     
     /**
-     * 애플리케이션 상태 ID와 심각도로 로그 조회
+     * Get logs by application status ID and severity
      */
     @GetMapping("/application-status/{applicationStatusId}/severity/{severity}")
-    @Operation(summary = "애플리케이션 상태 ID와 심각도로 로그 조회", description = "특정 애플리케이션 상태의 특정 심각도 로그를 조회합니다.")
+    @Operation(summary = "Get logs by application status ID and severity", description = "Retrieve logs for a specific severity level of a specific application status.")
     public ResponseEntity<ResponseWrapper<List<UnifiedLogDTO>>> getLogsByApplicationStatusIdAndSeverity(
-            @Parameter(description = "애플리케이션 상태 ID") @PathVariable Long applicationStatusId,
-            @Parameter(description = "심각도 (ERROR, WARN, INFO, DEBUG)") @PathVariable String severity) {
+            @Parameter(description = "Application status ID") @PathVariable Long applicationStatusId,
+            @Parameter(description = "Severity (ERROR, WARN, INFO, DEBUG)") @PathVariable String severity) {
         try {
             List<UnifiedLogDTO> logs = unifiedLogService.getLogsByApplicationStatusIdAndSeverity(applicationStatusId, severity);
             return ResponseEntity.ok(ResponseWrapper.success(logs));
@@ -291,12 +291,12 @@ public class UnifiedLogController {
     }
     
     /**
-     * 애플리케이션 상태 ID로 로그 삭제
+     * Delete logs by application status ID
      */
     @DeleteMapping("/application-status/{applicationStatusId}")
-    @Operation(summary = "애플리케이션 상태 로그 삭제", description = "특정 애플리케이션 상태의 모든 로그를 삭제합니다.")
+    @Operation(summary = "Delete application status logs", description = "Delete all logs for a specific application status.")
     public ResponseEntity<ResponseWrapper<String>> deleteLogsByApplicationStatusId(
-            @Parameter(description = "애플리케이션 상태 ID") @PathVariable Long applicationStatusId) {
+            @Parameter(description = "Application status ID") @PathVariable Long applicationStatusId) {
         try {
             unifiedLogService.deleteLogsByApplicationStatusId(applicationStatusId);
             return ResponseEntity.ok(ResponseWrapper.success("Application status logs deleted successfully"));
@@ -307,12 +307,12 @@ public class UnifiedLogController {
     }
     
     /**
-     * 오래된 로그 정리
+     * Cleanup old logs
      */
     @DeleteMapping("/cleanup")
-    @Operation(summary = "오래된 로그 정리", description = "지정된 날짜 이전의 로그를 삭제합니다.")
+    @Operation(summary = "Cleanup old logs", description = "Delete logs before the specified date.")
     public ResponseEntity<ResponseWrapper<String>> cleanupOldLogs(
-            @Parameter(description = "컷오프 날짜 (yyyy-MM-ddTHH:mm:ss)") @RequestParam String cutoffDate) {
+            @Parameter(description = "Cutoff date (yyyy-MM-ddTHH:mm:ss)") @RequestParam String cutoffDate) {
         try {
             LocalDateTime cutoff = LocalDateTime.parse(cutoffDate);
             unifiedLogService.cleanupOldLogs(cutoff);
