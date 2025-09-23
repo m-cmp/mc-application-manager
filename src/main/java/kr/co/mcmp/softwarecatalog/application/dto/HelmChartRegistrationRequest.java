@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 
 /**
  * Helm Chart 등록 요청 DTO
@@ -12,6 +13,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @Builder
+@ToString
 @AllArgsConstructor
 @NoArgsConstructor
 public class HelmChartRegistrationRequest {
@@ -38,6 +40,7 @@ public class HelmChartRegistrationRequest {
     @Getter
     @Setter
     @Builder
+    @ToString
     @AllArgsConstructor
     @NoArgsConstructor
     public static class Repository {
@@ -56,6 +59,7 @@ public class HelmChartRegistrationRequest {
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
+    @ToString
     public static class SecurityReportSummary {
         private int low;
         private int medium;
