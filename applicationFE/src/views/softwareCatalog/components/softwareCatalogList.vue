@@ -386,6 +386,8 @@ onMounted(async () => {
 })
 
 const onClickRegist = () => {
+  _getSoftwareCatalogList()
+
   wizardMode.value = 'new'
   selectCatalogId.value = null
   selectCatalogInfo.value = {}
