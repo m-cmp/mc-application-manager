@@ -320,11 +320,7 @@ public class HelmChartService {
             Files.write(tempKubeconfigPath, kubeconfigYaml.getBytes());
 
             // 3. Helm repository 추가
-            String chartRepositoryUrl = helmChart.getChartRepositoryUrl();
-            String repositoryName = helmChart.getRepositoryName();
-            
-            Helm.repo().add().withName(repositoryName).withUrl(URI.create(chartRepositoryUrl)).call();
-            Helm.repo().update().call();
+            addHelmRepository(helmChart);
 
             // 4. 릴리스 이름 생성
             String releaseName = releaseNameGenerator.generateReleaseName(helmChart.getChartName());
@@ -337,7 +333,7 @@ public class HelmChartService {
             log.info("배포 설정 생성 완료 - {}", config);
 
             // 7. Helm Chart 설치 명령어 구성
-            String chartRef = repositoryName + "/" + helmChart.getChartName();
+            String chartRef = helmChart.getRepositoryName() + "/" + helmChart.getChartName();
 
             InstallCommand installCommand = Helm.install(chartRef)
                     .withKubeConfig(tempKubeconfigPath)
@@ -767,5 +763,21 @@ public class HelmChartService {
             log.info("NGINX Ingress Controller 준비 상태 확인 중 오류 발생: " + e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Helm repository를 추가합니다.
+     */
+    private void addHelmRepository(kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart) throws Exception {
+        String chartRepositoryUrl = helmChart.getChartRepositoryUrl();
+        String repositoryName = helmChart.getRepositoryName();
+        
+        log.info("Adding Helm repository: {} -> {}", repositoryName, chartRepositoryUrl);
+        Helm.repo().add()
+                .withName(repositoryName)
+                .withUrl(URI.create(chartRepositoryUrl))
+                .call();
+        Helm.repo().update();
+        log.info("Helm repository added and updated successfully");
     }
 }
