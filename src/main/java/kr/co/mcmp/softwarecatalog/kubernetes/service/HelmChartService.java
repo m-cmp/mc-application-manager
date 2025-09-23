@@ -81,29 +81,16 @@ public class HelmChartService {
                 if (existingReleaseName != null) {
                     log.info("기존 릴리스 발견: {} (상태: 확인 중)", existingReleaseName);
                     try {
-                        // 기존 릴리스 상태 확인
-                        List<Release> existingReleases = Helm.list()
-                                .withKubeConfig(tempKubeconfigPath)
-                                .withNamespace(namespace)
-                                .call();
+                        // 기존 릴리스 상태 확인 및 삭제
+                        boolean found = runHelmListAndCheckRelease(existingReleaseName, namespace, tempKubeconfigPath);
                         
-                        boolean found = false;
-                        for (Release release : existingReleases) {
-                            if (release.getName().equals(existingReleaseName)) {
-                                log.info("기존 릴리스 상태: {} (상태: {})", existingReleaseName, release.getStatus());
-                                found = true;
-                                
-                                // 기존 릴리스 삭제
-                                Helm.uninstall(existingReleaseName)
-                                        .withKubeConfig(tempKubeconfigPath)
-                                        .withNamespace(namespace)
-                                        .call();
-                                log.info("기존 릴리스 삭제 완료: {}", existingReleaseName);
-                                break;
-                            }
-                        }
-                        
-                        if (!found) {
+                        if (found) {
+                            log.info("기존 릴리스 상태: {} (상태: 확인됨)", existingReleaseName);
+                            
+                            // 기존 릴리스 삭제
+                            runHelmUninstallCli(existingReleaseName, namespace, tempKubeconfigPath);
+                            log.info("기존 릴리스 삭제 완료: {}", existingReleaseName);
+                        } else {
                             log.info("기존 릴리스가 실제로 존재하지 않습니다: {}", existingReleaseName);
                         }
                     } catch (Exception e) {
@@ -437,18 +424,10 @@ public class HelmChartService {
             
             log.info("1. 릴리스 '{}' 삭제 실행 중...", releaseName);
             
-            String result = Helm.uninstall(releaseName)
-                    .withNamespace(namespace)
-                    .call();
+            runHelmUninstallCli(releaseName, namespace, null);
 
-            boolean deleted = result != null && !result.isEmpty();
-            log.info("2. 삭제 결과: {}", deleted ? "성공" : "실패");
-
-            if (deleted) {
-                log.info("=== Helm Chart 삭제 성공 ===");
-            } else {
-                log.warn("=== Helm Chart 삭제 실패 ===");
-            }
+            log.info("2. 삭제 결과: 성공");
+            log.info("=== Helm Chart 삭제 성공 ===");
         } catch (Exception e) {
             log.error("=== Helm Chart 삭제 중 오류 발생 ===");
             log.error("오류: {}", e.getMessage(), e);
@@ -477,19 +456,10 @@ public class HelmChartService {
             
             log.info("1. 릴리스 '{}' 삭제 실행 중...", releaseName);
             
-            String result = Helm.uninstall(releaseName)
-                    .withKubeConfig(tempKubeconfigPath)
-                    .withNamespace(namespace)
-                .call();
+            runHelmUninstallCli(releaseName, namespace, tempKubeconfigPath);
 
-            boolean deleted = result != null && !result.isEmpty();
-            log.info("2. 삭제 결과: {}", deleted ? "성공" : "실패");
-            
-            if (deleted) {
-                log.info("=== Helm Chart 삭제 성공 ===");
-            } else {
-                log.warn("=== Helm Chart 삭제 실패 ===");
-            }
+            log.info("2. 삭제 결과: 성공");
+            log.info("=== Helm Chart 삭제 성공 ===");
         } catch (Exception e) {
             log.error("=== Helm Chart 삭제 중 오류 발생 ===");
             log.error("오류: {}", e.getMessage(), e);
@@ -552,10 +522,23 @@ public class HelmChartService {
         }
     }
 
-    private Path createTempKubeconfigFile(String kubeconfigYaml) throws IOException {
+    public Path createTempKubeconfigFile(String kubeconfigYaml) throws IOException {
         Path tempFile = Files.createTempFile("kubeconfig", ".yaml");
         Files.write(tempFile, kubeconfigYaml.getBytes(StandardCharsets.UTF_8));
         return tempFile;
+    }
+
+    public String getKubeconfigForCluster(String namespace, String clusterName) throws Exception {
+        // K8sClusterDto 조회
+        K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
+        if (clusterDto == null) {
+            throw new RuntimeException("K8s 클러스터를 찾을 수 없습니다: " + clusterName);
+        }
+
+        // Provider별 kubeconfig 생성
+        String providerName = clusterDto.getConnectionConfig().getProviderName();
+        KubeConfigProvider provider = providerFactory.getProvider(providerName);
+        return provider.getOriginalKubeconfigYaml(clusterDto);
     }
 
     /**
@@ -572,12 +555,8 @@ public class HelmChartService {
                 log.info("기존 릴리스 발견: {} (현재 배포와 관련됨)", existingReleaseName);
                 
                 // 기존 릴리스 제거
-                UninstallCommand uninstallCommand = Helm.uninstall(existingReleaseName)
-                        .withKubeConfig(tempKubeconfigPath)
-                        .withNamespace(namespace);
-                
                 try {
-                    uninstallCommand.call();
+                    runHelmUninstallCli(existingReleaseName, namespace, tempKubeconfigPath);
                     log.info("기존 릴리스 제거 완료: {}", existingReleaseName);
                 } catch (Exception e) {
                     log.warn("기존 릴리스 제거 중 오류 발생 (무시하고 계속): {}", e.getMessage());
@@ -621,17 +600,11 @@ public class HelmChartService {
     private boolean isIngressControllerInstalled(String namespace, Path tempKubeconfigPath) {
         try {
             // Helm 릴리스 목록에서 nginx-ingress 확인
-            List<Release> releases = Helm.list()
-                    .withKubeConfig(tempKubeconfigPath)
-                    .withNamespace(namespace)
-                    .call();
+            String releaseList = runHelmListCli(namespace, tempKubeconfigPath);
             
-            for (Release release : releases) {
-                if (release.getName().contains("nginx-ingress") || 
-                    release.getName().contains("ingress-nginx")) {
-                    log.info("NGINX Ingress Controller 발견: " + release.getName());
-                    return true;
-                }
+            if (releaseList != null && (releaseList.contains("nginx-ingress") || releaseList.contains("ingress-nginx"))) {
+                log.info("NGINX Ingress Controller 발견: nginx-ingress 또는 ingress-nginx");
+                return true;
             }
             
             return false;
@@ -779,6 +752,49 @@ public class HelmChartService {
             throw new RuntimeException("helm repo update failed (" + ec + "): " + err + "\n" + out);
         }
         log.info("helm repo update output: {}", out);
+    }
+
+    private void runHelmUninstallCli(String releaseName, String namespace, Path kubeconfig) throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add("helm"); cmd.add("uninstall");
+        cmd.add(releaseName);
+        cmd.add("--namespace"); cmd.add(namespace);
+        if (kubeconfig != null) {
+            cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
+        }
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        Process p = pb.start();
+        int ec = p.waitFor();
+        String out = new String(p.getInputStream().readAllBytes());
+        String err = new String(p.getErrorStream().readAllBytes());
+        if (ec != 0) {
+            throw new RuntimeException("helm uninstall failed (" + ec + "): " + err + "\n" + out);
+        }
+        log.info("helm uninstall output: {}", out);
+    }
+
+    private String runHelmListCli(String namespace, Path kubeconfig) throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add("helm"); cmd.add("list");
+        cmd.add("--namespace"); cmd.add(namespace);
+        if (kubeconfig != null) {
+            cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
+        }
+        cmd.add("--output"); cmd.add("json");
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        Process p = pb.start();
+        int ec = p.waitFor();
+        String out = new String(p.getInputStream().readAllBytes());
+        String err = new String(p.getErrorStream().readAllBytes());
+        if (ec != 0) {
+            throw new RuntimeException("helm list failed (" + ec + "): " + err + "\n" + out);
+        }
+        return out;
+    }
+
+    private boolean runHelmListAndCheckRelease(String releaseName, String namespace, Path kubeconfig) throws Exception {
+        String releaseList = runHelmListCli(namespace, kubeconfig);
+        return releaseList != null && releaseList.contains("\"name\":\"" + releaseName + "\"");
     }
 
     /**
