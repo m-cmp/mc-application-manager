@@ -56,7 +56,7 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
 
         try {
             // 1. Helm Chart 에서 존재 여부 확인
-            ArtifactHubPackage.Package detailInfo = artifactHubIntegrationService.getPackageDetailInfo("helm", request.getRepository().getName(), request.getName(), request.getVersion());
+            ArtifactHubPackage.Package detailInfo = artifactHubIntegrationService.getPackageDetailInfo("helm", request.getRepository().getName(), request.getName(), request.getTag());
             if(detailInfo != null) {
                 // 2. Docker 이미지를 Nexus로 푸시 (이미지가 있는 경우)
                 String nexusImageRepository = null;
@@ -450,6 +450,8 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
                 .packageId(request.getPackageId())
                 .chartName(request.getName())
                 .chartVersion(request.getVersion())
+                .tag(request.getTag())
+                .appVersion(request.getAppVersion())
                 .chartRepositoryUrl(repositoryUrl) // 요청에서 받은 repository URL 사용
                 .category(request.getCategory())
                 .imageRepository(imageRepository)

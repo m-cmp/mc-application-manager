@@ -44,6 +44,12 @@ public class HelmChart {
     @Column(name = "chart_version")
     private String chartVersion; // Helm 차트의 버전
 
+    @Column(name = "app_version")
+    private String appVersion; // 애플리케이션 버전
+
+    @Column(name = "tag")
+    private String tag; // 이미지 태그 (Helm Chart의 appVersion과 동일)
+
     @Column(name = "chart_repository_url")
     private String chartRepositoryUrl; // Helm 차트가 저장된 저장소의 URL
 
