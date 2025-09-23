@@ -19,6 +19,7 @@ public class HelmChartRegistrationRequest {
     private String packageId;       // ArtifactHub 패키지 ID
     private String name;            // Helm Chart 이름
     private String version;         // Helm Chart 버전
+    private String appVersion;      // 애플리케이션 버전
     private String description;     // 설명
     private String category;        // 카테고리
     private String imageRepository; // 이미지 저장소
@@ -29,6 +30,7 @@ public class HelmChartRegistrationRequest {
     private String maintainers;     // 유지보수자 정보 (JSON 문자열 등)
     private String keywords;        // 키워드
     private String digest;          // 이미지 다이제스트
+    private String tag;             // 이미지 태그
 
     private Repository repository;  // 저장소 객체
     private SecurityReportSummary securityReportSummary; // 보안 리포트 요약
