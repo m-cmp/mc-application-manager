@@ -7,5 +7,5 @@ public enum SelectBoxType {
 	UNINSTALL,
 	RESTART,
 	STOP,
-	category;
+	RATING;
 }
