@@ -4,12 +4,14 @@ import org.springframework.stereotype.Service;
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.softwarecatalog.application.exception.ApplicationException;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class DockerSetupService {
+
+    private static final Logger log = LoggerFactory.getLogger(DockerSetupService.class);
 
     private final CbtumblebugRestApi cbtumblebugRestApi;
 
@@ -18,8 +20,12 @@ public class DockerSetupService {
         String checkDockerCommand = "docker --version && ps aux | grep dockerd | grep -q -- '-H tcp://0.0.0.0:2375' && echo 'Remote API enabled' || echo 'Remote API not enabled'";
         try {
             String result = cbtumblebugRestApi.executeMciCommand(namespace, mciId, checkDockerCommand, null, vmId);
-            log.info("Docker check result: {}", result);
-            if (!result.contains("Docker version") || !result.contains("Remote API enabled")) {
+            log.info("Docker check result: '{}'", result);
+            
+            if (result == null || result.trim().isEmpty()) {
+                log.warn("Docker check command returned empty result. Assuming Docker needs to be installed...");
+                installAndConfigureDockerOnVM(namespace, mciId, vmId);
+            } else if (!result.contains("Docker version") || !result.contains("Remote API enabled")) {
                 log.warn("Docker is not installed or remote API is not enabled. Installing/configuring Docker...");
                 installAndConfigureDockerOnVM(namespace, mciId, vmId);
             } else {
@@ -106,8 +112,21 @@ public class DockerSetupService {
         String verifyCommand = "ps aux | grep dockerd | grep -q -- '-H tcp://0.0.0.0:2375' && echo 'Remote API enabled' || echo 'Remote API not enabled'";
         String result = cbtumblebugRestApi.executeMciCommand(namespace, mciId, verifyCommand, null, vmId);
         
-        if (!result.contains("Remote API enabled")) {
-            throw new ApplicationException("Failed to configure Docker for remote access");
+        log.info("Docker verification result: '{}'", result);
+        
+        if (result == null || result.trim().isEmpty()) {
+            log.warn("Docker verification command returned empty result. This might indicate the command didn't execute properly.");
+            // 빈 결과인 경우에도 Docker가 실행 중인지 확인해보자
+            String alternativeCommand = "systemctl is-active docker && echo 'Docker service is active' || echo 'Docker service is not active'";
+            String alternativeResult = cbtumblebugRestApi.executeMciCommand(namespace, mciId, alternativeCommand, null, vmId);
+            log.info("Alternative Docker check result: '{}'", alternativeResult);
+            
+            if (!alternativeResult.contains("Docker service is active")) {
+                throw new ApplicationException("Failed to verify Docker configuration - Docker service is not active");
+            }
+        } else if (!result.contains("Remote API enabled")) {
+            log.warn("Docker remote API is not enabled. Result: '{}'", result);
+            throw new ApplicationException("Failed to configure Docker for remote access. Result: " + result);
         }
         
         log.info("Docker configuration verified successfully");

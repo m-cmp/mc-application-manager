@@ -37,6 +37,18 @@ public interface ApplicationOrchestrationService {
     Map<String, Object> performOperation(ActionType operation, Long applicationStatusId, String reason, String username);
     
     /**
+     * 애플리케이션 운영을 수행합니다. (상세 사유 포함)
+     * 
+     * @param operation 수행할 작업
+     * @param applicationStatusId 애플리케이션 상태 ID
+     * @param reason 작업 사유
+     * @param detailReason 상세 사유
+     * @param username 사용자명
+     * @return 작업 결과
+     */
+    Map<String, Object> performOperation(ActionType operation, Long applicationStatusId, String reason, String detailReason, String username);
+    
+    /**
      * 애플리케이션 그룹 목록을 조회합니다.
      * 
      * @return 애플리케이션 상태 목록

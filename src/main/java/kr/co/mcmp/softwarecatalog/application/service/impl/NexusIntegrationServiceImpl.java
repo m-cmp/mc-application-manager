@@ -1233,6 +1233,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             String repositoryName = parseRepositoryByFormatFromResponse(responseStr, format);
             
             if (repositoryName != null && !repositoryName.isEmpty()) {
+                log.info("Found {} repository: {}", format, repositoryName);
                 return repositoryName;
             } else {
                 log.error("No {} repository found in Nexus. Available repositories: {}", format, responseStr);

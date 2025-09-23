@@ -167,8 +167,36 @@ public class CbtumblebugRestApi {
                     JsonNode resultsNode = rootNode.path("results");
                     if (resultsNode.isArray() && resultsNode.size() > 0) {
                         JsonNode firstResult = resultsNode.get(0);
-                        String stdout = firstResult.path("stdout").path("0").asText();
-                        String stderr = firstResult.path("stderr").path("0").asText();
+                        
+                        // stdout 파싱 개선
+                        JsonNode stdoutNode = firstResult.path("stdout");
+                        String stdout = "";
+                        if (stdoutNode.isObject() && stdoutNode.size() > 0) {
+                            // stdout이 객체인 경우, 첫 번째 키의 값을 가져옴
+                            stdout = stdoutNode.fieldNames().next();
+                            stdout = stdoutNode.path(stdout).asText();
+                        } else if (stdoutNode.isArray() && stdoutNode.size() > 0) {
+                            // stdout이 배열인 경우
+                            stdout = stdoutNode.get(0).asText();
+                        } else if (stdoutNode.isTextual()) {
+                            // stdout이 문자열인 경우
+                            stdout = stdoutNode.asText();
+                        }
+                        
+                        // stderr 파싱 개선
+                        JsonNode stderrNode = firstResult.path("stderr");
+                        String stderr = "";
+                        if (stderrNode.isObject() && stderrNode.size() > 0) {
+                            stderr = stderrNode.fieldNames().next();
+                            stderr = stderrNode.path(stderr).asText();
+                        } else if (stderrNode.isArray() && stderrNode.size() > 0) {
+                            stderr = stderrNode.get(0).asText();
+                        } else if (stderrNode.isTextual()) {
+                            stderr = stderrNode.asText();
+                        }
+                        
+                        log.debug("Parsed stdout: '{}', stderr: '{}'", stdout, stderr);
+                        
                         if (!stderr.isEmpty()) {
                             log.warn("Command execution produced stderr: {}", stderr);
                         }
