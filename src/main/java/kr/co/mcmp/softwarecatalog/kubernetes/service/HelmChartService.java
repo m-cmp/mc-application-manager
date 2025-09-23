@@ -122,80 +122,59 @@ public class HelmChartService {
             log.info("7. Helm 명령어 생성 중... Chart: {}, Version: {}", helmChart.getChartName(), helmChart.getChartVersion());
 
             try {
-                Helm.repo().add()
-                        .withName(repositoryName)
-                        .withUrl(URI.create(chartRepositoryUrl))
-                        .call();
+                // Helm CLI로 repository 추가
+                runHelmRepoAddCli(repositoryName, chartRepositoryUrl);
                 log.info("Helm Repository 추가 완료: {}", repositoryName);
             } catch (Exception e) {
                 log.warn("Helm Repository 추가 중 오류 발생 (이미 존재할 수 있음): {}", e.getMessage());
             }
 
-            // 7. 새 릴리스 설치
+            // 7. 새 릴리스 설치 - CLI 방식으로 변경
             log.info("8. 새 릴리스 설치 실행 중...");
             String chartRef = repositoryName + "/" + helmChart.getChartName();
-
-            InstallCommand installCommand = Helm.install(chartRef)
-                    .withKubeConfig(tempKubeconfigPath)
-                    .withName(releaseName)
-                    .withNamespace(namespace)
-                    .withVersion(helmChart.getChartVersion())
-                    .set("replicaCount", catalog.getMinReplicas());
             
             // 이미지 설정 - Chart별로 다르게 처리
             String imageRepository = buildImageRepository(catalog, helmChart);
+            
+            // Values 맵 구성
+            java.util.Map<String, String> values = new java.util.HashMap<>();
+            values.put("replicaCount", String.valueOf(catalog.getMinReplicas()));
+            values.put("service.port", String.valueOf(catalog.getDefaultPort()));
+            values.put("service.type", "ClusterIP");
+            values.put("resources.requests.cpu", catalog.getMinCpu().toString());
+            values.put("resources.requests.memory", (int)(catalog.getMinMemory() * 1024) + "Mi");
+            values.put("resources.limits.cpu", catalog.getRecommendedCpu().toString());
+            values.put("resources.limits.memory", (int)(catalog.getRecommendedMemory() * 1024) + "Mi");
+            values.put("persistence.enabled", "false");
+            values.put("securityContext.runAsNonRoot", "false");
+            values.put("containerSecurityContext.allowPrivilegeEscalation", "false");
+            values.put("global.security.allowInsecureImages", "true");
+            values.put("global.imageRegistry", "docker.io");
+
             if (helmChart.getChartName().equalsIgnoreCase("grafana")) {
-                // Grafana의 경우 기본 이미지 사용
-                installCommand
-                        .set("image.repository", "grafana/grafana")
-                        .set("image.tag", "latest")
-                        .set("image.pullPolicy", "IfNotPresent");
+                values.put("image.repository", "grafana/grafana");
+                values.put("image.tag", "latest");
+                values.put("image.pullPolicy", "IfNotPresent");
             } else {
-                // 다른 Chart의 경우 동적으로 설정
-                installCommand
-                        .set("image.repository", imageRepository)
-                        .set("image.tag", "latest")
-                        .set("image.pullPolicy", "IfNotPresent")
-                        .set("image.registry", "docker.io");
+                values.put("image.repository", imageRepository);
+                values.put("image.tag", "latest");
+                values.put("image.pullPolicy", "IfNotPresent");
+                values.put("image.registry", "docker.io");
             }
-            
-            // Bitnami 차트의 보안 검증 우회 설정
-            installCommand
-                    .set("global.security.allowInsecureImages", true)
-                    .set("global.imageRegistry", "docker.io");
-            
-            installCommand
-                    .set("service.port", catalog.getDefaultPort())
-                    .set("service.type", "ClusterIP")
-                    .set("resources.requests.cpu", catalog.getMinCpu().toString())
-                    .set("resources.requests.memory", (int)(catalog.getMinMemory() * 1024) + "Mi")
-                    .set("resources.limits.cpu", catalog.getRecommendedCpu().toString())
-                    .set("resources.limits.memory", (int)(catalog.getRecommendedMemory() * 1024) + "Mi")
-                    .set("persistence.enabled", false)
-                    .set("securityContext.runAsNonRoot", false)
-                    .set("containerSecurityContext.allowPrivilegeEscalation", false);
 
             // Ingress 설정 적용
             if (catalog.getIngressEnabled() != null && catalog.getIngressEnabled()) {
                 log.info("Ingress 설정 적용 중...");
+                values.put("ingress.enabled", "true");
+                values.put("ingress.host", catalog.getIngressHost() != null ? catalog.getIngressHost() : "localhost");
+                values.put("ingress.path", catalog.getIngressPath() != null ? catalog.getIngressPath() : "/");
+                values.put("ingress.className", catalog.getIngressClass() != null ? catalog.getIngressClass() : "nginx");
                 
-                // Ingress Controller 자동 설치 확인 및 설치
-                // ensureIngressController(namespace, tempKubeconfigPath); // TODO 수정필요.
-                
-                installCommand
-                        .set("ingress.enabled", true)
-                        .set("ingress.host", catalog.getIngressHost() != null ? catalog.getIngressHost() : "localhost")
-                        .set("ingress.path", catalog.getIngressPath() != null ? catalog.getIngressPath() : "/")
-                        .set("ingress.className", catalog.getIngressClass() != null ? catalog.getIngressClass() : "nginx");
-                
-                // TLS 설정
                 if (catalog.getIngressTlsEnabled() != null && catalog.getIngressTlsEnabled()) {
-                    installCommand
-                            .set("ingress.tls.enabled", true)
-                            .set("ingress.tls.secretName", catalog.getIngressTlsSecret() != null ? 
-                                catalog.getIngressTlsSecret() : releaseName + "-tls");
+                    values.put("ingress.tls.enabled", "true");
+                    values.put("ingress.tls.secretName", catalog.getIngressTlsSecret() != null ? 
+                        catalog.getIngressTlsSecret() : releaseName + "-tls");
                 }
-                // TLS가 비활성화된 경우는 아무 설정도 하지 않음 (기본값 사용)
                 
                 log.info("Ingress 설정 완료 - Host: {}, Path: {}, Class: {}", 
                         catalog.getIngressHost(), catalog.getIngressPath(), catalog.getIngressClass());
@@ -210,67 +189,66 @@ public class HelmChartService {
                 // HPA 설정 적용
                 if (catalog.getHpaEnabled()) {
                     log.info("HPA 활성화 설정 적용 중...");
-                installCommand
-                        .set("autoscaling.enabled", true)
-                        .set("autoscaling.minReplicas", catalog.getMinReplicas())
-                        .set("autoscaling.maxReplicas", catalog.getMaxReplicas())
-                                .set("autoscaling.targetCPUUtilizationPercentage", catalog.getCpuThreshold())
-                                .set("autoscaling.targetMemoryUtilizationPercentage", catalog.getMemoryThreshold());
+                    values.put("autoscaling.enabled", "true");
+                    values.put("autoscaling.minReplicas", String.valueOf(catalog.getMinReplicas()));
+                    values.put("autoscaling.maxReplicas", String.valueOf(catalog.getMaxReplicas()));
+                    values.put("autoscaling.targetCPUUtilizationPercentage", String.valueOf(catalog.getCpuThreshold().intValue()));
+                    values.put("autoscaling.targetMemoryUtilizationPercentage", String.valueOf(catalog.getMemoryThreshold().intValue()));
                 }
 
                 // CSP별 설정 적용
                 switch (providerName.toUpperCase()) {
                     case "AWS":
                         log.info("AWS 특화 설정 적용 중...");
-                        installCommand
-                                .set("service.type", "LoadBalancer")
-                                .set("persistence.enabled", true)
-                                .set("persistence.storageClass", "gp2")
-                                .set("persistence.size", "20Gi")
-                                .set("persistence.accessMode", "ReadWriteOnce");
+                        values.put("service.type", "LoadBalancer");
+                        values.put("persistence.enabled", "true");
+                        values.put("persistence.storageClass", "gp2");
+                        values.put("persistence.size", "20Gi");
+                        values.put("persistence.accessMode", "ReadWriteOnce");
                         break;
                     case "AZURE":
                         log.info("Azure 특화 설정 적용 중...");
-                        installCommand
-                                .set("service.type", "LoadBalancer")
-                                .set("persistence.enabled", true)
-                                .set("persistence.storageClass", "managed-csi")
-                                .set("persistence.size", "20Gi")
-                                .set("persistence.accessMode", "ReadWriteOnce");
+                        values.put("service.type", "LoadBalancer");
+                        values.put("persistence.enabled", "true");
+                        values.put("persistence.storageClass", "managed-csi");
+                        values.put("persistence.size", "20Gi");
+                        values.put("persistence.accessMode", "ReadWriteOnce");
                         break;
                     case "GCP":
                         log.info("GCP 특화 설정 적용 중...");
-                        installCommand
-                                .set("service.type", "LoadBalancer")
-                                .set("persistence.enabled", true)
-                                .set("persistence.storageClass", "standard-rwo")
-                                .set("persistence.size", "20Gi")
-                                .set("persistence.accessMode", "ReadWriteOnce");
+                        values.put("service.type", "LoadBalancer");
+                        values.put("persistence.enabled", "true");
+                        values.put("persistence.storageClass", "standard-rwo");
+                        values.put("persistence.size", "20Gi");
+                        values.put("persistence.accessMode", "ReadWriteOnce");
                         break;
                     default:
                         log.info("기본 설정 적용 중...");
-                        installCommand
-                                .set("service.type", "ClusterIP")
-                                .set("persistence.enabled", false);
+                        values.put("service.type", "ClusterIP");
+                        values.put("persistence.enabled", "false");
                         break;
                 }
 
                 // 공통 보안 설정 적용
                 log.info("공통 보안 설정 적용 중...");
-                installCommand
-                        .set("podSecurityPolicy.enabled", false)
-                        .set("rbac.create", false)
-                        .set("serviceAccount.create", false)
-                        .set("serviceAccount.name", "default");
+                values.put("podSecurityPolicy.enabled", "false");
+                values.put("rbac.create", "false");
+                values.put("serviceAccount.create", "false");
+                values.put("serviceAccount.name", "default");
 
             } catch (Exception e) {
                 log.warn("CSP별 설정 적용 중 오류 발생: {}", e.getMessage());
             }
 
-            Release result = installCommand.call();
+            // Helm CLI로 설치 실행
+            runHelmInstallCli(releaseName, chartRef, namespace, helmChart.getChartVersion(), tempKubeconfigPath, values);
+            
+            // 간단한 Release 스텁 반환 - null 반환으로 변경
+            Release result = null;
+            
             log.info("Helm Chart '{}' 설치 완료 (HPA: {})", releaseName, catalog.getHpaEnabled());
             log.info("=== Helm Chart 배포 성공 ===");
-            log.info("릴리스명: {}, 상태: {}, 네임스페이스: {}", releaseName, result.getStatus(), namespace);
+            log.info("릴리스명: {}, 상태: {}, 네임스페이스: {}", releaseName, "deployed", namespace);
 
             return result;
 
@@ -332,61 +310,48 @@ public class HelmChartService {
             DeploymentConfigDTO config = DeploymentConfigDTO.from(request, catalog);
             log.info("배포 설정 생성 완료 - {}", config);
 
-            // 7. Helm Chart 설치 명령어 구성
+            // 7. Helm Chart 설치 - CLI 방식으로 변경
             String chartRef = helmChart.getRepositoryName() + "/" + helmChart.getChartName();
-
-            InstallCommand installCommand = Helm.install(chartRef)
-                    .withKubeConfig(tempKubeconfigPath)
-                    .withName(releaseName)
-                    .withNamespace(namespace)
-                    .withVersion(helmChart.getChartVersion())
-                    .set("replicaCount", config.getMinReplicas());
             
             // 이미지 설정 - Chart별로 다르게 처리
             String imageRepository = buildImageRepository(catalog, helmChart);
-            if (helmChart.getChartName().equalsIgnoreCase("grafana")) {
-                // Grafana의 경우 기본 이미지 사용
-                installCommand
-                        .set("image.repository", "grafana/grafana")
-                        .set("image.tag", "latest")
-                        .set("image.pullPolicy", "IfNotPresent");
-            } else {
-                // 다른 Chart의 경우 동적으로 설정
-                installCommand
-                        .set("image.repository", imageRepository)
-                        .set("image.tag", "latest")
-                        .set("image.pullPolicy", "IfNotPresent")
-                        .set("image.registry", "docker.io");
-            }
             
-            // Bitnami 차트의 보안 검증 우회 설정
-            installCommand
-                    .set("global.security.allowInsecureImages", true)
-                    .set("global.imageRegistry", "docker.io");
-            
-            installCommand
-                    .set("service.port", catalog.getDefaultPort())
-                    .set("service.type", "ClusterIP")
-                    .set("resources.requests.cpu", catalog.getMinCpu().toString())
-                    .set("resources.requests.memory", (int)(catalog.getMinMemory() * 1024) + "Mi")
-                    .set("resources.limits.cpu", catalog.getRecommendedCpu().toString())
-                    .set("resources.limits.memory", (int)(catalog.getRecommendedMemory() * 1024) + "Mi")
-                    .set("persistence.enabled", false)
-                    .set("securityContext.runAsNonRoot", false)
-                    .set("containerSecurityContext.allowPrivilegeEscalation", false);
+            // Values 맵 구성
+            java.util.Map<String, String> values = new java.util.HashMap<>();
+            values.put("replicaCount", String.valueOf(config.getMinReplicas()));
+            values.put("service.port", String.valueOf(catalog.getDefaultPort()));
+            values.put("service.type", "ClusterIP");
+            values.put("resources.requests.cpu", catalog.getMinCpu().toString());
+            values.put("resources.requests.memory", (int)(catalog.getMinMemory() * 1024) + "Mi");
+            values.put("resources.limits.cpu", catalog.getRecommendedCpu().toString());
+            values.put("resources.limits.memory", (int)(catalog.getRecommendedMemory() * 1024) + "Mi");
+            values.put("persistence.enabled", "false");
+            values.put("securityContext.runAsNonRoot", "false");
+            values.put("containerSecurityContext.allowPrivilegeEscalation", "false");
+            values.put("global.security.allowInsecureImages", "true");
+            values.put("global.imageRegistry", "docker.io");
 
+            if (helmChart.getChartName().equalsIgnoreCase("grafana")) {
+                values.put("image.repository", "grafana/grafana");
+                values.put("image.tag", "latest");
+                values.put("image.pullPolicy", "IfNotPresent");
+            } else {
+                values.put("image.repository", imageRepository);
+                values.put("image.tag", "latest");
+                values.put("image.pullPolicy", "IfNotPresent");
+                values.put("image.registry", "docker.io");
+            }
             // HPA 설정 적용
             if (config.isHpaEnabled()) {
                 log.info("HPA 설정 적용 중...");
-                installCommand
-                        .set("autoscaling.enabled", true)
-                        .set("autoscaling.minReplicas", config.getMinReplicas())
-                        .set("autoscaling.maxReplicas", config.getMaxReplicas())
-                        .set("autoscaling.targetCPUUtilizationPercentage", config.getCpuThreshold())
-                        .set("autoscaling.targetMemoryUtilizationPercentage", config.getMemoryThreshold());
+                values.put("autoscaling.enabled", "true");
+                values.put("autoscaling.minReplicas", String.valueOf(config.getMinReplicas()));
+                values.put("autoscaling.maxReplicas", String.valueOf(config.getMaxReplicas()));
+                values.put("autoscaling.targetCPUUtilizationPercentage", String.valueOf(config.getCpuThreshold().intValue()));
+                values.put("autoscaling.targetMemoryUtilizationPercentage", String.valueOf(config.getMemoryThreshold().intValue()));
                 log.info("HPA 설정 완료 - {}", config.getHpaConfigSummary());
             } else {
-                installCommand.set("autoscaling.enabled", false);
+                values.put("autoscaling.enabled", "false");
                 log.info("HPA 비활성화됨");
             }
 
@@ -397,48 +362,41 @@ public class HelmChartService {
                 // Ingress Controller 자동 설치 확인 및 설치
                 ensureIngressController(namespace, tempKubeconfigPath);
                 
-                installCommand
-                        .set("ingress.enabled", true)
-                        .set("ingress.host", config.getIngressHost())
-                        .set("ingress.path", config.getIngressPath())
-                        .set("ingress.className", config.getIngressClass());
+                values.put("ingress.enabled", "true");
+                values.put("ingress.host", config.getIngressHost());
+                values.put("ingress.path", config.getIngressPath());
+                values.put("ingress.className", config.getIngressClass());
                 
                 // TLS 설정
                 if (config.isTlsEnabled()) {
-                    installCommand
-                            .set("ingress.tls.enabled", true)
-                            .set("ingress.tls.secretName", config.getIngressTlsSecret() != null ? 
-                                config.getIngressTlsSecret() : releaseName + "-tls");
+                    values.put("ingress.tls.enabled", "true");
+                    values.put("ingress.tls.secretName", config.getIngressTlsSecret() != null ? 
+                        config.getIngressTlsSecret() : releaseName + "-tls");
                 }
-                // TLS가 비활성화된 경우는 아무 설정도 하지 않음 (기본값 사용)
                 
                 log.info("Ingress 설정 완료 - {}", config.getIngressConfigSummary());
             } else {
-                installCommand.set("ingress.enabled", false);
+                values.put("ingress.enabled", "false");
                 log.info("Ingress 비활성화됨");
             }
 
-            // CSP별 및 설정에 따른 동적 설정 적용
-            log.info("CSP별 및 설정에 따른 동적 설정 적용 중...");
-            try {
+            // 공통 보안 설정 적용
+            log.info("공통 보안 설정 적용 중...");
+            values.put("podSecurityPolicy.enabled", "false");
+            values.put("rbac.create", "false");
+            values.put("serviceAccount.create", "false");
+            values.put("serviceAccount.name", "default");
 
-                // 공통 보안 설정 적용
-                log.info("공통 보안 설정 적용 중...");
-                installCommand
-                        .set("podSecurityPolicy.enabled", false)
-                        .set("rbac.create", false)
-                        .set("serviceAccount.create", false)
-                        .set("serviceAccount.name", "default");
+            // Helm CLI로 설치 실행
+            runHelmInstallCli(releaseName, chartRef, namespace, helmChart.getChartVersion(), tempKubeconfigPath, values);
+            
+            // 간단한 Release 스텁 반환 - null 반환으로 변경
+            Release result = null;
 
-            } catch (Exception e) {
-                log.warn("CSP별 설정 적용 중 오류 발생: {}", e.getMessage());
-            }
-
-            Release result = installCommand.call();
             log.info("Helm Chart '{}' 설치 완료 (HPA: {}, Ingress: {})", 
                     releaseName, config.isHpaEnabled(), config.isIngressEnabled());
             log.info("=== Helm Chart 배포 성공 ===");
-            log.info("릴리스명: {}, 상태: {}, 네임스페이스: {}", releaseName, result.getStatus(), namespace);
+            log.info("릴리스명: {}, 상태: {}, 네임스페이스: {}", releaseName, "deployed", namespace);
 
             return result;
 
@@ -693,23 +651,25 @@ public class HelmChartService {
             // NGINX Ingress Controller Helm Chart 설치
             String releaseName = "nginx-ingress-" + namespace;
             
-            InstallCommand installCommand = Helm.install("ingress-nginx/ingress-nginx")
-                    .withKubeConfig(tempKubeconfigPath)
-                    .withName(releaseName)
-                    .withNamespace(namespace)
-                    .set("controller.service.type", "LoadBalancer")
-                    .set("controller.service.ports.http", "80")
-                    .set("controller.service.ports.https", "443")
-                    .set("controller.ingressClassResource.name", "nginx")
-                    .set("controller.ingressClassResource.controllerValue", "k8s.io/ingress-nginx")
-                    .set("controller.ingressClass", "nginx")
-                    .set("controller.ingressClassByName", true)
-                    .set("controller.watchIngressWithoutClass", true)
-                    .set("controller.ingressClassResource.enabled", true)
-                    .set("controller.ingressClassResource.default", true);
+            // Values 맵 구성
+            java.util.Map<String, String> values = new java.util.HashMap<>();
+            values.put("controller.service.type", "LoadBalancer");
+            values.put("controller.service.ports.http", "80");
+            values.put("controller.service.ports.https", "443");
+            values.put("controller.ingressClassResource.name", "nginx");
+            values.put("controller.ingressClassResource.controllerValue", "k8s.io/ingress-nginx");
+            values.put("controller.ingressClass", "nginx");
+            values.put("controller.ingressClassByName", "true");
+            values.put("controller.watchIngressWithoutClass", "true");
+            values.put("controller.ingressClassResource.enabled", "true");
+            values.put("controller.ingressClassResource.default", "true");
             
-            Release result = installCommand.call();
-            log.info("NGINX Ingress Controller 설치 완료: " + releaseName + " (상태: " + result.getStatus() + ")");
+            // Helm CLI로 설치 실행
+            runHelmInstallCli(releaseName, "ingress-nginx/ingress-nginx", namespace, "latest", tempKubeconfigPath, values);
+            
+            // 간단한 Release 스텁 반환 - null 반환으로 변경
+            Release result = null;
+            log.info("NGINX Ingress Controller 설치 완료: " + releaseName + " (상태: deployed)");
             
         } catch (Exception e) {
             System.err.println("NGINX Ingress Controller Helm 설치 실패: " + e.getMessage());
@@ -765,6 +725,62 @@ public class HelmChartService {
         }
     }
 
+    private void runHelmInstallCli(String releaseName,
+                                   String chartRef,
+                                   String namespace,
+                                   String version,
+                                   Path kubeconfig,
+                                   java.util.Map<String,String> values) throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add("helm"); cmd.add("install");
+        cmd.add(releaseName); cmd.add(chartRef);
+        cmd.add("--namespace"); cmd.add(namespace);
+        cmd.add("--version"); cmd.add(version);
+        cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
+        for (java.util.Map.Entry<String,String> e : values.entrySet()) {
+            cmd.add("--set");
+            cmd.add(e.getKey() + "=" + e.getValue());
+        }
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        Process p = pb.start();
+        int ec = p.waitFor();
+        String out = new String(p.getInputStream().readAllBytes());
+        String err = new String(p.getErrorStream().readAllBytes());
+        if (ec != 0) {
+            throw new RuntimeException("helm install failed (" + ec + "): " + err + "\n" + out);
+        }
+        log.info("helm install output: {}", out);
+    }
+
+    private void runHelmRepoAddCli(String repositoryName, String repositoryUrl) throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add("helm"); cmd.add("repo"); cmd.add("add");
+        cmd.add(repositoryName); cmd.add(repositoryUrl);
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        Process p = pb.start();
+        int ec = p.waitFor();
+        String out = new String(p.getInputStream().readAllBytes());
+        String err = new String(p.getErrorStream().readAllBytes());
+        if (ec != 0) {
+            throw new RuntimeException("helm repo add failed (" + ec + "): " + err + "\n" + out);
+        }
+        log.info("helm repo add output: {}", out);
+    }
+
+    private void runHelmRepoUpdateCli() throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add("helm"); cmd.add("repo"); cmd.add("update");
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        Process p = pb.start();
+        int ec = p.waitFor();
+        String out = new String(p.getInputStream().readAllBytes());
+        String err = new String(p.getErrorStream().readAllBytes());
+        if (ec != 0) {
+            throw new RuntimeException("helm repo update failed (" + ec + "): " + err + "\n" + out);
+        }
+        log.info("helm repo update output: {}", out);
+    }
+
     /**
      * Helm repository를 추가합니다.
      */
@@ -773,11 +789,12 @@ public class HelmChartService {
         String repositoryName = helmChart.getRepositoryName();
         
         log.info("Adding Helm repository: {} -> {}", repositoryName, chartRepositoryUrl);
-        Helm.repo().add()
-                .withName(repositoryName)
-                .withUrl(URI.create(chartRepositoryUrl))
-                .call();
-        Helm.repo().update();
-        log.info("Helm repository added and updated successfully");
+        try {
+            runHelmRepoAddCli(repositoryName, chartRepositoryUrl);
+            runHelmRepoUpdateCli();
+            log.info("Helm repository added and updated successfully");
+        } catch (Exception e) {
+            log.warn("Helm repository 추가/업데이트 중 오류 발생: {}", e.getMessage());
+        }
     }
 }
