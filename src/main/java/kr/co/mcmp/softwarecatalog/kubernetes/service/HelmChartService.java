@@ -122,10 +122,8 @@ public class HelmChartService {
             log.info("7. Helm 명령어 생성 중... Chart: {}, Version: {}", helmChart.getChartName(), helmChart.getChartVersion());
 
             try {
-                Helm.repo().add()
-                        .withName(repositoryName)
-                        .withUrl(URI.create(chartRepositoryUrl))
-                        .call();
+                // Helm CLI로 repository 추가
+                runHelmRepoAddCli(repositoryName, chartRepositoryUrl);
                 log.info("Helm Repository 추가 완료: {}", repositoryName);
             } catch (Exception e) {
                 log.warn("Helm Repository 추가 중 오류 발생 (이미 존재할 수 있음): {}", e.getMessage());
@@ -754,6 +752,35 @@ public class HelmChartService {
         log.info("helm install output: {}", out);
     }
 
+    private void runHelmRepoAddCli(String repositoryName, String repositoryUrl) throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add("helm"); cmd.add("repo"); cmd.add("add");
+        cmd.add(repositoryName); cmd.add(repositoryUrl);
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        Process p = pb.start();
+        int ec = p.waitFor();
+        String out = new String(p.getInputStream().readAllBytes());
+        String err = new String(p.getErrorStream().readAllBytes());
+        if (ec != 0) {
+            throw new RuntimeException("helm repo add failed (" + ec + "): " + err + "\n" + out);
+        }
+        log.info("helm repo add output: {}", out);
+    }
+
+    private void runHelmRepoUpdateCli() throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add("helm"); cmd.add("repo"); cmd.add("update");
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        Process p = pb.start();
+        int ec = p.waitFor();
+        String out = new String(p.getInputStream().readAllBytes());
+        String err = new String(p.getErrorStream().readAllBytes());
+        if (ec != 0) {
+            throw new RuntimeException("helm repo update failed (" + ec + "): " + err + "\n" + out);
+        }
+        log.info("helm repo update output: {}", out);
+    }
+
     /**
      * Helm repository를 추가합니다.
      */
@@ -762,11 +789,12 @@ public class HelmChartService {
         String repositoryName = helmChart.getRepositoryName();
         
         log.info("Adding Helm repository: {} -> {}", repositoryName, chartRepositoryUrl);
-        Helm.repo().add()
-                .withName(repositoryName)
-                .withUrl(URI.create(chartRepositoryUrl))
-                .call();
-        Helm.repo().update();
-        log.info("Helm repository added and updated successfully");
+        try {
+            runHelmRepoAddCli(repositoryName, chartRepositoryUrl);
+            runHelmRepoUpdateCli();
+            log.info("Helm repository added and updated successfully");
+        } catch (Exception e) {
+            log.warn("Helm repository 추가/업데이트 중 오류 발생: {}", e.getMessage());
+        }
     }
 }
