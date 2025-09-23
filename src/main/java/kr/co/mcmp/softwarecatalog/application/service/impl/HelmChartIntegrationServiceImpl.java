@@ -49,6 +49,8 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
 
     @Override
     public Map<String, Object> registerHelmChart(HelmChartRegistrationRequest request, String username) {
+
+        log.info("request to String ::" + request.toString());
         log.info("Registering Helm Chart: packageId={}, chartName={}",
                 request.getPackageId(), request.getName());
 
@@ -122,6 +124,8 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
 
     @Override
     public Map<String, Object> pushHelmChartToNexus(HelmChartRegistrationRequest request) {
+
+        log.info("request to string ::" + request.toString());
         log.info("Starting Helm Chart push to Nexus: {}:{}", request.getName(), request.getVersion());
 
         Map<String, Object> result = new HashMap<>();
