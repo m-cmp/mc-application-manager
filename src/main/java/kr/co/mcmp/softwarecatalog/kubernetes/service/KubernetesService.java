@@ -31,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 public class KubernetesService {
 
     private final KubernetesDeployService deploymentService;
+    private final KubernetesOperationService operationService;
     private final DeploymentHistoryRepository historyRepository;
     private final ApplicationStatusRepository statusRepository;
     private final CatalogRepository catalogRepository;
@@ -132,7 +133,7 @@ public class KubernetesService {
     public void stopApplication(String namespace, String clusterName, Long catalogId, String username) {
         try {
             SoftwareCatalog catalog = findCatalogById(catalogId);
-            deploymentService.stopApplication(namespace, clusterName, catalog, username);
+            operationService.stopApplication(namespace, clusterName, catalog, username);
             updateApplicationStatus(namespace, clusterName, catalog, ActionType.STOP.name() );
         } catch (Exception e) {
             log.error("애플리케이션 중지 중 오류 발생", e);
@@ -143,7 +144,7 @@ public class KubernetesService {
     public void restartApplication(String namespace, String clusterName, Long catalogId, String username) {
         try {
             SoftwareCatalog catalog = findCatalogById(catalogId);
-            deploymentService.restartApplication(namespace, clusterName, catalog, username);
+            operationService.restartApplication(namespace, clusterName, catalog, username);
             updateApplicationStatus(namespace, clusterName, catalog, ActionType.RESTART.name());
         } catch (Exception e) {
             log.error("애플리케이션 재시작 중 오류 발생", e);
@@ -154,7 +155,7 @@ public class KubernetesService {
     public void uninstallApplication(String namespace, String clusterName, Long catalogId, String username) {
         try {
             SoftwareCatalog catalog = findCatalogById(catalogId);
-            deploymentService.uninstallApplication(namespace, clusterName, catalog, username);
+            operationService.uninstallApplication(namespace, clusterName, catalog, username);
             updateApplicationStatus(namespace, clusterName, catalog, ActionType.UNINSTALL.name());
         } catch (Exception e) {
             log.error("애플리케이션 제거 중 오류 발생", e);
