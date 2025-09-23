@@ -55,11 +55,15 @@ public class DockerOperationService {
             // HostConfig 생성
             HostConfig hostConfig = HostConfig.newHostConfig().withPortBindings(portBindings);
 
+            // 이미지 타입에 따른 적절한 명령어 설정
+            String[] cmd = getCommandForImage(imageName);
+            
             // 컨테이너 생성
             CreateContainerResponse container = dockerClient.createContainerCmd(imageName)
             .withName(deployParams.get("name"))
             .withHostConfig(hostConfig)
             .withExposedPorts(exposedPort)
+            .withCmd(cmd)
             .exec();
 
             String containerId = container.getId();
@@ -71,6 +75,15 @@ public class DockerOperationService {
 
             boolean isRunning = waitForContainerToStart(dockerClient, containerId);
             log.info("Container running status: {}", isRunning);
+            
+            // 컨테이너 상태를 더 자세히 로깅
+            if (!isRunning) {
+                InspectContainerResponse containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
+                log.warn("Container failed to start. State: {}, ExitCode: {}, Error: {}", 
+                    containerInfo.getState().getStatus(), 
+                    containerInfo.getState().getExitCode(),
+                    containerInfo.getState().getError());
+            }
 
             return new ContainerDeployResult(containerId, "Container started", isRunning);
         } catch (Exception e) {
@@ -103,12 +116,53 @@ public class DockerOperationService {
     private boolean waitForContainerToStart(DockerClient dockerClient, String containerId) throws InterruptedException {
         for (int i = 0; i < 30; i++) {
             InspectContainerResponse containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
-            if (containerInfo.getState().getRunning()) {
+            String status = containerInfo.getState().getStatus();
+            Boolean running = containerInfo.getState().getRunning();
+            
+            log.debug("Container status check {}/30: status={}, running={}", i + 1, status, running);
+            
+            if (running != null && running) {
+                log.info("Container is now running successfully");
                 return true;
             }
+            
+            // 컨테이너가 종료된 경우
+            if ("exited".equals(status)) {
+                log.warn("Container exited with code: {}", containerInfo.getState().getExitCode());
+                return false;
+            }
+            
             Thread.sleep(1000);
         }
+        log.warn("Container failed to start within 30 seconds");
         return false;
+    }
+    
+    /**
+     * 이미지 타입에 따른 적절한 명령어를 반환합니다.
+     */
+    private String[] getCommandForImage(String imageName) {
+        String lowerImageName = imageName.toLowerCase();
+        
+        if (lowerImageName.contains("ruby")) {
+            // Ruby 컨테이너는 대화형 모드로 실행
+            return new String[]{"ruby", "-e", "loop { sleep 1 }"};
+        } else if (lowerImageName.contains("python")) {
+            // Python 컨테이너는 대화형 모드로 실행
+            return new String[]{"python", "-c", "import time; [time.sleep(1) for _ in iter(int, 1)]"};
+        } else if (lowerImageName.contains("node")) {
+            // Node.js 컨테이너는 대화형 모드로 실행
+            return new String[]{"node", "-e", "setInterval(() => {}, 1000)"};
+        } else if (lowerImageName.contains("nginx")) {
+            // Nginx는 기본 명령어 사용
+            return new String[]{"nginx", "-g", "daemon off;"};
+        } else if (lowerImageName.contains("apache")) {
+            // Apache는 기본 명령어 사용
+            return new String[]{"httpd", "-D", "FOREGROUND"};
+        } else {
+            // 기본적으로 컨테이너가 계속 실행되도록 함
+            return new String[]{"tail", "-f", "/dev/null"};
+        }
     }
 
     public String getDockerContainerStatus(String host, String containerId) {

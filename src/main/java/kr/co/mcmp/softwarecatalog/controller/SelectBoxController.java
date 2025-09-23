@@ -45,7 +45,7 @@ public class SelectBoxController {
 			case STOP:
 				options = mapEnumToOptions(StopReasonType.values());
 				break;
-			case category:
+			case RATING:
 				options = mapEnumToOptions(RatingCategoryType.values());
 				break;
 			default:
