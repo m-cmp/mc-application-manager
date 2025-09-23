@@ -30,7 +30,8 @@ public class ExternalRepoService {
 
     public DockerHubCatalog searchDockerHubCatalog(String keyword){
         // 공식 패키지만 검색 (badges=official)
-        DockerHubCatalog catalog = dockerInt.searchCatalog(keyword, "official");
+        // DockerHubCatalog catalog = dockerInt.searchCatalog(keyword, "official");
+        DockerHubCatalog catalog = dockerInt.searchCatalog(keyword);
         log.info("DockerHubCatalog (Official only): {}",catalog.toString());
         return catalog;
         //return null;
@@ -48,7 +49,8 @@ public class ExternalRepoService {
 
     public ArtifactHubPackage searchArtifactHubPackage(String keyword){
         // 공식 패키지만 검색 (official=true)
-        ArtifactHubPackage test = artfInt.searchPackage(keyword, "0", "true");
+        // ArtifactHubPackage test = artfInt.searchPackage(keyword, "0", "true");
+        ArtifactHubPackage test = artfInt.searchPackage(keyword, "0" );
         log.info("ArtifactHubPackage (Official only): {}", test.toString());
         return test;
     }

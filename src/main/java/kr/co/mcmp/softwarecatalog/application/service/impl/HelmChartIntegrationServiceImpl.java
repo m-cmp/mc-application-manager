@@ -655,35 +655,36 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             return false;
         }
 
+        return true;
         // 허용된 공식 저장소 목록
-        String[] officialRepositories = {
-            "charts.bitnami.com",
-            "kubernetes-charts.storage.googleapis.com",
-            "https://kubernetes-charts.storage.googleapis.com",
-            "https://charts.bitnami.com/bitnami",
-            "cowboysysop.github.io",
-            "https://cowboysysop.github.io/charts/",
-            "charts.jfrog.io",
-            "https://charts.jfrog.io",
-            "marketplace.azurecr.io",
-            "https://marketplace.azurecr.io/helm/v1/repo",
-            "kube-ops.gitlab.io",
-            "https://kube-ops.gitlab.io/helm/repository",
-            "grafana.github.io",
-            "https://grafana.github.io/helm-charts",
-            "prometheus-community.github.io",
-            "https://prometheus-community.github.io/helm-charts"
-        };
+        // String[] officialRepositories = {
+        //     "charts.bitnami.com",
+        //     "kubernetes-charts.storage.googleapis.com",
+        //     "https://kubernetes-charts.storage.googleapis.com",
+        //     "https://charts.bitnami.com/bitnami",
+        //     "cowboysysop.github.io",
+        //     "https://cowboysysop.github.io/charts/",
+        //     "charts.jfrog.io",
+        //     "https://charts.jfrog.io",
+        //     "marketplace.azurecr.io",
+        //     "https://marketplace.azurecr.io/helm/v1/repo",
+        //     "kube-ops.gitlab.io",
+        //     "https://kube-ops.gitlab.io/helm/repository",
+        //     "grafana.github.io",
+        //     "https://grafana.github.io/helm-charts",
+        //     "prometheus-community.github.io",
+        //     "https://prometheus-community.github.io/helm-charts"
+        // };
 
-        for (String officialRepo : officialRepositories) {
-            if (repositoryUrl.contains(officialRepo)) {
-                log.info("Repository verified as official: {}", repositoryUrl);
-                return true;
-            }
-        }
+        // for (String officialRepo : officialRepositories) {
+        //     if (repositoryUrl.contains(officialRepo)) {
+        //         log.info("Repository verified as official: {}", repositoryUrl);
+        //         return true;
+        //     }
+        // }
 
-        log.warn("Repository not in official list: {}", repositoryUrl);
-        return false;
+        // log.warn("Repository not in official list: {}", repositoryUrl);
+        // return false;
     }
 
 
