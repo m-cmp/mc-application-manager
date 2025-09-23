@@ -107,21 +107,11 @@ public class DockerOperationService {
 
     private void pullImage(DockerClient dockerClient, String imageName) throws InterruptedException {
         try {
-            // Nexus 설정에 따라 pull 소스 결정
-            if (nexusConfig.isHybridMode()) {
-                // 하이브리드 모드: Docker Hub에서 직접 pull
-                log.info("Pulling image from Docker Hub: {}", imageName);
-                dockerClient.pullImageCmd(imageName)
-                    .exec(new PullImageResultCallback())
-                    .awaitCompletion(5, TimeUnit.MINUTES);
-            } else {
-                // Nexus 모드: Nexus 레지스트리에서 pull
-                String nexusImageName = convertToNexusImageName(imageName);
-                log.info("Pulling image from Nexus: {} -> {}", imageName, nexusImageName);
-                dockerClient.pullImageCmd(nexusImageName)
-                    .exec(new PullImageResultCallback())
-                    .awaitCompletion(5, TimeUnit.MINUTES);
-            }
+            // 항상 Docker Hub에서 직접 pull
+            log.info("Pulling image from Docker Hub: {}", imageName);
+            dockerClient.pullImageCmd(imageName)
+                .exec(new PullImageResultCallback())
+                .awaitCompletion(5, TimeUnit.MINUTES);
         } catch (NotFoundException e) {
             log.error("Image not found: {}", imageName);
             throw e;
@@ -181,8 +171,16 @@ public class DockerOperationService {
     
     /**
      * Docker Hub 이미지명을 Nexus 이미지명으로 변환합니다.
+     * 현재는 Docker Hub에서 직접 pull하므로 사용하지 않음.
      */
+    @Deprecated
     private String convertToNexusImageName(String dockerHubImageName) {
+        // 이미 Nexus URL이 포함된 경우 그대로 반환
+        if (dockerHubImageName.contains(nexusConfig.getDockerRegistryUrl())) {
+            log.info("Image already contains Nexus URL, using as-is: {}", dockerHubImageName);
+            return dockerHubImageName;
+        }
+        
         // docker.io/ 제거
         String cleanImageName = dockerHubImageName.replaceFirst("^docker\\.io/", "");
         
