@@ -4,26 +4,23 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.co.mcmp.response.ResponseWrapper;
-import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
+import kr.co.mcmp.softwarecatalog.application.dto.ApplicationOperationRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.ApplicationStatusDto;
 import kr.co.mcmp.softwarecatalog.application.dto.IntegratedApplicationInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
-import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
-import kr.co.mcmp.softwarecatalog.application.model.OperationHistory;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOrchestrationService;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
@@ -123,25 +120,17 @@ public class ApplicationController {
         return ResponseEntity.ok(new ResponseWrapper<>(list));
     }
 
-    @Operation(summary = "Perform VM application operation", description = "Perform application operations on VM.")
-    @GetMapping("/vm/action")
-    public ResponseEntity<ResponseWrapper<Map<String, Object>>> performDockerOperation(
-            @Parameter(description = "Operation type to perform", required = true, example = "START") @RequestParam ActionType operation,
-            @Parameter(description = "Application status ID", required = true, example = "789") @RequestParam Long applicationStatusId, 
-            @Parameter(description = "Reason for the operation", required = true, example = "Scheduled maintenance") @RequestParam String reason, 
-            @Parameter(description = "Username performing the operation (optional)", example = "admin") @RequestParam(required = false) String username) throws Exception {
-        Map<String, Object> result = applicationOrchestrationService.performOperation(operation, applicationStatusId, reason, username);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-
-    @Operation(summary = "Perform K8s application operation", description = "Perform application operations on K8s.")
-    @GetMapping("/k8s/action")
-    public ResponseEntity<ResponseWrapper<Map<String, Object>>> performDockerOperationForK8s(
-            @Parameter(description = "Operation type to perform", required = true, example = "START") @RequestParam ActionType operation,
-            @Parameter(description = "Application status ID", required = true, example = "789") @RequestParam Long applicationStatusId, 
-            @Parameter(description = "Reason for the operation", required = true, example = "Scheduled maintenance") @RequestParam String reason, 
-            @Parameter(description = "Username performing the operation (optional)", example = "admin") @RequestParam(required = false) String username) throws Exception {
-        Map<String, Object> result = applicationOrchestrationService.performOperation(operation, applicationStatusId, reason, username);
+    @Operation(summary = "Perform application operation", description = "Perform application operations on VM or K8s.")
+    @PostMapping("/action")
+    public ResponseEntity<ResponseWrapper<Map<String, Object>>> performApplicationOperation(
+            @Parameter(description = "Application operation request", required = true) @RequestBody @Valid ApplicationOperationRequest request) throws Exception {
+        Map<String, Object> result = applicationOrchestrationService.performOperation(
+            request.getOperation(), 
+            request.getApplicationStatusId(), 
+            request.getReason(), 
+            request.getDetailReason(),
+            request.getUsername()
+        );
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     

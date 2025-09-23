@@ -85,6 +85,25 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
     }
     
     @Override
+    public Map<String, Object> performOperation(ActionType operation, Long applicationStatusId, String reason, String detailReason, String username) {
+        log.info("Performing operation: {} on applicationStatusId: {} with detail reason: {}", operation, applicationStatusId, detailReason);
+        
+        ApplicationStatus applicationStatus = applicationStatusRepository.findById(applicationStatusId)
+            .orElseThrow(() -> new EntityNotFoundException("ApplicationStatus not found with id: " + applicationStatusId));
+        
+        // 배포 타입에 따른 적절한 운영 서비스 선택
+        ApplicationOperationService operationService = getOperationService(applicationStatus.getDeploymentType());
+        
+        // 상세 사유가 있는 경우 reason에 추가
+        String fullReason = detailReason != null && !detailReason.trim().isEmpty() 
+            ? reason + " - " + detailReason 
+            : reason;
+        
+        // 운영 실행
+        return operationService.performOperation(operation, applicationStatusId, fullReason, username);
+    }
+    
+    @Override
     public List<ApplicationStatusDto> getApplicationGroups() {
         List<Object[]> vmGroups = applicationStatusRepository.findDistinctVmGroups();
         

@@ -36,13 +36,13 @@ public class SelectBoxController {
 		List<SelectBoxOptionDTO> options = new ArrayList<>();
 
 		switch (type) {
-			case reason:
+			case UNINSTALL:
 				options = mapEnumToOptions(ReasonType.values());
 				break;
-			case restart_reason:
+			case RESTART:
 				options = mapEnumToOptions(RestartReasonType.values());
 				break;
-			case stop_reason:
+			case STOP:
 				options = mapEnumToOptions(StopReasonType.values());
 				break;
 			case category:
