@@ -333,7 +333,7 @@ public class HelmChartService {
             log.info("배포 설정 생성 완료 - {}", config);
 
             // 7. Helm Chart 설치 명령어 구성
-            String chartRef = repositoryName + "/" + helmChart.getChartName();
+            String chartRef = helmChart.getRepositoryName() + "/" + helmChart.getChartName();
 
             InstallCommand installCommand = Helm.install(chartRef)
                     .withKubeConfig(tempKubeconfigPath)
