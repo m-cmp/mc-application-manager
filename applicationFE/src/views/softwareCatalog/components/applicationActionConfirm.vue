@@ -16,8 +16,8 @@
             <label class="form-label">Reason</label>
             <select class="form-select" v-model="reason">
               <option value="">Select Reason</option>
-              <option v-for="reason in reasonList" :value="reason.value" :key="reason.value">
-                {{ reason.value }}
+              <option v-for="reason in reasonList" :value="reason.label" :key="reason.label">
+                {{ reason.label }}
               </option>
             </select>
           </div>
@@ -81,6 +81,7 @@ const detailReason = ref('' as string)
 
 const setInit = () => {
   reason.value = ''
+  detailReason.value = ''
 }
 
 const reasonList = ref([] as any)
@@ -89,9 +90,7 @@ const _getReasonList = async (operation: string) => {
   reasonList.value = data
 }
 
-
 const onClickAction = async () => {
-  setInit()
 
   let result
   const params = {
@@ -100,7 +99,6 @@ const onClickAction = async () => {
     reason: reason.value,
     detailReason: detailReason.value
   }
-
   const { data } = await runAction(params)
   result = data
 
@@ -116,6 +114,7 @@ const onClickAction = async () => {
 }
 
 defineExpose({
+  setInit,
   _getReasonList
 })
 

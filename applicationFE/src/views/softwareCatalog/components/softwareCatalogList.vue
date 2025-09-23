@@ -215,10 +215,10 @@
                 <div class="col">
                   <div class="card-body">
                     <a :href="'https://hub.docker.com/search?q=' + searchKeyword" target="_blank">
-                      {{result.name}}
+                      {{result?.name}}
                     </a>
                     <div class="text-muted">
-                      {{ result.short_description.length > 30 ? result.short_description.substring(0, 30) + "..." : ""}}
+                      {{ result?.short_description.length > 30 ? result?.short_description.substring(0, 30) + "..." : ""}}
                     </div>
                   </div>
                 </div>
@@ -258,10 +258,10 @@
                   <div class="col">
                     <div class="card-body">
                       <a :href="'https://artifacthub.io/packages/search?ts_query_web=' + searchKeyword + '&sort=relevance&page=1'" target="_blank">
-                        {{result.name}}
+                        {{result?.name}}
                       </a>
                       <div class="text-muted">
-                        {{result.description.length > 30 ? result.description.substring(0, 30) + "..." : ""}}
+                        {{result?.description.length > 30 ? result?.description.substring(0, 30) + "..." : ""}}
                       </div>
                     </div>
                   </div>
@@ -386,6 +386,8 @@ onMounted(async () => {
 })
 
 const onClickRegist = () => {
+  _getSoftwareCatalogList()
+
   wizardMode.value = 'new'
   selectCatalogId.value = null
   selectCatalogInfo.value = {}
@@ -455,8 +457,10 @@ const setDockerHubSearchList = async () => {
   try {
     const { data } = await searchDockerhub(searchKeyword.value)
     
-    for(let i=0; i<3; i++) {
-      dockerHubSearchList.value.push(data.results[i])
+    if(data.results.length > 0) {
+      for(let i=0; i<3; i++) {
+        dockerHubSearchList.value.push(data.results[i])
+      }
     }
   } catch(error) {
     console.log(error)
@@ -472,8 +476,10 @@ const setArtifactHubSearchList = async () => {
   artifactHubSearchList.value = [];
   try {
     const { data } = await searchArtifacthubhub(searchKeyword.value)
-    for(let i=0; i<3; i++) {
-      artifactHubSearchList.value.push(data.packages[i])
+    if(data.packages.length > 0) {
+      for(let i=0; i<3; i++) {
+        artifactHubSearchList.value.push(data.packages[i])
+      }
     }
   } catch(error) {
     console.log(error)

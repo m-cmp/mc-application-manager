@@ -148,5 +148,5 @@ export function getApplicationDetail(deploymentId: number) {
 }
 
 export function getReasonList(operation: string) {
-  return request.get(`/catalog/selectbox/option?type=${operation}`)
+  return request.get(`/catalog/selectbox/options?type=${operation}`)
 }

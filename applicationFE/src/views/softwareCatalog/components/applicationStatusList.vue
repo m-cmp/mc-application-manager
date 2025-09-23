@@ -216,6 +216,7 @@ const _applicationAction = async (params: {
   applicationName.value = params.applicationName
 
   if (applicationActionConfirmModalRef.value) {
+    applicationActionConfirmModalRef.value.setInit()
     applicationActionConfirmModalRef.value._getReasonList(params.operation)
   }
 }
