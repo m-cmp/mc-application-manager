@@ -281,7 +281,7 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         try {
             // 이미지 이름과 태그 추출
             String imageName = request.getImageRepository();
-            String tag = "latest"; // 기본 태그
+            String tag = request.getTag();
             
             // 이미지 이름에서 태그가 포함되어 있는지 확인
             if (imageName.contains(":")) {
@@ -599,8 +599,7 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             log.info("Downloading Helm Chart from URL: {}", chartUrl);
 
             // HTTP 요청으로 Helm Chart 다운로드 (.tgz 확장자 사용)
-            ProcessBuilder curlProcess = new ProcessBuilder("curl", "-L", "-o",
-                    request.getName() + "-" + request.getVersion() + ".tgz", chartUrl);
+            ProcessBuilder curlProcess = new ProcessBuilder("curl", "-L", "-o",request.getName() + "-" + request.getTag() + ".tgz", chartUrl);
             Process curlResult = curlProcess.start();
             int curlExitCode = curlResult.waitFor();
 
@@ -637,10 +636,10 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
 
         // Bitnami repository의 경우 /charts/ 경로가 없음
         if (baseUrl.contains("charts.bitnami.com")) {
-            return String.format("%s/%s-%s.tgz", baseUrl, request.getName(), request.getVersion());
+            return String.format("%s/%s-%s.tgz", baseUrl, request.getName(), request.getTag());
         } else {
             // 일반적인 Helm Chart URL 패턴: {repository}/charts/{chartName}-{version}.tgz
-            return String.format("%s/charts/%s-%s.tgz", baseUrl, request.getName(), request.getVersion());
+            return String.format("%s/charts/%s-%s.tgz", baseUrl, request.getName(), request.getTag());
         }
     }
 
@@ -689,7 +688,7 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
      * Helm Chart를 Nexus에 업로드합니다.
      */
     private boolean uploadHelmChartToNexus(HelmChartRegistrationRequest request) {
-        log.info("Uploading Helm Chart to Nexus: {}:{}", request.getName(), request.getVersion());
+        log.info("Uploading Helm Chart to Nexus: {}:{}", request.getName(), request.getTag());
 
         try {
             // Nexus 정보 가져오기
@@ -700,7 +699,7 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             }
 
             // 다운로드된 Helm Chart 파일명 (.tgz 확장자 사용)
-            String chartFileName = request.getName() + "-" + request.getVersion() + ".tgz";
+            String chartFileName = request.getName() + "-" + request.getTag() + ".tgz";
 
             // Helm Chart 파일이 존재하는지 확인
             java.io.File chartFile = new java.io.File(chartFileName);
