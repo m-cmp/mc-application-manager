@@ -419,7 +419,7 @@ import { onMounted, watch, computed } from 'vue';
 // @ts-ignore
 import _, { slice } from 'lodash';
 import { getNsInfo, getMciInfo, getVmInfo, getClusterInfo } from '@/api/tumblebug'
-import { getSoftwareCatalogList, k8sSpecCheck, runK8SInstall, runK8SAction, runVmInstall, runVmAction, vmSpecCheck } from '@/api/softwareCatalog'
+import { getSoftwareCatalogList, k8sSpecCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
 import { type SoftwareCatalog } from '@/views/type/type'
 
 interface Props {
@@ -620,7 +620,7 @@ const runInstall = async () => {
       }
       res = await runVmInstall(params)
     } else {
-      res = await runVmAction(params)
+      res = await runAction(params)
     }
 
     if(res.data) {
@@ -656,7 +656,7 @@ const runInstall = async () => {
     if(modalTitle.value == 'Application Installation') {
       res = await runK8SInstall(params)
     } else {
-      res = await runK8SAction(params)
+      res = await runAction(params)
     }
 
     if(res.data) {

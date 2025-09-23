@@ -20,6 +20,7 @@
       </Tabulator>
   </div>
   <ApplicationActionConfirm 
+    ref="applicationActionConfirmModalRef"
     :title="actionModalTitle" 
     :applicationStatusId="applicationStatusId" 
     :type="deploymentType"
@@ -67,6 +68,7 @@ const catalogId = ref(0 as number)
 const showRatingModal = ref(false)
 const selectedDeploymentId = ref(0 as number)
 const applicationDetailModalRef = ref()
+const applicationActionConfirmModalRef = ref()
 /**
  * @Title Life Cycle
  * @Desc 컬럼 set Callback 함수 호출 / ApplicationStatusList Callback 함수 호출
@@ -212,6 +214,10 @@ const _applicationAction = async (params: {
   applicationStatusId.value = params.applicationStatusId
   deploymentType.value = params.deploymentType
   applicationName.value = params.applicationName
+
+  if (applicationActionConfirmModalRef.value) {
+    applicationActionConfirmModalRef.value._getReasonList(params.operation)
+  }
 }
 
 const openDetailModal = (cell: any) => {

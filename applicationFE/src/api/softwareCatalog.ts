@@ -36,12 +36,8 @@ export const runVmInstall = (params: {
 }
 
 // Application Action (VM -> INSTALL, UNINSTALL, RUN, RESTART, STOP)
-export const runVmAction = (params: {
-  operation: string,
-  applicationStatusId: number,
-  reason: string
-}) => {
-  return request.get(`/applications/vm/action?operation=${params.operation}&applicationStatusId=${params.applicationStatusId}&reason=${params.reason}`)
+export const runAction = (params: any) => {
+  return request.post(`/applications/action`, params)
 }
 
 // Application 설치 (K8S)
@@ -51,11 +47,6 @@ export const runK8SInstall = (params: {
   catalogId: number
 }) => {
   return request.post(`/applications/k8s/deploy`, params)
-}
-
-// Application Action (K8S -> INSTALL, UNINSTALL, RUN, RESTART, STOP)
-export const runK8SAction = (params: any) => {
-  return request.get(`/applications/k8s/action?operation=${params.operation}&applicationStatusId=${params.applicationStatusId}&reason=${params.reason}`)
 }
 
 export const vmSpecCheck = (params: {
@@ -154,4 +145,8 @@ export function submitApplicationRating(params: {
 // 애플리케이션 상세 정보 조회
 export function getApplicationDetail(deploymentId: number) {
   return request.get(`/api/applications/integrated/deployment/${deploymentId}`)
+}
+
+export function getReasonList(operation: string) {
+  return request.get(`/catalog/selectbox/option?type=${operation}`)
 }

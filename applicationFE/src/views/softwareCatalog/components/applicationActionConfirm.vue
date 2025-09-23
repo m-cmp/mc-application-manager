@@ -9,16 +9,26 @@
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @click="setInit"></button>
         </div>
+        
         <div class="modal-body" style="max-height: calc(100vh - 200px);overflow-y: auto;">
 
-            <div class="mb-3">
-              <label class="form-label">Reason</label>
-              <p class="text-muted">
-                Please enter a reason
-              </p>
-              <textarea class="form-control" rows="10" placeholder="Reason"  v-model="reason" />
-            </div>
+          <div class="mb-3">
+            <label class="form-label">Reason</label>
+            <select class="form-select" v-model="reason">
+              <option value="">Select Reason</option>
+              <option v-for="reason in reasonList" :value="reason.value" :key="reason.value">
+                {{ reason.value }}
+              </option>
+            </select>
+          </div>
 
+          <div class="mb-3">
+            <label class="form-label">Detail Reason</label>
+            <p class="text-muted">
+              Please enter a detail reason
+            </p>
+            <textarea class="form-control" rows="10" placeholder="Detail Reason"  v-model="detailReason" />
+          </div>
         </div>
 
         <!-- Footer -->
@@ -49,7 +59,7 @@
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
 import { computed } from 'vue';
-import { runK8SAction, runVmAction } from '@/api/softwareCatalog';
+import { runAction, getReasonList } from '@/api/softwareCatalog';
 
 const toast = useToast()
 
@@ -67,10 +77,18 @@ const modalTitle = computed(() => props.title);
 const applicationStatusId = computed(() => props.applicationStatusId)
 const type = computed(()=> props.type)
 const reason = ref('' as string)
+const detailReason = ref('' as string)
 
 const setInit = () => {
   reason.value = ''
 }
+
+const reasonList = ref([] as any)
+const _getReasonList = async (operation: string) => {
+  const { data } = await getReasonList(operation)
+  reasonList.value = data
+}
+
 
 const onClickAction = async () => {
   setInit()
@@ -79,16 +97,12 @@ const onClickAction = async () => {
   const params = {
     operation: modalTitle.value,
     applicationStatusId: applicationStatusId.value,
-    reason: reason.value
+    reason: reason.value,
+    detailReason: detailReason.value
   }
-  if (type.value === 'VM') {
-    const { data } = await runVmAction(params)
-    result = data
-  }
-  else if (type.value === 'K8S') {
-    const { data } = await runK8SAction(params)
-    result = data
-  }
+
+  const { data } = await runAction(params)
+  result = data
 
   
   emit('getApplicationsStatusList')
@@ -100,5 +114,9 @@ const onClickAction = async () => {
     toast.error(`${modalTitle.value} Action FAIL`)
   }
 }
+
+defineExpose({
+  _getReasonList
+})
 
 </script>
