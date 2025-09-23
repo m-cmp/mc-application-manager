@@ -140,7 +140,7 @@
                 <option 
                   v-for="(catalog, idx) in catalogList" 
                   :key="idx">
-                  {{ catalog.name }}
+                  [{{ catalog.name }}] {{ catalog.packageInfo?.packageVersion ? catalog.packageInfo?.packageVersion : "latest" }}
                 </option>
               </select>
             </div>
@@ -228,7 +228,7 @@
               <label class="form-label">Helm chart</label>
               <p class="text-muted">Select the application</p>
               <select class="form-select" v-model="inputApplications" @change="onChangeCatalog">
-                <option v-for="(catalog, idx) in catalogList" :key="idx">{{ catalog.name }}</option>
+                <option v-for="(catalog, idx) in catalogList" :key="idx">{{ catalog.name }} / {{ catalog.helmChart?.chartVersion ? catalog.helmChart?.chartVersion : "latest" }}</option>
               </select>
             </div>
 
