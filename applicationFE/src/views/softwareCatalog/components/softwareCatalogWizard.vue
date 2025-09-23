@@ -26,7 +26,6 @@
           <div v-show="currentStep === 1">
             <div class="mb-3">
               <label class="form-label required">Target</label>
-              {{ catalogDto.target }}
               <div class="d-flex align-items-center">
                 <div class="form-check me-3">
                   <input class="form-check-input" type="radio" name="target" value="VM" v-model="catalogDto.target" id="targetVM" :disabled="props.mode === 'update'"/>
