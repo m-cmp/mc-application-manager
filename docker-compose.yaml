@@ -7,56 +7,6 @@ networks:
     driver: bridge
 
 services:
-  # jenkins - for workflow manager
-  jenkins:
-    image: bitnami/jenkins:2.462.3
-    user: root
-    container_name: ape-jenkins
-    platform: linux/amd64
-    networks:
-      - internal_network
-      - external_network
-    ports:
-      - target: 8080
-        published: 9900
-        protocol: tcp
-    volumes:
-      - ~/:/var/jenkins_home # -v $HOME/mcmp/oss/jenkins:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /usr/bin/docker:/usr/bin/docker # -v $(which docker):/usr/bin/docker
-    environment:
-      JENKINS_USERNAME: admin
-      JENKINS_PASSWORD: 123456 # Please CHANGE ME
-      JENKINS_PLUGINS: >-
-        workflow-api,
-        swarm,
-        authorize-project,
-        antisamy-markup-formatter,
-        pipeline-github-lib,
-        pipeline-rest-api,
-        git,
-        github-branch-source,
-        gradle,
-        pipeline-model-definition,
-        pipeline-build-step,
-        workflow-aggregator,
-        matrix-project,
-        email-ext,
-        durable-task,
-        checks-api,
-        build-timeout,
-        timestamper,
-        ws-cleanup,
-        ssh-slaves,
-        ssh-agent,
-        publish-over-ssh
-    healthcheck: # for application-manager
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/login" ]
-      interval: 1m
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
   # sonatype nexus - for application manager
   sonatype-nexus:
     image: sonatype/nexus3:latest
@@ -77,7 +27,7 @@ services:
         protocol: tcp
     volumes:
       - ~/:/nexus-data/blobs/
-    environment: 
+    environment:
       NEXUS_SECURITY_RANDOMPASSWORD: 'false'
       NEXUS_SECURITY_INITIAL_PASSWORD: 123456 # Please CHANGE ME
     healthcheck: # for application-manager

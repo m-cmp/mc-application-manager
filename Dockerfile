@@ -1,4 +1,4 @@
-FROM devopsmindset/openjdk-docker:dind-java17 AS prod
+FROM ceregousa/dind:docker-1.13 AS prod
 
 # Install basic dependencies
 RUN apk add --no-cache iptables fuse-overlayfs curl wget
