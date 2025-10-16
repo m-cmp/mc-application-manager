@@ -5,13 +5,13 @@ RUN apk add --no-cache iptables fuse-overlayfs curl wget
 
 # Install glibc directly for better compatibility (remove gcompat first to avoid conflicts)
 RUN wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub
-RUN wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.35-r1/glibc-2.35-r1.apk
-RUN apk add --no-cache --allow-untrusted glibc-2.35-r1.apk
-RUN wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.35-r1/glibc-bin-2.35-r1.apk
-RUN apk add --no-cache --allow-untrusted glibc-bin-2.35-r1.apk
+#RUN wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.35-r1/glibc-2.35-r1.apk
+#RUN apk add --no-cache --allow-untrusted glibc-2.35-r1.apk
+#RUN wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.35-r1/glibc-bin-2.35-r1.apk
+#RUN apk add --no-cache --allow-untrusted glibc-bin-2.35-r1.apk
 
 # Clean up downloaded files
-RUN rm -f glibc-2.35-r1.apk glibc-bin-2.35-r1.apk
+RUN #rm -f glibc-2.35-r1.apk glibc-bin-2.35-r1.apk
 
 # Install Helm
 RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
