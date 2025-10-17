@@ -17,4 +17,5 @@ RUN helm version
 COPY ./build/libs/am.jar am.jar
 
 # 5. Docker 데몬과 Java 애플리케이션 동시 실행
-ENTRYPOINT ["sh", "-c", "dockerd-entrypoint.sh --insecure-registry=mc-application-manager-sonatype-nexus:5500 & java -jar am.jar"]
+#ENTRYPOINT ["sh", "-c", "dockerd-entrypoint.sh --insecure-registry=mc-application-manager-sonatype-nexus:5500 & java -jar am.jar"]
+ENTRYPOINT ["java -jar am.jar"]
