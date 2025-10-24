@@ -99,6 +99,16 @@ public class DockerOperationService {
             boolean isRunning = waitForContainerToStart(dockerClient, containerId);
             log.info("Container running status: {}", isRunning);
             
+            // Redis 클러스터링 자동 구성 (Redis 클러스터링인 경우)
+            if (isRunning && imageName.toLowerCase().contains("redis") && vmPublicIps != null && !vmPublicIps.isEmpty() && vmIndex >= 0) {
+                try {
+                    Thread.sleep(5000); // Redis 서버 시작 대기
+                    configureRedisCluster(dockerClient, containerId, vmPublicIps, vmIndex);
+                } catch (Exception e) {
+                    log.error("Failed to configure Redis cluster", e);
+                }
+            }
+            
             // 컨테이너 상태를 더 자세히 로깅
             if (!isRunning) {
                 InspectContainerResponse containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
@@ -228,8 +238,8 @@ public class DockerOperationService {
             // Elasticsearch는 기본 명령어 사용 (환경변수는 컨테이너 생성시 설정)
             return null; // 기본 명령어 사용
         } else if (lowerImageName.contains("redis")) {
-            // Redis는 기본 명령어 사용
-            return null;
+            // Redis 클러스터링 명령어 설정
+            return new String[]{"redis-server", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf", "--cluster-node-timeout", "5000", "--appendonly", "yes", "--bind", "0.0.0.0", "--port", "6379"};
         } else if (lowerImageName.contains("mariadb") || lowerImageName.contains("mysql")) {
             // MariaDB/MySQL은 기본 명령어 사용
             return null;
@@ -305,8 +315,47 @@ public class DockerOperationService {
                 envVars.put("discovery.type", "single-node");
             }
         } else if (lowerImageName.contains("redis")) {
-            // Redis 환경변수 설정
+            // Redis 클러스터링 환경변수 설정
             envVars.put("REDIS_PASSWORD", "");
+            
+            // 클러스터링 설정이 있는 경우
+            if (vmPublicIps != null && !vmPublicIps.isEmpty() && vmIndex >= 0) {
+                // Redis Cluster 모드 활성화
+                envVars.put("REDIS_CLUSTER_ENABLED", "yes");
+                envVars.put("REDIS_CLUSTER_ANNOUNCE_IP", vmPublicIps.get(vmIndex));
+                envVars.put("REDIS_CLUSTER_ANNOUNCE_PORT", "7000");
+                envVars.put("REDIS_CLUSTER_ANNOUNCE_BUS_PORT", "17000");
+                
+                // 클러스터 노드 설정
+                envVars.put("REDIS_CLUSTER_NODES", String.join(" ", vmPublicIps));
+                envVars.put("REDIS_CLUSTER_REPLICAS", "1");
+                
+                // 포트 설정
+                envVars.put("REDIS_PORT", "6379");
+                envVars.put("REDIS_CLUSTER_PORT", "7000");
+                
+                // 네트워크 설정
+                envVars.put("REDIS_BIND", "0.0.0.0");
+                envVars.put("REDIS_PROTECTED_MODE", "no");
+                
+                // 클러스터 설정
+                envVars.put("REDIS_CLUSTER_CONFIG_NODES", "6");
+                envVars.put("REDIS_CLUSTER_TIMEOUT", "5000");
+                envVars.put("REDIS_CLUSTER_REQUIRE_FULL_COVERAGE", "no");
+                
+                // 로그 설정
+                envVars.put("REDIS_LOGLEVEL", "notice");
+                envVars.put("REDIS_DAEMONIZE", "no");
+                
+                // Redis 서버 설정
+                envVars.put("REDIS_SERVER_ARGS", "--cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes");
+            } else {
+                // 단일 Redis 인스턴스 설정
+                envVars.put("REDIS_PORT", "6379");
+                envVars.put("REDIS_BIND", "0.0.0.0");
+                envVars.put("REDIS_PROTECTED_MODE", "no");
+                envVars.put("REDIS_DAEMONIZE", "no");
+            }
         } else if (lowerImageName.contains("mariadb") || lowerImageName.contains("mysql")) {
             // MariaDB/MySQL 환경변수 설정
             envVars.put("MYSQL_ROOT_PASSWORD", "password");
@@ -384,6 +433,44 @@ public class DockerOperationService {
         } catch (Exception e) {
             log.error("Error restarting Docker container", e);
             return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Redis 클러스터를 자동으로 구성합니다.
+     */
+    private void configureRedisCluster(DockerClient dockerClient, String containerId, List<String> vmPublicIps, int vmIndex) {
+        try {
+            log.info("Configuring Redis cluster for container: {}", containerId);
+            
+            // 첫 번째 노드인 경우에만 클러스터 구성
+            if (vmIndex == 0) {
+                // 다른 노드들과 클러스터 구성
+                for (int i = 1; i < vmPublicIps.size(); i++) {
+                    String otherNodeIp = vmPublicIps.get(i);
+                    log.info("Adding node {} to cluster", otherNodeIp);
+                    
+                    // 클러스터 노드 추가 명령 실행
+                    String[] clusterMeetCmd = {"redis-cli", "-h", "localhost", "-p", "6379", "cluster", "meet", otherNodeIp, "6379"};
+                    dockerClient.execCreateCmd(containerId)
+                        .withCmd(clusterMeetCmd)
+                        .withAttachStdout(true)
+                        .withAttachStderr(true)
+                        .exec();
+                }
+                
+                // 클러스터 슬롯 할당
+                String[] clusterSlotsCmd = {"redis-cli", "-h", "localhost", "-p", "6379", "cluster", "addslots", "0", "1", "2", "3", "4", "5"};
+                dockerClient.execCreateCmd(containerId)
+                    .withCmd(clusterSlotsCmd)
+                    .withAttachStdout(true)
+                    .withAttachStderr(true)
+                    .exec();
+                    
+                log.info("Redis cluster configuration completed");
+            }
+        } catch (Exception e) {
+            log.error("Failed to configure Redis cluster", e);
         }
     }
 
