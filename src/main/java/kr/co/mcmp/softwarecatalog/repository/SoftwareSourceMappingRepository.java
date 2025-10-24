@@ -42,15 +42,4 @@ package kr.co.mcmp.softwarecatalog.repository;
 //      */
 //     long countByCatalogIdAndSourceType(Long catalogId, String sourceType);
     
-//     /**
-//      * 기본 소스가 아닌 소스들을 기본 소스로 변경
-//      */
-//     @Query("UPDATE SoftwareSourceMapping ssm SET ssm.isPrimary = false WHERE ssm.catalogId = :catalogId")
-//     void clearPrimarySources(@Param("catalogId") Long catalogId);
-    
-//     /**
-//      * 특정 매핑을 기본 소스로 설정
-//      */
-//     @Query("UPDATE SoftwareSourceMapping ssm SET ssm.isPrimary = true WHERE ssm.id = :mappingId")
-//     void setPrimarySource(@Param("mappingId") Long mappingId);
 // }

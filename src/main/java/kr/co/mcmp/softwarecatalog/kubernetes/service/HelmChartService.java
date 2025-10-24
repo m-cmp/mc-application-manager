@@ -1,18 +1,14 @@
 package kr.co.mcmp.softwarecatalog.kubernetes.service;
 
+import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.marcnuri.helm.Helm;
-import com.marcnuri.helm.InstallCommand;
 import com.marcnuri.helm.Release;
-import com.marcnuri.helm.UninstallCommand;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
@@ -46,58 +42,39 @@ public class HelmChartService {
     
     public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog, 
                                  kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart, String clusterName) {
-        log.info("=== Helm Chart 배포 시작 ===");
-        log.info("Chart: {}, Namespace: {}, Cluster: {}", 
-                helmChart.getChartName(), namespace, clusterName);
         
         Path tempKubeconfigPath = null;
 
         try {
             // 1. 클러스터 정보 조회
             K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
-            log.info("클러스터 정보 조회 완료: {}", clusterName);
-            log.info("Provider: {}", clusterDto.getConnectionConfig().getProviderName());
 
             // 2. Kubeconfig YAML 생성
             String kubeconfigYaml = providerFactory.getProvider(clusterDto.getConnectionConfig().getProviderName())
                     .getOriginalKubeconfigYaml(clusterDto);
-            log.info("3. Kubeconfig YAML 생성 완료 (길이: {} bytes)", kubeconfigYaml.length());
 
             // 3. 임시 kubeconfig 파일 생성
             tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
-            log.info("4. 임시 kubeconfig 파일 생성 중...");
-            log.info("임시 kubeconfig 파일 생성 완료: {}", tempKubeconfigPath);
 
             // 4. 릴리스 이름 생성
             String releaseName = releaseNameGenerator.generateReleaseName(helmChart.getChartName());
-            log.info("새 릴리스 이름 생성: {}", releaseName);
-            log.info("5. 릴리스 이름 결정: {}", releaseName);
 
             // 5. 기존 릴리스 확인 (현재 배포와 관련된 것만)
-            log.info("6. 기존 릴리스 확인 중...");
             try {
                 // 현재 카탈로그와 관련된 기존 릴리스만 확인
                 String existingReleaseName = getReleaseNameFromHistory(catalog.getId(), clusterName, namespace);
                 if (existingReleaseName != null) {
-                    log.info("기존 릴리스 발견: {} (상태: 확인 중)", existingReleaseName);
                     try {
                         // 기존 릴리스 상태 확인 및 삭제
                         boolean found = runHelmListAndCheckRelease(existingReleaseName, namespace, tempKubeconfigPath);
                         
                         if (found) {
-                            log.info("기존 릴리스 상태: {} (상태: 확인됨)", existingReleaseName);
-                            
                             // 기존 릴리스 삭제
                             runHelmUninstallCli(existingReleaseName, namespace, tempKubeconfigPath);
-                            log.info("기존 릴리스 삭제 완료: {}", existingReleaseName);
-                        } else {
-                            log.info("기존 릴리스가 실제로 존재하지 않습니다: {}", existingReleaseName);
                         }
                     } catch (Exception e) {
                         log.warn("기존 릴리스 삭제 중 오류 발생: {}", e.getMessage());
                     }
-                } else {
-                    log.info("기존 릴리스가 없습니다. 새로 설치를 진행합니다.");
                 }
             } catch (Exception e) {
                 log.warn("기존 릴리스 확인 중 오류 발생. 새로 설치를 진행합니다. 오류: {}", e.getMessage());
@@ -721,7 +698,9 @@ public class HelmChartService {
                                    Path kubeconfig,
                                    java.util.Map<String,String> values) throws Exception {
         java.util.List<String> cmd = new java.util.ArrayList<>();
-        cmd.add("helm"); cmd.add("install");
+        // Helm 경로 지정 (관리자 권한 없이 사용)
+        String helmPath = getHelmPath();
+        cmd.add(helmPath); cmd.add("install");
         cmd.add(releaseName); cmd.add(chartRef);
         cmd.add("--namespace"); cmd.add(namespace);
         cmd.add("--version"); cmd.add(version);
@@ -740,10 +719,60 @@ public class HelmChartService {
         }
         log.info("helm install output: {}", out);
     }
+    
+    /**
+     * Helm 실행 파일 경로를 반환합니다.
+     * 관리자 권한 없이 사용할 수 있도록 여러 경로를 확인합니다.
+     */
+    private String getHelmPath() {
+        // 1. 프로젝트 루트의 helm 폴더에서 확인
+        String projectRoot = System.getProperty("user.dir");
+        String localHelmPath = projectRoot + File.separator + "helm" + File.separator + "helm.exe";
+        if (new File(localHelmPath).exists()) {
+            log.info("Using local Helm: {}", localHelmPath);
+            return localHelmPath;
+        }
+        
+        // 2. 환경변수에서 Helm 경로 확인
+        String helmHome = System.getenv("HELM_HOME");
+        if (helmHome != null && !helmHome.isEmpty()) {
+            String helmPath = helmHome + File.separator + "helm.exe";
+            if (new File(helmPath).exists()) {
+                log.info("Using Helm from HELM_HOME: {}", helmPath);
+                return helmPath;
+            }
+        }
+        
+        // 3. 다운로드 폴더에서 확인 (사용자가 다운로드한 위치)
+        String userHome = System.getProperty("user.home");
+        String downloadHelmPath = userHome + File.separator + "Downloads" + File.separator + "helm-v3.18.6-windows-amd64" + File.separator + "windows-amd64" + File.separator + "helm.exe";
+        if (new File(downloadHelmPath).exists()) {
+            log.info("Using Helm from Downloads: {}", downloadHelmPath);
+            return downloadHelmPath;
+        }
+        
+        // 4. PATH에서 helm 명령어 확인
+        try {
+            ProcessBuilder pb = new ProcessBuilder("helm", "version");
+            Process p = pb.start();
+            int exitCode = p.waitFor();
+            if (exitCode == 0) {
+                log.info("Using Helm from PATH");
+                return "helm";
+            }
+        } catch (Exception e) {
+            log.debug("Helm not found in PATH: {}", e.getMessage());
+        }
+        
+        // 5. 기본값 (실패 시)
+        log.warn("Helm not found. Please copy helm.exe to project/helm/ folder or set HELM_HOME environment variable.");
+        return "helm"; // 기본값으로 시도
+    }
 
     private void runHelmRepoAddCli(String repositoryName, String repositoryUrl) throws Exception {
         java.util.List<String> cmd = new java.util.ArrayList<>();
-        cmd.add("helm"); cmd.add("repo"); cmd.add("add");
+        String helmPath = getHelmPath();
+        cmd.add(helmPath); cmd.add("repo"); cmd.add("add");
         cmd.add(repositoryName); cmd.add(repositoryUrl);
         ProcessBuilder pb = new ProcessBuilder(cmd);
         Process p = pb.start();
@@ -758,7 +787,8 @@ public class HelmChartService {
 
     private void runHelmRepoUpdateCli() throws Exception {
         java.util.List<String> cmd = new java.util.ArrayList<>();
-        cmd.add("helm"); cmd.add("repo"); cmd.add("update");
+        String helmPath = getHelmPath();
+        cmd.add(helmPath); cmd.add("repo"); cmd.add("update");
         ProcessBuilder pb = new ProcessBuilder(cmd);
         Process p = pb.start();
         int ec = p.waitFor();
@@ -772,7 +802,8 @@ public class HelmChartService {
 
     private void runHelmUninstallCli(String releaseName, String namespace, Path kubeconfig) throws Exception {
         java.util.List<String> cmd = new java.util.ArrayList<>();
-        cmd.add("helm"); cmd.add("uninstall");
+        String helmPath = getHelmPath();
+        cmd.add(helmPath); cmd.add("uninstall");
         cmd.add(releaseName);
         cmd.add("--namespace"); cmd.add(namespace);
         if (kubeconfig != null) {

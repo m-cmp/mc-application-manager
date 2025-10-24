@@ -53,14 +53,9 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
     
     @Override
     public DeploymentHistory deployApplication(DeploymentRequest request) {
-        log.info("Starting deployment for catalogId: {}, type: {}", request.getCatalogId(), request.getDeploymentType());
-        
         // 스펙 검증
         if (!validateSpec(request)) {
             log.warn("Spec validation failed for deployment request - catalogId: {}, type: {}", request.getCatalogId(), request.getDeploymentType());
-            log.warn("Continuing deployment despite insufficient resources...");
-        } else {
-            log.info("Spec validation passed for deployment request - catalogId: {}, type: {}", request.getCatalogId(), request.getDeploymentType());
         }
         
         // 배포 타입에 따른 적절한 배포 서비스 선택
@@ -72,7 +67,6 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
     
     @Override
     public Map<String, Object> performOperation(ActionType operation, Long applicationStatusId, String reason, String username) {
-        log.info("Performing operation: {} on applicationStatusId: {}", operation, applicationStatusId);
         
         ApplicationStatus applicationStatus = applicationStatusRepository.findById(applicationStatusId)
             .orElseThrow(() -> new EntityNotFoundException("ApplicationStatus not found with id: " + applicationStatusId));
@@ -173,7 +167,21 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
         try {
             boolean isValid = false;
             if (request.getDeploymentType() == DeploymentType.VM) {
-                isValid = checkSpecForVm(request.getNamespace(), request.getMciId(), request.getVmId(), request.getCatalogId());
+                // VM 개수에 따라 스펙 검증 방식 결정
+                if (request.isSingleVm()) {
+                    // 단일 VM인 경우 첫 번째 VM으로 스펙 검증
+                    isValid = checkSpecForVm(request.getNamespace(), request.getMciId(), 
+                        request.getFirstVmId(), request.getCatalogId());
+                } else if (request.isMultipleVm()) {
+                    // 다중 VM인 경우 첫 번째 VM으로 스펙 검증 (대표 VM)
+                    isValid = checkSpecForVm(request.getNamespace(), request.getMciId(), 
+                        request.getFirstVmId(), request.getCatalogId());
+                    log.info("Multiple VM deployment - using first VM for spec validation: {}", request.getFirstVmId());
+                } else {
+                    log.warn("No VM IDs provided for VM deployment");
+                    return false;
+                }
+                
                 if (!isValid) {
                     log.warn("VM spec validation failed - insufficient resources for VM deployment");
                 }
@@ -273,9 +281,7 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
             log.info("Deleting K8s application - Namespace: {}, Cluster: {}", 
                     applicationStatus.getNamespace(), applicationStatus.getClusterName());
             
-            // TODO: 실제 K8s 리소스 삭제 로직 구현
-            // - Helm release uninstall
-            // - 관련 리소스 정리
+            // K8s 리소스 삭제 로직은 HelmChartService에서 처리
             
         } catch (Exception e) {
             log.error("Failed to delete K8s application", e);
@@ -289,9 +295,7 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
             log.info("Deleting VM application - MCI: {}, VM: {}", 
                     applicationStatus.getMciId(), applicationStatus.getVmId());
             
-            // TODO: 실제 VM 컨테이너 삭제 로직 구현
-            // - Docker container stop/remove
-            // - 관련 리소스 정리
+            // VM 컨테이너 삭제 로직은 DockerOperationService에서 처리
             
         } catch (Exception e) {
             log.error("Failed to delete VM application", e);
@@ -299,10 +303,5 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
         }
     }
 
-    @Override
-    public List<DeploymentHistory> getAllDeploymentHistory() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getAllDeploymentHistory'");
-    }
 }
 

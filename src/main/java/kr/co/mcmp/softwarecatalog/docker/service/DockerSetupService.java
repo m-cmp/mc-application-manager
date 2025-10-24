@@ -40,16 +40,89 @@ public class DockerSetupService {
     private void installAndConfigureDockerOnVM(String namespace, String mciId, String vmId) throws ApplicationException {
         log.info("Starting Docker installation and configuration for namespace: {}, mciId: {}, vmId: {}", namespace, mciId, vmId);
         try {
-            installDocker(namespace, mciId, vmId);
-            configureDockerForRemoteAccess(namespace, mciId, vmId);
-            setDockerPermissions(namespace, mciId, vmId);
-            enableBridgeNfCallIptables(namespace, mciId, vmId);
-            configureSSHForDockerAccess(namespace, mciId, vmId);
-            restartDocker(namespace, mciId, vmId);
+            // sudo 권한 확인
+            if (hasSudoAccess(namespace, mciId, vmId)) {
+                log.info("Sudo access available, proceeding with full installation");
+                installDocker(namespace, mciId, vmId);
+                configureDockerForRemoteAccess(namespace, mciId, vmId);
+                setDockerPermissions(namespace, mciId, vmId);
+                enableBridgeNfCallIptables(namespace, mciId, vmId);
+                configureVmMaxMapCount(namespace, mciId, vmId);
+                configureSSHForDockerAccess(namespace, mciId, vmId);
+                restartDocker(namespace, mciId, vmId);
+            } else {
+                log.warn("Sudo access not available (Azure VM), trying limited installation");
+                installDockerLimited(namespace, mciId, vmId);
+            }
             verifyDockerConfiguration(namespace, mciId, vmId);
         } catch (Exception e) {
             log.error("Error installing or configuring Docker", e);
             throw new ApplicationException("Failed to install or configure Docker: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * sudo 권한이 있는지 확인합니다.
+     */
+    private boolean hasSudoAccess(String namespace, String mciId, String vmId) throws Exception {
+        String checkSudoCommand = "sudo -n true 2>/dev/null && echo 'SUDO_OK' || echo 'SUDO_FAIL'";
+        String result = cbtumblebugRestApi.executeMciCommand(namespace, mciId, checkSudoCommand, null, vmId);
+        return result != null && result.contains("SUDO_OK");
+    }
+    
+    /**
+     * Azure VM 등 sudo 권한이 없는 경우의 제한된 설치
+     */
+    private void installDockerLimited(String namespace, String mciId, String vmId) throws Exception {
+        // Docker가 이미 설치되어 있는지 확인
+        String checkDockerCommand = "which docker && docker --version";
+        String checkResult = cbtumblebugRestApi.executeMciCommand(namespace, mciId, checkDockerCommand, null, vmId);
+        
+        if (checkResult != null && checkResult.contains("Docker version")) {
+            log.info("Docker is already installed: {}", checkResult);
+            // Docker 데몬 시작 시도
+            startDockerDaemon(namespace, mciId, vmId);
+            // Azure VM에서도 vm.max_map_count 설정 시도 (실패해도 계속 진행)
+            try {
+                configureVmMaxMapCount(namespace, mciId, vmId);
+            } catch (Exception e) {
+                log.warn("Failed to configure vm.max_map_count on Azure VM (expected): {}", e.getMessage());
+            }
+        } else {
+            log.warn("Docker is not installed and sudo access is not available on VM: {}", vmId);
+            log.warn("Please install Docker manually or contact your system administrator");
+        }
+    }
+    
+    /**
+     * 사용자 권한으로 Docker 데몬 시작
+     */
+    private void startDockerDaemon(String namespace, String mciId, String vmId) throws Exception {
+        log.info("Attempting to start Docker daemon with user permissions...");
+        
+        // Docker 데몬이 이미 실행 중인지 확인
+        String checkRunningCommand = "curl -s http://localhost:2375/version 2>/dev/null && echo 'DOCKER_RUNNING' || echo 'DOCKER_NOT_RUNNING'";
+        String checkResult = cbtumblebugRestApi.executeMciCommand(namespace, mciId, checkRunningCommand, null, vmId);
+        
+        if (checkResult != null && checkResult.contains("DOCKER_RUNNING")) {
+            log.info("Docker daemon is already running on VM: {}", vmId);
+            return;
+        }
+        
+        // 사용자 권한으로 Docker 데몬 시작
+        String startDaemonCommand = 
+            "mkdir -p /tmp/docker-data && " +
+            "nohup dockerd --host=unix:///tmp/docker.sock --host=tcp://0.0.0.0:2375 --data-root=/tmp/docker-data > /tmp/docker.log 2>&1 & " +
+            "sleep 5 && " +
+            "curl -s http://localhost:2375/version 2>/dev/null && echo 'DOCKER_STARTED' || echo 'DOCKER_FAILED'";
+        
+        String result = cbtumblebugRestApi.executeMciCommand(namespace, mciId, startDaemonCommand, null, vmId);
+        log.info("Docker daemon start result: {}", result);
+        
+        if (result != null && result.contains("DOCKER_STARTED")) {
+            log.info("Docker daemon successfully started on VM: {}", vmId);
+        } else {
+            log.warn("Docker daemon start failed. Check logs: tail -20 /tmp/docker.log");
         }
     }
 
@@ -100,6 +173,18 @@ public class DockerSetupService {
         
         String result = cbtumblebugRestApi.executeMciCommand(namespace, mciId, command, null, vmId);
         log.info("Bridge-nf-call-iptables configuration result: {}", result);
+    }
+
+    /**
+     * Elasticsearch를 위한 vm.max_map_count 설정
+     */
+    private void configureVmMaxMapCount(String namespace, String mciId, String vmId) throws Exception {
+        String command = 
+            "echo 'vm.max_map_count=262144' | sudo tee -a /etc/sysctl.conf && " +
+            "sudo sysctl -w vm.max_map_count=262144";
+        
+        String result = cbtumblebugRestApi.executeMciCommand(namespace, mciId, command, null, vmId);
+        log.info("vm.max_map_count configuration result: {}", result);
     }
 
     private void restartDocker(String namespace, String mciId, String vmId) throws Exception {

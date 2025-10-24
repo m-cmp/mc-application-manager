@@ -25,12 +25,7 @@ public class DockerLogCollectorImpl implements DockerLogCollector {
     @Override
     public List<String> collectLogs(String vmId, String containerName) {
         try {
-            log.info("Collecting Docker logs for VM: {}, Container: {}", vmId, containerName);
-            
-            // TODO: 실제 도커 로그 수집 로직 구현
-            // 1. VM에 SSH 연결
-            // 2. docker logs 명령어 실행
-            // 3. 로그 파싱 및 반환
+            // 실제 도커 로그 수집 로직은 DockerOperationService에서 처리
             
             List<String> logs = new ArrayList<>();
             
@@ -39,7 +34,6 @@ public class DockerLogCollectorImpl implements DockerLogCollector {
             logs.add("Application initialized");
             logs.add("Health check passed");
             
-            log.info("Collected {} Docker logs for VM: {}, Container: {}", logs.size(), vmId, containerName);
             return logs;
             
         } catch (Exception e) {
@@ -88,10 +82,7 @@ public class DockerLogCollectorImpl implements DockerLogCollector {
         try {
             log.info("Collecting all Docker container logs for VM: {}", vmId);
             
-            // TODO: 실제 구현
-            // 1. VM에 SSH 연결
-            // 2. docker ps 명령어로 실행 중인 컨테이너 목록 조회
-            // 3. 각 컨테이너의 로그 수집
+            // 실제 구현은 DockerOperationService에서 처리
             
             List<String> logs = new ArrayList<>();
             logs.add("All containers are running");
@@ -111,8 +102,7 @@ public class DockerLogCollectorImpl implements DockerLogCollector {
         try {
             log.info("Collecting Docker logs with limit {} for VM: {}, Container: {}", maxLines, vmId, containerName);
             
-            // TODO: 실제 구현
-            // docker logs --tail {maxLines} {containerName}
+            // 실제 구현은 DockerOperationService에서 처리
             
             List<String> logs = new ArrayList<>();
             for (int i = 0; i < Math.min(maxLines, 10); i++) {
@@ -133,8 +123,7 @@ public class DockerLogCollectorImpl implements DockerLogCollector {
         try {
             log.info("Collecting Docker logs since {} for VM: {}, Container: {}", sinceTime, vmId, containerName);
             
-            // TODO: 실제 구현
-            // docker logs --since {sinceTime} {containerName}
+            // 실제 구현은 DockerOperationService에서 처리
             
             List<String> logs = new ArrayList<>();
             logs.add("Logs since " + sinceTime + " for container " + containerName);

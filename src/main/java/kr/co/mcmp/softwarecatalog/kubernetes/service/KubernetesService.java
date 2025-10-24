@@ -1,14 +1,11 @@
 package kr.co.mcmp.softwarecatalog.kubernetes.service;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 import javax.persistence.EntityNotFoundException;
 
 import org.springframework.stereotype.Service;
-
-import io.fabric8.kubernetes.api.model.Pod;
 import kr.co.mcmp.softwarecatalog.CatalogRepository;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
@@ -61,8 +58,17 @@ public class KubernetesService {
             log.error("애플리케이션 배포 중 오류 발생", e);
             
             if (history == null) {
-                // 배포 시작 전에 오류가 발생한 경우
-                history = createFailedDeploymentHistory(request.getNamespace(), request.getClusterName(), catalog, request.getUsername());
+                // 배포 시작 전에 오류가 발생한 경우 - 기본 실패 이력 생성
+                history = DeploymentHistory.builder()
+                        .namespace(request.getNamespace())
+                        .clusterName(request.getClusterName())
+                        .catalog(catalog)
+                        .executedBy(userRepository.findByUsername(request.getUsername()).orElse(null))
+                        .deploymentType(DeploymentType.K8S)
+                        .status("FAILED")
+                        .actionType(ActionType.INSTALL)
+                        .executedAt(LocalDateTime.now())
+                        .build();
                 addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
                 historyRepository.save(history);
             } else {
@@ -80,55 +86,6 @@ public class KubernetesService {
         }
     }
 
-    /**
-     * 기존 방식 호환을 위한 메서드 (deprecated)
-     */
-    @Deprecated
-    public DeploymentHistory deployApplication(String namespace, String clusterName, Long catalogId, String username) {
-        DeploymentHistory history = null;
-        SoftwareCatalog catalog = null;
-        try {
-            catalog = findCatalogById(catalogId);
-            // request 없이 호출 (기존 방식 유지)
-            history = deploymentService.deployApplication(namespace, clusterName, catalog, username, null);
-            addDeploymentLog(history, LogType.INFO, "Deployment initiated successfully.");
-            updateApplicationStatus(namespace, clusterName, catalog, ActionType.INSTALL.name());
-            return historyRepository.save(history);
-        } catch (Exception e) {
-            log.error("애플리케이션 배포 중 오류 발생", e);
-            
-            if (history == null) {
-                // 배포 시작 전에 오류가 발생한 경우
-                history = createFailedDeploymentHistory(namespace, clusterName, catalog, username);
-                addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
-                historyRepository.save(history);
-            } else {
-                // 배포 중에 오류가 발생한 경우 (이미 생성된 history가 있음)
-                history.setStatus("FAILED");
-                addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
-                historyRepository.save(history);
-            }
-            
-            if (catalog != null) {
-                updateApplicationStatus(namespace, clusterName, catalog, "FAILED");
-            }
-            
-            throw new RuntimeException("애플리케이션 배포 실패", e);
-        }
-    }
-    
-    private DeploymentHistory createFailedDeploymentHistory(String namespace, String clusterName, SoftwareCatalog catalog, String username) {
-        return DeploymentHistory.builder()
-                .namespace(namespace)
-                .clusterName(clusterName)
-                .catalog(catalog)
-                .executedBy(userRepository.findByUsername(username).orElse(null))
-                .deploymentType(DeploymentType.K8S)
-                .status("FAILED")
-                .actionType(ActionType.INSTALL)
-                .executedAt(LocalDateTime.now())
-                .build();
-    }
 
     public void stopApplication(String namespace, String clusterName, Long catalogId, String username) {
         try {
@@ -210,10 +167,4 @@ public class KubernetesService {
     }
 
 
-    private String getPodStatusSummary(List<Pod> pods) {
-        long runningPods = pods.stream()
-                .filter(pod -> "Running".equals(pod.getStatus().getPhase()))
-                .count();
-        return runningPods + "/" + pods.size() + " running";
-    }
 }

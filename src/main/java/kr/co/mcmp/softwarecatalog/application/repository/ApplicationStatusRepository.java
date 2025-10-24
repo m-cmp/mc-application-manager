@@ -17,7 +17,7 @@ import kr.co.mcmp.softwarecatalog.users.Entity.User;
 public interface ApplicationStatusRepository extends JpaRepository<ApplicationStatus, Long> {
     
     Optional<ApplicationStatus> findByCatalog(SoftwareCatalog catalog);
-    Optional<ApplicationStatus> findByCatalogId(Long catalogId);
+    List<ApplicationStatus> findByCatalogId(Long catalogId);
     ApplicationStatus findTopByCatalogOrderByCheckedAtDesc(SoftwareCatalog catalog);
     Optional<ApplicationStatus> findByCatalogIdAndExecutedBy(Long catalogId, User user);
     Optional<ApplicationStatus> findTopByExecutedByOrderByCheckedAtDesc(User executedBy);
@@ -27,6 +27,10 @@ public interface ApplicationStatusRepository extends JpaRepository<ApplicationSt
 
     List<ApplicationStatus> findByNamespaceAndMciIdAndVmId(String namespace, String mciId, String vmId);
     Optional<ApplicationStatus> findTopByCatalogIdOrderByCheckedAtDesc(Long catalogId);
+    
+    // VM별 ApplicationStatus 검색 (catalogId + vmId 조합)
+    Optional<ApplicationStatus> findByCatalogIdAndVmId(Long catalogId, String vmId);
+    List<ApplicationStatus> findByCatalogIdAndNamespaceAndMciId(Long catalogId, String namespace, String mciId);
 
     @Query("SELECT a FROM ApplicationStatus a " +
     "WHERE a.namespace = :namespace " +

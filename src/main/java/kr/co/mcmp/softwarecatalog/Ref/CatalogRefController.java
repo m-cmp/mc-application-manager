@@ -21,37 +21,6 @@ public class CatalogRefController {
     @Autowired
     CatalogRefService catalogRefService;
 
-//    @ApiOperation(value="catalog ref workflow", notes="create workflows reference catalog")
-//    @Operation(summary = "create catalog reference workflow")
-//    @PostMapping("/workflow")
-//    public String createCatalogRefWorkflow(){
-//        return null;
-//    }
-
-    // @Operation(summary = "execute catalog reference workflow")
-    // @PostMapping("/workflow")
-    // public String execWorkflow(){
-    //     return null;
-    // }
-
-    // @Operation(summary = "delete catalog reference workflow")
-    // @DeleteMapping("/{catalogIdx}/{catalogRefIdx}")
-    // public boolean deleteCatalogRefWorkflow(@PathVariable Integer catalogIdx, @PathVariable Integer catalogRefIdx){
-    //     return false;
-    // }
-
-    // @Operation(summary = "get catalog reference")
-    // @GetMapping("/{catalogIdx}")
-    // public List<CatalogRefDTO> getCatalogReference(@PathVariable Integer catalogIdx){
-    //     return null;
-    // }
-
-    // @Operation(summary = "insert software catalog reference(webpage, workflow, etc...)")
-    // @ApiOperation(value="software catalog ref insert", notes="software catalog 관련정보 등록(webpage, workflow 등)")
-    // @PostMapping("/{catalogIdx}")
-    // public CatalogRefDTO createCatalogRef(CatalogRefDTO crDto){
-    //     return catalogRefService.createCatalogRef(crDto);
-    // }
 
 
 

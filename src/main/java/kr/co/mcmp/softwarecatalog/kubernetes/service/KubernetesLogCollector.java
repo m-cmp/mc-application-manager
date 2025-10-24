@@ -40,9 +40,6 @@ public class KubernetesLogCollector {
      */
     public void collectAndSaveLogs(KubernetesClient client, Long deploymentId, String namespace, String podName, String containerName, String clusterName) {
         try {
-            log.info("Starting Kubernetes log collection and save for deployment: {}, namespace: {}, pod: {}", 
-                    deploymentId, namespace, podName);
-            
             // Pod 존재 여부 및 상태 확인
             Pod pod = client.pods().inNamespace(namespace).withName(podName).get();
             if (pod == null) {
@@ -85,7 +82,6 @@ public class KubernetesLogCollector {
         List<String> logs = new ArrayList<>();
         
         try {
-            log.debug("Pod 로그 수집 시작 - Namespace: {}, Pod: {}, Level: {}", namespace, podName, level);
             
             // Pod 존재 여부 및 상태 확인
             Pod pod = client.pods().inNamespace(namespace).withName(podName).get();
@@ -97,7 +93,6 @@ public class KubernetesLogCollector {
             // Pod가 초기화 중이거나 실행 중이 아닌 경우 로그 수집 건너뛰기
             String podPhase = pod.getStatus().getPhase();
             if (!"Running".equals(podPhase)) {
-                log.debug("Pod가 실행 중이 아니므로 로그 수집을 건너뜁니다 - Pod: {}, Phase: {}", podName, podPhase);
                 return logs;
             }
 
@@ -110,7 +105,6 @@ public class KubernetesLogCollector {
             //     collectLogsFromAllContainers(client, namespace, podName, pod, logs, level);
             // }
 
-            log.debug("Pod 로그 수집 완료 - 총 {} 줄", logs.size());
             
         } catch (Exception e) {
             log.error("Pod 로그 수집 중 오류 발생 - Pod: {}, Error: {}", podName, e.getMessage(), e);
@@ -127,7 +121,6 @@ public class KubernetesLogCollector {
         List<String> allLogs = new ArrayList<>();
         
         try {
-            log.debug("앱 로그 수집 시작 - Namespace: {}, App: {}, Level: {}", namespace, appName, level);
             
             // 앱과 관련된 Pod들 찾기
             List<Pod> pods = client.pods()
@@ -144,7 +137,6 @@ public class KubernetesLogCollector {
                     })
                     .toList();
 
-            log.debug("앱 '{}'과 관련된 Pod {} 개 발견", appName, pods.size());
 
             // ERROR 로그만 수집 (DEBUG, INFO는 비활성화)
             if (level == LogLevel.ERROR) {
@@ -161,7 +153,6 @@ public class KubernetesLogCollector {
             //     }
             // }
 
-            log.debug("앱 로그 수집 완료 - 총 {} 줄", allLogs.size());
             
         } catch (Exception e) {
             log.error("앱 로그 수집 중 오류 발생 - App: {}, Error: {}", appName, e.getMessage(), e);

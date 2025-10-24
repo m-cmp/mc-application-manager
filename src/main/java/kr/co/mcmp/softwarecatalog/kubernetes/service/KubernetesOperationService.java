@@ -2,8 +2,6 @@ package kr.co.mcmp.softwarecatalog.kubernetes.service;
 
 import org.springframework.stereotype.Service;
 
-import io.fabric8.kubernetes.api.model.apps.Deployment;
-import io.fabric8.kubernetes.client.KubernetesClient;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.repository.OperationHistoryRepository;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
@@ -16,10 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class KubernetesOperationService {
 
-    private final KubernetesClientFactory clientFactory;
     private final HelmChartService helmChartService;
-    private final OperationHistoryRepository operationHistoryRepository;
-    private final UserRepository userRepository;
 
     public void restartApplication(String namespace, String clusterName, SoftwareCatalog catalog, String username) {
         try {

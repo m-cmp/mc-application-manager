@@ -1,10 +1,6 @@
 package kr.co.mcmp.softwarecatalog.application.dto;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.persistence.Column;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;

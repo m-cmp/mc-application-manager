@@ -10,9 +10,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -24,6 +31,11 @@ import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.ScalingEventRepository;
+import kr.co.mcmp.softwarecatalog.application.model.ScalingEvent;
+import kr.co.mcmp.softwarecatalog.application.service.K8sAutoscaleService;
+import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
+import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
 import kr.co.mcmp.softwarecatalog.kubernetes.util.LogHashUtil;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
@@ -38,7 +50,19 @@ public class KubernetesMonitoringService {
     private final KubernetesClientFactory clientFactory;
     private final DeploymentHistoryRepository historyRepository;
     private final ApplicationStatusRepository statusRepository;
+    private final ScalingEventRepository scalingEventRepository;
     private final KubernetesLogCollector logCollector;
+    private final K8sAutoscaleService k8sAutoscaleService;
+    private final CbtumblebugRestApi cbtumblebugRestApi;
+    
+    @Value("${k8s.autoscaling.default-max-nodes:3}")
+    private int defaultMaxNodes;
+    
+    @Value("${k8s.autoscaling.scaling-timeout-seconds:300}")
+    private int scalingTimeoutSeconds;
+    
+    @Value("${k8s.autoscaling.default-node-count:1}")
+    private int defaultNodeCount;
 
     @Scheduled(fixedRate = 60000) // 1분마다 실행
     public void monitorKubernetesResources() {
@@ -230,6 +254,7 @@ public class KubernetesMonitoringService {
         status.setCheckedAt(LocalDateTime.now());
         status.setClusterName(clusterName);
         status.setNamespace(namespace);
+        status.setNodeGroupName(deployment.getNodeGroupName()); // 노드 그룹 이름 설정
         status.setExecutedBy(user);
         status.setDeploymentType(DeploymentType.K8S);
         status.setCatalog(deployment.getCatalog()); // catalog 정보 설정 추가
@@ -239,6 +264,12 @@ public class KubernetesMonitoringService {
 
         log.debug("Updating ApplicationStatus for catalogId={}, status={}, podStatus={}, cpuUsage={}, memoryUsage={}", 
                 catalogId, status.getStatus(), status.getPodStatus(), status.getCpuUsage(), status.getMemoryUsage());
+        
+        // 오토스케일링 처리 (스케일 아웃만)
+        handleK8sAutoscaling(deployment, status, client);
+        
+        // 스케일 아웃 완료 감지 및 재배포 처리
+        checkAndHandleScalingCompletion(deployment, client);
         
         statusRepository.save(status);
         log.debug("ApplicationStatus saved successfully for catalogId={}", catalogId);
@@ -774,6 +805,443 @@ public class KubernetesMonitoringService {
             attempt++;
         }
         log.warn("Metrics Server did not become ready within the expected time");
+    }
+    
+    /**
+     * K8S 오토스케일링 처리 (스케일 아웃만)
+     */
+    private void handleK8sAutoscaling(DeploymentHistory deployment, ApplicationStatus status, KubernetesClient client) {
+        try {
+            // K8S 배포가 아니면 스킵
+            if (!DeploymentType.K8S.equals(deployment.getDeploymentType())) {
+                return;
+            }
+            
+            // 리소스 사용률이 null이면 스킵
+            if (status.getCpuUsage() == null || status.getMemoryUsage() == null) {
+                return;
+            }
+            
+            String namespace = deployment.getNamespace();
+            String clusterName = deployment.getClusterName();
+            
+            // 노드 그룹 이름 동적 조회
+            String nodeGroupName = getNodeGroupName(deployment);
+            
+            // 노드 그룹 이름이 없으면 오토스케일링 불가
+            if (nodeGroupName == null || nodeGroupName.isEmpty()) {
+                log.warn("Cannot perform autoscaling: node group name is null for deployment: {}", deployment.getId());
+                return;
+            }
+            
+            // 현재 노드 수 조회
+            int currentSize = getCurrentNodeCount(deployment, client);
+            int maxSize = deployment.getCatalog().getMaxReplicas() != null ? deployment.getCatalog().getMaxReplicas() : defaultMaxNodes;
+            
+            // CPU 또는 메모리 임계값 초과 시 스케일 아웃
+            boolean cpuExceeded = deployment.getCatalog().getCpuThreshold() != null && 
+                                status.getCpuUsage() > deployment.getCatalog().getCpuThreshold();
+            
+            boolean memoryExceeded = deployment.getCatalog().getMemoryThreshold() != null && 
+                                   status.getMemoryUsage() > deployment.getCatalog().getMemoryThreshold();
+            
+            if ((cpuExceeded || memoryExceeded) && currentSize < maxSize) {
+                log.info("Resource threshold exceeded for K8S deployment: CPU={}%, Memory={}%, scaling out from {} to {}", 
+                        status.getCpuUsage(), status.getMemoryUsage(), currentSize, currentSize + 1);
+                
+                // 스케일링 이벤트 생성
+                ScalingEvent scalingEvent = createScalingEvent(deployment, nodeGroupName, currentSize, currentSize + 1);
+                if (scalingEvent != null) {
+                    scalingEventRepository.save(scalingEvent);
+                } else {
+                    log.error("Failed to create scaling event: node group name is null");
+                    return;
+                }
+                
+                boolean scaleResult = k8sAutoscaleService.scaleOutNodeGroup(namespace, clusterName, nodeGroupName, currentSize, maxSize);
+                if (scaleResult) {
+                    log.info("Successfully initiated K8S node group scale out: {} -> {}", currentSize, currentSize + 1);
+                    scalingEvent.setStatus(ScalingEvent.ScalingStatus.IN_PROGRESS);
+                    scalingEventRepository.save(scalingEvent);
+                } else {
+                    log.error("Failed to scale out K8S node group");
+                    scalingEvent.setStatus(ScalingEvent.ScalingStatus.FAILED);
+                    scalingEvent.setErrorMessage("Failed to initiate scale out");
+                    scalingEventRepository.save(scalingEvent);
+                }
+            } else if (currentSize >= maxSize) {
+                log.warn("Cannot scale out: current size {} >= max size {} (CPU={}%, Memory={}%)", 
+                        currentSize, maxSize, status.getCpuUsage(), status.getMemoryUsage());
+            }
+            
+        } catch (Exception e) {
+            log.error("Error handling K8S autoscaling for deployment: {}", deployment.getId(), e);
+        }
+    }
+    
+    /**
+     * 스케일 아웃 완료 감지 및 재배포 처리
+     */
+    private void checkAndHandleScalingCompletion(DeploymentHistory deployment, KubernetesClient client) {
+        try {
+            List<ScalingEvent> pendingEvents = scalingEventRepository.findPendingScalingEvents(deployment.getId());
+            
+            for (ScalingEvent event : pendingEvents) {
+                if (isScalingCompleted(event, client)) {
+                    log.info("Scaling completed for deployment: {}, event: {}", deployment.getId(), event.getId());
+                    
+                    // 스케일링 이벤트 상태를 완료로 업데이트
+                    event.setStatus(ScalingEvent.ScalingStatus.COMPLETED);
+                    event.setCompletedAt(LocalDateTime.now());
+                    scalingEventRepository.save(event);
+                    
+                    // 새로운 노드에 애플리케이션 재배포
+                    redeployToNewNodes(deployment, event.getNewNodeCount(), client);
+                }
+            }
+            
+        } catch (Exception e) {
+            log.error("Error checking scaling completion for deployment: {}", deployment.getId(), e);
+        }
+    }
+    
+    /**
+     * 스케일링 완료 여부 확인
+     */
+    private boolean isScalingCompleted(ScalingEvent event, KubernetesClient client) {
+        try {
+            // 현재 노드 수 조회
+            int currentNodeCount = getCurrentNodeCountFromEvent(event, client);
+            
+            // 목표 노드 수와 현재 노드 수 비교
+            if (currentNodeCount >= event.getNewNodeCount()) {
+                log.info("Scaling completed: current={}, target={}", currentNodeCount, event.getNewNodeCount());
+                return true;
+            }
+            
+            // 타임아웃 체크 (5분)
+            long secondsSinceTriggered = java.time.Duration.between(event.getTriggeredAt(), LocalDateTime.now()).getSeconds();
+            if (secondsSinceTriggered > scalingTimeoutSeconds) { 
+                log.warn("Scaling timeout after {} seconds: current={}, target={}", scalingTimeoutSeconds, currentNodeCount, event.getNewNodeCount());
+                return true; // 타임아웃도 완료로 간주
+            }
+            
+            log.debug("Scaling in progress: current={}, target={}, elapsed={}s", 
+                    currentNodeCount, event.getNewNodeCount(), secondsSinceTriggered);
+            return false;
+            
+        } catch (Exception e) {
+            log.error("Error checking scaling completion for event: {}", event.getId(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * 스케일링 이벤트 생성
+     */
+    private ScalingEvent createScalingEvent(DeploymentHistory deployment, String nodeGroupName, int oldCount, int newCount) {
+        if (nodeGroupName == null || nodeGroupName.isEmpty()) {
+            log.error("Cannot create scaling event: node group name is null or empty");
+            return null;
+        }
+        
+        return ScalingEvent.builder()
+                .deploymentId(deployment.getId())
+                .namespace(deployment.getNamespace())
+                .clusterName(deployment.getClusterName())
+                .nodeGroupName(nodeGroupName)
+                .oldNodeCount(oldCount)
+                .newNodeCount(newCount)
+                .scalingType(ScalingEvent.ScalingType.SCALE_OUT)
+                .status(ScalingEvent.ScalingStatus.PENDING)
+                .triggeredAt(LocalDateTime.now())
+                .build();
+    }
+    
+    /**
+     * 새로운 노드에 애플리케이션 재배포
+     */
+    private void redeployToNewNodes(DeploymentHistory deployment, int newNodeCount, KubernetesClient client) {
+        try {
+            log.info("Redeploying application to new nodes: deploymentId={}, newNodeCount={}", 
+                    deployment.getId(), newNodeCount);
+            
+            String namespace = deployment.getNamespace();
+            String appName = deployment.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");
+            
+            // 기존 Deployment의 replicas 수를 증가시켜 새로운 노드에 Pod 배포
+            Deployment k8sDeployment = client.apps().deployments()
+                    .inNamespace(namespace)
+                    .withName(appName)
+                    .get();
+            
+            if (k8sDeployment != null) {
+                // replicas 수를 새로운 노드 수에 맞게 조정
+                k8sDeployment.getSpec().setReplicas(newNodeCount);
+                
+                client.apps().deployments()
+                        .inNamespace(namespace)
+                        .createOrReplace(k8sDeployment);
+                
+                log.info("Successfully updated deployment replicas to {} for app: {}", newNodeCount, appName);
+                
+                // 새로 생성된 노드에 대한 추가 정보 로깅
+                logNewlyCreatedNodesInfo(deployment, newNodeCount);
+                
+            } else {
+                log.warn("Deployment not found for app: {} in namespace: {}", appName, namespace);
+            }
+            
+        } catch (Exception e) {
+            log.error("Error redeploying application to new nodes", e);
+        }
+    }
+    
+    /**
+     * 새로 생성된 노드 정보 로깅
+     */
+    private void logNewlyCreatedNodesInfo(DeploymentHistory deployment, int newNodeCount) {
+        try {
+            // 스케일링 이벤트 조회
+            List<ScalingEvent> recentEvents = scalingEventRepository.findPendingScalingEvents(deployment.getId());
+            
+            if (!recentEvents.isEmpty()) {
+                ScalingEvent latestEvent = recentEvents.get(0);
+                
+                // 새로 생성된 노드 목록 조회
+                List<String> newlyCreatedNodes = getNewlyCreatedNodes(latestEvent, null);
+                
+                if (!newlyCreatedNodes.isEmpty()) {
+                    log.info("Newly created nodes for deployment {}: {}", 
+                            deployment.getId(), newlyCreatedNodes);
+                    
+                    // 각 새 노드에 대한 상세 정보 로깅
+                    for (String nodeName : newlyCreatedNodes) {
+                        log.info("New node {} is ready for application deployment", nodeName);
+                    }
+                } else {
+                    log.warn("No newly created nodes identified for deployment {}", deployment.getId());
+                }
+            }
+            
+        } catch (Exception e) {
+            log.error("Error logging newly created nodes info", e);
+        }
+    }
+    
+    /**
+     * 노드 그룹 이름을 동적으로 조회합니다.
+     */
+    private String getNodeGroupName(DeploymentHistory deployment) {
+        try {
+            // DeploymentHistory에 노드 그룹 이름이 저장되어 있으면 사용
+            if (deployment.getNodeGroupName() != null && !deployment.getNodeGroupName().isEmpty()) {
+                return deployment.getNodeGroupName();
+            }
+            
+            // Tumblebug API에서 클러스터 정보 조회
+            K8sClusterDto clusterInfo = cbtumblebugRestApi.getK8sClusterByName(
+                    deployment.getNamespace(), 
+                    deployment.getClusterName()
+            );
+            
+            if (clusterInfo != null && clusterInfo.getCspViewK8sClusterDetail() != null) {
+                List<K8sClusterDto.NodeGroup> nodeGroups = clusterInfo.getCspViewK8sClusterDetail().getNodeGroupList();
+                
+                if (nodeGroups != null && !nodeGroups.isEmpty()) {
+                    log.debug("Found {} node groups in cluster: {}", nodeGroups.size(), 
+                            nodeGroups.stream().map(ng -> ng.getIid().getNameId()).collect(Collectors.toList()));
+                    // 적절한 노드 그룹 선택 (예: 오토스케일링이 활성화된 그룹)
+                    K8sClusterDto.NodeGroup selectedNodeGroup = selectAppropriateNodeGroup(nodeGroups);
+                    
+                    if (selectedNodeGroup != null) {
+                        String nodeGroupName = selectedNodeGroup.getIid().getNameId();
+                        
+                        // 조회된 노드 그룹 이름을 DeploymentHistory에 저장
+                        deployment.setNodeGroupName(nodeGroupName);
+                        historyRepository.save(deployment);
+                        
+                        log.info("Selected node group: {} for cluster: {}", nodeGroupName, deployment.getClusterName());
+                        return nodeGroupName;
+                    } else {
+                        log.error("No appropriate node group found for cluster: {}", deployment.getClusterName());
+                        return null;
+                    }
+                } else {
+                    log.warn("No node groups found for cluster: {} (NodeGroupList is null or empty)", deployment.getClusterName());
+                    log.warn("Please create a node group first before deploying applications");
+                    return null;
+                }
+            } else {
+                log.error("Failed to get cluster info or cluster detail is null");
+                return null;
+            }
+            
+        } catch (Exception e) {
+            log.error("Error getting node group name for deployment: {}", deployment.getId(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * 적절한 노드 그룹을 선택합니다.
+     */
+    private K8sClusterDto.NodeGroup selectAppropriateNodeGroup(List<K8sClusterDto.NodeGroup> nodeGroups) {
+        // 1. 오토스케일링이 활성화된 노드 그룹 우선 선택
+        for (K8sClusterDto.NodeGroup nodeGroup : nodeGroups) {
+            if (nodeGroup.isOnAutoScaling()) {
+                log.info("Selected auto-scaling enabled node group: {}", nodeGroup.getIid().getNameId());
+                return nodeGroup;
+            }
+        }
+        
+        // 2. 오토스케일링이 활성화된 그룹이 없으면 첫 번째 그룹 선택
+        if (!nodeGroups.isEmpty()) {
+            log.info("No auto-scaling enabled node group found, using first group: {}", 
+                    nodeGroups.get(0).getIid().getNameId());
+            return nodeGroups.get(0);
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 현재 노드 수 조회 (DeploymentHistory 기반)
+     */
+    private int getCurrentNodeCount(DeploymentHistory deployment, KubernetesClient client) {
+        try {
+            return getCurrentNodeCountFromCluster(deployment.getNamespace(), deployment.getClusterName(), 
+                    deployment.getNodeGroupName(), client);
+        } catch (Exception e) {
+            log.error("Error getting current node count for deployment: {}", deployment.getId(), e);
+            return defaultNodeCount; // 설정 가능한 기본값
+        }
+    }
+    
+    /**
+     * 현재 노드 수 조회 (ScalingEvent 기반)
+     */
+    private int getCurrentNodeCountFromEvent(ScalingEvent event, KubernetesClient client) {
+        try {
+            return getCurrentNodeCountFromCluster(event.getNamespace(), event.getClusterName(), 
+                    event.getNodeGroupName(), client);
+        } catch (Exception e) {
+            log.error("Error getting current node count for event: {}", event.getId(), e);
+            return event.getOldNodeCount(); // 이전 노드 수 반환
+        }
+    }
+    
+    /**
+     * 클러스터에서 실제 노드 수 조회
+     */
+    private int getCurrentNodeCountFromCluster(String namespace, String clusterName, String nodeGroupName, KubernetesClient client) {
+        try {
+            // Tumblebug API를 통해 클러스터 정보 조회
+            K8sClusterDto clusterInfo = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
+            
+            if (clusterInfo != null && clusterInfo.getCspViewK8sClusterDetail() != null) {
+                List<K8sClusterDto.NodeGroup> nodeGroups = clusterInfo.getCspViewK8sClusterDetail().getNodeGroupList();
+                
+                if (nodeGroups != null) {
+                    for (K8sClusterDto.NodeGroup nodeGroup : nodeGroups) {
+                        String groupName = nodeGroup.getIid().getNameId();
+                        if (nodeGroupName.equals(groupName)) {
+                            // 노드 리스트에서 실제 노드 수 확인
+                            List<K8sClusterDto.IID> nodes = nodeGroup.getNodes();
+                            if (nodes != null) {
+                                int nodeCount = nodes.size();
+                                log.debug("Current node count for group {}: {}", nodeGroupName, nodeCount);
+                                return nodeCount;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            log.warn("Could not determine current node count for group: {}, using default value", nodeGroupName);
+            return defaultNodeCount; // 설정 가능한 기본값
+            
+        } catch (Exception e) {
+            log.error("Error getting current node count from cluster", e);
+            return defaultNodeCount; // 설정 가능한 기본값
+        }
+    }
+    
+    /**
+     * 테스트용: 클러스터 정보 상세 조회 (디버깅용)
+     */
+    public K8sClusterDto getClusterInfoForTesting(String namespace, String clusterName) {
+        try {
+            log.info("Testing cluster info API: namespace={}, clusterName={}", namespace, clusterName);
+            
+            // 기존 API 사용
+            return cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
+            
+        } catch (Exception e) {
+            log.error("Error getting cluster info for testing", e);
+            return null;
+        }
+    }
+    
+    /**
+     * 새로 생성된 노드 목록 조회 (스케일링 이벤트 기반)
+     */
+    public List<String> getNewlyCreatedNodes(ScalingEvent event, KubernetesClient client) {
+        try {
+            K8sClusterDto clusterInfo = cbtumblebugRestApi.getK8sClusterByName(
+                    event.getNamespace(), event.getClusterName());
+            
+            if (clusterInfo != null && clusterInfo.getCspViewK8sClusterDetail() != null) {
+                List<K8sClusterDto.NodeGroup> nodeGroups = clusterInfo.getCspViewK8sClusterDetail().getNodeGroupList();
+                
+                if (nodeGroups != null) {
+                    for (K8sClusterDto.NodeGroup nodeGroup : nodeGroups) {
+                        String groupName = nodeGroup.getIid().getNameId();
+                        if (event.getNodeGroupName().equals(groupName)) {
+                            // 노드 목록에서 새로 생성된 노드 필터링
+                            List<K8sClusterDto.IID> allNodes = nodeGroup.getNodes();
+                            if (allNodes != null) {
+                                return filterNewlyCreatedNodes(allNodes, event);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return Collections.emptyList();
+            
+        } catch (Exception e) {
+            log.error("Error getting newly created nodes", e);
+            return Collections.emptyList();
+        }
+    }
+    
+    /**
+     * 새로 생성된 노드 필터링 (노드 수 증가 기반)
+     */
+    private List<String> filterNewlyCreatedNodes(List<K8sClusterDto.IID> allNodes, ScalingEvent event) {
+        int expectedNewNodeCount = event.getNewNodeCount() - event.getOldNodeCount();
+        
+        if (expectedNewNodeCount <= 0) {
+            log.debug("No new nodes expected: old={}, new={}", event.getOldNodeCount(), event.getNewNodeCount());
+            return Collections.emptyList();
+        }
+        
+        if (allNodes.size() < event.getNewNodeCount()) {
+            log.warn("Current node count {} is less than expected new count {}", 
+                    allNodes.size(), event.getNewNodeCount());
+            return Collections.emptyList();
+        }
+        
+        // 노드를 이름으로 정렬하여 마지막 N개 노드가 새로 생성된 것으로 간주
+        List<String> newlyCreatedNodes = allNodes.stream()
+                .sorted((n1, n2) -> n1.getNameId().compareTo(n2.getNameId()))
+                .skip(Math.max(0, allNodes.size() - expectedNewNodeCount))
+                .map(K8sClusterDto.IID::getNameId)
+                .collect(Collectors.toList());
+        
+        log.info("Identified {} newly created nodes: {}", newlyCreatedNodes.size(), newlyCreatedNodes);
+        return newlyCreatedNodes;
     }
 
 }

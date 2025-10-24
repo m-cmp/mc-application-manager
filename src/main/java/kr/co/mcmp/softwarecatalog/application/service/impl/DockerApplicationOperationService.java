@@ -9,8 +9,6 @@ import com.github.dockerjava.api.DockerClient;
 
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
-import kr.co.mcmp.softwarecatalog.application.dto.OperationRequest;
-import kr.co.mcmp.softwarecatalog.application.dto.OperationResult;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationHistoryService;

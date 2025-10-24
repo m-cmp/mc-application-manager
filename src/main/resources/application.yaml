@@ -91,4 +91,10 @@ file:
       linux: /home/mcmp/uploads/
     allowed-extensions: jpg,jpeg,png,gif
 
+k8s:
+  autoscaling:
+    default-max-nodes: ${K8S_DEFAULT_MAX_NODES:3}
+    scaling-timeout-seconds: ${K8S_SCALING_TIMEOUT_SECONDS:300}
+    default-node-count: ${K8S_DEFAULT_NODE_COUNT:1}
+
   
