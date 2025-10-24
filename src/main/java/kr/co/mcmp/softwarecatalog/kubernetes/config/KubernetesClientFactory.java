@@ -21,12 +21,17 @@ public class KubernetesClientFactory {
             K8sClusterDto dto = api.getK8sClusterByName(namespace, clusterName);
             String providerName = dto.getConnectionConfig().getProviderName();
             KubeConfigProvider provider = providerFactory.getProvider(providerName);
-            return new KubernetesClientBuilder()
+            
+            KubernetesClient client = new KubernetesClientBuilder()
                     .withConfig(provider.buildConfig(dto))
                     .build();
+            
+            
+            return client;
         } catch (Exception e) {
             log.error("KubernetesClient 생성 실패 - namespace: {}, cluster: {}", namespace, clusterName, e);
             throw new RuntimeException(e);
         }
     }
+    
 }

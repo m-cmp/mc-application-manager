@@ -31,10 +31,8 @@ public class DockerHubService {
 
     private final CatalogService catalogService;
     private final PackageInfoRepository packageInfoRepository;
-    private final UserRepository userRepository;
     private final NexusIntegrationService nexusIntegrationService;
     private final DockerHubIntegrationService dockerHubIntegrationService;
-    private final ExternalRepoService externalRepoService;
 
     @Transactional
     public Map<String, Object> registerDockerHubImage(DockerHubImageRegistrationRequest request, String username) {

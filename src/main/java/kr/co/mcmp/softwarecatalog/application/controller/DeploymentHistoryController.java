@@ -31,13 +31,6 @@ public class DeploymentHistoryController {
 
     private final ApplicationOrchestrationService applicationOrchestrationService;
 
-    @Operation(summary = "Get all deployment history", description = "Retrieve all deployment history.")
-    @GetMapping("/all")
-    public ResponseEntity<ResponseWrapper<List<DeploymentHistory>>> getAllDeploymentHistory() {
-        List<DeploymentHistory> result = applicationOrchestrationService.getAllDeploymentHistory();
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-    
     @Operation(summary = "Get deployment history by catalog ID", description = "Retrieve deployment history for a specific catalog.")
     @GetMapping("/catalog/{catalogId}")
     public ResponseEntity<ResponseWrapper<List<DeploymentHistory>>> getDeploymentHistories(

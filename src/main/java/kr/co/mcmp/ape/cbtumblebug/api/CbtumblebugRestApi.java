@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterResponse;
+import kr.co.mcmp.ape.cbtumblebug.dto.K8sNodeGroupAutoscaleRequest;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sSpec;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciDto;
 import kr.co.mcmp.ape.cbtumblebug.dto.MciResponse;
@@ -510,5 +511,48 @@ public class CbtumblebugRestApi {
             }
         });
     }
+
+    /**
+     * K8S 노드 그룹의 오토스케일 크기를 변경합니다.
+     */
+    public String changeK8sNodeGroupAutoscaleSize(String nsId, String k8sClusterId, String k8sNodeGroupName, 
+                                                 K8sNodeGroupAutoscaleRequest request) {
+        log.info("Changing K8S node group autoscale size: nsId={}, clusterId={}, nodeGroup={}", 
+                nsId, k8sClusterId, k8sNodeGroupName);
+        
+        return executeWithConnectionCheck("changeK8sNodeGroupAutoscaleSize", () -> {
+            try {
+                String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/k8sCluster/%s/k8sNodeGroup/%s/autoscaleSize", 
+                        nsId, k8sClusterId, k8sNodeGroupName));
+                HttpHeaders headers = createCommonHeaders();
+                
+                String jsonBody = new ObjectMapper().writeValueAsString(request);
+                
+                ResponseEntity<String> response = restClient.request(
+                        apiUrl,
+                        headers,
+                        jsonBody,
+                        HttpMethod.PUT,
+                        new ParameterizedTypeReference<String>() {}
+                );
+                
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    log.info("Successfully changed K8S node group autoscale size");
+                    return response.getBody();
+                } else {
+                    throw new CbtumblebugException(
+                            "Failed to change K8S node group autoscale size. Status code: " + response.getStatusCodeValue());
+                }
+                
+            } catch (JsonProcessingException e) {
+                log.error("Error serializing request body for K8S node group autoscale", e);
+                throw new CbtumblebugException("Failed to serialize request body: " + e.getMessage());
+            } catch (RestClientException e) {
+                log.error("Error changing K8S node group autoscale size", e);
+                throw new CbtumblebugException("Failed to change K8S node group autoscale size: " + e.getMessage());
+            }
+        });
+    }
+    
 
 }

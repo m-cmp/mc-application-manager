@@ -2,6 +2,7 @@ package kr.co.mcmp.softwarecatalog.application.service.impl;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -49,7 +50,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
         SoftwareCatalogDTO catalog = catalogService.getCatalog(request.getCatalogId());
         
         if (request.getDeploymentType() == DeploymentType.VM) {
-            VmAccessInfo vmInfo = cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), request.getVmId());
+            VmAccessInfo vmInfo = cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), request.getFirstVmId());
             String[] parts = vmInfo.getConnectionName().split("-");
             
             return DeploymentHistory.builder()
@@ -59,7 +60,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
                     .cloudRegion(vmInfo.getRegion().getRegion())
                     .namespace(request.getNamespace())
                     .mciId(request.getMciId())
-                    .vmId(request.getVmId())
+                    .vmId(request.getFirstVmId())
                     .publicIp(vmInfo.getPublicIP())
                     .actionType(ActionType.INSTALL)
                     .status("IN_PROGRESS")
@@ -85,8 +86,8 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
     
     @Override
     public void updateApplicationStatus(DeploymentHistory history, String status, User user) {
-        ApplicationStatus appStatus = applicationStatusRepository.findByCatalogId(history.getCatalog().getId())
-                .orElse(new ApplicationStatus());
+        List<ApplicationStatus> appStatusList = applicationStatusRepository.findByCatalogId(history.getCatalog().getId());
+        ApplicationStatus appStatus = appStatusList.isEmpty() ? new ApplicationStatus() : appStatusList.get(0);
         
         appStatus.setCatalog(history.getCatalog());
         appStatus.setStatus(status);
@@ -104,6 +105,63 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
         }
 
         applicationStatusRepository.save(appStatus);
+    }
+    
+    /**
+     * VM별 ApplicationStatus를 생성합니다. (다중 VM 배포용)
+     */
+    public void createApplicationStatusForVm(DeploymentHistory history, String vmId, String publicIp, 
+                                           Integer servicePort, String status, User user) {
+        ApplicationStatus appStatus = applicationStatusRepository
+                .findByCatalogIdAndVmId(history.getCatalog().getId(), vmId)
+                .orElse(new ApplicationStatus());
+        
+        appStatus.setCatalog(history.getCatalog());
+        appStatus.setStatus(status);
+        appStatus.setDeploymentType(history.getDeploymentType());
+        appStatus.setCheckedAt(LocalDateTime.now());
+        appStatus.setDeploymentHistoryId(history.getId());
+        appStatus.setExecutedBy(user);
+        
+        if (history.getDeploymentType() == DeploymentType.VM) {
+            appStatus.setNamespace(history.getNamespace());
+            appStatus.setMciId(history.getMciId());
+            appStatus.setVmId(vmId);
+            appStatus.setPublicIp(publicIp);
+            appStatus.setServicePort(servicePort);
+        }
+        
+        applicationStatusRepository.save(appStatus);
+        log.info("Created ApplicationStatus for VM: {} with status: {}", vmId, status);
+    }
+    
+    @Override
+    public boolean hasExistingInstallation(String namespace, String mciId, String vmId, Long catalogId) {
+        try {
+            // 해당 VM에 같은 카탈로그로 설치된 ApplicationStatus가 있는지 확인
+            Optional<ApplicationStatus> existingStatus = applicationStatusRepository
+                .findByCatalogIdAndVmId(catalogId, vmId);
+            
+            if (existingStatus.isPresent()) {
+                ApplicationStatus status = existingStatus.get();
+                // SUCCESS, RUNNING 상태만 기존 설치로 간주 (FAILED는 제외)
+                String currentStatus = status.getStatus();
+                boolean isExisting = "SUCCESS".equals(currentStatus) || "RUNNING".equals(currentStatus);
+                
+                if (isExisting) {
+                    log.info("Found existing successful installation for VM {}: status={}", vmId, currentStatus);
+                } else {
+                    log.info("Found existing failed installation for VM {}: status={}, will retry", vmId, currentStatus);
+                }
+                
+                return isExisting;
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.warn("Error checking existing installation for VM {}: {}", vmId, e.getMessage());
+            return false;
+        }
     }
     
     @Override

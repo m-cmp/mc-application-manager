@@ -34,6 +34,30 @@ public interface ApplicationHistoryService {
     void updateApplicationStatus(DeploymentHistory history, String status, User user);
     
     /**
+     * VM별 ApplicationStatus를 생성합니다. (다중 VM 배포용)
+     * 
+     * @param history 배포 이력
+     * @param vmId VM ID
+     * @param publicIp 공인 IP
+     * @param servicePort 서비스 포트
+     * @param status 상태
+     * @param user 사용자
+     */
+    void createApplicationStatusForVm(DeploymentHistory history, String vmId, String publicIp, 
+                                    Integer servicePort, String status, User user);
+    
+    /**
+     * 특정 VM에 기존 설치가 있는지 확인합니다.
+     * 
+     * @param namespace 네임스페이스
+     * @param mciId MCI ID
+     * @param vmId VM ID
+     * @param catalogId 카탈로그 ID
+     * @return 기존 설치 여부
+     */
+    boolean hasExistingInstallation(String namespace, String mciId, String vmId, Long catalogId);
+    
+    /**
      * 배포 로그를 추가합니다.
      * 
      * @param history 배포 이력

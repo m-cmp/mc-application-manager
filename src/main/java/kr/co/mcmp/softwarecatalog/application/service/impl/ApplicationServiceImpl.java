@@ -175,21 +175,15 @@ public class ApplicationServiceImpl implements ApplicationService {
      */
     @Override
     public List<KeyValueDTO> getPackageInfoFromDB(SoftwareCatalogRequestDTO.SearchPackageListDTO dto) {
-        log.info("Getting package info from DB: {} {}", dto.getTarget(), dto.getCategory());
-
         List<KeyValueDTO> result = new ArrayList<>();
 
         // VM
         if(PackageType.valueOf("DOCKER").equals(dto.getTarget())) {
             List<PackageInfo> packageInfoList = packageInfoRepository.findByCategoriesIgnoreCase(dto.getCategory());
-            log.info("Found {} package info records for category: {} (case-insensitive)", packageInfoList.size(), dto.getCategory());
             
             result = packageInfoList.stream()
                     .filter(Objects::nonNull)
                     .map(packageInfo -> {
-                        // 패키지명과 ID 로깅
-                        log.info("PackageInfo ID: {}, Name: '{}'", packageInfo.getId(), packageInfo.getPackageName());
-                        
                         // 패키지명 정규화 (공백 정규화)
                         String normalizedName = packageInfo.getPackageName() != null ? 
                                 packageInfo.getPackageName().replaceAll("\\s+", " ").trim() : "";
@@ -204,7 +198,6 @@ public class ApplicationServiceImpl implements ApplicationService {
         // K8S
         else if(PackageType.valueOf("HELM").equals(dto.getTarget())) {
             List<HelmChart> helmChartList = helmChartRepository.findByCategoryIgnoreCase(dto.getCategory());
-            log.info("Found {} helm chart records for category: {} (case-insensitive)", helmChartList.size(), dto.getCategory());
             result = helmChartList.stream()
                     .map(helmChart -> {
                         // 차트명 정규화 (공백 정규화)
@@ -350,7 +343,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         Map<String, Object> result = new HashMap<>();
         
         // 애플리케이션 상태 조회
-        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId).map(List::of).orElse(List.of());
+        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId);
         result.put("applicationStatuses", applicationStatuses);
         log.debug("Found {} application statuses for catalog ID {}", applicationStatuses.size(), catalogId);
         
@@ -410,7 +403,6 @@ public class ApplicationServiceImpl implements ApplicationService {
      */
     @Override
     public Map<String, Object> getIntegratedApplicationInfoByDeploymentId(Long deploymentId) {
-        log.info("Getting integrated application info for deployment ID: {}", deploymentId);
         
         // 배포 이력 조회
         DeploymentHistory deploymentHistory = deploymentHistoryRepository.findById(deploymentId)
@@ -418,7 +410,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         
         // 해당 배포의 카탈로그 ID로 애플리케이션 상태 조회
         Long catalogId = deploymentHistory.getCatalog().getId();
-        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId).map(List::of).orElse(List.of());
+        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId);
         
         // 해당 배포의 로그 조회
         List<DeploymentLog> logs = deploymentLogRepository.findByDeploymentIdOrderByLoggedAtDesc(deploymentId);
@@ -439,7 +431,6 @@ public class ApplicationServiceImpl implements ApplicationService {
         Map<String, Object> result = new HashMap<>();
         result.put("integratedInfo", dto);
         
-        log.info("Successfully retrieved integrated application info for deployment ID: {}", deploymentId);
         return result;
     }
 
@@ -583,7 +574,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         
         // 해당 배포의 카탈로그 ID로 애플리케이션 상태 조회
         Long catalogId = deploymentHistory.getCatalog().getId();
-        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId).map(List::of).orElse(List.of());
+        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId);
         
         // 해당 배포의 로그 조회
         List<DeploymentLog> logs = deploymentLogRepository.findByDeploymentIdOrderByLoggedAtDesc(deploymentId);

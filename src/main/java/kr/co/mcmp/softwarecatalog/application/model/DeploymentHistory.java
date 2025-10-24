@@ -56,6 +56,9 @@ public class DeploymentHistory {
 
     @Column(name = "cluster_name")
     private String clusterName; // K8s 배포에 사용
+    
+    @Column(name = "node_group_name")
+    private String nodeGroupName; // K8s 노드 그룹 이름
 
     @Column(name = "public_ip")
     private String publicIp;   

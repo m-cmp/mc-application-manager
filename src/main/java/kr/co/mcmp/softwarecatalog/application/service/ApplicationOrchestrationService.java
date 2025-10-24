@@ -92,13 +92,6 @@ public interface ApplicationOrchestrationService {
     ApplicationStatusDto getLatestApplicationStatus(String username);
     
     /**
-     * 모든 배포 히스토리를 조회합니다.
-     * 
-     * @return 배포 히스토리 목록
-     */
-    List<DeploymentHistory> getAllDeploymentHistory();
-    
-    /**
      * VM 스펙을 검증합니다.
      * 
      * @param namespace 네임스페이스

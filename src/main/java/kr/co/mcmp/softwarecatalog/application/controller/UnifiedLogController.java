@@ -186,43 +186,6 @@ public class UnifiedLogController {
         }
     }
     
-    /**
-     * Collect Kubernetes logs
-     */
-    // @PostMapping("/collect/kubernetes")
-    // @Operation(summary = "Collect Kubernetes logs", description = "Collect logs from Kubernetes.")
-    // public ResponseEntity<ResponseWrapper<String>> collectKubernetesLogs(
-    //         @Parameter(description = "Deployment ID") @RequestParam Long deploymentId,
-    //         @Parameter(description = "Namespace") @RequestParam String namespace,
-    //         @Parameter(description = "Pod name") @RequestParam String podName,
-    //         @Parameter(description = "Container name") @RequestParam(required = false) String containerName,
-    //         @Parameter(description = "Cluster name") @RequestParam(required = false) String clusterName) {
-    //     try {
-    //         unifiedLogService.collectKubernetesLogs(deploymentId, namespace, podName, containerName, clusterName);
-    //         return ResponseEntity.ok(ResponseWrapper.success("Kubernetes logs collected successfully"));
-    //     } catch (Exception e) {
-    //         log.error("Failed to collect Kubernetes logs for deployment: {}", deploymentId, e);
-    //         return ResponseEntity.badRequest().body(ResponseWrapper.error("Failed to collect logs: " + e.getMessage()));
-    //     }
-    // }
-    
-    /**
-     * Collect Docker logs
-     */
-    // @PostMapping("/collect/docker")
-    // @Operation(summary = "Collect Docker logs", description = "Collect logs from Docker.")
-    // public ResponseEntity<ResponseWrapper<String>> collectDockerLogs(
-    //         @Parameter(description = "Deployment ID") @RequestParam Long deploymentId,
-    //         @Parameter(description = "VM ID") @RequestParam String vmId,
-    //         @Parameter(description = "Container name") @RequestParam(required = false) String containerName) {
-    //     try {
-    //         unifiedLogService.collectDockerLogs(deploymentId, vmId, containerName);
-    //         return ResponseEntity.ok(ResponseWrapper.success("Docker logs collected successfully"));
-    //     } catch (Exception e) {
-    //         log.error("Failed to collect Docker logs for deployment: {}", deploymentId, e);
-    //         return ResponseEntity.badRequest().body(ResponseWrapper.error("Failed to collect logs: " + e.getMessage()));
-    //     }
-    // }
     
     /**
      * Delete logs by deployment ID

@@ -48,6 +48,9 @@ public class ApplicationStatus {
 
     @Column(name = "cluster_name")
     private String clusterName;
+    
+    @Column(name = "node_group_name")
+    private String nodeGroupName;
 
     @Column(name ="vm_id")
     private String vmId;

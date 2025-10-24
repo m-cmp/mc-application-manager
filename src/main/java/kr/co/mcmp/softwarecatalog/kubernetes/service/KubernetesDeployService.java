@@ -78,6 +78,7 @@ public class KubernetesDeployService {
             throw new RuntimeException("kubeconfig 획득 실패", e);
         }
     }
+    
 
     public DeploymentHistory deployApplication(String namespace, String clusterName, SoftwareCatalog catalog,
             String username, kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest request) {
@@ -88,10 +89,9 @@ public class KubernetesDeployService {
         HelmChart helmChart = softwareSourceService.getArtifactHubSource(catalog.getId())
                 .orElseThrow(() -> new IllegalStateException("No ArtifactHub source found for catalog: " + catalog.getId()));
         
-        log.info("선택된 Helm Chart: {} (버전: {})", helmChart.getChartName(), helmChart.getChartVersion());
         
         try (KubernetesClient client = clientFactory.getClient(namespace, clusterName)) {
-            namespaceService.ensureNamespaceExists(client, namespace);
+            // namespaceService.ensureNamespaceExists(client, namespace); // 불필요한 코드 제거
 
             Release result;
             if (request != null) {
@@ -105,7 +105,6 @@ public class KubernetesDeployService {
 
             // 릴리스 이름을 배포 히스토리에 저장
             String releaseName = result != null ? result.getName() : null;
-            log.info("배포된 릴리스 이름: {}", releaseName);
 
             return createDeploymentHistory(
                     namespace,
