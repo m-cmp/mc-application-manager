@@ -119,7 +119,9 @@
                 class="form-select" 
                 id="mci-name" 
                 :disabled="selectMci == ''" 
-                v-model="selectVm">
+                v-model="selectVm"
+                @change="onSelectVm">
+                <option value="">Select VM</option>
                 <option 
                   v-for="vm in vmList" 
                   :value="vm.id" 
@@ -127,6 +129,34 @@
                   {{ vm.name }}
                 </option>
               </select>
+
+              <div class="mt-2" style="display: flex; gap: 10px; flex-wrap: wrap;" v-if="selectedVmList.length > 0">
+                <label 
+                  v-for="(vmId, index) in selectedVmList" 
+                  :key="index"
+                  class="form-check-label" 
+                  style="border: 1px solid #000; padding: 5px; border-radius: 5px; cursor: pointer;">
+                  {{ vmId }} 
+                  <span @click="removeVm(index)" style="margin-left: 5px; font-weight: bold;">X</span>
+                </label>
+              </div>
+            </div>
+
+
+            <!-- VM :: Deployment Type -->
+            <div class="mb-3">
+              <label class="form-label">Deployment Type</label>
+              <p class="text-muted">Select the deployment type</p>
+              <div style="display: flex; gap: 10px;">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" id="Standalone" v-model="selectDeploymentType" value="Standalone">
+                  <label class="form-check-label" for="Standalone">Standalone</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" id="Clustering" v-model="selectDeploymentType" value="Clustering">
+                  <label class="form-check-label" for="Clustering">Clustering</label>
+                </div>
+              </div>
             </div>
 
             <!-- VM :: Application -->
@@ -433,12 +463,15 @@ const infraList = ref([] as any)
 const nsIdList = ref([] as any)
 const mciList = ref([] as any)
 const vmList = ref([] as any)
+const originalVmList = ref([] as any)
 const catalogList = ref([] as Array<SoftwareCatalog>)
 
 const selectInfra = ref("" as string)
 const selectNsId = ref("" as string)
 const selectMci = ref("" as string)
 const selectVm = ref("" as string)
+const selectedVmList = ref([] as Array<string>)
+const selectDeploymentType = ref("Standalone" as string)
 const hpaData = ref({} as any)
 const ingressData = ref({} as any)
 
@@ -451,6 +484,22 @@ const specCheckFlag = ref(true as boolean)
 // watch(modalTitle, async () => {
 //   await setInit();
 // });
+
+// Deployment Type 변경 시 처리
+watch(selectDeploymentType, () => {
+  if (selectDeploymentType.value === "Standalone") {
+    // Standalone으로 변경 시 선택된 VM 초기화
+    selectedVmList.value = [];
+    // vmList를 originalVmList로 복원
+    vmList.value = [...originalVmList.value];
+  } else if (selectDeploymentType.value === "Clustering") {
+    // Clustering으로 변경 시 선택된 VM 초기화
+    selectedVmList.value = [];
+    // vmList를 originalVmList로 복원
+    vmList.value = [...originalVmList.value];
+  }
+});
+
 onMounted(async () => {
   const modalElement: any = document.getElementById('install-form');
   // Open Modal Action 
@@ -465,6 +514,9 @@ const setInit = async () => {
   selectNsId.value = ""
   selectMci.value = ""
   selectVm.value = ""
+  selectedVmList.value = []
+  originalVmList.value = []
+  selectDeploymentType.value = "Standalone"
   hpaData.value = {
     hpaEnabled: false,
     hpaMinReplicas: 1,
@@ -554,12 +606,12 @@ const _getVmName = async () => {
     mciId: selectMci.value
   }
   await getVmInfo(params).then(({ data }) => {
-    vmList.value = data.vm;
-    if(mciList.value.length > 0) {
-      selectVm.value = vmList.value[0].name;
-    } else {
-      selectVm.value = "";
-    }
+    originalVmList.value = data.vm;
+    // selectedVmList에 있는 VM들을 제외한 리스트로 vmList 설정
+    vmList.value = originalVmList.value.filter((vm: any) => 
+      !selectedVmList.value.includes(vm.id)
+    );
+    selectVm.value = "";
   })
 }
 
@@ -575,11 +627,13 @@ const _getClusterName = async () => {
 }
 
 const onChangeNsId = async () => {
+  selectedVmList.value = [];
   await _getMciName();
   onChangeForm();
 }
 
 const onChangeMci = async () => {
+  selectedVmList.value = [];
   await _getVmName();
   onChangeForm();
 }
@@ -597,6 +651,47 @@ const onChangeForm = () => {
     specCheckFlag.value = false
 }
 
+const onSelectVm = () => {
+  if (selectVm.value === "") return;
+  
+  // Standalone 모드일 때는 1개만 선택 가능
+  if (selectDeploymentType.value === "Standalone") {
+    selectedVmList.value = [selectVm.value];
+  } 
+  // Clustering 모드일 때는 중복 체크 후 추가
+  else if (selectDeploymentType.value === "Clustering") {
+    if (!selectedVmList.value.includes(selectVm.value)) {
+      selectedVmList.value.push(selectVm.value);
+      
+      // vmList에서 선택된 VM 제거
+      const vmIndex = vmList.value.findIndex((vm: any) => vm.id === selectVm.value);
+      if (vmIndex !== -1) {
+        vmList.value.splice(vmIndex, 1);
+      }
+    }
+  }
+  
+  // 선택 초기화
+  selectVm.value = "";
+  onChangeForm();
+}
+
+const removeVm = (index: number) => {
+  const removedVmId = selectedVmList.value[index];
+  selectedVmList.value.splice(index, 1);
+  
+  // Clustering 모드일 때만 vmList에 다시 추가
+  if (selectDeploymentType.value === "Clustering") {
+    // originalVmList에서 제거된 VM을 찾아서 vmList에 추가
+    const removedVm = originalVmList.value.find((vm: any) => vm.id === removedVmId);
+    if (removedVm) {
+      vmList.value.push(removedVm);
+    }
+  }
+  
+  onChangeForm();
+}
+
 const runInstall = async () => {
   let appList = [] as Array<String>
   let res = {} as any
@@ -607,14 +702,21 @@ const runInstall = async () => {
     
     let params = {} as any
     if (modalTitle.value == 'Application Installation') {
+      // clusterName 생성 (Clustering 모드일 때만 필요)
+      const clusterName = selectDeploymentType.value === "Clustering" 
+        ? `${inputApplications.value}-cluster` 
+        : `${inputApplications.value}-standalone`;
+      
       params = {
         namespace: selectNsId.value,
         mciId: selectMci.value,
-        vmId: selectVm.value,
+        vmIds: selectedVmList.value,
+        clusterName: clusterName,
         catalogId: selectedCatalogIdx.value,
         servicePort: inputServicePort.value,
-        username: "",
+        username: "admin",
         deploymentType: selectInfra.value,
+        vmDeploymentMode: selectDeploymentType.value.toUpperCase(),
       }
       res = await runVmInstall(params)
     } else {
@@ -704,15 +806,16 @@ const specCheckCallback = async () => {
     if (
       selectNsId.value === "" ||
       selectMci.value === "" ||
-      selectVm.value === "" ||
+      selectedVmList.value.length === 0 ||
       selectedCatalogIdx.value === 0) {
       return null;
     }
     else {
+      // 선택된 VM 중 첫 번째 VM으로 스펙 체크 (또는 모든 VM을 체크할 수도 있음)
       const params = {
         namespace: selectNsId.value,
         mciName: selectMci.value,
-        vmName: selectVm.value,
+        vmName: selectedVmList.value[0],
         catalogId: selectedCatalogIdx.value 
       }
 
