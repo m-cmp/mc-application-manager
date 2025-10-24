@@ -1,52 +1,35 @@
 # -----------------------------------------------------------
-# 1. Base Image
+# Stage 1: Build tools (download Docker & Helm binaries)
 # -----------------------------------------------------------
-FROM openjdk:17.0.1-jdk-slim AS prod
+FROM debian:bullseye-slim AS builder
+
+ARG DOCKER_VERSION=27.1.2
+ARG HELM_VERSION=v3.15.3
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates tar gzip && \
+    # Download Docker CLI only
+    curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz | tar xz && \
+    mv docker/docker /usr/local/bin/ && \
+    # Download Helm binary
+    curl -fsSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz | tar xz && \
+    mv linux-amd64/helm /usr/local/bin/ && \
+    # Cleanup
+    rm -rf /var/lib/apt/lists/* docker linux-amd64
 
 # -----------------------------------------------------------
-# 2. Install essential packages
-#    - curl, wget: for downloading scripts
-#    - ca-certificates: for HTTPS communication
-#    - iptables, fuse-overlayfs: required by Docker CLI
-#    - gnupg: for verifying packages
+# Stage 2: Runtime image (lightweight OpenJDK + copied tools)
 # -----------------------------------------------------------
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        curl \
-        wget \
-        iptables \
-        fuse-overlayfs \
-        ca-certificates \
-        openssl \
-        bash \
-        gnupg \
-    && rm -rf /var/lib/apt/lists/*
+FROM openjdk:17.0.1-jdk-slim
 
-# -----------------------------------------------------------
-# 3. Install Docker CLI
-# -----------------------------------------------------------
-RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
-    chmod +x get-docker.sh && \
-    sh get-docker.sh && \
-    rm get-docker.sh
+# Copy binaries from builder
+COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 
-# Optional: Verify Docker version
-RUN docker --version
+# Optional: verify versions
+RUN docker --version && helm version
 
-# -----------------------------------------------------------
-# 4. Install Helm
-# -----------------------------------------------------------
-RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 && \
-    chmod 700 get_helm.sh && \
-    ./get_helm.sh && \
-    rm get_helm.sh
-
-# Optional: Verify Helm version
-RUN helm version
-
-# -----------------------------------------------------------
-# 5. Copy application and set entrypoint
-# -----------------------------------------------------------
+# Copy application
 COPY ./build/libs/am.jar /am.jar
 
 ENTRYPOINT ["java", "-jar", "/am.jar"]
