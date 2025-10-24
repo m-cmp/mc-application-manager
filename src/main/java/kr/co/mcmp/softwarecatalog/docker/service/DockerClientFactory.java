@@ -19,6 +19,8 @@ public class DockerClientFactory {
     
     public DockerClient getDockerClient(String host) {
         String dockerHost = "tcp://" + host + ":2375";
+        log.info("Creating Docker client for host: {}", dockerHost);
+        
         DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost(dockerHost)
                 .build();
@@ -28,7 +30,10 @@ public class DockerClientFactory {
                 .connectionTimeout(Duration.ofSeconds(30))
                 .responseTimeout(Duration.ofSeconds(45))
                 .build();
-        return DockerClientImpl.getInstance(config, httpClient);
+        
+        DockerClient client = DockerClientImpl.getInstance(config, httpClient);
+        log.info("Docker client created successfully for host: {}", dockerHost);
+        return client;
     }
 
 }
