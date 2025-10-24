@@ -1,5 +1,6 @@
 package kr.co.mcmp.softwarecatalog.application.service.impl;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.stereotype.Service;
 
@@ -21,6 +23,7 @@ import kr.co.mcmp.softwarecatalog.application.dto.DeploymentParameters;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.exception.ApplicationException;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
+import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationHistoryService;
 import kr.co.mcmp.softwarecatalog.application.service.DeploymentService;
 import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
@@ -45,6 +48,7 @@ public class DockerDeploymentService implements DeploymentService {
     private final DockerOperationService dockerOperationService;
     private final CbtumblebugRestApi cbtumblebugRestApi;
     private final ApplicationHistoryService applicationHistoryService;
+    private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final UserService userService;
     private final NexusConfig nexusConfig;
     
@@ -78,20 +82,142 @@ public class DockerDeploymentService implements DeploymentService {
         }
         
         User user = userService.findUserByUsername(request.getUsername()).orElse(null);
-        DeploymentHistory history = applicationHistoryService.createDeploymentHistory(request, user);
-
+        
+        // 다중 VM 배포의 경우 VM별 DeploymentHistory 생성
+        if (request.getVmIds() != null && request.getVmIds().size() > 1) {
+            return deployToMultipleVms(request, catalog, user);
+        } else {
+            // 단일 VM 배포의 경우 기존 로직 사용
+            DeploymentHistory history = applicationHistoryService.createDeploymentHistory(request, user);
+            
+            try {
+                deployToVms(request, catalog, history, user);
+            } catch (Exception e) {
+                log.error("Deployment failed", e);
+                history.setStatus("FAILED");
+                applicationHistoryService.updateApplicationStatus(history, "FAILED", user);
+                applicationHistoryService.addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
+            }
+            
+            return history;
+        }
+    }
+    
+    /**
+     * 다중 VM 배포 - VM별 DeploymentHistory 생성
+     */
+    private DeploymentHistory deployToMultipleVms(DeploymentRequest request, SoftwareCatalogDTO catalog, User user) {
+        List<String> vmIds = request.getVmIds();
+        DeploymentHistory firstHistory = null;
+        
+        // 기존 설치 확인
+        List<String> alreadyInstalledVms = checkExistingInstallations(request, catalog, vmIds);
+        if (!alreadyInstalledVms.isEmpty()) {
+            log.info("Found existing installations on VMs: {}", alreadyInstalledVms);
+        }
+        
+        // 클러스터 설정 생성 (클러스터링 모드인 경우에만)
+        final Map<String, String> clusterConfig = request.getVmDeploymentMode() == VmDeploymentMode.CLUSTERING ? buildClusterConfig(request, catalog, vmIds) : null;
+        
+        // VM별 배포 작업 생성
+        List<CompletableFuture<DeploymentResult>> deploymentFutures = new ArrayList<>();
+        Map<String, DeploymentHistory> vmHistories = new HashMap<>();
+        
+        for (int i = 0; i < vmIds.size(); i++) {
+            final String vmId = vmIds.get(i);
+            final int vmIndex = i;
+            
+            // 기존 설치가 있는 VM은 건너뛰기
+            if (alreadyInstalledVms.contains(vmId)) {
+                log.info("Skipping deployment for VM {} due to existing installation", vmId);
+                continue;
+            }
+            
+            // VM별 DeploymentHistory 생성
+            DeploymentHistory vmHistory = applicationHistoryService.createDeploymentHistoryForVm(request, vmId, user);
+            deploymentHistoryRepository.save(vmHistory);
+            vmHistories.put(vmId, vmHistory);
+            
+            if (firstHistory == null) {
+                firstHistory = vmHistory;
+            }
+            
+            CompletableFuture<DeploymentResult> future = CompletableFuture.supplyAsync(() -> {
+                return deployToSingleVmAsync(request, catalog, vmHistory, user, vmId, vmIndex, vmIds, clusterConfig);
+            }, asyncExecutor);
+            
+            deploymentFutures.add(future);
+        }
+        
+        // 모든 배포 작업 완료 대기
         try {
-            // 통합 배포 로직 - VM 개수와 배포 모드에 따라 처리
-            deployToVms(request, catalog, history, user);
+            CompletableFuture<Void> allFutures = CompletableFuture.allOf(
+                deploymentFutures.toArray(new CompletableFuture[0])
+            );
+            
+            allFutures.get(30, TimeUnit.MINUTES); // 30분 타임아웃
+            
+            // 배포 결과 처리
+            List<String> successfulVms = new ArrayList<>();
+            List<String> failedVms = new ArrayList<>();
+            
+            for (int i = 0; i < deploymentFutures.size(); i++) {
+                try {
+                    DeploymentResult result = deploymentFutures.get(i).get();
+                    String vmId = vmIds.get(i);
+                    DeploymentHistory vmHistory = vmHistories.get(vmId);
+                    
+                    if (vmHistory == null) continue;
+                    
+                    VmAccessInfo vmAccessInfo = cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), vmId);
+                    Integer servicePort = request.getServicePort();
+                    
+                    if (result.isSuccess()) {
+                        successfulVms.add(vmId);
+                        vmHistory.setStatus("SUCCESS");
+                        vmHistory.setUpdatedAt(LocalDateTime.now());
+                        deploymentHistoryRepository.save(vmHistory);
+                        
+                        String logMessage = createMessage(request, MessageType.SUCCESS, vmId, "deployment completed");
+                        applicationHistoryService.addDeploymentLog(vmHistory, LogType.INFO, logMessage);
+                        
+                        // 성공한 VM의 ApplicationStatus 생성
+                        applicationHistoryService.createApplicationStatusForVm(
+                            vmHistory, vmId, vmAccessInfo.getPublicIP(), servicePort, "SUCCESS", user);
+                    } else {
+                        failedVms.add(vmId + " (" + result.getErrorMessage() + ")");
+                        vmHistory.setStatus("FAILED");
+                        vmHistory.setUpdatedAt(LocalDateTime.now());
+                        deploymentHistoryRepository.save(vmHistory);
+                        
+                        String errorMessage = createMessage(request, MessageType.ERROR, vmId, result.getErrorMessage());
+                        applicationHistoryService.addDeploymentLog(vmHistory, LogType.ERROR, errorMessage);
+                        
+                        // 실패한 VM의 ApplicationStatus 생성
+                        applicationHistoryService.createApplicationStatusForVm(
+                            vmHistory, vmId, vmAccessInfo.getPublicIP(), servicePort, "FAILED", user);
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to get deployment result", e);
+                    failedVms.add("Unknown VM (future failed)");
+                }
+            }
+            
+            // 배포 결과 처리
+            processDeploymentResults(firstHistory, user, successfulVms, failedVms, request);
             
         } catch (Exception e) {
-            log.error("Deployment failed", e);
-            history.setStatus("FAILED");
-            applicationHistoryService.updateApplicationStatus(history, "FAILED", user);
-            applicationHistoryService.addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
+            log.error("Deployment timeout or error", e);
+            // 모든 VM History를 FAILED로 설정
+            for (DeploymentHistory vmHistory : vmHistories.values()) {
+                vmHistory.setStatus("FAILED");
+                vmHistory.setUpdatedAt(LocalDateTime.now());
+                deploymentHistoryRepository.save(vmHistory);
+                applicationHistoryService.addDeploymentLog(vmHistory, LogType.ERROR, "Deployment timeout or error: " + e.getMessage());
+            }
         }
-
-        return history;
+        
+        return firstHistory;
     }
     
     /**
@@ -332,8 +458,8 @@ public class DockerDeploymentService implements DeploymentService {
         
         // 애플리케이션별 특화 포트 설정
         if ("elasticsearch".equals(appType)) {
-            int internalPort = 9300 + nodeIndex;
-            portBindings += "," + internalPort + ":9300";
+            // Elasticsearch 클러스터링: 모든 노드가 9300 포트 사용
+            portBindings += ",9300:9300";
         }
         
         return new ContainerConfig(nodeName, portBindings);

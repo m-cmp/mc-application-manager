@@ -135,6 +135,49 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
         log.info("Created ApplicationStatus for VM: {} with status: {}", vmId, status);
     }
     
+    /**
+     * VM별 DeploymentHistory를 생성합니다. (다중 VM 배포용)
+     */
+    @Override
+    public DeploymentHistory createDeploymentHistoryForVm(DeploymentRequest request, String vmId, User user) {
+        SoftwareCatalogDTO catalog = catalogService.getCatalog(request.getCatalogId());
+        
+        if (request.getDeploymentType() == DeploymentType.VM) {
+            VmAccessInfo vmInfo = cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), vmId);
+            String[] parts = vmInfo.getConnectionName().split("-");
+            
+            return DeploymentHistory.builder()
+                    .catalog(catalog.toEntity())
+                    .deploymentType(DeploymentType.VM)
+                    .cloudProvider(parts.length > 0 ? parts[0] : "")
+                    .cloudRegion(vmInfo.getRegion().getRegion())
+                    .namespace(request.getNamespace())
+                    .mciId(request.getMciId())
+                    .vmId(vmId)
+                    .clusterName(request.getClusterName())
+                    .publicIp(vmInfo.getPublicIP())
+                    .actionType(ActionType.INSTALL)
+                    .status("IN_PROGRESS")
+                    .servicePort(request.getServicePort())
+                    .executedAt(LocalDateTime.now())
+                    .executedBy(user)
+                    .build();
+        } else if (request.getDeploymentType() == DeploymentType.K8S) {
+            return DeploymentHistory.builder()
+                    .catalog(catalog.toEntity())
+                    .deploymentType(DeploymentType.K8S)
+                    .namespace(request.getNamespace())
+                    .clusterName(request.getClusterName())
+                    .actionType(ActionType.INSTALL)
+                    .status("IN_PROGRESS")
+                    .executedAt(LocalDateTime.now())
+                    .executedBy(user)
+                    .build();
+        }
+        
+        throw new RuntimeException("Unsupported deployment type: " + request.getDeploymentType());
+    }
+    
     @Override
     public boolean hasExistingInstallation(String namespace, String mciId, String vmId, Long catalogId) {
         try {

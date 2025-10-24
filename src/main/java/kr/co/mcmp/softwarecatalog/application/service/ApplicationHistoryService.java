@@ -47,6 +47,16 @@ public interface ApplicationHistoryService {
                                     Integer servicePort, String status, User user);
     
     /**
+     * VM별 DeploymentHistory를 생성합니다. (다중 VM 배포용)
+     * 
+     * @param request 배포 요청 정보
+     * @param vmId VM ID
+     * @param user 사용자
+     * @return VM별 배포 이력
+     */
+    DeploymentHistory createDeploymentHistoryForVm(DeploymentRequest request, String vmId, User user);
+    
+    /**
      * 특정 VM에 기존 설치가 있는지 확인합니다.
      * 
      * @param namespace 네임스페이스

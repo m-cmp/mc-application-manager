@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.springframework.stereotype.Component;
@@ -33,8 +32,26 @@ public class ContainerStatsCollector {
     public String getContainerId(DockerClient dockerClient, String containerName) {
         try {
             List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
+            log.info("Searching for container with name pattern: {}", containerName);
+            log.info("Available containers: {}", 
+                containers.stream()
+                    .map(container -> Arrays.toString(container.getNames()))
+                    .collect(java.util.stream.Collectors.toList()));
+            
             return containers.stream()
-                .filter(container -> Arrays.asList(container.getNames()).contains("/" + containerName))
+                .filter(container -> {
+                    String[] names = container.getNames();
+                    if (names != null) {
+                        for (String name : names) {
+                            // 부분 문자열 매칭으로 변경 (정확한 이름 매칭에서)
+                            if (name.contains(containerName)) {
+                                log.debug("Found matching container: {}", name);
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                })
                 .findFirst()
                 .map(Container::getId)
                 .orElse(null);
@@ -45,12 +62,16 @@ public class ContainerStatsCollector {
     }
 
     public ContainerHealthInfo collectContainerStats(DockerClient dockerClient, String containerId) {
+        log.info("Collecting container stats for containerId: {}", containerId);
         try {
             InspectContainerResponse containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
+            log.debug("Container info retrieved successfully");
+            
             Statistics stats = collectStatistics(dockerClient, containerId);
+            log.debug("Statistics collected: {}", stats != null ? "SUCCESS" : "NULL");
+            
             Integer servicePort = getServicePort(containerInfo);
             String ipAddress = getContainerIpAddress(containerInfo);
-            // List<Boolean> portAccessibilities = servicePorts.stream().map(port -> isPortAccessible(ipAddress, port)).collect(Collectors.toList());
             Boolean isPortAccessible = servicePort != null && ipAddress != null && isPortAccessible(ipAddress, servicePort);
             Boolean isHealthCheck = isContainerHealthy(containerInfo);
             
@@ -58,6 +79,9 @@ public class ContainerStatsCollector {
             Double memoryUsage = calculateMemoryUsage(stats);
             Double networkIn = calculateNetworkIn(stats);
             Double networkOut = calculateNetworkOut(stats);
+            
+            log.info("Container stats - CPU: {}%, Memory: {}%, Network In: {}, Network Out: {}", 
+                    cpuUsage, memoryUsage, networkIn, networkOut);
             
             return ContainerHealthInfo.builder()
                     .status(mapContainerStatus(containerInfo.getState().getStatus()))
@@ -70,7 +94,7 @@ public class ContainerStatsCollector {
                     .networkOut(networkOut)
                     .build();
         } catch (Exception e) {
-            log.error("Error collecting container stats for {}", containerId, e);
+            log.error("Error collecting container stats for containerId: {}", containerId, e);
             return ContainerHealthInfo.builder()
                     .status("ERROR")
                     .build();
@@ -90,12 +114,23 @@ public class ContainerStatsCollector {
     }
 
     private Statistics collectStatistics(DockerClient dockerClient, String containerId) {
+        log.debug("Collecting statistics for containerId: {}", containerId);
         try (StatsCallback statsCallback = new StatsCallback()) {
             dockerClient.statsCmd(containerId).exec(statsCallback);
-            statsCallback.awaitCompletion(5, TimeUnit.SECONDS);
-            return statsCallback.getStats();
+            boolean completed = statsCallback.awaitCompletion(5, TimeUnit.SECONDS);
+            log.debug("Statistics collection completed: {}", completed);
+            
+            Statistics stats = statsCallback.getStats();
+            if (stats == null) {
+                log.warn("Statistics is null for containerId: {}", containerId);
+            } else {
+                log.debug("Statistics collected successfully - CPU: {}, Memory: {}", 
+                        stats.getCpuStats() != null ? "Available" : "NULL",
+                        stats.getMemoryStats() != null ? "Available" : "NULL");
+            }
+            return stats;
         } catch (Exception e) {
-            log.error("Error collecting statistics for {}", containerId, e);
+            log.error("Error collecting statistics for containerId: {}", containerId, e);
             return null;
         }
     }
@@ -153,7 +188,7 @@ public class ContainerStatsCollector {
             
             return bindings.entrySet().stream()
                 .flatMap(entry -> {
-                    ExposedPort exposedPort = entry.getKey();
+                    // ExposedPort exposedPort = entry.getKey();
                     Ports.Binding[] bindingsArray = entry.getValue();
                     return bindingsArray != null ? Arrays.stream(bindingsArray) : Stream.empty();
                 })

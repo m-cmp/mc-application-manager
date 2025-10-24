@@ -11,7 +11,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
@@ -19,7 +18,6 @@ import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerHealthInfo;
-import kr.co.mcmp.softwarecatalog.docker.service.DockerLogCollector;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,9 +30,7 @@ public class DockerMonitoringService {
     private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final DockerClientFactory dockerClientFactory;
     private final ContainerStatsCollector containerStatsCollector;
-    private final ContainerLogCollector containerLogCollector;
     private final DockerLogCollector dockerLogCollector;
-    private final CbtumblebugRestApi cbtumblebugRestApi;
 
     @Value("${docker.monitoring.interval:60000}")
     private long monitoringInterval;
@@ -72,30 +68,47 @@ public class DockerMonitoringService {
     }
 
     private void updateContainerHealth(DeploymentHistory deployment) {
-        ApplicationStatus status = applicationStatusRepository.findTopByCatalogIdOrderByCheckedAtDesc(deployment.getCatalog().getId()).orElse(new ApplicationStatus());
+        log.info("Updating container health for deployment: {} (VM: {})", deployment.getId(), deployment.getVmId());
+        
+        // VM별 ApplicationStatus를 찾기 위해 catalogId와 vmId로 검색
+        ApplicationStatus status = applicationStatusRepository.findByCatalogIdAndVmId(
+            deployment.getCatalog().getId(), deployment.getVmId()).orElse(new ApplicationStatus());
 
         try (var dockerClient = dockerClientFactory.getDockerClient(deployment.getPublicIp())) {
+            log.info("Docker client connected successfully to: {}", deployment.getPublicIp());
+            
             String catalogName = deployment.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");
+            log.info("Looking for container with name pattern: {}", catalogName);
+            
             String containerId = containerStatsCollector.getContainerId(dockerClient, catalogName);
-            log.debug("containerId: {}", containerId);
+            log.info("Found containerId: {}", containerId);
 
             if (containerId == null) {
+                log.warn("Container not found for catalog: {} on VM: {}", catalogName, deployment.getVmId());
                 status.setStatus("NOT_FOUND");
+                status.setCheckedAt(LocalDateTime.now());
                 applicationStatusRepository.save(status);
                 return;
             }
 
             ContainerHealthInfo healthInfo = containerStatsCollector.collectContainerStats(dockerClient, containerId);
+            log.info("Health info collected - Status: {}, CPU: {}%, Memory: {}%", 
+                    healthInfo.getStatus(), healthInfo.getCpuUsage(), healthInfo.getMemoryUsage());
+            
             updateApplicationStatus(status, deployment, healthInfo);
+            
             if (isThresholdExceeded(deployment.getCatalog(), healthInfo)) {
+                log.warn("Resource thresholds exceeded for deployment: {}", deployment.getId());
                 // UnifiedLog를 사용하여 에러 로그 수집
                 dockerLogCollector.collectAndSaveLogs(deployment.getId(), deployment.getVmId(), containerId);
             }
 
             applicationStatusRepository.save(status);
+            log.info("ApplicationStatus updated successfully for deployment: {}", deployment.getId());
         } catch (Exception e) {
-            log.error("Failed to update container health for deployment: {}", deployment.getId(), e);
+            log.error("Failed to update container health for deployment: {} (VM: {})", deployment.getId(), deployment.getVmId(), e);
             status.setStatus("ERROR");
+            status.setCheckedAt(LocalDateTime.now());
             applicationStatusRepository.save(status);
         }
     }
