@@ -169,6 +169,8 @@ public class SoftwareCatalogDTO {
                 .logoUrlLarge(this.logoUrlLarge)
                 .logoUrlSmall(this.logoUrlSmall)
 
+                
+
                 // 3. Resource Requirements
                 .minCpu(this.minCpu)
                 .recommendedCpu(this.recommendedCpu)
@@ -181,6 +183,9 @@ public class SoftwareCatalogDTO {
                 .maxReplicas(this.maxReplicas)
                 .cpuThreshold(this.cpuThreshold)
                 .memoryThreshold(this.memoryThreshold)
+
+                // 4. Network
+                .defaultPort(this.defaultPort)
 
                 // 5. etc
                 .createdAt(this.createdAt)

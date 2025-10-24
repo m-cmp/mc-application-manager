@@ -460,6 +460,9 @@ public class DockerDeploymentService implements DeploymentService {
         if ("elasticsearch".equals(appType)) {
             // Elasticsearch 클러스터링: 모든 노드가 9300 포트 사용
             portBindings += ",9300:9300";
+        } else if ("redis".equals(appType)) {
+            // Redis 클러스터링: 6379 (Redis), 7000 (Cluster), 17000 (Cluster Bus)
+            portBindings += ",6379:6379,7000:7000,17000:17000";
         }
         
         return new ContainerConfig(nodeName, portBindings);
