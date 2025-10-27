@@ -449,12 +449,14 @@ import _, { slice } from 'lodash';
 import { getNsInfo, getMciInfo, getVmInfo, getClusterInfo } from '@/api/tumblebug'
 import { getSoftwareCatalogList, k8sSpecCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
 import { type SoftwareCatalog } from '@/views/type/type'
+import { useUserStore } from '@/stores/user'
 
 interface Props {
   nsId: string
   title: string
 }
 const toast = useToast()
+const userStore = useUserStore()
 
 const props = defineProps<Props>()
 const modalTitle = computed(() => props.title);
@@ -485,17 +487,17 @@ const specCheckFlag = ref(true as boolean)
 //   await setInit();
 // });
 
-// Deployment Type 변경 시 처리
+// Handle deployment type changes
 watch(selectDeploymentType, () => {
   if (selectDeploymentType.value === "Standalone") {
-    // Standalone으로 변경 시 선택된 VM 초기화
+    // Reset selected VMs when changing to Standalone mode
     selectedVmList.value = [];
-    // vmList를 originalVmList로 복원
+    // Restore vmList from originalVmList
     vmList.value = [...originalVmList.value];
   } else if (selectDeploymentType.value === "Clustering") {
-    // Clustering으로 변경 시 선택된 VM 초기화
+    // Reset selected VMs when changing to Clustering mode
     selectedVmList.value = [];
-    // vmList를 originalVmList로 복원
+    // Restore vmList from originalVmList
     vmList.value = [...originalVmList.value];
   }
 });
@@ -571,11 +573,26 @@ const _getNsId = async () => {
     nsIdList.value = data;
 
     if (nsIdList.value.length > 0) {
+      // Priority 1: nsId passed from props
       if(!_.isEmpty(props.nsId)) {
         selectNsId.value = props.nsId
       }
-      else
-        selectNsId.value = nsIdList.value[1].name;
+      // Priority 2: projectInfo.ns_id from userStore (value saved in permission.ts)
+      else if (!_.isEmpty(userStore.getNsId())) {
+        const storeNsId = userStore.getNsId()
+        // Check if the ns_id exists in nsIdList
+        const foundNs = nsIdList.value.find((ns: any) => ns.name === storeNsId)
+        if (foundNs) {
+          selectNsId.value = storeNsId
+        } else {
+          // If not found, select the first item
+          selectNsId.value = nsIdList.value[0].name
+        }
+      }
+      // Priority 3: Default value (first item)
+      else {
+        selectNsId.value = nsIdList.value[0].name
+      }
     }
 
     if (!_.isEmpty(selectNsId.value)) {
@@ -608,7 +625,7 @@ const _getVmName = async () => {
   }
   await getVmInfo(params).then(({ data }) => {
     originalVmList.value = data.vm;
-    // selectedVmList에 있는 VM들을 제외한 리스트로 vmList 설정
+    // Set vmList excluding VMs that are already in selectedVmList
     vmList.value = originalVmList.value.filter((vm: any) => 
       !selectedVmList.value.includes(vm.id)
     );
@@ -655,16 +672,16 @@ const onChangeForm = () => {
 const onSelectVm = () => {
   if (selectVm.value === "") return;
   
-  // Standalone 모드일 때는 1개만 선택 가능
+  // In Standalone mode, only one VM can be selected
   if (selectDeploymentType.value === "Standalone") {
     selectedVmList.value = [selectVm.value];
   } 
-  // Clustering 모드일 때는 중복 체크 후 추가
+  // In Clustering mode, add after checking for duplicates
   else if (selectDeploymentType.value === "Clustering") {
     if (!selectedVmList.value.includes(selectVm.value)) {
       selectedVmList.value.push(selectVm.value);
       
-      // vmList에서 선택된 VM 제거
+      // Remove the selected VM from vmList
       const vmIndex = vmList.value.findIndex((vm: any) => vm.id === selectVm.value);
       if (vmIndex !== -1) {
         vmList.value.splice(vmIndex, 1);
@@ -672,7 +689,7 @@ const onSelectVm = () => {
     }
   }
   
-  // 선택 초기화
+  // Reset selection
   selectVm.value = "";
   onChangeForm();
 }
@@ -681,9 +698,9 @@ const removeVm = (index: number) => {
   const removedVmId = selectedVmList.value[index];
   selectedVmList.value.splice(index, 1);
   
-  // Clustering 모드일 때만 vmList에 다시 추가
+  // Add back to vmList only in Clustering mode
   if (selectDeploymentType.value === "Clustering") {
-    // originalVmList에서 제거된 VM을 찾아서 vmList에 추가
+    // Find the removed VM from originalVmList and add it to vmList
     const removedVm = originalVmList.value.find((vm: any) => vm.id === removedVmId);
     if (removedVm) {
       vmList.value.push(removedVm);
@@ -698,12 +715,12 @@ const runInstall = async () => {
   let res = {} as any
 
   if (selectInfra.value === 'VM') {
-    // History : 처음 설계와 방향이 달라져 현재는 Application 1개만 보냄 (기존에는 여러개의 APP을 받을 수 있었음)
+    // History: The initial design has changed, currently only sending 1 Application (previously it could receive multiple apps)
     appList = inputApplications.value.split(",").map(item => item.toLowerCase().trim());
     
     let params = {} as any
     if (modalTitle.value == 'Application Installation') {
-      // clusterName 생성 (Clustering 모드일 때만 필요)
+      // Generate clusterName (only required in Clustering mode)
       const clusterName = selectDeploymentType.value === "Clustering" 
         ? `${inputApplications.value}-cluster` 
         : `${inputApplications.value}-standalone`;
@@ -732,7 +749,7 @@ const runInstall = async () => {
   }
 
   else if (selectInfra.value === 'K8S') {
-    // History : 처음 설계와 방향이 달라져 현재는 Application 1개만 보냄 (기존에는 여러개의 APP을 받을 수 있었음)
+    // History: The initial design has changed, currently only sending 1 Application (previously it could receive multiple apps)
     appList = inputApplications.value.split(",").map(item => item.toLowerCase().trim());
     let params = {
       namespace: selectNsId.value,
@@ -812,7 +829,7 @@ const specCheckCallback = async () => {
       return null;
     }
     else {
-      // 선택된 VM 중 첫 번째 VM으로 스펙 체크 (또는 모든 VM을 체크할 수도 있음)
+      // Spec check with the first VM among selected VMs (or all VMs could be checked)
       const params = {
         namespace: selectNsId.value,
         mciName: selectMci.value,
