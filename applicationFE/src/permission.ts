@@ -7,7 +7,9 @@ router.beforeEach(async (to, from, next) => {
 
   window.addEventListener("message", async function (event) {
     let data
-    if (event.data.accessToken === undefined) {
+    console.log('## event.data.accessToken ### : ', event.data.accessToken)
+    if (event.data.accessToken === undefined || event.data.accessToken === 'undefined') {
+      console.log('## event.data.accessToken is undefined ### : ')
       data = {
         accessToken: "accesstokenExample", // 있는지 확인
         workspaceInfo: {
@@ -31,6 +33,7 @@ router.beforeEach(async (to, from, next) => {
       }
     }
     else {
+      console.log('## event.data.accessToken is not undefined ### : ')
       data = event.data;
     }
     try {
@@ -41,7 +44,7 @@ router.beforeEach(async (to, from, next) => {
       // } else {
       //     console.error("requestUrl not found in response data");
       // }
-      console.log(data)
+      console.log('## data ### : ', data)
       const userinfo = useUserStore();
       userinfo.setUser(data)
     } catch (error) {
