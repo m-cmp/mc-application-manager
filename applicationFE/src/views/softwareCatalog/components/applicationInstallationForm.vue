@@ -567,14 +567,15 @@ const setSpecCheckFlag = () => {
 
 const _getNsId = async () => {
   await getNsInfo().then(async ({ data })=> {
+    console.log('## data ### : ', data)
     nsIdList.value = data;
 
     if (nsIdList.value.length > 0) {
-      // if(!_.isEmpty(props.nsId)) {
-      //   selectNsId.value = props.nsId
-      // }
-      // else
-        selectNsId.value = nsIdList.value[0].name;
+      if(!_.isEmpty(props.nsId)) {
+        selectNsId.value = props.nsId
+      }
+      else
+        selectNsId.value = nsIdList.value[1].name;
     }
 
     if (!_.isEmpty(selectNsId.value)) {
