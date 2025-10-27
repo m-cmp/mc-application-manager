@@ -18,4 +18,9 @@ public class K8sNodeGroupAutoscaleRequest {
     
     @JsonProperty("minNodeSize")
     private String minNodeSize;
+    
+    // Manual 모드 지원: minNodeSize와 maxNodeSize를 null로 설정 가능
+    public boolean includeAutoScalingParams() {
+        return minNodeSize != null && maxNodeSize != null;
+    }
 }

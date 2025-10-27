@@ -4,10 +4,6 @@ import io.fabric8.kubernetes.client.Config;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.eks.EksClient;
-import software.amazon.awssdk.services.eks.model.*;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -112,10 +108,9 @@ public class AwsKubeConfigProvider implements KubeConfigProvider {
     private String processAwsKubeconfig(String kubeconfig) {
         System.out.println("=== AWS kubeconfig 처리 시작 ===");
         try {
-            // 1. localhost:1024를 Tumblebug IP:1024로 변경
-            String tumblebugHost = tumblebugUrl + ":1024";
-            String processedKubeconfig = kubeconfig.replace("localhost:1024", tumblebugHost);
-            System.out.println("1. 주소 변경: localhost:1024 -> " + tumblebugHost);
+            // 1. localhost만 Tumblebug IP로 변경 (포트는 그대로 유지)
+            String processedKubeconfig = kubeconfig.replace("localhost:", tumblebugUrl + ":");
+            System.out.println("1. 주소 변경: localhost -> " + tumblebugUrl);
             
             // 2. kubeconfig에서 cluster ID와 connection name 추출
             String clusterId = extractClusterId(processedKubeconfig);
@@ -176,12 +171,10 @@ public class AwsKubeConfigProvider implements KubeConfigProvider {
      * Tumblebug에서 현재 토큰을 가져옵니다 (Java HTTP 클라이언트 사용)
      */
     private String getCurrentToken(String clusterId, String connectionName) throws Exception {
-        String tumblebugHost = tumblebugUrl + ":1024";
-        
         // URL 인코딩 처리 (백슬래시 및 따옴표 문제 해결)
         String cleanConnectionName = connectionName.replace("\\", "").replace("\"", "").trim();
         String encodedConnectionName = URLEncoder.encode(cleanConnectionName, StandardCharsets.UTF_8);
-        String tokenUrl = "http://" + tumblebugHost + "/spider/cluster/" + clusterId + "/token?ConnectionName=" + encodedConnectionName;
+        String tokenUrl = "http://" + tumblebugUrl + ":1024/spider/cluster/" + clusterId + "/token?ConnectionName=" + encodedConnectionName;
         
         System.out.println("토큰 요청 URL: " + tokenUrl);
         

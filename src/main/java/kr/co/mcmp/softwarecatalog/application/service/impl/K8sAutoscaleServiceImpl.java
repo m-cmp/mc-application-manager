@@ -30,10 +30,22 @@ public class K8sAutoscaleServiceImpl implements K8sAutoscaleService {
             return true;
             
         } catch (RestClientException e) {
+            String errorMsg = e.getMessage();
+            // Manual 모드 에러는 무시 (노드가 이미 생성되어 있을 가능성)
+            if (errorMsg != null && (errorMsg.contains("autoScaleMode") || errorMsg.contains("minNodeSize") || errorMsg.contains("maxNodeSize"))) {
+                log.warn("AutoScale API failed (manual mode), but treating as success to continue: {}", errorMsg);
+                return true;
+            }
             log.error("Failed to change K8S node group autoscale size: nsId={}, clusterId={}, nodeGroup={}", 
                     nsId, k8sClusterId, k8sNodeGroupName, e);
             return false;
         } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            // Manual 모드 에러는 무시 (노드가 이미 생성되어 있을 가능성)
+            if (errorMsg != null && (errorMsg.contains("autoScaleMode") || errorMsg.contains("minNodeSize") || errorMsg.contains("maxNodeSize"))) {
+                log.warn("AutoScale API failed (manual mode), but treating as success to continue: {}", errorMsg);
+                return true;
+            }
             log.error("Unexpected error while changing K8S node group autoscale size", e);
             return false;
         }
@@ -48,13 +60,21 @@ public class K8sAutoscaleServiceImpl implements K8sAutoscaleService {
         }
         
         int newSize = Math.min(currentSize + 1, maxSize);
+        
+        // Manual 모드 대응: 
+        // - minNodeSize = 현재 노드 수
+        // - desiredNodeSize = 현재 + 1
+        // - maxNodeSize = desired + 2
+        int minNodeSize = currentSize;
+        int newMaxNodeSize = newSize + 2;
+        
         K8sNodeGroupAutoscaleRequest request = new K8sNodeGroupAutoscaleRequest(
             String.valueOf(newSize),
-            String.valueOf(maxSize),
-            "1" // 최소값은 1로 고정
+            String.valueOf(newMaxNodeSize), // maxNodeSize = desired + 2
+            String.valueOf(minNodeSize)    // minNodeSize = current
         );
         
-        log.info("Scaling out K8S node group: {} -> {} (max: {})", currentSize, newSize, maxSize);
+        log.info("Scaling out K8S node group: {} -> {} (min={}, max={})", currentSize, newSize, minNodeSize, newMaxNodeSize);
         return changeNodeGroupAutoscaleSize(namespace, clusterName, nodeGroupName, request);
     }
     

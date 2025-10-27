@@ -29,4 +29,9 @@ public interface ScalingEventRepository extends JpaRepository<ScalingEvent, Long
      * 가장 최근의 스케일링 이벤트 조회
      */
     Optional<ScalingEvent> findTopByDeploymentIdOrderByTriggeredAtDesc(Long deploymentId);
+    
+    /**
+     * 배포의 모든 스케일링 이벤트 조회
+     */
+    List<ScalingEvent> findAllByDeploymentIdOrderByTriggeredAtDesc(Long deploymentId);
 }

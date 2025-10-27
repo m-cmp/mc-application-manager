@@ -96,5 +96,18 @@ k8s:
     default-max-nodes: ${K8S_DEFAULT_MAX_NODES:3}
     scaling-timeout-seconds: ${K8S_SCALING_TIMEOUT_SECONDS:300}
     default-node-count: ${K8S_DEFAULT_NODE_COUNT:1}
+    # 테스트 모드 설정
+    test-mode: ${K8S_TEST_MODE:true}  # true: 낮은 임계값으로 스케일 아웃 테스트, false: 운영 모드
+    test-cpu-threshold: ${K8S_TEST_CPU_THRESHOLD:0.0001}  # 테스트 모드 CPU 임계값 (%) - 매우 낮게 설정
+    test-memory-threshold: ${K8S_TEST_MEMORY_THRESHOLD:0.0001}  # 테스트 모드 Memory 임계값 (%) - 매우 낮게 설정
+
+rabbitmq:
+  alert:
+    url: ${RABBITMQ_URL:localhost}
+    port: ${RABBITMQ_PORT:15672}
+    vhost: ${RABBITMQ_VHOST:test}
+    username: ${RABBITMQ_USERNAME:mc-agent}
+    password: ${RABBITMQ_PASSWORD:mc-agent}
+    slack-channel-id: ${ALERT_SLACK_CHANNEL_ID:#kubernetes-alerts}
 
   
