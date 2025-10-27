@@ -100,8 +100,8 @@ public class KubernetesDeployService {
                 result = helmChartService.deployHelmChart(client, namespace, catalog, helmChart, clusterName);
             }
 
-            String podStatus = KubernetesUtils.getPodStatus(client, namespace, helmChart.getChartName());
-            Integer servicePort = KubernetesUtils.getServicePort(client, namespace, helmChart.getChartName());
+            String podStatus = KubernetesUtils.getPodStatus(client, "default", helmChart.getChartName());
+            Integer servicePort = KubernetesUtils.getServicePort(client, "default", helmChart.getChartName());
 
             // 릴리스 이름을 배포 히스토리에 저장
             String releaseName = result != null ? result.getName() : null;

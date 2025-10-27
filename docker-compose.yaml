@@ -5,6 +5,9 @@ networks:
     internal: true
   external_network:
     driver: bridge
+  mc-observability-network:
+    external: true
+    name: mc-observability-network
 
 services:
   # sonatype nexus - for application manager
@@ -44,6 +47,7 @@ services:
     privileged: true  # Docker-in-Docker를 위한 privileged 모드
     networks:
       - external_network
+      - mc-observability-network
     ports:
       - target: 18084
         published: 18084
@@ -61,6 +65,13 @@ services:
       - TUMBLEBUG_PORT=1323
       - TUMBLEBUG_ID=default
       - TUMBLEBUG_PASSWORD=default
+      # RabbitMQ connection for alert notification - using mc-observability's RabbitMQ
+      - RABBITMQ_URL=mc-observability-rabbitmq
+      - RABBITMQ_PORT=15672
+      - RABBITMQ_VHOST=test
+      - RABBITMQ_USERNAME=mc-agent
+      - RABBITMQ_PASSWORD=mc-agent
+      - ALERT_SLACK_CHANNEL_ID=#kubernetes-alerts
     healthcheck: # for cb-application-manager
       test: ["CMD", "nc", "-vz", "localhost", "1324"]
       interval: 1m

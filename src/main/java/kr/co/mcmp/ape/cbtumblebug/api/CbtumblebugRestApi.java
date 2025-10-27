@@ -517,16 +517,19 @@ public class CbtumblebugRestApi {
      */
     public String changeK8sNodeGroupAutoscaleSize(String nsId, String k8sClusterId, String k8sNodeGroupName, 
                                                  K8sNodeGroupAutoscaleRequest request) {
-        log.info("Changing K8S node group autoscale size: nsId={}, clusterId={}, nodeGroup={}", 
-                nsId, k8sClusterId, k8sNodeGroupName);
-        
-        return executeWithConnectionCheck("changeK8sNodeGroupAutoscaleSize", () -> {
+            log.info("Changing K8S node group autoscale size: nsId={}, clusterId={}, nodeGroup={}, request={}", 
+                    nsId, k8sClusterId, k8sNodeGroupName, request);
+            
+            return executeWithConnectionCheck("changeK8sNodeGroupAutoscaleSize", () -> {
             try {
                 String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/k8sCluster/%s/k8sNodeGroup/%s/autoscaleSize", 
                         nsId, k8sClusterId, k8sNodeGroupName));
                 HttpHeaders headers = createCommonHeaders();
                 
-                String jsonBody = new ObjectMapper().writeValueAsString(request);
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
+                String jsonBody = mapper.writeValueAsString(request);
+                log.info("Request body: {}", jsonBody);
                 
                 ResponseEntity<String> response = restClient.request(
                         apiUrl,

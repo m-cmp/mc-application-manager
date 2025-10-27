@@ -702,7 +702,7 @@ public class HelmChartService {
         String helmPath = getHelmPath();
         cmd.add(helmPath); cmd.add("install");
         cmd.add(releaseName); cmd.add(chartRef);
-        cmd.add("--namespace"); cmd.add(namespace);
+        cmd.add("--namespace"); cmd.add("default");
         cmd.add("--version"); cmd.add(version);
         cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
         for (java.util.Map.Entry<String,String> e : values.entrySet()) {
