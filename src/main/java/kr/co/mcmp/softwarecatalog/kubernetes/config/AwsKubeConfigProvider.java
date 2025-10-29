@@ -26,7 +26,6 @@ public class AwsKubeConfigProvider implements KubeConfigProvider {
     public Config buildConfig(K8sClusterDto dto) {
         String yaml = dto.getAccessInfo().getKubeconfig();
         Config cfg = Config.fromKubeconfig(KubeConfigProviderFactory.replaceUrlHostByPort(yaml, spiderPort, List.of("localhost"), spiderUrl));
-        System.out.println("------------------- kubeconfig: \n" + cfg);
         cfg.setTrustCerts(true);
         cfg.setConnectionTimeout(30_000);
         cfg.setRequestTimeout(30_000);
@@ -52,8 +51,6 @@ public class AwsKubeConfigProvider implements KubeConfigProvider {
         if (kubeconfig == null || kubeconfig.trim().isEmpty()) {
             throw new IllegalStateException("Kubeconfig is null or empty for Azure cluster: " + dto.getName());
         }
-
-        System.out.println("------------------- kubeconfig: \n" + KubeConfigProviderFactory.replaceUrlHostByPort(kubeconfig, spiderPort, List.of("localhost"), spiderUrl));
 
         return KubeConfigProviderFactory.replaceUrlHostByPort(kubeconfig, spiderPort, List.of("localhost"), spiderUrl);
     }
