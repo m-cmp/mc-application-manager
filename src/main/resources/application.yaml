@@ -72,6 +72,10 @@ cbtumblebug:
   id: ${TUMBLEBUG_ID:default}
   pass: ${TUMBLEBUG_PASSWORD:default}
 
+spider:
+  url: ${SPIDER_URL:210.217.178.130}
+  port: ${SPIDER_PORT:1024}
+
 nexus:
   url: ${NEXUS_URL:nexus-repository}
   port: ${NEXUS_PORT:8081}
