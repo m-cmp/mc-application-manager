@@ -22,6 +22,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # -----------------------------------------------------------
 FROM openjdk:17.0.1-jdk-slim
 
+# Install curl
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy binaries from builder
 COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
