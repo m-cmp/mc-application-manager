@@ -273,7 +273,7 @@
                 </div>
               </div>
 
-              <div class="card mt-3">
+              <!-- <div class="card mt-3">
                 <div class="card-body">
                   <div class="d-flex align-items-center mb-3">
                     <label class="form-check-label me-2">Ingress Configuration</label>
@@ -288,7 +288,7 @@
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> -->
             </div>
           </div>
         </div>

@@ -331,11 +331,9 @@
               </div>
             </div>
 
-            <!-- K8S :: Ingress -->
-            <div class="mb-3" v-if="modalTitle == 'Application Installation'">
+            <!-- <div class="mb-3" v-if="modalTitle == 'Application Installation'">
               <label class="form-label">Ingress Configuration</label>
               
-              <!-- Ingress Enabled -->
               <div class="mb-2">
                 <div class="form-check">
                   <input 
@@ -349,9 +347,7 @@
                 </div>
               </div>
 
-              <!-- Ingress Fields (shown when enabled) -->
               <div v-if="ingressData.ingressEnabled">
-                <!-- Ingress Host -->
                 <div class="mb-2">
                   <label class="form-label">Host</label>
                   <input 
@@ -361,7 +357,6 @@
                     v-model="ingressData.ingressHost">
                 </div>
 
-                <!-- Ingress Path -->
                 <div class="mb-2">
                   <label class="form-label">Path</label>
                   <input 
@@ -371,7 +366,6 @@
                     v-model="ingressData.ingressPath">
                 </div>
 
-                <!-- Ingress Class -->
                 <div class="mb-2">
                   <label class="form-label">Ingress Class</label>
                   <input 
@@ -381,7 +375,6 @@
                     v-model="ingressData.ingressClass">
                 </div>
 
-                <!-- TLS Configuration -->
                 <div class="mb-2">
                   <div class="form-check">
                     <input 
@@ -395,7 +388,6 @@
                   </div>
                 </div>
 
-                <!-- TLS Secret (shown when TLS is enabled) -->
                 <div v-if="ingressData.ingressTlsEnabled" class="mb-2">
                   <label class="form-label">TLS Secret Name</label>
                   <input 
@@ -405,7 +397,7 @@
                     v-model="ingressData.ingressTlsSecret">
                 </div>
               </div>
-            </div>
+            </div> -->
           </template>
         </div>
 
