@@ -9,7 +9,7 @@ public class AlibabaConfigProvider implements KubeConfigProvider {
     @Override
     public Config buildConfig(K8sClusterDto dto) {
         String yaml = dto.getAccessInfo().getKubeconfig();
-        Config cfg = Config.fromKubeconfig(yaml);
+        Config cfg = Config.fromKubeconfig(KubeConfigProviderFactory.replaceUnnecessaryQuote(yaml));
         cfg.setTrustCerts(true);
         cfg.setConnectionTimeout(30_000);
         cfg.setRequestTimeout(30_000);
@@ -36,6 +36,6 @@ public class AlibabaConfigProvider implements KubeConfigProvider {
             throw new IllegalStateException("Kubeconfig is null or empty for Azure cluster: " + dto.getName());
         }
         
-        return kubeconfig;
+        return KubeConfigProviderFactory.replaceUnnecessaryQuote(kubeconfig);
     }
 }
