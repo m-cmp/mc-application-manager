@@ -650,7 +650,7 @@ public class KubernetesMonitoringService {
 
     private String downloadMetricsServerYaml() throws IOException, InterruptedException {
         String url = "https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml";
-        Process process = Runtime.getRuntime().exec("curl -s " + url);
+        Process process = Runtime.getRuntime().exec("curl -s -L " + url);
         process.waitFor();
         return new String(process.getInputStream().readAllBytes());
     }
