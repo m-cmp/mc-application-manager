@@ -43,4 +43,8 @@ public class KubeConfigProviderFactory {
         return resultBuffer.toString();
     }
 
+    public static String replaceUnnecessaryQuote(String text) {
+        return text.replaceAll("'\"|\"'", "\"");
+    }
+
 }
