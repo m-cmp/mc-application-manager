@@ -40,9 +40,6 @@ public class ApplicationStatus {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tumblebug_namespace")
-    private String tumblebugNamespace;
-
     @Column(name = "namespace")
     private String namespace;
 
