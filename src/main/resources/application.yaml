@@ -75,6 +75,7 @@ cbtumblebug:
 spider:
   url: ${SPIDER_URL:210.217.178.130}
   port: ${SPIDER_PORT:1024}
+  checkhost: localhost,127.0.0.1,0.0.0.0
 
 nexus:
   url: ${NEXUS_URL:nexus-repository}

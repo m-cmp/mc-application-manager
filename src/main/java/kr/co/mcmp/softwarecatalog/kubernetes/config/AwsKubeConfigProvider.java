@@ -22,10 +22,14 @@ public class AwsKubeConfigProvider implements KubeConfigProvider {
     @Value("${spider.port}")
     private String spiderPort;
 
+    @Value("${spider.checkhost}")
+    private List<String> spiderChekdHosts;
+
+
     @Override
     public Config buildConfig(K8sClusterDto dto) {
         String yaml = dto.getAccessInfo().getKubeconfig();
-        Config cfg = Config.fromKubeconfig(KubeConfigProviderFactory.replaceUrlHostByPort(yaml, spiderPort, List.of("localhost"), spiderUrl));
+        Config cfg = Config.fromKubeconfig(KubeConfigProviderFactory.replaceUrlHostByPort(yaml, spiderPort, spiderChekdHosts, spiderUrl));
         cfg.setTrustCerts(true);
         cfg.setConnectionTimeout(30_000);
         cfg.setRequestTimeout(30_000);
@@ -52,7 +56,7 @@ public class AwsKubeConfigProvider implements KubeConfigProvider {
             throw new IllegalStateException("Kubeconfig is null or empty for Azure cluster: " + dto.getName());
         }
 
-        return KubeConfigProviderFactory.replaceUrlHostByPort(kubeconfig, spiderPort, List.of("localhost"), spiderUrl);
+        return KubeConfigProviderFactory.replaceUrlHostByPort(kubeconfig, spiderPort, spiderChekdHosts, spiderUrl);
     }
 
 }
