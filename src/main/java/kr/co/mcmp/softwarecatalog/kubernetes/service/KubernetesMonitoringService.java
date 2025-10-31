@@ -267,7 +267,8 @@ public class KubernetesMonitoringService {
         status.setServicePort((Integer) resourceUsage.get("port"));
         status.setCheckedAt(LocalDateTime.now());
         status.setClusterName(clusterName);
-        status.setNamespace(namespace);
+        // K8s 배포는 항상 default namespace에 배포됨
+        //status.setNamespace(namespace);
         status.setNodeGroupName(deployment.getNodeGroupName()); // 노드 그룹 이름 설정
         status.setDeploymentType(DeploymentType.K8S);
         status.setCatalog(deployment.getCatalog()); // catalog 정보 설정 추가
