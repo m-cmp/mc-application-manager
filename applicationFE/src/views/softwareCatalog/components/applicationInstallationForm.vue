@@ -25,8 +25,7 @@
             <select 
               class="form-select" 
               id="infra" 
-              v-model="selectInfra"
-              @click="onChangeForm">
+              v-model="selectInfra">
               <option 
                 v-for="infra in infraList" 
                 :value=infra.value 
@@ -167,8 +166,8 @@
                 class="form-select" 
                 v-model="inputApplications" 
                 @change="onChangeCatalog">
-                <option v-for="(catalog, idx) in catalogList" :key="idx" :value="catalog.name">
-                  [{{ catalog.name }}] {{ catalog.packageInfo?.packageVersion ? catalog.packageInfo?.packageVersion : "latest" }}
+                <option v-for="(catalog, idx) in filteredCatalogList" :key="idx" :value="catalog.name">
+                  [{{ catalog.name }}] {{ catalog.packageInfo?.packageVersion || "latest" }}
                 </option>
               </select>
             </div>
@@ -256,7 +255,9 @@
               <label class="form-label">Helm chart</label>
               <p class="text-muted">Select the application</p>
               <select class="form-select" v-model="inputApplications" @change="onChangeCatalog">
-                <option v-for="(catalog, idx) in catalogList" :key="idx" :value="catalog.name">{{ catalog.name }} / {{ catalog.helmChart?.chartVersion ? catalog.helmChart?.chartVersion : "latest" }}</option>
+                <option v-for="(catalog, idx) in filteredCatalogList" :key="idx" :value="catalog.name">
+                  [{{ catalog.name }}] {{ catalog.helmChart?.chartVersion || "latest" }}
+                </option>
               </select>
             </div>
 
@@ -486,6 +487,33 @@ const specCheckFlag = ref(true as boolean)
 // watch(modalTitle, async () => {
 //   await setInit();
 // });
+
+// Handle target infrastructure changes
+watch(selectInfra, async (newValue) => {
+  if (_.isEmpty(selectNsId.value)) return;
+  
+  if (newValue === 'VM') {
+    // Reset VM related data
+    selectMci.value = "";
+    selectVm.value = "";
+    selectedVmList.value = [];
+    vmList.value = [];
+    originalVmList.value = [];
+    
+    // Fetch MCI list
+    await _getMciName();
+  } else if (newValue === 'K8S') {
+    // Reset K8S related data
+    selectCluster.value = "";
+    
+    // Fetch Cluster list
+    await _getClusterName();
+  }
+  
+  // Reset application selection
+  inputApplications.value = "";
+  onChangeForm();
+});
 
 // Handle deployment type changes
 watch(selectDeploymentType, () => {
@@ -864,6 +892,17 @@ const specCheckCallback = async () => {
 }
 
 const selectedCatalogIdx = ref(0 as number)
+
+// Filter catalog list based on selected infrastructure
+const filteredCatalogList = computed(() => {
+  if (selectInfra.value === 'VM') {
+    return catalogList.value.filter(catalog => catalog.packageInfo)
+  } else if (selectInfra.value === 'K8S') {
+    return catalogList.value.filter(catalog => catalog.helmChart)
+  }
+  return catalogList.value
+})
+
 const onChangeCatalog = () => {
   if(modalTitle.value === 'Application Installation') specCheckFlag.value = true
 

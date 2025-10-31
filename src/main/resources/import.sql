@@ -172,10 +172,10 @@ INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_T
 
 -- 6. OSS_TYPE 테이블 데이터 삽입
 INSERT INTO oss_type (oss_type_idx, oss_type_name, oss_type_desc) VALUES
-(1, 'NEXUS', 'Application Repository'),
-(2, 'JENKINS', 'Application Provisioning Engine');
+(1, 'NEXUS', 'Application Repository');
+-- (2, 'JENKINS', 'Application Provisioning Engine');
 
 -- 7. OSS 테이블 데이터 삽입
 INSERT INTO oss (oss_idx, oss_type_idx, oss_name, oss_desc, oss_url, oss_username, oss_password) VALUES
-(1, 1, 'NEXUS', 'Application Repository', 'http://mc-application-manager-sonatype-nexus:8081', 'admin', '7TEWaICzct4JsjFGMYtgaA=='),
-(2, 2, 'Ape', 'Application Provisioning Engine', 'http://mc-application-manager-jenkins:8080', 'admin', '7TEWaICzct4JsjFGMYtgaA==');
+(1, 1, 'NEXUS', 'Application Repository', 'http://mc-application-manager-sonatype-nexus:8081', 'admin', '7TEWaICzct4JsjFGMYtgaA==');
+-- (2, 2, 'Ape', 'Application Provisioning Engine', 'http://mc-application-manager-jenkins:8080', 'admin', '7TEWaICzct4JsjFGMYtgaA==');
