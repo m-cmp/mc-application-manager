@@ -35,10 +35,13 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApplicationStatus {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "tumblebug_namespace")
+    private String tumblebugNamespace;
 
     @Column(name = "namespace")
     private String namespace;
@@ -48,7 +51,7 @@ public class ApplicationStatus {
 
     @Column(name = "cluster_name")
     private String clusterName;
-    
+
     @Column(name = "node_group_name")
     private String nodeGroupName;
 
@@ -84,7 +87,7 @@ public class ApplicationStatus {
 
     @Column(name = "memory_usage")
     private Double memoryUsage;
-    
+
     @Column(name = "network_in")
     private Double networkIn;
 
@@ -96,10 +99,10 @@ public class ApplicationStatus {
 
     @Column(name = "pod_status")
     private String podStatus; // For K8S deployments
-    
+
     @Column(name = "checked_at")
     private LocalDateTime checkedAt;
-    
+
     @ManyToOne
     @JoinColumn(name = "executed_by")
     private User executedBy;
