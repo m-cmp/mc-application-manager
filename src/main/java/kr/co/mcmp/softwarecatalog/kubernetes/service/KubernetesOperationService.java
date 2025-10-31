@@ -21,7 +21,9 @@ public class KubernetesOperationService {
             // kubeconfig 생성
             String kubeconfigYaml = getKubeconfigForCluster(namespace, clusterName);
             java.nio.file.Path tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
-            
+
+            // K8s 배포는 항상 default namespace에 배포됨
+            namespace = "default";
             try {
                 // 실제 설치된 릴리스 이름 찾기
                 String releaseName = findInstalledReleaseName(namespace, tempKubeconfigPath, catalog);
@@ -54,7 +56,9 @@ public class KubernetesOperationService {
             // kubeconfig 생성
             String kubeconfigYaml = getKubeconfigForCluster(namespace, clusterName);
             java.nio.file.Path tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
-            
+
+            // K8s 배포는 항상 default namespace에 배포됨
+            namespace = "default";
             try {
                 // 실제 설치된 릴리스 이름 찾기
                 String releaseName = findInstalledReleaseName(namespace, tempKubeconfigPath, catalog);
@@ -90,7 +94,9 @@ public class KubernetesOperationService {
             // kubeconfig 생성
             String kubeconfigYaml = getKubeconfigForCluster(namespace, clusterName);
             java.nio.file.Path tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
-            
+
+            // K8s 배포는 항상 default namespace에 배포됨
+            namespace = "default";
             try {
                 // 실제 설치된 릴리스 이름 찾기
                 String releaseName = findInstalledReleaseName(namespace, tempKubeconfigPath, catalog);
