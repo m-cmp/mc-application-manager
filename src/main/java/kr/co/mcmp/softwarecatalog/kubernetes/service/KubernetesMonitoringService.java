@@ -845,7 +845,7 @@ public class KubernetesMonitoringService {
                         scalingEvent.setNewNodeCount(targetSize);
                         
                         // API 호출
-                        boolean scaleResult = k8sAutoscaleService.scaleOutNodeGroup("default", clusterName, nodeGroupName, currentDesiredNodeSize, newMaxSize);
+                        boolean scaleResult = k8sAutoscaleService.scaleOutNodeGroup(namespace, clusterName, nodeGroupName, currentDesiredNodeSize, newMaxSize);
                         
                         if (scaleResult) {
                             log.debug("Scale out API returned true: {} -> {}", currentDesiredNodeSize, targetSize);
