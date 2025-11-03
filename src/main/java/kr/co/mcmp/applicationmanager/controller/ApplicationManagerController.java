@@ -23,14 +23,13 @@ public class ApplicationManagerController {
     @GetMapping("/readyz")
     @Operation(summary="Check Application-Manager is ready", description="")
     public ResponseEntity<ReadyzResponse>  checkReadyz(){
-        OssDto jenkinsOss = appProvEngineService.getJenkinsOss();
         boolean checkTumblebug = cbtumblebugRestApi.checkTumblebug();
-        if(jenkinsOss != null && checkTumblebug){
+        if(checkTumblebug){
             return ResponseEntity.ok(new ReadyzResponse("application-manager is ready"));
         }else{
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new ReadyzResponse("application-manager is not ready"));
         }
-        
+
     }
-    
+
 }
