@@ -1,5 +1,6 @@
 package kr.co.mcmp.softwarecatalog.common.service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -11,6 +12,9 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * RabbitMQ를 통한 알람 전송 서비스
@@ -36,10 +40,7 @@ public class RabbitMqAlertService {
     
     @Value("${rabbitmq.alert.password:mc-agent}")
     private String password;
-    
-    @Value("${rabbitmq.alert.slack-channel-id:#kubernetes-alerts}")
-    private String defaultSlackChannelId;
-    
+
     public RabbitMqAlertService() {
         this.restTemplate = new RestTemplate();
         this.objectMapper = new ObjectMapper();
@@ -71,24 +72,21 @@ public class RabbitMqAlertService {
             
             // JSON 문자열로 변환
             String payload = objectMapper.writeValueAsString(alertMessage);
-            
+            log.info("Alert payload: {}", payload);
+
             // RabbitMQ 요청 본문 생성
             RabbitMqRequest request = new RabbitMqRequest();
-            request.setRoutingKey("alert.queue");  // 담당자 예시에 맞춤
+            request.setRoutingKey("alert-manual.queue");  // 담당자 예시에 맞춤
             request.setPayload(payload);
             request.setPayloadEncoding("string");
-            
-            String requestBody = objectMapper.writeValueAsString(request);
-            
-            log.info("Alert payload: {}", payload);
-            log.info("RabbitMQ request body: {}", requestBody);
+            log.info("RabbitMQ request body: {}", request);
             
             // HTTP 요청 헤더 설정
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setBasicAuth(username, password);
             
-            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+            HttpEntity<RabbitMqRequest> entity = new HttpEntity<>(request, headers);
             
             // RabbitMQ에 POST 요청
             org.springframework.http.ResponseEntity<String> response = restTemplate.exchange(
@@ -139,14 +137,16 @@ public class RabbitMqAlertService {
      * RabbitMQ HTTP API 요청 DTO
      */
     public static class RabbitMqRequest {
-        private Object properties = new Object();
+        private Map<String, Object> properties = new HashMap<>();
+        @JsonProperty("routing_key")
         private String routingKey;
         private String payload;
+        @JsonProperty("payload_encoding")
         private String payloadEncoding;
         
         // Getters and Setters
         public Object getProperties() { return properties; }
-        public void setProperties(Object properties) { this.properties = properties; }
+        public void setProperties(Object properties) { this.properties = (Map<String, Object>) properties; }
         
         public String getRoutingKey() { return routingKey; }
         public void setRoutingKey(String routingKey) { this.routingKey = routingKey; }
