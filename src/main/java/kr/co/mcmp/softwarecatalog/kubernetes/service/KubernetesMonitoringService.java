@@ -960,10 +960,14 @@ public class KubernetesMonitoringService {
                 }
             }
 
-            // SMS
+            // SMS - 글자제약으로 메시지 내용 축약
             recipients = defaultSmsPhonenumber;
+            String smsTitle = String.format("Scale-out OK. %s", appName);
+            String smsMessage = String.format("Node: %d, Cluster: '%s', NS: %s",
+                    newNodeCount, clusterName, namespace
+            );
             if (StringUtils.isNotBlank(recipients)) {
-                boolean sent = rabbitMqAlertService.sendScaleOutAlert(title, message, "sms", recipients);
+                boolean sent = rabbitMqAlertService.sendScaleOutAlert(smsTitle, smsMessage, "sms", recipients);
                 if (sent) {
                     log.info("Scale out alert (sms) sent successfully for {} to {} nodes", appName, newNodeCount);
                 } else {

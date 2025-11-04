@@ -12,8 +12,11 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -58,17 +61,21 @@ public class RabbitMqAlertService {
     public boolean sendScaleOutAlert(String title, String message, String channelName, String recipients) {
         try {
             // RabbitMQ HTTP API URL 생성 (담당자 예시에 맞춤)
-            String url = String.format("http://%s:%s/api/exchanges/%%2F%s/amq.default/publish", 
+            String url = String.format("http://%s:%s/api/exchanges/%%2f%s/alert-manual.exchange/publish",
                     rabbitmqUrl, rabbitmqPort, vhost);
-            
-            log.info("Sending alert to RabbitMQ: {}", url);
+
+            URI uri = UriComponentsBuilder.fromHttpUrl(url)
+                    .build(true)
+                    .toUri();
+
+            log.info("Sending alert to RabbitMQ: {}", uri.toString());
             
             // 알람 메시지 생성
             AlertMessage alertMessage = new AlertMessage();
             alertMessage.setTitle(title);
             alertMessage.setMessage(message);
             alertMessage.setChannelName(channelName);
-            alertMessage.setRecipients(recipients);
+            alertMessage.setRecipients(List.of(recipients));
             
             // JSON 문자열로 변환
             String payload = objectMapper.writeValueAsString(alertMessage);
@@ -90,7 +97,7 @@ public class RabbitMqAlertService {
             
             // RabbitMQ에 POST 요청
             org.springframework.http.ResponseEntity<String> response = restTemplate.exchange(
-                    url, 
+                    uri,
                     HttpMethod.POST, 
                     entity, 
                     String.class
@@ -117,7 +124,7 @@ public class RabbitMqAlertService {
         private String title;
         private String message;
         private String channelName;
-        private String recipients;
+        private List<String> recipients;
         
         // Getters and Setters
         public String getTitle() { return title; }
@@ -129,8 +136,8 @@ public class RabbitMqAlertService {
         public String getChannelName() { return channelName; }
         public void setChannelName(String channelName) { this.channelName = channelName; }
         
-        public String getRecipients() { return recipients; }
-        public void setRecipients(String recipients) { this.recipients = recipients; }
+        public List<String> getRecipients() { return recipients; }
+        public void setRecipients(List<String> recipients) { this.recipients = recipients; }
     }
     
     /**

@@ -108,14 +108,13 @@ k8s:
 
 rabbitmq:
   alert:
-    url: ${RABBITMQ_URL:localhost}
+    url: ${RABBITMQ_URL:210.207.104.130}
     port: ${RABBITMQ_PORT:15672}
     vhost: ${RABBITMQ_VHOST:test}
     username: ${RABBITMQ_USERNAME:mc-agent}
     password: ${RABBITMQ_PASSWORD:mc-agent}
-    slack-channel-id: ${ALERT_SLACK_CHANNEL_ID:C09QG93AZLL}
+    slack-channel-id: ${ALERT_SLACK_CHANNEL_ID:}
     email: ${ALERT_EMAIL:}
     sms-phonenumber: ${ALERT_SMS_PHONE_NUMBER:}
     kakao-phonenumber: ${ALERT_KAKAO_PHONE_NUMBER:}
 
-  
