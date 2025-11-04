@@ -1,5 +1,6 @@
 package kr.co.mcmp.softwarecatalog.common.service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -11,6 +12,12 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * RabbitMQ를 통한 알람 전송 서비스
@@ -36,10 +43,7 @@ public class RabbitMqAlertService {
     
     @Value("${rabbitmq.alert.password:mc-agent}")
     private String password;
-    
-    @Value("${rabbitmq.alert.slack-channel-id:#kubernetes-alerts}")
-    private String defaultSlackChannelId;
-    
+
     public RabbitMqAlertService() {
         this.restTemplate = new RestTemplate();
         this.objectMapper = new ObjectMapper();
@@ -57,42 +61,43 @@ public class RabbitMqAlertService {
     public boolean sendScaleOutAlert(String title, String message, String channelName, String recipients) {
         try {
             // RabbitMQ HTTP API URL 생성 (담당자 예시에 맞춤)
-            String url = String.format("http://%s:%s/api/exchanges/%%2F%s/amq.default/publish", 
+            String url = String.format("http://%s:%s/api/exchanges/%%2f%s/alert-manual.exchange/publish",
                     rabbitmqUrl, rabbitmqPort, vhost);
-            
-            log.info("Sending alert to RabbitMQ: {}", url);
+
+            URI uri = UriComponentsBuilder.fromHttpUrl(url)
+                    .build(true)
+                    .toUri();
+
+            log.info("Sending alert to RabbitMQ: {}", uri.toString());
             
             // 알람 메시지 생성
             AlertMessage alertMessage = new AlertMessage();
             alertMessage.setTitle(title);
             alertMessage.setMessage(message);
             alertMessage.setChannelName(channelName);
-            alertMessage.setRecipients(recipients);
+            alertMessage.setRecipients(List.of(recipients));
             
             // JSON 문자열로 변환
             String payload = objectMapper.writeValueAsString(alertMessage);
-            
+            log.info("Alert payload: {}", payload);
+
             // RabbitMQ 요청 본문 생성
             RabbitMqRequest request = new RabbitMqRequest();
-            request.setRoutingKey("alert.queue");  // 담당자 예시에 맞춤
+            request.setRoutingKey("alert-manual.queue");  // 담당자 예시에 맞춤
             request.setPayload(payload);
             request.setPayloadEncoding("string");
-            
-            String requestBody = objectMapper.writeValueAsString(request);
-            
-            log.info("Alert payload: {}", payload);
-            log.info("RabbitMQ request body: {}", requestBody);
+            log.info("RabbitMQ request body: {}", request);
             
             // HTTP 요청 헤더 설정
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setBasicAuth(username, password);
             
-            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+            HttpEntity<RabbitMqRequest> entity = new HttpEntity<>(request, headers);
             
             // RabbitMQ에 POST 요청
             org.springframework.http.ResponseEntity<String> response = restTemplate.exchange(
-                    url, 
+                    uri,
                     HttpMethod.POST, 
                     entity, 
                     String.class
@@ -119,7 +124,7 @@ public class RabbitMqAlertService {
         private String title;
         private String message;
         private String channelName;
-        private String recipients;
+        private List<String> recipients;
         
         // Getters and Setters
         public String getTitle() { return title; }
@@ -131,22 +136,24 @@ public class RabbitMqAlertService {
         public String getChannelName() { return channelName; }
         public void setChannelName(String channelName) { this.channelName = channelName; }
         
-        public String getRecipients() { return recipients; }
-        public void setRecipients(String recipients) { this.recipients = recipients; }
+        public List<String> getRecipients() { return recipients; }
+        public void setRecipients(List<String> recipients) { this.recipients = recipients; }
     }
     
     /**
      * RabbitMQ HTTP API 요청 DTO
      */
     public static class RabbitMqRequest {
-        private Object properties = new Object();
+        private Map<String, Object> properties = new HashMap<>();
+        @JsonProperty("routing_key")
         private String routingKey;
         private String payload;
+        @JsonProperty("payload_encoding")
         private String payloadEncoding;
         
         // Getters and Setters
         public Object getProperties() { return properties; }
-        public void setProperties(Object properties) { this.properties = properties; }
+        public void setProperties(Object properties) { this.properties = (Map<String, Object>) properties; }
         
         public String getRoutingKey() { return routingKey; }
         public void setRoutingKey(String routingKey) { this.routingKey = routingKey; }

@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -70,6 +72,14 @@ public class KubernetesMonitoringService {
     @Value("${k8s.autoscaling.test-memory-threshold:0.1}")
     private double testMemoryThreshold;
 
+    @Value("${rabbitmq.alert.slack-channel-id}")
+    private String defaultSlackChannelId;
+    @Value("${rabbitmq.alert.email}")
+    private String defaultEmail;
+    @Value("${rabbitmq.alert.sms-phonenumber}")
+    private String defaultSmsPhonenumber;
+    @Value("${rabbitmq.alert.kakao-phonenumber}")
+    private String defaultKakaoPhonenumber;
     
     @Scheduled(fixedRate = 60000) // 1분마다 실행
     public void monitorKubernetesResources() {
@@ -927,21 +937,55 @@ public class KubernetesMonitoringService {
                     "Application '%s' has been successfully scaled out to %d nodes in cluster '%s' (namespace: %s).",
                     appName, newNodeCount, clusterName, namespace
             );
-            
+
             // Slack 채널로 알람 전송 (환경변수에서 채널 ID 가져오기)
-            String recipients = System.getenv("ALERT_SLACK_CHANNEL_ID");
-            if (recipients == null) {
-                recipients = "#kubernetes-alerts"; // 기본값
+            String recipients = defaultSlackChannelId;
+            if (StringUtils.isNotBlank(recipients)) {
+                boolean sent = rabbitMqAlertService.sendScaleOutAlert(title, message, "slack", recipients);
+                if (sent) {
+                    log.info("Scale out alert (slack) sent successfully for {} to {} nodes", appName, newNodeCount);
+                } else {
+                    log.warn("Failed to send scale out alert (slack) for {}", appName);
+                }
             }
-            
-            boolean sent = rabbitMqAlertService.sendScaleOutAlert(title, message, "slack", recipients);
-            
-            if (sent) {
-                log.info("Scale out alert sent successfully for {} to {} nodes", appName, newNodeCount);
-            } else {
-                log.warn("Failed to send scale out alert for {}", appName);
+
+            // Email
+            recipients = defaultEmail;
+            if (StringUtils.isNotBlank(recipients)) {
+                boolean sent = rabbitMqAlertService.sendScaleOutAlert(title, message, "email", recipients);
+                if (sent) {
+                    log.info("Scale out alert (email) sent successfully for {} to {} nodes", appName, newNodeCount);
+                } else {
+                    log.warn("Failed to send scale out alert (email) for {}", appName);
+                }
             }
-            
+
+            // SMS - 글자제약으로 메시지 내용 축약
+            recipients = defaultSmsPhonenumber;
+            String smsTitle = String.format("Scale-out OK. %s", appName);
+            String smsMessage = String.format("Node: %d, Cluster: '%s', NS: %s",
+                    newNodeCount, clusterName, namespace
+            );
+            if (StringUtils.isNotBlank(recipients)) {
+                boolean sent = rabbitMqAlertService.sendScaleOutAlert(smsTitle, smsMessage, "sms", recipients);
+                if (sent) {
+                    log.info("Scale out alert (sms) sent successfully for {} to {} nodes", appName, newNodeCount);
+                } else {
+                    log.warn("Failed to send scale out alert (sms) for {}", appName);
+                }
+            }
+
+            // kako
+            recipients = defaultKakaoPhonenumber;
+            if (StringUtils.isNotBlank(recipients)) {
+                boolean sent = rabbitMqAlertService.sendScaleOutAlert(title, message, "kakao", recipients);
+                if (sent) {
+                    log.info("Scale out alert (kakao) sent successfully for {} to {} nodes", appName, newNodeCount);
+                } else {
+                    log.warn("Failed to send scale out alert (kakao) for {}", appName);
+                }
+            }
+
         } catch (Exception e) {
             log.error("Error sending scale out alert: {}", e.getMessage(), e);
         }
