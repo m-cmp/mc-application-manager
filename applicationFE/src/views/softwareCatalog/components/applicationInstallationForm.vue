@@ -331,7 +331,7 @@
               </div>
             </div>
 
-            <!-- <div class="mb-3" v-if="modalTitle == 'Application Installation'">
+            <div class="mb-3" v-if="modalTitle == 'Application Installation'">
               <label class="form-label">Ingress Configuration</label>
               
               <div class="mb-2">
@@ -397,7 +397,7 @@
                     v-model="ingressData.ingressTlsSecret">
                 </div>
               </div>
-            </div> -->
+            </div>
           </template>
         </div>
 
