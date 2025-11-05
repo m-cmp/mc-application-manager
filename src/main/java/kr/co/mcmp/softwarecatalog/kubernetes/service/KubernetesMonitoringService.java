@@ -756,6 +756,7 @@ public class KubernetesMonitoringService {
                         log.info("Redeployment completed for event: {}", latestPendingEvent.getId());
                         
                         // 스케일 아웃 완료 알람 전송
+                        log.info("===>>>> send alert message for scale out is completed ==");
                         sendScaleOutCompletedAlert(deployment, targetNodeCount);
                     } catch (Exception e) {
                         log.error("Error redeploying to new nodes: {}", e.getMessage(), e);
@@ -899,12 +900,17 @@ public class KubernetesMonitoringService {
             K8sClusterDto clusterInfo = cbtumblebugRestApi.getK8sClusterByName(
                     deployment.getNamespace(), deployment.getClusterName());
             
-            if (clusterInfo != null && clusterInfo.getCspViewK8sClusterDetail() != null) {
-                List<K8sClusterDto.NodeGroup> nodeGroupList = clusterInfo.getCspViewK8sClusterDetail().getNodeGroupList();
-                
+            if (clusterInfo != null) {
+                List<K8sClusterDto.NodeGroup> nodeGroupList = null;
+                if (clusterInfo.getSpiderViewK8sClusterDetail() != null) {
+                    nodeGroupList = clusterInfo.getSpiderViewK8sClusterDetail().getNodeGroupList();
+                } else if (clusterInfo.getCspViewK8sClusterDetail() != null) {
+                    nodeGroupList = clusterInfo.getCspViewK8sClusterDetail().getNodeGroupList();
+                }
+
                 if (nodeGroupList != null && deployment.getNodeGroupName() != null) {
                     for (K8sClusterDto.NodeGroup nodeGroup : nodeGroupList) {
-                        if (nodeGroup.getIid() != null && 
+                        if (nodeGroup.getIid() != null &&
                             nodeGroup.getIid().getNameId() != null &&
                             deployment.getNodeGroupName().equals(nodeGroup.getIid().getNameId())) {
                             log.info("Current desired node size from cluster info: {}", nodeGroup.getDesiredNodeSize());
@@ -1563,15 +1569,20 @@ public class KubernetesMonitoringService {
             
             log.info("Cluster info retrieved successfully: {}", clusterInfo.getName());
             
-            if (clusterInfo.getCspViewK8sClusterDetail() == null) {
-                log.error("CspViewK8sClusterDetail is null for cluster: {}", clusterName);
+            if (clusterInfo.getSpiderViewK8sClusterDetail() == null && clusterInfo.getCspViewK8sClusterDetail() == null) {
+                log.error("SpiderViewK8sClusterDetail and CspViewK8sClusterDetail are null for cluster: {}", clusterName);
                 log.warn("Will use default node count: {}", defaultNodeCount);
                 return defaultNodeCount;
             }
             
             log.info("CspViewK8sClusterDetail retrieved successfully");
             
-            List<K8sClusterDto.NodeGroup> nodeGroups = clusterInfo.getCspViewK8sClusterDetail().getNodeGroupList();
+            List<K8sClusterDto.NodeGroup> nodeGroups = null;
+            if (clusterInfo.getSpiderViewK8sClusterDetail() != null) {
+                nodeGroups = clusterInfo.getSpiderViewK8sClusterDetail().getNodeGroupList();
+            } else if (clusterInfo.getCspViewK8sClusterDetail() != null) {
+                nodeGroups = clusterInfo.getCspViewK8sClusterDetail().getNodeGroupList();
+            }
             
             log.info("Node groups found: {}", nodeGroups != null ? nodeGroups.size() : 0);
             
@@ -1628,10 +1639,15 @@ public class KubernetesMonitoringService {
         try {
             K8sClusterDto clusterInfo = cbtumblebugRestApi.getK8sClusterByName(
                     event.getNamespace(), event.getClusterName());
-            
-            if (clusterInfo != null && clusterInfo.getCspViewK8sClusterDetail() != null) {
-                List<K8sClusterDto.NodeGroup> nodeGroups = clusterInfo.getCspViewK8sClusterDetail().getNodeGroupList();
-                
+
+            if (clusterInfo != null) {
+                List<K8sClusterDto.NodeGroup> nodeGroups = null;
+                if (clusterInfo.getSpiderViewK8sClusterDetail() != null) {
+                    nodeGroups = clusterInfo.getSpiderViewK8sClusterDetail().getNodeGroupList();
+                } else if (clusterInfo.getCspViewK8sClusterDetail() != null) {
+                    nodeGroups = clusterInfo.getCspViewK8sClusterDetail().getNodeGroupList();
+                }
+
                 if (nodeGroups != null) {
                     for (K8sClusterDto.NodeGroup nodeGroup : nodeGroups) {
                         String groupName = nodeGroup.getIid().getNameId();
