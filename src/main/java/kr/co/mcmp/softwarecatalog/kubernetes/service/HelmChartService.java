@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import org.springframework.stereotype.Service;
 
 import com.marcnuri.helm.Release;
@@ -327,9 +328,9 @@ public class HelmChartService {
                 ensureIngressController(namespace, tempKubeconfigPath);
                 
                 values.put("ingress.enabled", "true");
-                values.put("ingress.host", config.getIngressHost());
+                values.put("ingress.hosts[0]", config.getIngressHost());
                 values.put("ingress.path", config.getIngressPath());
-                values.put("ingress.className", config.getIngressClass());
+                values.put("ingress.ingressClassName", config.getIngressClass());
                 
                 // TLS 설정
                 if (config.isTlsEnabled()) {
@@ -619,19 +620,17 @@ public class HelmChartService {
             
             // Values 맵 구성
             java.util.Map<String, String> values = new java.util.HashMap<>();
-            values.put("controller.service.type", "LoadBalancer");
-            values.put("controller.service.ports.http", "80");
-            values.put("controller.service.ports.https", "443");
-            values.put("controller.ingressClassResource.name", "nginx");
-            values.put("controller.ingressClassResource.controllerValue", "k8s.io/ingress-nginx");
-            values.put("controller.ingressClass", "nginx");
-            values.put("controller.ingressClassByName", "true");
-            values.put("controller.watchIngressWithoutClass", "true");
-            values.put("controller.ingressClassResource.enabled", "true");
-            values.put("controller.ingressClassResource.default", "true");
-            
+            values.put("controller.service.type", "NodePort");
+            values.put("controller.service.nodePorts.http", "30880");
+
+            // Helm CLI로 repository 추가
+            kr.co.mcmp.softwarecatalog.application.model.HelmChart ingressHelmChart = new HelmChart();
+            ingressHelmChart.setChartRepositoryUrl("https://kubernetes.github.io/ingress-nginx");
+            ingressHelmChart.setRepositoryName("ingress-nginx");
+            addHelmRepository(ingressHelmChart);
+
             // Helm CLI로 설치 실행
-            runHelmInstallCli(releaseName, "ingress-nginx/ingress-nginx", namespace, "latest", tempKubeconfigPath, values);
+            runHelmInstallCli(releaseName, "ingress-nginx/ingress-nginx", namespace, "4.14.0", tempKubeconfigPath, values);
             
             // 간단한 Release 스텁 반환 - null 반환으로 변경
             Release result = null;
@@ -822,8 +821,8 @@ public class HelmChartService {
 
     private String runHelmListCli(String namespace, Path kubeconfig) throws Exception {
         java.util.List<String> cmd = new java.util.ArrayList<>();
-        cmd.add("helm"); cmd.add("list");
-        cmd.add("--namespace"); cmd.add(namespace);
+        cmd.add(getHelmPath()); cmd.add("list");
+        cmd.add("--namespace"); cmd.add("default");
         if (kubeconfig != null) {
             cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
         }
