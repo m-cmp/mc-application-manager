@@ -732,11 +732,12 @@ public class KubernetesMonitoringService {
                 ScalingEvent latestPendingEvent = pendingEvents.get(0);
                 int targetNodeCount = latestPendingEvent.getNewNodeCount();
                 int actualNodeCount = getCurrentNodeCount(deployment, client);
+                int readyNodeCount = client.nodes().list().getItems().size();
                 
-                log.info("Scaling event in progress: target={}, actual={}", targetNodeCount, actualNodeCount);
+                log.info("Scaling event in progress: target={}, actual={}, ready={}", targetNodeCount, actualNodeCount, readyNodeCount);
                 
                 // 노드가 목표 노드 수에 도달했으면 재배포
-                if (actualNodeCount >= targetNodeCount) {
+                if ((actualNodeCount == readyNodeCount) && (actualNodeCount >= targetNodeCount)) {
                     log.info("Target nodes created ({}/{}). Proceeding with redeployment.", actualNodeCount, targetNodeCount);
                     
                     // nodeSelector가 이미 설정되어 있는지 확인 (재배포 중복 방지)
