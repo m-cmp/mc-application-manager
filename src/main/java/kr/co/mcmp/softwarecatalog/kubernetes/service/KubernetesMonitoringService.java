@@ -769,8 +769,13 @@ public class KubernetesMonitoringService {
             }
             
             // 현재 실제 노드 수 확인
+            int readyNodeCount = client.nodes().list().getItems().size();
             int actualNodeCount = getCurrentNodeCount(deployment, client);
-            log.info("Actual node count in cluster: {}", actualNodeCount);
+            log.info("Actual node count in cluster: actual: {}, ready: {}", actualNodeCount, readyNodeCount);
+            if (actualNodeCount > readyNodeCount) {
+                log.info("Actual node replace ready node count. {}", readyNodeCount);
+                actualNodeCount = readyNodeCount;
+            }
             
             // 현재 노드 수를 실제 노드 수로 설정
             int currentSize = actualNodeCount;
