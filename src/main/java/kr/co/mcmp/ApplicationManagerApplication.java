@@ -5,12 +5,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
-
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
 
-@EnableSwagger2
 @SpringBootApplication
 @EnableFeignClients
 @EnableScheduling

@@ -4,9 +4,6 @@ config:
   config-string: application,manager,m-cmp
 
 spring:
-  mvc:
-    pathmatch:
-      matching-strategy: ant_path_matcher
   application:
     name: application-manager
   #h2 db 설정
@@ -24,9 +21,8 @@ spring:
       settings:
         web-allow-others: true # 원격연결(배포 후 외부에서) 허용
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    defer-datasopurce-initalization: true
     generate-ddl: true
+    open-in-view: false
     hibernate:
       ddl-auto: ${DDL_AUTO:update} # ${DDL_AUTO:none}
     
@@ -39,7 +35,6 @@ spring:
     defer-datasource-initialization: true
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
         format_sql: true
         show_sql: false
         hbm2ddl: # 처음에 더미데이터등을 넣기위해 sql을 실행

@@ -2,7 +2,7 @@ package kr.co.mcmp.oss.entity;
 
 import lombok.*;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Entity
 @Getter

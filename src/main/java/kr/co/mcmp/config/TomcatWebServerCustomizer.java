@@ -14,7 +14,7 @@ public class TomcatWebServerCustomizer implements WebServerFactoryCustomizer<Tom
         factory.addConnectorCustomizers(new TomcatConnectorCustomizer() {
             @Override
             public void customize(Connector connector) {
-                connector.setAttribute("relaxedQueryChars", "|{}[]");
+                connector.setProperty("relaxedQueryChars", "|{}[]");
             }
         });
     }

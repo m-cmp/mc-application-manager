@@ -95,7 +95,7 @@ public class SoftwareRatingServiceImpl implements SoftwareRatingService {
         
         Double averageRating = overallRatingRepository.findAverageRatingByCatalogId(catalogId);
         Long totalRatings = overallRatingRepository.countByCatalogId(catalogId);
-        Long recentRatings = overallRatingRepository.findRecentRatingsCountByCatalogId(catalogId);
+        Long recentRatings = overallRatingRepository.findRecentRatingsCountByCatalogId(catalogId, LocalDateTime.now().minusDays(30));
         
         // 평점별 분포 조회
         List<Object[]> ratingDistribution = overallRatingRepository.findRatingDistributionByCatalogId(catalogId);
@@ -166,7 +166,7 @@ public class SoftwareRatingServiceImpl implements SoftwareRatingService {
                 // 특정 카탈로그의 전체 통계
                 Double averageRating = overallRatingRepository.findAverageRatingByCatalogId(catalogId);
                 Long totalRatings = overallRatingRepository.countByCatalogId(catalogId);
-                Long recentRatings = overallRatingRepository.findRecentRatingsCountByCatalogId(catalogId);
+                Long recentRatings = overallRatingRepository.findRecentRatingsCountByCatalogId(catalogId, LocalDateTime.now().minusDays(30));
                 
                 statistics.put("averageRating", averageRating != null ? averageRating : 0.0);
                 statistics.put("totalRatings", totalRatings);
@@ -177,7 +177,7 @@ public class SoftwareRatingServiceImpl implements SoftwareRatingService {
             // 전체 시스템 통계 (모든 카탈로그)
             Double averageRating = overallRatingRepository.findOverallAverageRating();
             Long totalRatings = overallRatingRepository.countAllRatings();
-            Long recentRatings = overallRatingRepository.findOverallRecentRatingsCount();
+            Long recentRatings = overallRatingRepository.findOverallRecentRatingsCount(LocalDateTime.now().minusDays(30));
             
             statistics.put("averageRating", averageRating != null ? averageRating : 0.0);
             statistics.put("totalRatings", totalRatings);

@@ -1,5 +1,6 @@
 package kr.co.mcmp.softwarecatalog.rating.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -60,10 +61,11 @@ public interface OverallRatingRepository extends JpaRepository<OverallRating, Lo
     List<Object[]> findCategoryAverageRatingsByCatalogId(@Param("catalogId") Long catalogId);
 
     /**
-     * 최근 30일 평가 수 조회
+     * Count ratings for a catalog created after the given date (used for recent 30-day counts).
+     * CURRENT_DATE - 30 is not valid in Hibernate 6; pass the cutoff date as a parameter instead.
      */
-    @Query("SELECT COUNT(r) FROM OverallRating r WHERE r.catalogId = :catalogId AND r.createdAt >= CURRENT_DATE - 30")
-    Long findRecentRatingsCountByCatalogId(@Param("catalogId") Long catalogId);
+    @Query("SELECT COUNT(r) FROM OverallRating r WHERE r.catalogId = :catalogId AND r.createdAt >= :since")
+    Long findRecentRatingsCountByCatalogId(@Param("catalogId") Long catalogId, @Param("since") LocalDateTime since);
 
     /**
      * 사용자별 평가 수 조회
@@ -93,10 +95,10 @@ public interface OverallRatingRepository extends JpaRepository<OverallRating, Lo
     Long countAllRatings();
 
     /**
-     * 전체 시스템 최근 30일 평가 수 조회 (모든 카탈로그)
+     * Count all ratings created after the given date (used for system-wide recent 30-day counts).
      */
-    @Query("SELECT COUNT(r) FROM OverallRating r WHERE r.createdAt >= CURRENT_DATE - 30")
-    Long findOverallRecentRatingsCount();
+    @Query("SELECT COUNT(r) FROM OverallRating r WHERE r.createdAt >= :since")
+    Long findOverallRecentRatingsCount(@Param("since") LocalDateTime since);
 
     /**
      * 카탈로그 ID로 모든 평가 삭제

@@ -27,10 +27,10 @@ public class WebSecurityConfigurer  {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .headers(headers -> headers
-                .frameOptions().disable()  // X-Frame-Options 비활성화
+                .frameOptions(frame -> frame.disable())
             )
-            .cors().and()
-            .csrf().disable()
+            .cors(cors -> cors.disable())
+            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authz -> authz
                 .anyRequest().permitAll()
             );

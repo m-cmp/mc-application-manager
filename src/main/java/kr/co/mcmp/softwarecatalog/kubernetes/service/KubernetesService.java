@@ -3,7 +3,7 @@ package kr.co.mcmp.softwarecatalog.kubernetes.service;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-import javax.persistence.EntityNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
 
 import org.springframework.stereotype.Service;
 import kr.co.mcmp.softwarecatalog.CatalogRepository;

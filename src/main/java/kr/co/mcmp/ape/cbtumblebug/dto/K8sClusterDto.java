@@ -5,8 +5,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,91 +15,91 @@ import lombok.ToString;
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString
-@ApiModel(description = "K8s Cluster information")
+@Schema(description = "K8s Cluster information")
 public class K8sClusterDto {
 
     @JsonProperty("resourceType")
-    @ApiModelProperty(value = "리소스 타입", example = "k8s")
+    @Schema(description = "리소스 타입", example = "k8s")
     private String resourceType;
 
     @JsonProperty("id")
-    @ApiModelProperty(value = "ID", example = "k8scluster01")
+    @Schema(description = "ID", example = "k8scluster01")
     private String id;
 
     @JsonProperty("uid")
-    @ApiModelProperty(value = "UID", example = "d34aecjebd5s73abagpg")
+    @Schema(description = "UID", example = "d34aecjebd5s73abagpg")
     private String uid;
 
     @JsonProperty("keyValueList")
-    @ApiModelProperty(value = "기타 키-값 리스트")
+    @Schema(description = "기타 키-값 리스트")
     private List<KeyValue> keyValueList;
 
     @JsonProperty("status")
-    @ApiModelProperty(value = "상태", example = "Active")
+    @Schema(description = "상태", example = "Active")
     private String status;
 
     @JsonProperty("createdTime")
-    @ApiModelProperty(value = "생성 시각", example = "2025-09-15T23:54:30.55Z")
+    @Schema(description = "생성 시각", example = "2025-09-15T23:54:30.55Z")
     private String createdTime;
 
     @JsonProperty("cspResourceName")
-    @ApiModelProperty(value = "CSP 리소스 이름", example = "d34aecjebd5s73abagpg")
+    @Schema(description = "CSP 리소스 이름", example = "d34aecjebd5s73abagpg")
     private String cspResourceName;
 
     @JsonProperty("cspResourceId")
-    @ApiModelProperty(value = "CSP 리소스 ID", example = "d34aecjebd5s73abagpg")
+    @Schema(description = "CSP 리소스 ID", example = "d34aecjebd5s73abagpg")
     private String cspResourceId;
 
     @JsonProperty("name")
-    @ApiModelProperty(value = "이름", example = "k8scluster01")
+    @Schema(description = "이름", example = "k8scluster01")
     private String name;
 
     @JsonProperty("connectionName")
-    @ApiModelProperty(value = "연결 이름", example = "aws-ap-northeast-2")
+    @Schema(description = "연결 이름", example = "aws-ap-northeast-2")
     private String connectionName;
 
     @JsonProperty("connectionConfig")
-    @ApiModelProperty(value = "연결 설정")
+    @Schema(description = "연결 설정")
     private ConnectionConfig connectionConfig;
 
     @JsonProperty("description")
-    @ApiModelProperty(value = "설명", example = "")
+    @Schema(description = "설명", example = "")
     private String description;
 
     @JsonProperty("systemMessage")
-    @ApiModelProperty(value = "시스템 메시지", example = "")
+    @Schema(description = "시스템 메시지", example = "")
     private String systemMessage;
 
     @JsonProperty("label")
-    @ApiModelProperty(value = "레이블")
+    @Schema(description = "레이블")
     private Map<String, String> label;
 
     @JsonProperty("systemLabel")
-    @ApiModelProperty(value = "시스템 레이블", example = "")
+    @Schema(description = "시스템 레이블", example = "")
     private String systemLabel;
 
     @JsonProperty("version")
-    @ApiModelProperty(value = "버전", example = "1.32")
+    @Schema(description = "버전", example = "1.32")
     private String version;
 
     @JsonProperty("network")
-    @ApiModelProperty(value = "네트워크 설정")
+    @Schema(description = "네트워크 설정")
     private Network network;
 
     @JsonProperty("accessInfo")
-    @ApiModelProperty(value = "접근 정보")
+    @Schema(description = "접근 정보")
     private AccessInfo accessInfo;
 
     @JsonProperty("addons")
-    @ApiModelProperty(value = "애드온 목록")
+    @Schema(description = "애드온 목록")
     private Addons addons;
 
     @JsonProperty("cspViewK8sClusterDetail")
-    @ApiModelProperty(value = "CSP View K8s 클러스터 상세 정보")
+    @Schema(description = "CSP View K8s 클러스터 상세 정보")
     private CspViewK8sClusterDetail cspViewK8sClusterDetail;
 
     @JsonProperty("spiderViewK8sClusterDetail")
-    @ApiModelProperty(value = "Spider View K8s 클러스터 상세 정보")
+    @Schema(description = "Spider View K8s 클러스터 상세 정보")
     private SpiderViewK8sClusterDetail spiderViewK8sClusterDetail;
 
     // --------------------------- nested classes ---------------------------

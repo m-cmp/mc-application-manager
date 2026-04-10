@@ -5,7 +5,7 @@ package kr.co.mcmp.softwarecatalog.model;
 // import lombok.Data;
 // import lombok.NoArgsConstructor;
 
-// import javax.persistence.*;
+// import jakarta.persistence.*;
 // import java.time.LocalDateTime;
 // import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 // import com.fasterxml.jackson.annotation.JsonBackReference;

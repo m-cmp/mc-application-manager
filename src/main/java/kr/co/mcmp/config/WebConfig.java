@@ -8,12 +8,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
-        // 모든 경로를 index.html로 리다이렉트
-        registry.addViewController("/web/{spring:[\\w\\-]+}")
-                .setViewName("forward:/index.html");
-        registry.addViewController("/web/**/{spring:[\\w\\-]+}")
-                .setViewName("forward:/index.html");
-        registry.addViewController("/web/{spring:[\\w\\-]+}/**{spring:[\\w\\-]+}")
+        // Forward all /web/** paths to index.html for SPA client-side routing.
+        // Patterns with ** in the middle are not supported by Spring 6 PathPatternParser.
+        registry.addViewController("/web/**")
                 .setViewName("forward:/index.html");
     }
 }
