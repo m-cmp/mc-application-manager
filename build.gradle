@@ -36,8 +36,8 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.10.0'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    // H2 version managed by Spring Boot 3 BOM (2.x)
-    implementation 'com.h2database:h2'
+    // PostgreSQL driver (version managed by Spring Boot 3 BOM)
+    runtimeOnly 'org.postgresql:postgresql'
 
     compileOnly group : 'org.projectlombok', name: 'lombok', version: '1.18.36'
     annotationProcessor group : 'org.projectlombok', name: 'lombok', version: '1.18.36'

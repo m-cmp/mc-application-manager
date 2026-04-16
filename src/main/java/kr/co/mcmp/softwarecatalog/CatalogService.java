@@ -156,6 +156,7 @@ public class CatalogService {
         return SoftwareCatalogDTO.fromEntity(catalog);
     }
 
+    @Transactional(readOnly = true)
     public SoftwareCatalogDTO getCatalog(Long catalogId) {
         SoftwareCatalog catalog = catalogRepository.findById(catalogId)
                 .orElseThrow(() -> new EntityNotFoundException("Catalog not found"));
@@ -195,6 +196,7 @@ public class CatalogService {
                 .orElseThrow(() -> new EntityNotFoundException("Catalog not found"));
     }
 
+    @Transactional(readOnly = true)
     public List<SoftwareCatalogDTO> getAllCatalogs() {
         List<SoftwareCatalog> catalogs = catalogRepository.findAll();
         List<SoftwareCatalogDTO> dtos = new ArrayList<>();
@@ -230,6 +232,7 @@ public class CatalogService {
         return dtos;
     }
 
+    @Transactional(readOnly = true)
     public List<SoftwareCatalogDTO> getCatalogsByName(String name) {
         List<SoftwareCatalog> catalogs = catalogRepository.findByNameContainingIgnoreCaseWithCatalogRefs(name);
         List<SoftwareCatalogDTO> dtos = new ArrayList<>();

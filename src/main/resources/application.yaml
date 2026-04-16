@@ -6,21 +6,13 @@ config:
 spring:
   application:
     name: application-manager
-  #h2 db 설정
   datasource:
-    url: jdbc:h2:file:./db/application # 프로젝트 루트/db/ 안에 h2.db파일(test.mv.db) 생성
-    #url: jdbc:h2:~/test # user root에 생성
-    driver-class-name: org.h2.Driver
+    url: ${DB_URL:jdbc:postgresql://210.217.178.130:18085/appmgr}
+    driver-class-name: org.postgresql.Driver
     username: ${DB_USER:application}
     password: ${DB_PASS:application!23}
-  #h2 console 활성화 및 경로 설정
-  h2:
-    console:
-      enabled: true # http://localhost:28086/h2-console/ 
-      path: /h2-console
-      settings:
-        web-allow-others: true # 원격연결(배포 후 외부에서) 허용
   jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     generate-ddl: true
     open-in-view: false
     hibernate:
@@ -47,7 +39,7 @@ spring:
     init:
       data-locations: classpath:./import.sql
       mode: ${SQL_DATA_INIT:never} #${SQL_DATA_INIT:always} # ${SQL_DATA_INIT:never}
-      platform: h2
+      platform: postgresql
       #schema-locations: classpath:ddl.sql
 
   servlet:
