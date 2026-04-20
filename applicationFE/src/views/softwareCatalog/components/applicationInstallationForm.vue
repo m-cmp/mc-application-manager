@@ -372,10 +372,11 @@
                     type="text" 
                     class="form-control" 
                     placeholder="nginx" 
-                    v-model="ingressData.ingressClass">
+                    v-model="ingressData.ingressClass"
+                    disabled>
                 </div>
 
-                <div class="mb-2">
+                <!-- <div class="mb-2">
                   <div class="form-check">
                     <input 
                       class="form-check-input" 
@@ -395,7 +396,7 @@
                     class="form-control" 
                     placeholder="tls-secret" 
                     v-model="ingressData.ingressTlsSecret">
-                </div>
+                </div> -->
               </div>
             </div>
           </template>
