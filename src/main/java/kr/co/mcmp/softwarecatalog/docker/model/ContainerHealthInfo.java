@@ -13,7 +13,10 @@ public class ContainerHealthInfo {
     private Boolean isPortAccess;
     private Double cpuUsage;
     private Double memoryUsage;
+    private Long memoryLimitBytes;
     private Double networkIn;
     private Double networkOut;
     private Boolean isHealthCheck;
+    private Boolean oomKilled;
+    private Integer restartCount;
 }

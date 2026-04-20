@@ -15,9 +15,11 @@ import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
+import kr.co.mcmp.softwarecatalog.application.model.InfraSpecSnapshot;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentLogRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.InfraSpecSnapshotRepository;
 import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +35,7 @@ public class KubernetesService {
     private final ApplicationStatusRepository statusRepository;
     private final CatalogRepository catalogRepository;
     private final DeploymentLogRepository deploymentLogRepository;
+    private final InfraSpecSnapshotRepository infraSpecSnapshotRepository;
     private final UserRepository userRepository;
 
     /**
@@ -53,7 +56,10 @@ public class KubernetesService {
             );
             addDeploymentLog(history, LogType.INFO, "Deployment initiated successfully with DTO configuration.");
             updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ActionType.INSTALL.name());
-            return historyRepository.save(history);
+            history.setResourceType(request.getResourceType());
+            DeploymentHistory saved = historyRepository.save(history);
+            saveInfraSpecSnapshot(saved, request, catalog);
+            return saved;
         } catch (Exception e) {
             log.error("애플리케이션 배포 중 오류 발생", e);
             
@@ -166,5 +172,36 @@ public class KubernetesService {
                 .build();
     }
 
+    private void saveInfraSpecSnapshot(DeploymentHistory history, DeploymentRequest request, SoftwareCatalog catalog) {
+        try {
+            if (infraSpecSnapshotRepository.existsByDeploymentId(history.getId())) return;
 
+            InfraSpecSnapshot snapshot = InfraSpecSnapshot.builder()
+                    .deploymentId(history.getId())
+                    .capturedAt(LocalDateTime.now())
+                    .resourceType(request.getResourceType())
+                    .deploymentType("K8S")
+                    .podCpuRequest(formatCpuValue(catalog.getMinCpu()))
+                    .podCpuLimit(formatCpuValue(catalog.getRecommendedCpu()))
+                    .podMemoryRequest(formatMemoryMi(catalog.getMinMemory()))
+                    .podMemoryLimit(formatMemoryMi(catalog.getRecommendedMemory()))
+                    .catalogMinCpu(catalog.getMinCpu() != null ? catalog.getMinCpu().doubleValue() : null)
+                    .catalogRecCpu(catalog.getRecommendedCpu() != null ? catalog.getRecommendedCpu().doubleValue() : null)
+                    .catalogMinMemoryMb(catalog.getMinMemory() != null ? catalog.getMinMemory().intValue() : null)
+                    .build();
+
+            infraSpecSnapshotRepository.save(snapshot);
+            log.info("InfraSpecSnapshot saved for K8s deployment: {}", history.getId());
+        } catch (Exception e) {
+            log.warn("Failed to save InfraSpecSnapshot for K8s deployment: {}", history.getId(), e);
+        }
+    }
+
+    private String formatCpuValue(Double cpuValue) {
+        return cpuValue != null ? cpuValue.toString() : null;
+    }
+
+    private String formatMemoryMi(Long memoryGi) {
+        return memoryGi != null ? (memoryGi * 1024) + "Mi" : null;
+    }
 }

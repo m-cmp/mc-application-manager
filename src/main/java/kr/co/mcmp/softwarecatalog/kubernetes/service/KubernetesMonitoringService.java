@@ -18,6 +18,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.fabric8.kubernetes.api.model.ContainerStatus;
 import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
 import io.fabric8.kubernetes.api.model.Node;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -28,8 +29,12 @@ import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
+import kr.co.mcmp.softwarecatalog.application.model.LifecycleEvent;
+import kr.co.mcmp.softwarecatalog.application.model.ResourceMetricsHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.LifecycleEventRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.ResourceMetricsHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.ScalingEventRepository;
 import kr.co.mcmp.softwarecatalog.application.model.ScalingEvent;
 import kr.co.mcmp.softwarecatalog.application.service.K8sAutoscaleService;
@@ -49,10 +54,20 @@ public class KubernetesMonitoringService {
     private final DeploymentHistoryRepository historyRepository;
     private final ApplicationStatusRepository statusRepository;
     private final ScalingEventRepository scalingEventRepository;
+    private final ResourceMetricsHistoryRepository metricsHistoryRepository;
+    private final LifecycleEventRepository lifecycleEventRepository;
     private final KubernetesLogCollector logCollector;
     private final K8sAutoscaleService k8sAutoscaleService;
     private final CbtumblebugRestApi cbtumblebugRestApi;
     private final RabbitMqAlertService rabbitMqAlertService;
+
+    /** Last snapshot timestamp per deployment ID — controls the 10-minute interval */
+    private final java.util.concurrent.ConcurrentHashMap<Long, LocalDateTime> lastSnapshotTime =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Last observed total restart count per deployment ID — detects restart surges */
+    private final java.util.concurrent.ConcurrentHashMap<Long, Integer> lastRestartCount =
+            new java.util.concurrent.ConcurrentHashMap<>();
     
     @Value("${k8s.autoscaling.default-max-nodes:3}")
     private int defaultMaxNodes;
@@ -292,10 +307,16 @@ public class KubernetesMonitoringService {
         // 오토스케일링 처리 (스케일 아웃만)
         log.debug("Calling handleK8sAutoscaling for deployment: {}, CatalogId: {}", deployment.getId(), catalogId);
         handleK8sAutoscaling(deployment, status, client);
-        
+
         // 스케일 아웃 완료 감지 및 재배포 처리
         checkAndHandleScalingCompletion(deployment, client);
-        
+
+        // Persist 10-minute metrics snapshot if interval has elapsed
+        saveMetricsSnapshotIfDue(deployment, status, pods);
+
+        // Detect and save Pod lifecycle events (OOM, CrashLoop, etc.)
+        detectAndSavePodEvents(deployment, pods);
+
         statusRepository.save(status);
         log.debug("ApplicationStatus saved successfully for catalogId={}", catalogId);
     }
@@ -339,6 +360,157 @@ public class KubernetesMonitoringService {
         }
     }
 
+
+    /**
+     * Saves a snapshot to resource_metrics_history only if 10 minutes have elapsed since the last one.
+     * For K8s, CPU/Memory values are taken directly from ApplicationStatus (Pod metrics-based),
+     * not relative to total cluster node capacity.
+     */
+    private void saveMetricsSnapshotIfDue(DeploymentHistory deployment, ApplicationStatus status, List<Pod> pods) {
+        Long deploymentId = deployment.getId();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime last = lastSnapshotTime.get(deploymentId);
+
+        if (last != null && now.isBefore(last.plusMinutes(10))) {
+            return;
+        }
+
+        try {
+            int totalRestartCount = pods.stream()
+                    .flatMap(pod -> pod.getStatus() != null && pod.getStatus().getContainerStatuses() != null
+                            ? pod.getStatus().getContainerStatuses().stream() : java.util.stream.Stream.empty())
+                    .mapToInt(cs -> cs.getRestartCount() != null ? cs.getRestartCount() : 0)
+                    .sum();
+
+            ResourceMetricsHistory snapshot = ResourceMetricsHistory.builder()
+                    .deploymentId(deploymentId)
+                    .recordedAt(now)
+                    .cpuUsagePct(status.getCpuUsage())
+                    .memoryUsagePct(status.getMemoryUsage())
+                    .networkInBytes(status.getNetworkIn() != null ? status.getNetworkIn().longValue() : null)
+                    .networkOutBytes(status.getNetworkOut() != null ? status.getNetworkOut().longValue() : null)
+                    .restartCount(totalRestartCount)
+                    .oomKilled(false)
+                    .status(status.getStatus())
+                    .resourceType(deployment.getResourceType())
+                    .deploymentType("K8S")
+                    .build();
+
+            metricsHistoryRepository.save(snapshot);
+            lastSnapshotTime.put(deploymentId, now);
+            log.debug("Saved K8s metrics snapshot for deployment: {}", deploymentId);
+        } catch (Exception e) {
+            log.error("Failed to save K8s metrics snapshot for deployment: {}", deploymentId, e);
+        }
+    }
+
+    /**
+     * Detects and saves OOMKilled, CrashLoopBackOff, and restart surge events from Pod containerStatuses.
+     */
+    private void detectAndSavePodEvents(DeploymentHistory deployment, List<Pod> pods) {
+        Long deploymentId = deployment.getId();
+        LocalDateTime now = LocalDateTime.now();
+
+        int totalRestarts = 0;
+
+        for (Pod pod : pods) {
+            if (pod.getStatus() == null || pod.getStatus().getContainerStatuses() == null) continue;
+
+            String podName = pod.getMetadata().getName();
+
+            for (ContainerStatus cs : pod.getStatus().getContainerStatuses()) {
+                String containerName = cs.getName();
+                int restartCount = cs.getRestartCount() != null ? cs.getRestartCount() : 0;
+                totalRestarts += restartCount;
+
+                // OOMKilled detection via lastState.terminated.reason
+                if (cs.getLastState() != null
+                        && cs.getLastState().getTerminated() != null
+                        && "OOMKilled".equals(cs.getLastState().getTerminated().getReason())) {
+                    try {
+                        lifecycleEventRepository.save(LifecycleEvent.builder()
+                                .deploymentId(deploymentId)
+                                .eventType("OOM_KILLED")
+                                .severity("CRITICAL")
+                                .occurredAt(now)
+                                .podName(podName)
+                                .containerName(containerName)
+                                .exitCode(cs.getLastState().getTerminated().getExitCode())
+                                .detailMessage("OOMKilled detected in lastState.terminated")
+                                .createdAt(now)
+                                .build());
+                        log.warn("OOM_KILLED event recorded for deployment: {}, pod: {}", deploymentId, podName);
+                    } catch (Exception e) {
+                        log.error("Failed to save OOM_KILLED event", e);
+                    }
+                }
+
+                // CrashLoopBackOff detection via state.waiting.reason
+                if (cs.getState() != null
+                        && cs.getState().getWaiting() != null
+                        && "CrashLoopBackOff".equals(cs.getState().getWaiting().getReason())) {
+                    try {
+                        lifecycleEventRepository.save(LifecycleEvent.builder()
+                                .deploymentId(deploymentId)
+                                .eventType("CRASH_LOOP")
+                                .severity("CRITICAL")
+                                .occurredAt(now)
+                                .podName(podName)
+                                .containerName(containerName)
+                                .detailMessage("CrashLoopBackOff detected: " + cs.getState().getWaiting().getMessage())
+                                .createdAt(now)
+                                .build());
+                        log.warn("CRASH_LOOP event recorded for deployment: {}, pod: {}", deploymentId, podName);
+                    } catch (Exception e) {
+                        log.error("Failed to save CRASH_LOOP event", e);
+                    }
+                }
+
+                // ImagePullBackOff detection
+                if (cs.getState() != null
+                        && cs.getState().getWaiting() != null
+                        && "ImagePullBackOff".equals(cs.getState().getWaiting().getReason())) {
+                    try {
+                        lifecycleEventRepository.save(LifecycleEvent.builder()
+                                .deploymentId(deploymentId)
+                                .eventType("IMAGE_PULL_ERROR")
+                                .severity("WARNING")
+                                .occurredAt(now)
+                                .podName(podName)
+                                .containerName(containerName)
+                                .detailMessage("ImagePullBackOff: " + cs.getState().getWaiting().getMessage())
+                                .createdAt(now)
+                                .build());
+                    } catch (Exception e) {
+                        log.error("Failed to save IMAGE_PULL_ERROR event", e);
+                    }
+                }
+            }
+        }
+
+        // Restart surge detection based on total across all Pods
+        Integer prevTotal = lastRestartCount.get(deploymentId);
+        if (prevTotal != null && totalRestarts > prevTotal) {
+            int increment = totalRestarts - prevTotal;
+            if (increment >= 1) {
+                String eventType = increment >= 3 ? "CRASH_LOOP" : "RESTART";
+                String severity = increment >= 3 ? "CRITICAL" : "WARNING";
+                try {
+                    lifecycleEventRepository.save(LifecycleEvent.builder()
+                            .deploymentId(deploymentId)
+                            .eventType(eventType)
+                            .severity(severity)
+                            .occurredAt(now)
+                            .detailMessage(String.format("Total restart count increased by %d (total: %d)", increment, totalRestarts))
+                            .createdAt(now)
+                            .build());
+                } catch (Exception e) {
+                    log.error("Failed to save restart event for deployment: {}", deploymentId, e);
+                }
+            }
+        }
+        lastRestartCount.put(deploymentId, totalRestarts);
+    }
 
     private void checkMetricsServerStatus(KubernetesClient client) {
         Deployment metricsServer = client.apps().deployments()

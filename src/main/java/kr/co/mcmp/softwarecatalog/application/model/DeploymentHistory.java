@@ -97,4 +97,12 @@ public class DeploymentHistory {
     
     @Column(name = "release_name")
     private String releaseName; // Helm 릴리스 이름 (K8S 전용)
+
+    /**
+     * Resource type selected by the user at deploy time.
+     * Values: CPU_INTENSIVE, MEMORY_INTENSIVE, GENERAL_PURPOSE
+     * Used as the baseline for workload_profile_result.selected_type.
+     */
+    @Column(name = "resource_type", length = 50)
+    private String resourceType;
 }

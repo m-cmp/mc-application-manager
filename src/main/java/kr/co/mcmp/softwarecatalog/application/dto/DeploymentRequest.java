@@ -75,6 +75,11 @@ public class DeploymentRequest {
     private Double cpuThreshold;
     private Double memoryThreshold;
     
+    /**
+     * Resource type selected by the user: CPU_INTENSIVE, MEMORY_INTENSIVE, GENERAL_PURPOSE
+     */
+    private String resourceType;
+
     // Ingress 설정
     private Boolean ingressEnabled;
     private String ingressHost;
