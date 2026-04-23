@@ -1,6 +1,8 @@
 version: '3.8'
 
 networks:
+  mc-application-manager-network:
+    driver: bridge
   internal_network:
     internal: true
   external_network:
@@ -10,6 +12,33 @@ networks:
     name: mc-observability-network
 
 services:
+
+  mc-application-manager-db:
+    image: postgres:16-alpine
+    container_name: mc-application-manager-db
+    restart: always
+    networks:
+      - mc-application-manager-network
+    ports:
+      - 18085:5432
+    volumes:
+      - ./container-volume/mc-application-manager/am_db/data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${AM_POSTGRES_USER:-application}
+      - POSTGRES_PASSWORD=${AM_POSTGRES_PASSWORD:-application!23}
+      - POSTGRES_DB=${AM_POSTGRES_DB:-appmgr}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${AM_POSTGRES_USER:-application} -d ${AM_POSTGRES_DB:-appmgr}" ]
+      interval: 1m
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    command: >
+      sh -c "
+        chown -R postgres:postgres /var/lib/postgresql/data &&
+        exec docker-entrypoint.sh postgres
+      "
+
   # sonatype nexus - for application manager
   sonatype-nexus:
     image: sonatype/nexus3:latest
@@ -45,7 +74,11 @@ services:
     image: cloudbaristaorg/mc-application-manager:edge
     container_name: application-manager
     privileged: true  # Docker-in-Docker를 위한 privileged 모드
+    depends_on:
+      mc-application-manager-db:
+        condition: service_healthy
     networks:
+      - mc-application-manager-network
       - external_network
       - mc-observability-network
     ports:
@@ -57,10 +90,11 @@ services:
       #- dind-storage:/var/lib/docker  # DinD용 Docker 데이터 볼륨
       - /var/run:/var/run  # DinD 소켓용
     environment:
-      - DDL_AUTO=update     # create-drop or update
-      - DB_USER=application # Please CHANGE ME
-      - DB_PASS=application!23 # Please CHANGE ME
-      - SQL_DATA_INIT=never # or never or always
+      - DDL_AUTO=update
+      - DB_URL=jdbc:postgresql://mc-application-manager-db:5432/${AM_POSTGRES_DB:-appmgr}
+      - DB_USER=${DB_USER:-application}
+      - DB_PASS=${DB_PASS:-application!23}
+      - SQL_DATA_INIT=never
       - TUMBLEBUG_URL=mc-infra-manager
       - TUMBLEBUG_PORT=1323
       - TUMBLEBUG_ID=default

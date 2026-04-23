@@ -2,8 +2,7 @@ package kr.co.mcmp.ape.cbtumblebug.dto;
 
 import java.util.List;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,20 +10,20 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@ApiModel(description = "Detailed Region Information")
+@Schema(description = "Detailed Region Information")
 public class RegionDetail {
-    @ApiModelProperty(value = "Region ID")
+    @Schema(description = "Region ID")
     private String regionId;
 
-    @ApiModelProperty(value = "Region name")
+    @Schema(description = "Region name")
     private String regionName;
 
-    @ApiModelProperty(value = "Region description")
+    @Schema(description = "Region description")
     private String description;
 
-    @ApiModelProperty(value = "Region location")
+    @Schema(description = "Region location")
     private Location location;
 
-    @ApiModelProperty(value = "List of zones in the region")
+    @Schema(description = "List of zones in the region")
     private List<String> zones;
 }

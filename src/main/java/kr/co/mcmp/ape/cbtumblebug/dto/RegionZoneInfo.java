@@ -1,7 +1,6 @@
 package kr.co.mcmp.ape.cbtumblebug.dto;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,11 +8,11 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@ApiModel(description = "Region and Zone Information")
+@Schema(description = "Region and Zone Information")
 public class RegionZoneInfo {
-    @ApiModelProperty(value = "Assigned region")
+    @Schema(description = "Assigned region")
     private String assignedRegion;
 
-    @ApiModelProperty(value = "Assigned zone")
+    @Schema(description = "Assigned zone")
     private String assignedZone;
 }

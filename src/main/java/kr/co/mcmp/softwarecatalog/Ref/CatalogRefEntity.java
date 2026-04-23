@@ -3,7 +3,7 @@ package kr.co.mcmp.softwarecatalog.Ref;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import lombok.*;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 

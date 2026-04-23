@@ -1,7 +1,6 @@
 package kr.co.mcmp.ape.cbtumblebug.dto;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,38 +8,38 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@ApiModel(description = "Status count information")
+@Schema(description = "Status count information")
 public class StatusCount {
-    @ApiModelProperty(value = "Total count")
+    @Schema(description = "Total count")
     private int countTotal;
 
-    @ApiModelProperty(value = "Creating count")
+    @Schema(description = "Creating count")
     private int countCreating;
 
-    @ApiModelProperty(value = "Running count")
+    @Schema(description = "Running count")
     private int countRunning;
 
-    @ApiModelProperty(value = "Failed count")
+    @Schema(description = "Failed count")
     private int countFailed;
 
-    @ApiModelProperty(value = "Suspended count")
+    @Schema(description = "Suspended count")
     private int countSuspended;
 
-    @ApiModelProperty(value = "Rebooting count")
+    @Schema(description = "Rebooting count")
     private int countRebooting;
 
-    @ApiModelProperty(value = "Terminated count")
+    @Schema(description = "Terminated count")
     private int countTerminated;
 
-    @ApiModelProperty(value = "Suspending count")
+    @Schema(description = "Suspending count")
     private int countSuspending;
 
-    @ApiModelProperty(value = "Resuming count")
+    @Schema(description = "Resuming count")
     private int countResuming;
 
-    @ApiModelProperty(value = "Terminating count")
+    @Schema(description = "Terminating count")
     private int countTerminating;
 
-    @ApiModelProperty(value = "Undefined count")
+    @Schema(description = "Undefined count")
     private int countUndefined;
 }

@@ -43,7 +43,7 @@ public class ContainerStatsCollector {
                     String[] names = container.getNames();
                     if (names != null) {
                         for (String name : names) {
-                            // 부분 문자열 매칭으로 변경 (정확한 이름 매칭에서)
+                            // Changed to substring match (was: exact name match)
                             if (name.contains(containerName)) {
                                 log.debug("Found matching container: {}", name);
                                 return true;
@@ -77,21 +77,27 @@ public class ContainerStatsCollector {
             
             Double cpuUsage = calculateCpuUsage(stats);
             Double memoryUsage = calculateMemoryUsage(stats);
+            Long memoryLimitBytes = extractMemoryLimit(stats);
             Double networkIn = calculateNetworkIn(stats);
             Double networkOut = calculateNetworkOut(stats);
-            
-            log.info("Container stats - CPU: {}%, Memory: {}%, Network In: {}, Network Out: {}", 
-                    cpuUsage, memoryUsage, networkIn, networkOut);
-            
+            Boolean oomKilled = extractOomKilled(containerInfo);
+            Integer restartCount = extractRestartCount(containerInfo);
+
+            log.info("Container stats - CPU: {}%, Memory: {}%, NetworkIn: {}, NetworkOut: {}, OOMKilled: {}, Restarts: {}",
+                    cpuUsage, memoryUsage, networkIn, networkOut, oomKilled, restartCount);
+
             return ContainerHealthInfo.builder()
                     .status(mapContainerStatus(containerInfo.getState().getStatus()))
                     .servicePorts(servicePort)
                     .cpuUsage(cpuUsage)
                     .memoryUsage(memoryUsage)
+                    .memoryLimitBytes(memoryLimitBytes)
                     .isPortAccess(isPortAccessible)
                     .isHealthCheck(isHealthCheck)
                     .networkIn(networkIn)
                     .networkOut(networkOut)
+                    .oomKilled(oomKilled)
+                    .restartCount(restartCount)
                     .build();
         } catch (Exception e) {
             log.error("Error collecting container stats for containerId: {}", containerId, e);
@@ -266,6 +272,45 @@ public class ContainerStatsCollector {
             log.error("Error calculating memory usage", e);
         }
         return null;
+    }
+
+    private Long extractMemoryLimit(Statistics stats) {
+        try {
+            if (stats != null && stats.getMemoryStats() != null) {
+                return stats.getMemoryStats().getLimit();
+            }
+        } catch (Exception e) {
+            log.debug("Error extracting memory limit", e);
+        }
+        return null;
+    }
+
+    private Boolean extractOomKilled(InspectContainerResponse containerInfo) {
+        try {
+            if (containerInfo != null && containerInfo.getState() != null) {
+                // OOMKilled field access may differ by docker-java version.
+                // A container in exited state with exitCode 137 is treated as OOM-killed.
+                InspectContainerResponse.ContainerState state = containerInfo.getState();
+                if ("exited".equalsIgnoreCase(state.getStatus())) {
+                    Long exitCodeLong = state.getExitCodeLong();
+                    return exitCodeLong != null && exitCodeLong == 137L;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Error extracting OOM killed status", e);
+        }
+        return false;
+    }
+
+    private Integer extractRestartCount(InspectContainerResponse containerInfo) {
+        try {
+            if (containerInfo != null && containerInfo.getRestartCount() != null) {
+                return containerInfo.getRestartCount();
+            }
+        } catch (Exception e) {
+            log.debug("Error extracting restart count", e);
+        }
+        return 0;
     }
 
     private Double calculateNetworkIn(Statistics stats) {

@@ -10,11 +10,13 @@ import kr.co.mcmp.util.AES256Util;
 import kr.co.mcmp.util.Base64Util;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.conn.ConnectTimeoutException;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.TrustStrategy;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
+import org.apache.hc.client5.http.ConnectTimeoutException;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.springframework.http.*;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -31,7 +33,7 @@ import java.nio.charset.Charset;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.security.cert.X509Certificate;
+import java.time.Duration;
 
 @Slf4j
 @Component
@@ -75,10 +77,11 @@ public class NexusRestClient {
      * @throws KeyStoreException
      */
     private RestTemplate getSkipSslCertificateVerficationRestTemplate() {
-        TrustStrategy acceptingTrustStrategy = (X509Certificate[] chain, String authType) -> true;
         SSLContext sslContext = null;
         try {
-            sslContext = org.apache.http.ssl.SSLContexts.custom().loadTrustMaterial(null, acceptingTrustStrategy).build();
+            sslContext = SSLContextBuilder.create()
+                    .loadTrustMaterial(null, (chain, authType) -> true)
+                    .build();
         } catch (KeyManagementException e) {
             log.error(e.getMessage(), e);
             throw new NexusException(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
@@ -91,18 +94,21 @@ public class NexusRestClient {
         }
 
         CloseableHttpClient httpClient = HttpClients.custom()
-                .setSSLContext(sslContext)
-                .setSSLHostnameVerifier(new NoopHostnameVerifier())
+                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
+                                .setSslContext(sslContext)
+                                .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                                .build())
+                        .build())
                 .disableRedirectHandling()
                 .build();
 
         HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
-        requestFactory.setReadTimeout(READ_TIMEOUT);
+        requestFactory.setConnectTimeout(Duration.ofMillis(CONNECT_TIMEOUT));
+        requestFactory.setConnectionRequestTimeout(Duration.ofMillis(READ_TIMEOUT));
         requestFactory.setHttpClient(httpClient);
 
-        RestTemplate restTemplate = new RestTemplate(requestFactory);
-        return restTemplate;
+        return new RestTemplate(requestFactory);
     }
 
     private <U> HttpEntity<U> getHttpEntity(U body, HttpHeaders headers, String uri){
@@ -186,7 +192,7 @@ public class NexusRestClient {
     	try {
     		response = restTemplate.exchange(uriComponents.toString(), httpMethod, entity, Object.class);
     		if ( response != null ) {
-    			return response.getStatusCode();
+    			return HttpStatus.valueOf(response.getStatusCode().value());
     		}
     		else {
     			return null;

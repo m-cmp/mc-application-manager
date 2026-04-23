@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.VmAccessInfo;
+import kr.co.mcmp.ape.cbtumblebug.dto.VmSpecDto;
 import kr.co.mcmp.softwarecatalog.CatalogService;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalogDTO;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
@@ -23,7 +24,9 @@ import kr.co.mcmp.softwarecatalog.application.dto.DeploymentParameters;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.exception.ApplicationException;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
+import kr.co.mcmp.softwarecatalog.application.model.InfraSpecSnapshot;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.InfraSpecSnapshotRepository;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationHistoryService;
 import kr.co.mcmp.softwarecatalog.application.service.DeploymentService;
 import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
@@ -49,6 +52,7 @@ public class DockerDeploymentService implements DeploymentService {
     private final CbtumblebugRestApi cbtumblebugRestApi;
     private final ApplicationHistoryService applicationHistoryService;
     private final DeploymentHistoryRepository deploymentHistoryRepository;
+    private final InfraSpecSnapshotRepository infraSpecSnapshotRepository;
     private final UserService userService;
     private final NexusConfig nexusConfig;
     
@@ -92,13 +96,18 @@ public class DockerDeploymentService implements DeploymentService {
             
             try {
                 deployToVms(request, catalog, history, user);
+                if ("SUCCESS".equals(history.getStatus()) || "PARTIAL_SUCCESS".equals(history.getStatus())) {
+                    history.setResourceType(request.getResourceType());
+                    deploymentHistoryRepository.save(history);
+                    saveInfraSpecSnapshot(history, request, catalog);
+                }
             } catch (Exception e) {
                 log.error("Deployment failed", e);
                 history.setStatus("FAILED");
                 applicationHistoryService.updateApplicationStatus(history, "FAILED", user);
                 applicationHistoryService.addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
             }
-            
+
             return history;
         }
     }
@@ -175,8 +184,10 @@ public class DockerDeploymentService implements DeploymentService {
                     if (result.isSuccess()) {
                         successfulVms.add(vmId);
                         vmHistory.setStatus("SUCCESS");
+                        vmHistory.setResourceType(request.getResourceType());
                         vmHistory.setUpdatedAt(LocalDateTime.now());
                         deploymentHistoryRepository.save(vmHistory);
+                        saveInfraSpecSnapshot(vmHistory, request, catalog);
                         
                         String logMessage = createMessage(request, MessageType.SUCCESS, vmId, "deployment completed");
                         applicationHistoryService.addDeploymentLog(vmHistory, LogType.INFO, logMessage);
@@ -539,6 +550,92 @@ public class DockerDeploymentService implements DeploymentService {
         }
     }
     
+    /**
+     * Persists an infrastructure spec snapshot upon successful deployment.
+     */
+    private void saveInfraSpecSnapshot(DeploymentHistory history, DeploymentRequest request, SoftwareCatalogDTO catalog) {
+        try {
+            if (infraSpecSnapshotRepository.existsByDeploymentId(history.getId())) return;
+
+            VmAccessInfo vmInfo = resolveVmInfo(request, history);
+            VmSpecDto.VmSpecInfo vmSpecInfo = resolveVmSpecInfo(vmInfo);
+
+            InfraSpecSnapshot snapshot = InfraSpecSnapshot.builder()
+                    .deploymentId(history.getId())
+                    .capturedAt(java.time.LocalDateTime.now())
+                    .resourceType(request.getResourceType())
+                    .deploymentType("DOCKER")
+                    .vmInstanceType(vmInfo != null ? firstNonBlank(vmInfo.getCspSpecName(), vmInfo.getSpecId()) : null)
+                    .vmCpuCores(extractVmCpuCores(vmSpecInfo))
+                    .vmMemoryGb(extractVmMemoryGb(vmSpecInfo))
+                    .catalogMinCpu(catalog.getMinCpu() != null ? catalog.getMinCpu().doubleValue() : null)
+                    .catalogRecCpu(catalog.getRecommendedCpu() != null ? catalog.getRecommendedCpu().doubleValue() : null)
+                    .catalogMinMemoryMb(catalog.getMinMemory() != null ? catalog.getMinMemory().intValue() : null)
+                    .build();
+
+            infraSpecSnapshotRepository.save(snapshot);
+            log.info("InfraSpecSnapshot saved for deployment: {}", history.getId());
+        } catch (Exception e) {
+            log.warn("Failed to save InfraSpecSnapshot for deployment: {}", history.getId(), e);
+        }
+    }
+
+    private VmAccessInfo resolveVmInfo(DeploymentRequest request, DeploymentHistory history) {
+        String vmId = history.getVmId() != null ? history.getVmId() : request.getFirstVmId();
+        if (request.getNamespace() == null || request.getMciId() == null || vmId == null) {
+            return null;
+        }
+        return cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), vmId);
+    }
+
+    private VmSpecDto.VmSpecInfo resolveVmSpecInfo(VmAccessInfo vmInfo) {
+        if (vmInfo == null || vmInfo.getConnectionName() == null || vmInfo.getCspSpecName() == null) {
+            return null;
+        }
+
+        VmSpecDto vmSpecDto = cbtumblebugRestApi.lookupVmSpec(vmInfo.getConnectionName(), vmInfo.getCspSpecName());
+        if (vmSpecDto == null || vmSpecDto.getVmspec() == null || vmSpecDto.getVmspec().isEmpty()) {
+            return null;
+        }
+        return vmSpecDto.getVmspec().get(0);
+    }
+
+    private Integer extractVmCpuCores(VmSpecDto.VmSpecInfo vmSpecInfo) {
+        if (vmSpecInfo == null || vmSpecInfo.getVCpu() == null || vmSpecInfo.getVCpu().getCount() == null) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(vmSpecInfo.getVCpu().getCount());
+        } catch (NumberFormatException e) {
+            log.debug("Failed to parse VM CPU core count: {}", vmSpecInfo.getVCpu().getCount(), e);
+            return null;
+        }
+    }
+
+    private Double extractVmMemoryGb(VmSpecDto.VmSpecInfo vmSpecInfo) {
+        if (vmSpecInfo == null || vmSpecInfo.getMemSizeMib() == null) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(vmSpecInfo.getMemSizeMib()) / 1024.0;
+        } catch (NumberFormatException e) {
+            log.debug("Failed to parse VM memory size MiB: {}", vmSpecInfo.getMemSizeMib(), e);
+            return null;
+        }
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
     /**
      * 배포 결과를 처리합니다.
      */

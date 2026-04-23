@@ -2,8 +2,7 @@ package kr.co.mcmp.ape.cbtumblebug.dto;
 
 import java.util.List;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,9 +11,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@ApiModel(description = "MCI Response")
+@Schema(description = "MCI Response")
 public class MciResponse {
 
-    @ApiModelProperty(value = "List of MCIs")
+    @Schema(description = "List of MCIs")
     private List<MciDto> mci;
 }

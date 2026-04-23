@@ -10,7 +10,7 @@ import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import lombok.*;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;

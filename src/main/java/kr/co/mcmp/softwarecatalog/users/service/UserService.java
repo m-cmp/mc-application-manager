@@ -2,7 +2,7 @@ package kr.co.mcmp.softwarecatalog.users.service;
 
 import java.util.Optional;
 
-import javax.persistence.EntityNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

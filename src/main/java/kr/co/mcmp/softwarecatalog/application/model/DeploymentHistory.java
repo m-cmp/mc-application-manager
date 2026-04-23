@@ -3,16 +3,16 @@ package kr.co.mcmp.softwarecatalog.application.model;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
@@ -97,4 +97,12 @@ public class DeploymentHistory {
     
     @Column(name = "release_name")
     private String releaseName; // Helm 릴리스 이름 (K8S 전용)
+
+    /**
+     * Resource type selected by the user at deploy time.
+     * Values: CPU_INTENSIVE, MEMORY_INTENSIVE, GENERAL_PURPOSE
+     * Used as the baseline for workload_profile_result.selected_type.
+     */
+    @Column(name = "resource_type", length = 50)
+    private String resourceType;
 }

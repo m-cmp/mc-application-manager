@@ -1,8 +1,7 @@
 package kr.co.mcmp.ape.cbtumblebug.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -15,148 +14,148 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString
-@ApiModel(description = "VM (Virtual Machine) information")
+@Schema(description = "VM (Virtual Machine) information")
 public class VmAccessInfo {
-    @ApiModelProperty(value = "Resource type", example = "vm")
+    @Schema(description = "Resource type", example = "vm")
     private String resourceType;
 
-    @ApiModelProperty(value = "VM ID", example = "vm01-1")
+    @Schema(description = "VM ID", example = "vm01-1")
     private String id;
 
-    @ApiModelProperty(value = "VM UID", example = "cstcna3ebd5s73bq2o3g")
+    @Schema(description = "VM UID", example = "cstcna3ebd5s73bq2o3g")
     private String uid;
 
-    @ApiModelProperty(value = "CSP Resource Name")
+    @Schema(description = "CSP Resource Name")
     private String cspResourceName;
 
-    @ApiModelProperty(value = "CSP Resource ID")
+    @Schema(description = "CSP Resource ID")
     private String cspResourceId;
 
-    @ApiModelProperty(value = "VM name", example = "vm01-1")
+    @Schema(description = "VM name", example = "vm01-1")
     private String name;
 
-    @ApiModelProperty(value = "Sub group ID")
+    @Schema(description = "Sub group ID")
     private String subGroupId;
 
-    @ApiModelProperty(value = "Location information")
+    @Schema(description = "Location information")
     private Location location;
 
-    @ApiModelProperty(value = "VM status", example = "Running")
+    @Schema(description = "VM status", example = "Running")
     private String status;
 
-    @ApiModelProperty(value = "Target status", example = "None")
+    @Schema(description = "Target status", example = "None")
     private String targetStatus;
 
-    @ApiModelProperty(value = "Target action", example = "None")
+    @Schema(description = "Target action", example = "None")
     private String targetAction;
 
-    @ApiModelProperty(value = "Monitoring agent status")
+    @Schema(description = "Monitoring agent status")
     private String monAgentStatus;
 
-    @ApiModelProperty(value = "Network agent status")
+    @Schema(description = "Network agent status")
     private String networkAgentStatus;
 
-    @ApiModelProperty(value = "System message")
+    @Schema(description = "System message")
     private String systemMessage;
 
-    @ApiModelProperty(value = "Created time")
+    @Schema(description = "Created time")
     private String createdTime;
 
-    @ApiModelProperty(value = "Label")
+    @Schema(description = "Label")
     private Map<String, String> label;
 
-    @ApiModelProperty(value = "Description", example = "")
+    @Schema(description = "Description", example = "")
     private String description;
 
-    @ApiModelProperty(value = "Region information")
+    @Schema(description = "Region information")
     private Region region;
 
-    @ApiModelProperty(value = "Public IP")
+    @Schema(description = "Public IP")
     private String publicIP;
 
-    @ApiModelProperty(value = "SSH port")
+    @Schema(description = "SSH port")
     private String sshPort;
 
-    @ApiModelProperty(value = "Public DNS")
+    @Schema(description = "Public DNS")
     private String publicDNS;
 
-    @ApiModelProperty(value = "Private IP")
+    @Schema(description = "Private IP")
     private String privateIP;
 
-    @ApiModelProperty(value = "Private DNS")
+    @Schema(description = "Private DNS")
     private String privateDNS;
 
-    @ApiModelProperty(value = "Root disk type")
+    @Schema(description = "Root disk type")
     private String rootDiskType;
 
-    @ApiModelProperty(value = "Root disk size")
+    @Schema(description = "Root disk size")
     private String rootDiskSize;
 
-    @ApiModelProperty(value = "Root device name")
+    @Schema(description = "Root device name")
     private String rootDeviceName;
 
-    @ApiModelProperty(value = "Connection name")
+    @Schema(description = "Connection name")
     private String connectionName;
 
-    @ApiModelProperty(value = "Connection configuration")
+    @Schema(description = "Connection configuration")
     private ConnectionConfig connectionConfig;
 
-    @ApiModelProperty(value = "Spec ID")
+    @Schema(description = "Spec ID")
     private String specId;
 
-    @ApiModelProperty(value = "CSP spec name")
+    @Schema(description = "CSP spec name")
     private String cspSpecName;
 
-    @ApiModelProperty(value = "Image ID")
+    @Schema(description = "Image ID")
     private String imageId;
 
-    @ApiModelProperty(value = "CSP image name")
+    @Schema(description = "CSP image name")
     private String cspImageName;
 
-    @ApiModelProperty(value = "VNet ID")
+    @Schema(description = "VNet ID")
     private String vNetId;
 
-    @ApiModelProperty(value = "CSP VNet ID")
+    @Schema(description = "CSP VNet ID")
     private String cspVNetId;
 
-    @ApiModelProperty(value = "Subnet ID")
+    @Schema(description = "Subnet ID")
     private String subnetId;
 
-    @ApiModelProperty(value = "CSP subnet ID")
+    @Schema(description = "CSP subnet ID")
     private String cspSubnetId;
 
-    @ApiModelProperty(value = "Network interface")
+    @Schema(description = "Network interface")
     private String networkInterface;
 
-    @ApiModelProperty(value = "Security group IDs")
+    @Schema(description = "Security group IDs")
     private List<String> securityGroupIds;
 
-    @ApiModelProperty(value = "Data disk IDs")
+    @Schema(description = "Data disk IDs")
     private List<String> dataDiskIds;
 
-    @ApiModelProperty(value = "SSH key ID")
+    @Schema(description = "SSH key ID")
     private String sshKeyId;
 
-    @ApiModelProperty(value = "CSP SSH key ID")
+    @Schema(description = "CSP SSH key ID")
     private String cspSshKeyId;
 
-    @ApiModelProperty(value = "VM user name")
+    @Schema(description = "VM user name")
     private String vmUserName;
 
-    @ApiModelProperty(value = "Additional details")
+    @Schema(description = "Additional details")
     private List<AdditionalDetail> additionalDetails;
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Location {
-        @ApiModelProperty(value = "Display name")
+        @Schema(description = "Display name")
         private String display;
 
-        @ApiModelProperty(value = "Latitude")
+        @Schema(description = "Latitude")
         private Double latitude;
 
-        @ApiModelProperty(value = "Longitude")
+        @Schema(description = "Longitude")
         private Double longitude;
     }
 
@@ -165,11 +164,11 @@ public class VmAccessInfo {
     @AllArgsConstructor
     public static class Region {
         @JsonProperty("Region")
-        @ApiModelProperty(value = "Region")
+        @Schema(description = "Region")
         private String region;
 
         @JsonProperty("Zone")
-        @ApiModelProperty(value = "Zone")
+        @Schema(description = "Zone")
         private String zone;
     }
 
@@ -177,34 +176,34 @@ public class VmAccessInfo {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ConnectionConfig {
-        @ApiModelProperty(value = "Config name")
+        @Schema(description = "Config name")
         private String configName;
 
-        @ApiModelProperty(value = "Provider name")
+        @Schema(description = "Provider name")
         private String providerName;
 
-        @ApiModelProperty(value = "Driver name")
+        @Schema(description = "Driver name")
         private String driverName;
 
-        @ApiModelProperty(value = "Credential name")
+        @Schema(description = "Credential name")
         private String credentialName;
 
-        @ApiModelProperty(value = "Credential holder")
+        @Schema(description = "Credential holder")
         private String credentialHolder;
 
-        @ApiModelProperty(value = "Region zone info name")
+        @Schema(description = "Region zone info name")
         private String regionZoneInfoName;
 
-        @ApiModelProperty(value = "Region zone info")
+        @Schema(description = "Region zone info")
         private RegionZoneInfo regionZoneInfo;
 
-        @ApiModelProperty(value = "Region detail")
+        @Schema(description = "Region detail")
         private RegionDetail regionDetail;
 
-        @ApiModelProperty(value = "Region representative")
+        @Schema(description = "Region representative")
         private Boolean regionRepresentative;
 
-        @ApiModelProperty(value = "Verified")
+        @Schema(description = "Verified")
         private Boolean verified;
     }
 
@@ -212,10 +211,10 @@ public class VmAccessInfo {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class RegionZoneInfo {
-        @ApiModelProperty(value = "Assigned region")
+        @Schema(description = "Assigned region")
         private String assignedRegion;
 
-        @ApiModelProperty(value = "Assigned zone")
+        @Schema(description = "Assigned zone")
         private String assignedZone;
     }
 
@@ -223,19 +222,19 @@ public class VmAccessInfo {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class RegionDetail {
-        @ApiModelProperty(value = "Region ID")
+        @Schema(description = "Region ID")
         private String regionId;
 
-        @ApiModelProperty(value = "Region name")
+        @Schema(description = "Region name")
         private String regionName;
 
-        @ApiModelProperty(value = "Description")
+        @Schema(description = "Description")
         private String description;
 
-        @ApiModelProperty(value = "Location")
+        @Schema(description = "Location")
         private Location location;
 
-        @ApiModelProperty(value = "Zones")
+        @Schema(description = "Zones")
         private List<String> zones;
     }
 
@@ -243,10 +242,10 @@ public class VmAccessInfo {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class AdditionalDetail {
-        @ApiModelProperty(value = "Key")
+        @Schema(description = "Key")
         private String key;
 
-        @ApiModelProperty(value = "Value")
+        @Schema(description = "Value")
         private String value;
     }
 }

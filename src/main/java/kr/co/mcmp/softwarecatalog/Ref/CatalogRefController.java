@@ -1,6 +1,5 @@
 package kr.co.mcmp.softwarecatalog.Ref;
 
-import io.swagger.annotations.ApiOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
