@@ -135,7 +135,7 @@ public class CbtumblebugRestApi {
         log.info("Executing command on MCI: {}, VM: {}", mciId, vmId);
         return executeWithConnectionCheck("executeMciCommand", () -> {
             try {
-                String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/cmd/mci/%s", nsId, mciId));
+                String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/cmd/infra/%s", nsId, mciId));
                 HttpHeaders headers = createCommonHeaders();
 
                 // 요청 본문 생성
@@ -235,19 +235,19 @@ public class CbtumblebugRestApi {
     public List<MciDto> getMcisByNamespace(String namespace) {
         log.info("Fetching MCIs by namespace: {}", namespace);
         return executeWithConnectionCheck("getMcisByNamespace", () -> {
-            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/mci", namespace));
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/infra", namespace));
             HttpHeaders headers = createCommonHeaders();
             ResponseEntity<MciResponse> response = restClient.request(apiUrl, headers, null, HttpMethod.GET,
                     new ParameterizedTypeReference<MciResponse>() {
                     });
-            return response.getBody() != null ? response.getBody().getMci() : Collections.emptyList();
+            return response.getBody() != null ? response.getBody().getInfra() : Collections.emptyList();
         });
     }
 
     public MciAccessInfoDto getSSHKeyForMci(String namespace, String mciId) {
         log.info("Fetching SSH Key for MCI: {} in namespace: {}", mciId, namespace);
         return executeWithConnectionCheck("getSSHKeyForMci", () -> {
-            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/mci/%s", namespace, mciId));
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/infra/%s", namespace, mciId));
             HttpHeaders headers = createCommonHeaders();
 
             UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(apiUrl)
@@ -301,7 +301,7 @@ public class CbtumblebugRestApi {
     public MciDto getMciByMciId(String nsId, String mciId) {
         log.info("Fetching MCI by mciId: {}", mciId);
         return executeWithConnectionCheck("getMciByMciId", () -> {
-            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/mci/%s", nsId, mciId));
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/infra/%s", nsId, mciId));
             HttpHeaders headers = createCommonHeaders();
             ResponseEntity<MciDto> response = restClient.request(
                     apiUrl,
@@ -334,7 +334,7 @@ public class CbtumblebugRestApi {
     public VmAccessInfo getVmInfo(String nsId, String mciId, String vmId) {
         log.info("Fetching VM info for VM ID: {}", vmId);
         return executeWithConnectionCheck("getVmInfo", () -> {
-            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/mci/%s/vm/%s", nsId, mciId, vmId));
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/infra/%s/node/%s", nsId, mciId, vmId));
             HttpHeaders headers = createCommonHeaders();
             ResponseEntity<VmAccessInfo> response = restClient.request(
                     apiUrl,

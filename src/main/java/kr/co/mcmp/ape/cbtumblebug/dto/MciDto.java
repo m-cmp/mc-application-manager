@@ -57,7 +57,7 @@ public class MciDto {
     private String description;
 
     @Schema(description = "List of VMs")
-    private List<VmAccessInfo> vm;
+    private List<VmAccessInfo> node;
 
     @Schema(description = "List of new VMs")
     private List<VmAccessInfo> newVmList;

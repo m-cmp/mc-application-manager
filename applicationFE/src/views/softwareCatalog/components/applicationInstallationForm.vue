@@ -628,6 +628,7 @@ const _getNsId = async () => {
 }
 
 const _getMciName = async () => {
+  console.log(await getMciInfo(selectNsId.value))
   await getMciInfo(selectNsId.value).then(async ({ data }) => {
     mciList.value = data;
     if(mciList.value.length > 0) {
@@ -645,7 +646,7 @@ const _getVmName = async () => {
     mciId: selectMci.value
   }
   await getVmInfo(params).then(({ data }) => {
-    originalVmList.value = data.vm;
+    originalVmList.value = data.node;
     // Set vmList excluding VMs that are already in selectedVmList
     vmList.value = originalVmList.value.filter((vm: any) => 
       !selectedVmList.value.includes(vm.id)

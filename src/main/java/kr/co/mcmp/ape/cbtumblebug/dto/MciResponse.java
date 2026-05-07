@@ -15,5 +15,5 @@ import lombok.NoArgsConstructor;
 public class MciResponse {
 
     @Schema(description = "List of MCIs")
-    private List<MciDto> mci;
+    private List<MciDto> infra;
 }

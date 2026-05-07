@@ -5,14 +5,14 @@ export const getNsInfo = () => {
 }
 
 export const getMciInfo = (nsId: string) => {
-  return request.get(`/cbtumblebug/ns/${nsId}/mci`)
+  return request.get(`/cbtumblebug/ns/${nsId}/infra`)
 }
 
 export const getVmInfo = (params: {
   nsId: string,
   mciId: string
 }) => {
-  return request.get(`/cbtumblebug/ns/${params.nsId}/mci/${params.mciId}`)
+  return request.get(`/cbtumblebug/ns/${params.nsId}/infra/${params.mciId}`)
 }
 
 export const getClusterInfo = (nsId: string) => {

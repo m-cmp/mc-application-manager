@@ -79,7 +79,7 @@ pipeline {
             steps {
                 echo '>>>>>STAGE: VM GET Access Info'
                 script {
-                    def response = sh(script: """curl -w "- Http_Status_code:%{http_code}" ${CB_TUMBLEBUG_URI}/ns/${NAMESPACE}/mci/${MCI_ID}?option=accessinfo --user "${TUMBLEBUG_USER}:${TUMBLEBUG_PASSWORD}" """, returnStdout: true).trim()
+                    def response = sh(script: """curl -w "- Http_Status_code:%{http_code}" ${CB_TUMBLEBUG_URI}/ns/${NAMESPACE}/infra/${MCI_ID}?option=accessinfo --user "${TUMBLEBUG_USER}:${TUMBLEBUG_PASSWORD}" """, returnStdout: true).trim()
                     if (response.contains('Http_Status_code:200')) {
                         echo "GET API call successful."
                         callData = response.replace('- Http_Status_code:200', '')
@@ -88,7 +88,7 @@ pipeline {
                         error "GET API call failed with status code: ${response}"
                     }
 
-                    def tb_sw_url = "${CB_TUMBLEBUG_URI}/ns/${NAMESPACE}/mci/${MCI_ID}?option=accessinfo&accessInfoOption=showSshKey"
+                    def tb_sw_url = "${CB_TUMBLEBUG_URI}/ns/${NAMESPACE}/infra/${MCI_ID}?option=accessinfo&accessInfoOption=showSshKey"
                     def response2 = sh(script: """curl -X 'GET' --user '${TUMBLEBUG_USER}:${TUMBLEBUG_PASSWORD}' '${tb_sw_url}' -H 'accept: application/json' """, returnStdout: true).trim()
                     def pemkey = getSSHKey(response2)
                     if (pemkey) {
