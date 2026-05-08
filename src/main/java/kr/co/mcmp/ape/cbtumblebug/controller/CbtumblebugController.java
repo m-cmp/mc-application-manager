@@ -35,7 +35,7 @@ public class CbtumblebugController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
-    @GetMapping("/ns/{nsId}/mci")
+    @GetMapping("/ns/{nsId}/infra")
     @Operation(summary = "Retrieve MCIS for a specific namespace", description = "Fetches all MCIS belonging to the specified namespace.")
     public ResponseEntity<ResponseWrapper<List<MciDto>>> getMicsByNamespace(@Parameter(description = "Namespace ID", required = true)
             @PathVariable String nsId) {
@@ -43,7 +43,7 @@ public class CbtumblebugController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     
-    @GetMapping("/ns/{nsId}/mci/{mciId}")
+    @GetMapping("/ns/{nsId}/infra/{mciId}")
     @Operation(summary = "Retrieve a specific MCI", description = "Fetches the specified MCI.")
     public ResponseEntity<ResponseWrapper<MciDto>> getMicByMciId(@PathVariable String nsId, @PathVariable String mciId) {
         MciDto result =  cbtumblebugService.getMciByMciId(nsId, mciId);
