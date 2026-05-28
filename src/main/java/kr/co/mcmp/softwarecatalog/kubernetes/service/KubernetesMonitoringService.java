@@ -28,10 +28,12 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
+import kr.co.mcmp.softwarecatalog.application.model.AutoscaleCheckSample;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.AbnormalEvent;
 import kr.co.mcmp.softwarecatalog.application.model.ResourceMetricsHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.AutoscaleCheckSampleRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.AbnormalEventRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.ResourceMetricsHistoryRepository;
@@ -55,6 +57,7 @@ public class KubernetesMonitoringService {
     private final ApplicationStatusRepository statusRepository;
     private final ScalingEventRepository scalingEventRepository;
     private final ResourceMetricsHistoryRepository metricsHistoryRepository;
+    private final AutoscaleCheckSampleRepository autoscaleCheckSampleRepository;
     private final AbnormalEventRepository abnormalEventRepository;
     private final KubernetesLogCollector logCollector;
     private final K8sAutoscaleService k8sAutoscaleService;
@@ -68,7 +71,9 @@ public class KubernetesMonitoringService {
     /** Last observed total restart count per deployment ID — detects restart surges */
     private final java.util.concurrent.ConcurrentHashMap<Long, Integer> lastRestartCount =
             new java.util.concurrent.ConcurrentHashMap<>();
-    
+
+    private LocalDateTime lastAutoscaleSampleCleanupAt;
+
     @Value("${k8s.autoscaling.default-max-nodes:3}")
     private int defaultMaxNodes;
     
@@ -86,6 +91,24 @@ public class KubernetesMonitoringService {
     
     @Value("${k8s.autoscaling.test-memory-threshold:0.1}")
     private double testMemoryThreshold;
+
+    @Value("${k8s.autoscaling.sample-interval-seconds:10}")
+    private int autoscaleSampleIntervalSeconds;
+
+    @Value("${k8s.autoscaling.evaluation-window-seconds:300}")
+    private int autoscaleEvaluationWindowSeconds;
+
+    @Value("${k8s.autoscaling.min-sample-coverage-ratio:0.8}")
+    private double autoscaleMinSampleCoverageRatio;
+
+    @Value("${k8s.autoscaling.required-exceedance-ratio:0.7}")
+    private double autoscaleRequiredExceedanceRatio;
+
+    @Value("${k8s.autoscaling.required-consecutive-exceedance-seconds:120}")
+    private int autoscaleRequiredConsecutiveExceedanceSeconds;
+
+    @Value("${k8s.autoscaling.sample-retention-hours:24}")
+    private int autoscaleSampleRetentionHours;
 
     @Value("${rabbitmq.alert.slack-channel-id}")
     private String defaultSlackChannelId;
@@ -124,6 +147,30 @@ public class KubernetesMonitoringService {
         }
     }
 
+    @Scheduled(fixedRateString = "${k8s.autoscaling.sample-interval-ms:10000}")
+    @Transactional
+    public void collectAutoscaleCheckSamples() {
+        List<DeploymentHistory> activeDeployments = getActiveK8sDeployments();
+        cleanupOldAutoscaleSamplesIfDue();
+
+        for (DeploymentHistory deployment : activeDeployments) {
+            String namespace = deployment.getNamespace();
+            String clusterName = deployment.getClusterName();
+
+            try (KubernetesClient client = clientFactory.getClient(namespace, clusterName)) {
+                if (!isMetricsServerInstalled(client)) {
+                    log.debug("Skipping autoscale sample collection because metrics-server is not installed: deployment={}", deployment.getId());
+                    continue;
+                }
+
+                collectAutoscaleCheckSample(deployment, client);
+            } catch (Exception e) {
+                log.warn("Failed to collect autoscale check sample: deployment={}, namespace={}, cluster={}",
+                        deployment.getId(), namespace, clusterName, e);
+            }
+        }
+    }
+
     private List<DeploymentHistory> getActiveK8sDeployments() {
         List<DeploymentHistory> allDeployments = historyRepository.findAll();
         log.debug("Total deployments found: {}", allDeployments.size());
@@ -154,6 +201,78 @@ public class KubernetesMonitoringService {
                 d.getCatalog() != null ? d.getCatalog().getId() : "null"));
         
         return activeDeployments;
+    }
+
+    private void collectAutoscaleCheckSample(DeploymentHistory deployment, KubernetesClient client) {
+        if (deployment.getCatalog() == null || deployment.getCatalog().getHelmChart() == null) {
+            log.debug("Skipping autoscale sample collection because catalog or helm chart is missing: deployment={}", deployment.getId());
+            return;
+        }
+
+        String namespace = "default";
+        String appName = deployment.getCatalog().getHelmChart().getChartName();
+        List<Pod> pods = findPodsByAppName(client, namespace, appName);
+        long runningPods = countPodsByPhase(pods, "RUNNING");
+        long pendingPods = countPodsByPhase(pods, "PENDING");
+        long failedPods = countPodsByPhase(pods, "FAILED");
+        Map<String, Object> resourceUsage = getResourceUsagePercentage(client, namespace, appName, pods, runningPods, pendingPods, failedPods);
+
+        Double cpuUsage = (Double) resourceUsage.get("cpuPercentage");
+        Double memoryUsage = (Double) resourceUsage.get("memoryPercentage");
+        Double cpuThreshold = getAutoscaleCpuThreshold(deployment);
+        Double memoryThreshold = getAutoscaleMemoryThreshold(deployment);
+        boolean cpuExceeded = isThresholdExceeded(cpuUsage, cpuThreshold);
+        boolean memoryExceeded = isThresholdExceeded(memoryUsage, memoryThreshold);
+
+        autoscaleCheckSampleRepository.save(AutoscaleCheckSample.builder()
+                .deploymentId(deployment.getId())
+                .checkedAt(LocalDateTime.now())
+                .cpuUsagePct(cpuUsage)
+                .memoryUsagePct(memoryUsage)
+                .cpuThreshold(cpuThreshold)
+                .memoryThreshold(memoryThreshold)
+                .cpuExceeded(cpuExceeded)
+                .memoryExceeded(memoryExceeded)
+                .thresholdExceeded(cpuExceeded || memoryExceeded)
+                .deploymentType(DeploymentType.K8S.name())
+                .build());
+    }
+
+    private List<Pod> findPodsByAppName(KubernetesClient client, String namespace, String appName) {
+        return client.pods().inNamespace(namespace).list().getItems().stream()
+                .filter(pod -> {
+                    String podName = pod.getMetadata().getName();
+                    return podName.startsWith(appName) ||
+                           podName.startsWith(appName.toLowerCase()) ||
+                           podName.contains(appName) ||
+                           podName.contains(appName.toLowerCase()) ||
+                           podName.toLowerCase().startsWith(appName.toLowerCase());
+                })
+                .collect(Collectors.toList());
+    }
+
+    private long countPodsByPhase(List<Pod> pods, String phase) {
+        return pods.stream()
+                .filter(pod -> phase.equalsIgnoreCase(pod.getStatus().getPhase()))
+                .count();
+    }
+
+    private Double getAutoscaleCpuThreshold(DeploymentHistory deployment) {
+        if (testMode) {
+            return testCpuThreshold;
+        }
+        return deployment.getCatalog() != null ? deployment.getCatalog().getCpuThreshold() : null;
+    }
+
+    private Double getAutoscaleMemoryThreshold(DeploymentHistory deployment) {
+        if (testMode) {
+            return testMemoryThreshold;
+        }
+        return deployment.getCatalog() != null ? deployment.getCatalog().getMemoryThreshold() : null;
+    }
+
+    private boolean isThresholdExceeded(Double usage, Double threshold) {
+        return usage != null && threshold != null && usage > threshold;
     }
 
     @Transactional
@@ -993,10 +1112,13 @@ public class KubernetesMonitoringService {
                         status.getCpuUsage(), deployment.getCatalog().getCpuThreshold(), 
                         status.getMemoryUsage(), deployment.getCatalog().getMemoryThreshold());
             }
-            
+
             // 스케일 아웃 조건: 부하 초과 AND 목표 노드 수 < 최대 노드 수
-            if ((cpuExceeded || memoryExceeded) && targetSize <= maxSize) {
-                log.info("Resource threshold exceeded for K8S deployment: CPU={}%, Memory={}%, scaling out from {} to {}", 
+            boolean thresholdExceeded = cpuExceeded || memoryExceeded;
+            boolean sustainedThresholdExceeded = hasSustainedAutoscalePressure(deployment.getId(), thresholdExceeded);
+
+            if (thresholdExceeded && sustainedThresholdExceeded && targetSize <= maxSize) {
+                log.info("Sustained resource pressure confirmed for K8S deployment: CPU={}%, Memory={}%, scaling out from {} to {}",
                         status.getCpuUsage(), status.getMemoryUsage(), currentSize, targetSize);
                 
                 // 스케일링 이벤트 생성
@@ -1059,6 +1181,9 @@ public class KubernetesMonitoringService {
             } else if (targetSize > maxSize) {
                 log.warn("Cannot scale out: target size {} > max size {} (CPU={}%, Memory={}%)", 
                         targetSize, maxSize, status.getCpuUsage(), status.getMemoryUsage());
+            } else if (thresholdExceeded) {
+                log.info("Resource threshold currently exceeded for K8S deployment, but sustained pressure has not been confirmed yet (CPU={}%, Memory={}%)",
+                        status.getCpuUsage(), status.getMemoryUsage());
             } else {
                 log.debug("No scaling needed: CPU={}%, Memory={}%, currentSize={}, targetSize={}, maxSize={}", 
                         status.getCpuUsage(), status.getMemoryUsage(), currentSize, targetSize, maxSize);
@@ -1069,6 +1194,89 @@ public class KubernetesMonitoringService {
         }
     }
     
+    /**
+     * Confirms that resource pressure is sustained, not just a short spike.
+     */
+    private boolean hasSustainedAutoscalePressure(Long deploymentId, boolean currentThresholdExceeded) {
+        if (!currentThresholdExceeded) {
+            return false;
+        }
+
+        LocalDateTime end = LocalDateTime.now();
+        LocalDateTime start = end.minusSeconds(getAutoscaleEvaluationWindowSeconds());
+        List<AutoscaleCheckSample> samples = autoscaleCheckSampleRepository
+                .findByDeploymentIdAndCheckedAtBetweenOrderByCheckedAtAsc(deploymentId, start, end);
+
+        int sampleIntervalSeconds = getAutoscaleSampleIntervalSeconds();
+        int expectedSamples = Math.max(1, getAutoscaleEvaluationWindowSeconds() / sampleIntervalSeconds);
+        int requiredSamples = Math.max(1, (int) Math.ceil(expectedSamples * normalizeRatio(autoscaleMinSampleCoverageRatio)));
+
+        if (samples.size() < requiredSamples) {
+            log.info("Autoscale pressure not confirmed: deployment={}, samples={}/{} in {} seconds",
+                    deploymentId, samples.size(), requiredSamples, getAutoscaleEvaluationWindowSeconds());
+            return false;
+        }
+
+        long exceededSamples = samples.stream()
+                .filter(sample -> Boolean.TRUE.equals(sample.getThresholdExceeded()))
+                .count();
+        double exceedanceRatio = samples.isEmpty() ? 0.0 : (double) exceededSamples / samples.size();
+        int longestExceededRun = calculateLongestExceededRun(samples);
+        int requiredExceededRun = Math.max(1,
+                (int) Math.ceil((double) getAutoscaleRequiredConsecutiveExceedanceSeconds() / sampleIntervalSeconds));
+        boolean sustained = exceedanceRatio >= normalizeRatio(autoscaleRequiredExceedanceRatio)
+                && longestExceededRun >= requiredExceededRun;
+
+        log.info("Autoscale pressure evaluation: deployment={}, sustained={}, samples={}, exceeded={}, ratio={}, longestRun={}, requiredRun={}",
+                deploymentId, sustained, samples.size(), exceededSamples,
+                Math.round(exceedanceRatio * 100.0) / 100.0, longestExceededRun, requiredExceededRun);
+        return sustained;
+    }
+
+    private int calculateLongestExceededRun(List<AutoscaleCheckSample> samples) {
+        int longestRun = 0;
+        int currentRun = 0;
+
+        for (AutoscaleCheckSample sample : samples) {
+            if (Boolean.TRUE.equals(sample.getThresholdExceeded())) {
+                currentRun++;
+                longestRun = Math.max(longestRun, currentRun);
+            } else {
+                currentRun = 0;
+            }
+        }
+
+        return longestRun;
+    }
+
+    private int getAutoscaleSampleIntervalSeconds() {
+        return Math.max(1, autoscaleSampleIntervalSeconds);
+    }
+
+    private int getAutoscaleEvaluationWindowSeconds() {
+        return Math.max(getAutoscaleSampleIntervalSeconds(), autoscaleEvaluationWindowSeconds);
+    }
+
+    private int getAutoscaleRequiredConsecutiveExceedanceSeconds() {
+        return Math.max(getAutoscaleSampleIntervalSeconds(), autoscaleRequiredConsecutiveExceedanceSeconds);
+    }
+
+    private double normalizeRatio(double ratio) {
+        return Math.max(0.0, Math.min(1.0, ratio));
+    }
+
+    private void cleanupOldAutoscaleSamplesIfDue() {
+        LocalDateTime now = LocalDateTime.now();
+        if (lastAutoscaleSampleCleanupAt != null && now.isBefore(lastAutoscaleSampleCleanupAt.plusHours(1))) {
+            return;
+        }
+
+        LocalDateTime cutoff = now.minusHours(Math.max(1, autoscaleSampleRetentionHours));
+        int deletedCount = autoscaleCheckSampleRepository.deleteByCheckedAtBefore(cutoff);
+        lastAutoscaleSampleCleanupAt = now;
+        log.debug("Cleaned up old autoscale samples: cutoff={}, deleted={}", cutoff, deletedCount);
+    }
+
     /**
      * 현재 노드 그룹의 desiredNodeSize 가져오기
      */
