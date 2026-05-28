@@ -11,6 +11,7 @@ import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.constants.LogType;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
@@ -56,7 +57,7 @@ public class KubernetesService {
             );
             addDeploymentLog(history, LogType.INFO, "Deployment initiated successfully with DTO configuration.");
             updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ActionType.INSTALL.name());
-            history.setResourceType(request.getResourceType());
+            applyDeploymentRequestConfig(history, request, catalog);
             DeploymentHistory saved = historyRepository.save(history);
             saveInfraSpecSnapshot(saved, request, catalog);
             return saved;
@@ -159,6 +160,24 @@ public class KubernetesService {
         }
 
         
+    }
+
+
+    private void applyDeploymentRequestConfig(DeploymentHistory history, DeploymentRequest request, SoftwareCatalog catalog) {
+        DeploymentConfigDTO config = DeploymentConfigDTO.from(request, catalog);
+        history.setServicePort(config.getServicePort());
+        history.setHpaEnabled(config.getHpaEnabled());
+        history.setMinReplicas(config.getMinReplicas());
+        history.setMaxReplicas(config.getMaxReplicas());
+        history.setCpuThreshold(config.getCpuThreshold());
+        history.setMemoryThreshold(config.getMemoryThreshold());
+        history.setIngressEnabled(config.getIngressEnabled());
+        history.setIngressHost(config.getIngressHost());
+        history.setIngressPath(config.getIngressPath());
+        history.setIngressClass(config.getIngressClass());
+        history.setIngressTlsEnabled(config.getIngressTlsEnabled());
+        history.setIngressTlsSecret(config.getIngressTlsSecret());
+        history.setResourceType(request.getResourceType());
     }
 
 

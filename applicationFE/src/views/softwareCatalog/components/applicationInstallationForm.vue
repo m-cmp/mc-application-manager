@@ -261,6 +261,21 @@
               </select>
             </div>
 
+            <div class="mb-3" v-if="modalTitle == 'Application Installation'">
+              <label class="form-label">Port</label>
+              <p class="text-muted">Please enter a service port for the Kubernetes service</p>
+              <input type="number" class="form-control" placeholder="80" v-model="inputServicePort">
+            </div>
+
+            <div class="mb-3" v-if="modalTitle == 'Application Installation'">
+              <label class="form-label">Resource Type</label>
+              <select class="form-select" v-model="selectedResourceType">
+                <option value="GENERAL_PURPOSE">General Purpose</option>
+                <option value="CPU_INTENSIVE">CPU Intensive</option>
+                <option value="MEMORY_INTENSIVE">Memory Intensive</option>
+              </select>
+            </div>
+
             <!-- K8S :: HPA -->
             <div class="mb-3" v-if="modalTitle == 'Application Installation'" >
               <label class="form-label">HPA Configuration</label>
@@ -470,6 +485,7 @@ const selectedVmList = ref([] as Array<string>)
 const selectDeploymentType = ref("Standalone" as string)
 const hpaData = ref({} as any)
 const ingressData = ref({} as any)
+const selectedResourceType = ref("GENERAL_PURPOSE" as string)
 
 const clusterList = ref([] as any)
 const selectCluster = ref("" as string)
@@ -555,6 +571,8 @@ const setInit = async () => {
     ingressTlsEnabled: false,
     ingressTlsSecret: ''
   }
+  selectedResourceType.value = "GENERAL_PURPOSE"
+  inputServicePort.value = ""
 
   setInfraList()
   setSpecCheckFlag()
@@ -746,6 +764,7 @@ const runInstall = async () => {
       const clusterName = selectDeploymentType.value === "Clustering" 
         ? `${inputApplications.value}-cluster` 
         : `${inputApplications.value}-standalone`;
+      const servicePort = inputServicePort.value === "" ? undefined : Number(inputServicePort.value);
       
       params = {
         namespace: selectNsId.value,
@@ -753,7 +772,7 @@ const runInstall = async () => {
         vmIds: selectedVmList.value,
         clusterName: clusterName,
         catalogId: selectedCatalogIdx.value,
-        servicePort: inputServicePort.value,
+        servicePort,
         username: "admin",
         deploymentType: selectInfra.value,
         vmDeploymentMode: selectDeploymentType.value.toUpperCase(),
@@ -773,11 +792,12 @@ const runInstall = async () => {
   else if (selectInfra.value === 'K8S') {
     // History: The initial design has changed, currently only sending 1 Application (previously it could receive multiple apps)
     appList = inputApplications.value.split(",").map(item => item.toLowerCase().trim());
+    const servicePort = inputServicePort.value === "" ? undefined : Number(inputServicePort.value);
     let params = {
       namespace: selectNsId.value,
       clusterName: selectCluster.value,
       catalogId: selectedCatalogIdx.value,
-      servicePort: inputServicePort.value,
+      servicePort,
       username: "",
       deploymentType: selectInfra.value,
       hpaEnabled: hpaData.value.hpaEnabled,
@@ -785,6 +805,7 @@ const runInstall = async () => {
       maxReplicas: hpaData.value.hpaMaxReplicas,
       cpuThreshold: hpaData.value.hpaCpuUtilization,
       memoryThreshold: hpaData.value.hpaMemoryUtilization,
+      resourceType: selectedResourceType.value,
       ingressEnabled: ingressData.value.ingressEnabled,
       ingressHost: ingressData.value.ingressHost,
       ingressPath: ingressData.value.ingressPath,
@@ -903,6 +924,22 @@ const onChangeCatalog = () => {
   catalogList.value.forEach((catalogInfo) => {
     if (inputApplications.value === catalogInfo.name) {
       selectedCatalogIdx.value = catalogInfo.id
+      inputServicePort.value = catalogInfo.defaultPort ? String(catalogInfo.defaultPort) : ""
+      hpaData.value = {
+        hpaEnabled: Boolean(catalogInfo.hpaEnabled),
+        hpaMinReplicas: catalogInfo.minReplicas || 1,
+        hpaMaxReplicas: catalogInfo.maxReplicas || 10,
+        hpaCpuUtilization: catalogInfo.cpuThreshold || 60,
+        hpaMemoryUtilization: catalogInfo.memoryThreshold || 80
+      }
+      ingressData.value = {
+        ingressEnabled: Boolean(catalogInfo.ingressEnabled),
+        ingressHost: catalogInfo.ingressHost || '',
+        ingressPath: catalogInfo.ingressPath || '/',
+        ingressClass: catalogInfo.ingressClass || 'nginx',
+        ingressTlsEnabled: Boolean(catalogInfo.ingressTlsEnabled),
+        ingressTlsSecret: catalogInfo.ingressTlsSecret || ''
+      }
       return;
     }
   })

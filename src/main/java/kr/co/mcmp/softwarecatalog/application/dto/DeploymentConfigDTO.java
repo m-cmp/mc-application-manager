@@ -22,6 +22,7 @@ public class DeploymentConfigDTO {
     private Integer maxReplicas;
     private Double cpuThreshold;
     private Double memoryThreshold;
+    private Integer servicePort;
     
     // Ingress 설정
     private Boolean ingressEnabled;
@@ -43,6 +44,7 @@ public class DeploymentConfigDTO {
                 .maxReplicas(getValue(request.getMaxReplicas(), catalog.getMaxReplicas(), 5))
                 .cpuThreshold(getValue(request.getCpuThreshold(), catalog.getCpuThreshold(), 80.0))
                 .memoryThreshold(getValue(request.getMemoryThreshold(), catalog.getMemoryThreshold(), 80.0))
+                .servicePort(getValue(request.getServicePort(), catalog.getDefaultPort(), 80))
                 
                 // Ingress 설정 (Request 우선)
                 .ingressEnabled(getValue(request.getIngressEnabled(), catalog.getIngressEnabled(), false))

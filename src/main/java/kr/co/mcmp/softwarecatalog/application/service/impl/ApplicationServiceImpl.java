@@ -472,6 +472,10 @@ public class ApplicationServiceImpl implements ApplicationService {
     /**
      * 엔티티들을 간소화된 DTO로 변환합니다.
      */
+    private <T> T valueOrDefault(T value, T defaultValue) {
+        return value != null ? value : defaultValue;
+    }
+
     private IntegratedApplicationInfoDTO convertToIntegratedDTO(
             DeploymentHistory deploymentHistory, 
             List<ApplicationStatus> applicationStatuses, 
@@ -492,13 +496,19 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .defaultPort(deploymentHistory.getCatalog().getDefaultPort())
                 .logoUrlLarge(deploymentHistory.getCatalog().getLogoUrlLarge())
                 .logoUrlSmall(deploymentHistory.getCatalog().getLogoUrlSmall())
+                .resourceType(deploymentHistory.getResourceType())
+                .hpaEnabled(valueOrDefault(deploymentHistory.getHpaEnabled(), deploymentHistory.getCatalog().getHpaEnabled()))
+                .minReplicas(valueOrDefault(deploymentHistory.getMinReplicas(), deploymentHistory.getCatalog().getMinReplicas()))
+                .maxReplicas(valueOrDefault(deploymentHistory.getMaxReplicas(), deploymentHistory.getCatalog().getMaxReplicas()))
+                .cpuThreshold(valueOrDefault(deploymentHistory.getCpuThreshold(), deploymentHistory.getCatalog().getCpuThreshold()))
+                .memoryThreshold(valueOrDefault(deploymentHistory.getMemoryThreshold(), deploymentHistory.getCatalog().getMemoryThreshold()))
+                .ingressEnabled(valueOrDefault(deploymentHistory.getIngressEnabled(), deploymentHistory.getCatalog().getIngressEnabled()))
+                .ingressHost(valueOrDefault(deploymentHistory.getIngressHost(), deploymentHistory.getCatalog().getIngressHost()))
+                .ingressPath(valueOrDefault(deploymentHistory.getIngressPath(), deploymentHistory.getCatalog().getIngressPath()))
+                .ingressClass(valueOrDefault(deploymentHistory.getIngressClass(), deploymentHistory.getCatalog().getIngressClass()))
+                .ingressTlsEnabled(valueOrDefault(deploymentHistory.getIngressTlsEnabled(), deploymentHistory.getCatalog().getIngressTlsEnabled()))
+                .ingressTlsSecret(valueOrDefault(deploymentHistory.getIngressTlsSecret(), deploymentHistory.getCatalog().getIngressTlsSecret()))
                 // Ingress 정보 설정
-                .ingressEnabled(deploymentHistory.getCatalog().getIngressEnabled())
-                .ingressHost(deploymentHistory.getCatalog().getIngressHost())
-                .ingressPath(deploymentHistory.getCatalog().getIngressPath())
-                .ingressClass(deploymentHistory.getCatalog().getIngressClass())
-                .ingressTlsEnabled(deploymentHistory.getCatalog().getIngressTlsEnabled())
-                .ingressTlsSecret(deploymentHistory.getCatalog().getIngressTlsSecret())
                 .deploymentType(deploymentHistory.getDeploymentType())
                 .namespace(deploymentHistory.getNamespace())
                 .clusterName(deploymentHistory.getClusterName())
@@ -614,6 +624,18 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .defaultPort(deploymentHistory.getCatalog().getDefaultPort())
                 .logoUrlLarge(deploymentHistory.getCatalog().getLogoUrlLarge())
                 .logoUrlSmall(deploymentHistory.getCatalog().getLogoUrlSmall())
+                .resourceType(deploymentHistory.getResourceType())
+                .hpaEnabled(valueOrDefault(deploymentHistory.getHpaEnabled(), deploymentHistory.getCatalog().getHpaEnabled()))
+                .minReplicas(valueOrDefault(deploymentHistory.getMinReplicas(), deploymentHistory.getCatalog().getMinReplicas()))
+                .maxReplicas(valueOrDefault(deploymentHistory.getMaxReplicas(), deploymentHistory.getCatalog().getMaxReplicas()))
+                .cpuThreshold(valueOrDefault(deploymentHistory.getCpuThreshold(), deploymentHistory.getCatalog().getCpuThreshold()))
+                .memoryThreshold(valueOrDefault(deploymentHistory.getMemoryThreshold(), deploymentHistory.getCatalog().getMemoryThreshold()))
+                .ingressEnabled(valueOrDefault(deploymentHistory.getIngressEnabled(), deploymentHistory.getCatalog().getIngressEnabled()))
+                .ingressHost(valueOrDefault(deploymentHistory.getIngressHost(), deploymentHistory.getCatalog().getIngressHost()))
+                .ingressPath(valueOrDefault(deploymentHistory.getIngressPath(), deploymentHistory.getCatalog().getIngressPath()))
+                .ingressClass(valueOrDefault(deploymentHistory.getIngressClass(), deploymentHistory.getCatalog().getIngressClass()))
+                .ingressTlsEnabled(valueOrDefault(deploymentHistory.getIngressTlsEnabled(), deploymentHistory.getCatalog().getIngressTlsEnabled()))
+                .ingressTlsSecret(valueOrDefault(deploymentHistory.getIngressTlsSecret(), deploymentHistory.getCatalog().getIngressTlsSecret()))
                 .deploymentType(deploymentHistory.getDeploymentType())
                 .namespace(deploymentHistory.getNamespace())
                 .clusterName(deploymentHistory.getClusterName())
@@ -644,12 +666,12 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
         
         // Ingress 정보 설정
-        builder.ingressEnabled(deploymentHistory.getCatalog().getIngressEnabled())
-                .ingressHost(deploymentHistory.getCatalog().getIngressHost())
-                .ingressPath(deploymentHistory.getCatalog().getIngressPath())
-                .ingressClass(deploymentHistory.getCatalog().getIngressClass())
-                .ingressTlsEnabled(deploymentHistory.getCatalog().getIngressTlsEnabled())
-                .ingressTlsSecret(deploymentHistory.getCatalog().getIngressTlsSecret());
+        builder.ingressEnabled(valueOrDefault(deploymentHistory.getIngressEnabled(), deploymentHistory.getCatalog().getIngressEnabled()))
+                .ingressHost(valueOrDefault(deploymentHistory.getIngressHost(), deploymentHistory.getCatalog().getIngressHost()))
+                .ingressPath(valueOrDefault(deploymentHistory.getIngressPath(), deploymentHistory.getCatalog().getIngressPath()))
+                .ingressClass(valueOrDefault(deploymentHistory.getIngressClass(), deploymentHistory.getCatalog().getIngressClass()))
+                .ingressTlsEnabled(valueOrDefault(deploymentHistory.getIngressTlsEnabled(), deploymentHistory.getCatalog().getIngressTlsEnabled()))
+                .ingressTlsSecret(valueOrDefault(deploymentHistory.getIngressTlsSecret(), deploymentHistory.getCatalog().getIngressTlsSecret()));
         
         // 배포 로그 설정
         List<IntegratedApplicationInfoDTO.DeploymentLogSummaryDTO> logSummaries = logs.stream()

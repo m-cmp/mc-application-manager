@@ -98,6 +98,39 @@ public class DeploymentHistory {
     @Column(name = "release_name")
     private String releaseName; // Helm 릴리스 이름 (K8S 전용)
 
+    @Column(name = "hpa_enabled")
+    private Boolean hpaEnabled;
+
+    @Column(name = "min_replicas")
+    private Integer minReplicas;
+
+    @Column(name = "max_replicas")
+    private Integer maxReplicas;
+
+    @Column(name = "cpu_threshold")
+    private Double cpuThreshold;
+
+    @Column(name = "memory_threshold")
+    private Double memoryThreshold;
+
+    @Column(name = "ingress_enabled")
+    private Boolean ingressEnabled;
+
+    @Column(name = "ingress_host")
+    private String ingressHost;
+
+    @Column(name = "ingress_path")
+    private String ingressPath;
+
+    @Column(name = "ingress_class")
+    private String ingressClass;
+
+    @Column(name = "ingress_tls_enabled")
+    private Boolean ingressTlsEnabled;
+
+    @Column(name = "ingress_tls_secret")
+    private String ingressTlsSecret;
+
     /**
      * Resource type selected by the user at deploy time.
      * Values: CPU_INTENSIVE, MEMORY_INTENSIVE, GENERAL_PURPOSE

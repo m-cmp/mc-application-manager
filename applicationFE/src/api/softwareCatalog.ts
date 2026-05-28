@@ -44,7 +44,22 @@ export const runAction = (params: any) => {
 export const runK8SInstall = (params: {
   namespace: string,
   clusterName: string,
-  catalogId: number
+  catalogId: number,
+  servicePort?: number,
+  username?: string,
+  deploymentType?: string,
+  hpaEnabled?: boolean,
+  minReplicas?: number,
+  maxReplicas?: number,
+  cpuThreshold?: number,
+  memoryThreshold?: number,
+  resourceType?: string,
+  ingressEnabled?: boolean,
+  ingressHost?: string,
+  ingressPath?: string,
+  ingressClass?: string,
+  ingressTlsEnabled?: boolean,
+  ingressTlsSecret?: string
 }) => {
   return request.post(`/applications/k8s/deploy`, params)
 }

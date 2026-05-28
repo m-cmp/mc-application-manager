@@ -284,7 +284,7 @@ public class HelmChartService {
             // Values 맵 구성
             java.util.Map<String, String> values = new java.util.HashMap<>();
             values.put("replicaCount", String.valueOf(config.getMinReplicas()));
-            values.put("service.port", String.valueOf(catalog.getDefaultPort()));
+            values.put("service.port", String.valueOf(config.getServicePort()));
             values.put("service.type", "ClusterIP");
             values.put("resources.requests.cpu", catalog.getMinCpu().toString());
             values.put("resources.requests.memory", (int)(catalog.getMinMemory() * 1024) + "Mi");

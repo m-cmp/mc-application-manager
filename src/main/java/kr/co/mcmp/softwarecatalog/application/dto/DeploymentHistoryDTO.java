@@ -31,6 +31,18 @@ public class DeploymentHistoryDTO {
     private Integer servicePort;
     private String podStatus;
     private String releaseName;
+    private Boolean hpaEnabled;
+    private Integer minReplicas;
+    private Integer maxReplicas;
+    private Double cpuThreshold;
+    private Double memoryThreshold;
+    private Boolean ingressEnabled;
+    private String ingressHost;
+    private String ingressPath;
+    private String ingressClass;
+    private Boolean ingressTlsEnabled;
+    private String ingressTlsSecret;
+    private String resourceType;
 
     public DeploymentHistoryDTO(DeploymentHistory entity) {
         this.id = entity.getId();
@@ -49,5 +61,17 @@ public class DeploymentHistoryDTO {
         this.servicePort = entity.getServicePort();
         this.podStatus = entity.getPodStatus();
         this.releaseName = entity.getReleaseName();
+        this.hpaEnabled = entity.getHpaEnabled();
+        this.minReplicas = entity.getMinReplicas();
+        this.maxReplicas = entity.getMaxReplicas();
+        this.cpuThreshold = entity.getCpuThreshold();
+        this.memoryThreshold = entity.getMemoryThreshold();
+        this.ingressEnabled = entity.getIngressEnabled();
+        this.ingressHost = entity.getIngressHost();
+        this.ingressPath = entity.getIngressPath();
+        this.ingressClass = entity.getIngressClass();
+        this.ingressTlsEnabled = entity.getIngressTlsEnabled();
+        this.ingressTlsSecret = entity.getIngressTlsSecret();
+        this.resourceType = entity.getResourceType();
     }
 }

@@ -50,6 +50,13 @@ public class IntegratedApplicationInfoDTO {
     private String releaseName;
     
     // 애플리케이션 상태 정보
+    private String resourceType;
+    private Boolean hpaEnabled;
+    private Integer minReplicas;
+    private Integer maxReplicas;
+    private Double cpuThreshold;
+    private Double memoryThreshold;
+
     private String applicationStatus;
     private Double cpuUsage;
     private Double memoryUsage;
