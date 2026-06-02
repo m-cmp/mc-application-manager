@@ -17,10 +17,12 @@ import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.Info;
 import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Ports;
 
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerDeployResult;
+import kr.co.mcmp.softwarecatalog.docker.model.DockerHostResourceInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
@@ -32,6 +34,25 @@ public class DockerOperationService {
     
     private final DockerClientFactory dockerClientFactory;
     private final NexusConfig nexusConfig;
+
+    public DockerHostResourceInfo getHostResourceInfo(String host) {
+        try (DockerClient dockerClient = dockerClientFactory.getDockerClient(host)) {
+            Info info = dockerClient.infoCmd().exec();
+            if (info == null) {
+                return null;
+            }
+
+            Integer cpuCores = info.getNCPU();
+            Long totalMemoryBytes = info.getMemTotal();
+            Double memoryGb = totalMemoryBytes != null ? totalMemoryBytes / (1024.0 * 1024.0 * 1024.0) : null;
+
+            log.info("Resolved Docker host resources for {}: cpuCores={}, memoryGb={}", host, cpuCores, memoryGb);
+            return new DockerHostResourceInfo(cpuCores, memoryGb);
+        } catch (Exception e) {
+            log.warn("Failed to resolve Docker host resources for host: {}", host, e);
+            return null;
+        }
+    }
 
     public ContainerDeployResult runDockerContainer(String host, Map<String, String> deployParams) {
         return runDockerContainer(host, deployParams, null, -1, null);

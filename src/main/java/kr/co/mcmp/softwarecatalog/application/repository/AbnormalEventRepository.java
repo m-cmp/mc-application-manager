@@ -9,21 +9,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import kr.co.mcmp.softwarecatalog.application.model.LifecycleEvent;
+import kr.co.mcmp.softwarecatalog.application.model.AbnormalEvent;
 
 @Repository
-public interface LifecycleEventRepository extends JpaRepository<LifecycleEvent, Long> {
+public interface AbnormalEventRepository extends JpaRepository<AbnormalEvent, Long> {
 
-    List<LifecycleEvent> findByDeploymentIdAndOccurredAtBetweenOrderByOccurredAtDesc(
+    List<AbnormalEvent> findByDeploymentIdAndOccurredAtBetweenOrderByOccurredAtDesc(
             Long deploymentId, LocalDateTime start, LocalDateTime end);
 
     long countByDeploymentIdAndEventTypeAndOccurredAtBetween(
             Long deploymentId, String eventType, LocalDateTime start, LocalDateTime end);
 
-    List<LifecycleEvent> findByDeploymentIdAndEventTypeOrderByOccurredAtDesc(
+    List<AbnormalEvent> findByDeploymentIdAndEventTypeOrderByOccurredAtDesc(
             Long deploymentId, String eventType);
 
     @Modifying
-    @Query("DELETE FROM LifecycleEvent e WHERE e.occurredAt < :cutoff")
+    @Query("DELETE FROM AbnormalEvent e WHERE e.occurredAt < :cutoff")
     int deleteByOccurredAtBefore(@Param("cutoff") LocalDateTime cutoff);
 }

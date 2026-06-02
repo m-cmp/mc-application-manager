@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import kr.co.mcmp.softwarecatalog.application.model.DailyMetricsSummary;
 import kr.co.mcmp.softwarecatalog.application.repository.DailyMetricsSummaryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
-import kr.co.mcmp.softwarecatalog.application.repository.LifecycleEventRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.AbnormalEventRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.ResourceMetricsHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.ResourceMetricsHistoryRepository.DailyAggregationProjection;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DailyAggregationScheduler {
 
     private final ResourceMetricsHistoryRepository metricsRepo;
-    private final LifecycleEventRepository eventRepo;
+    private final AbnormalEventRepository eventRepo;
     private final DailyMetricsSummaryRepository summaryRepo;
     private final DeploymentHistoryRepository deploymentRepo;
 

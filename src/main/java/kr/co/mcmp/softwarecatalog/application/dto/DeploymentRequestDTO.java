@@ -35,6 +35,9 @@ public class DeploymentRequestDTO {
     private Integer maxReplicas;
     private Double cpuThreshold;
     private Double memoryThreshold;
+
+    // 자원 유형 선택값
+    private String resourceType;
     
     // Ingress 설정
     private Boolean ingressEnabled;
@@ -64,6 +67,7 @@ public class DeploymentRequestDTO {
                 .maxReplicas(this.maxReplicas)
                 .cpuThreshold(this.cpuThreshold)
                 .memoryThreshold(this.memoryThreshold)
+                .resourceType(this.resourceType)
                 .ingressEnabled(this.ingressEnabled)
                 .ingressHost(this.ingressHost)
                 .ingressPath(this.ingressPath)

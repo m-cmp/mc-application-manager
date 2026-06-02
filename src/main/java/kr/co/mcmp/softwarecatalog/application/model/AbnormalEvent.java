@@ -16,18 +16,18 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Structured lifecycle event table.
+ * Structured abnormal event table.
  * Stores events worth analyzing: OOM Killed, CrashLoopBackOff, abnormal restarts, etc.
  * Retained for 6 months, then purged.
  */
 @Entity
-@Table(name = "lifecycle_event",
+@Table(name = "abnormal_event",
         indexes = {
-            @Index(name = "idx_lifecycle_deployment_time", columnList = "deployment_id, occurred_at DESC"),
-            @Index(name = "idx_lifecycle_event_type", columnList = "event_type, occurred_at DESC")
+            @Index(name = "idx_abnormal_deployment_time", columnList = "deployment_id, occurred_at DESC"),
+            @Index(name = "idx_abnormal_event_type", columnList = "event_type, occurred_at DESC")
         })
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
-public class LifecycleEvent {
+public class AbnormalEvent {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

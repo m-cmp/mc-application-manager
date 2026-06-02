@@ -386,6 +386,8 @@ public class CbtumblebugRestApi {
             Map<String, String> requestMap = new HashMap<>();
             requestMap.put("connectionName", connectionName);
             requestMap.put("cspSpecName", vmSpecName);
+            // Support both the documented field and older/forked servers that still bind cspResourceId.
+            requestMap.put("cspResourceId", vmSpecName);
             String requestBody = "";
             try {
                 requestBody = objectMapper.writeValueAsString(requestMap);

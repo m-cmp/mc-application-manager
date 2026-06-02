@@ -17,11 +17,11 @@ import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
-import kr.co.mcmp.softwarecatalog.application.model.LifecycleEvent;
+import kr.co.mcmp.softwarecatalog.application.model.AbnormalEvent;
 import kr.co.mcmp.softwarecatalog.application.model.ResourceMetricsHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
-import kr.co.mcmp.softwarecatalog.application.repository.LifecycleEventRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.AbnormalEventRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.ResourceMetricsHistoryRepository;
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerHealthInfo;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +35,7 @@ public class DockerMonitoringService {
     private final ApplicationStatusRepository applicationStatusRepository;
     private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final ResourceMetricsHistoryRepository metricsHistoryRepository;
-    private final LifecycleEventRepository lifecycleEventRepository;
+    private final AbnormalEventRepository abnormalEventRepository;
     private final DockerClientFactory dockerClientFactory;
     private final ContainerStatsCollector containerStatsCollector;
     private final DockerLogCollector dockerLogCollector;
@@ -113,7 +113,7 @@ public class DockerMonitoringService {
             saveMetricsSnapshotIfDue(deployment, healthInfo);
 
             // Detect and persist lifecycle events
-            detectAndSaveLifecycleEvents(deployment, healthInfo);
+            detectAndSaveAbnormalEvents(deployment, healthInfo);
 
             if (isThresholdExceeded(deployment.getCatalog(), healthInfo)) {
                 log.warn("Resource thresholds exceeded for deployment: {}", deployment.getId());
@@ -169,14 +169,14 @@ public class DockerMonitoringService {
     /**
      * Detects and saves OOM Killed and restart surge lifecycle events.
      */
-    private void detectAndSaveLifecycleEvents(DeploymentHistory deployment, ContainerHealthInfo healthInfo) {
+    private void detectAndSaveAbnormalEvents(DeploymentHistory deployment, ContainerHealthInfo healthInfo) {
         Long deploymentId = deployment.getId();
         LocalDateTime now = LocalDateTime.now();
 
         // OOM Killed detection
         if (Boolean.TRUE.equals(healthInfo.getOomKilled())) {
             try {
-                lifecycleEventRepository.save(LifecycleEvent.builder()
+                abnormalEventRepository.save(AbnormalEvent.builder()
                         .deploymentId(deploymentId)
                         .eventType("OOM_KILLED")
                         .severity("CRITICAL")
@@ -199,7 +199,7 @@ public class DockerMonitoringService {
                 String severity = increment >= 3 ? "CRITICAL" : "WARNING";
                 String eventType = increment >= 3 ? "CRASH_LOOP" : "RESTART";
                 try {
-                    lifecycleEventRepository.save(LifecycleEvent.builder()
+                    abnormalEventRepository.save(AbnormalEvent.builder()
                             .deploymentId(deploymentId)
                             .eventType(eventType)
                             .severity(severity)

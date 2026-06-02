@@ -250,6 +250,38 @@
                 </div>
               </div>
 
+              <div class="mb-3" v-if="applicationDetail.deploymentType === 'K8S'">
+                <h6>Deployment Options</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm">
+                    <thead>
+                      <tr>
+                        <th>Resource Type</th>
+                        <th>HPA</th>
+                        <th>Min Replicas</th>
+                        <th>Max Replicas</th>
+                        <th>CPU Threshold</th>
+                        <th>Memory Threshold</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>{{ applicationDetail.resourceType || 'N/A' }}</td>
+                        <td>
+                          <span :class="applicationDetail.hpaEnabled ? 'text-success' : 'text-muted'">
+                            {{ applicationDetail.hpaEnabled ? 'Enabled' : 'Disabled' }}
+                          </span>
+                        </td>
+                        <td>{{ applicationDetail.minReplicas || 'N/A' }}</td>
+                        <td>{{ applicationDetail.maxReplicas || 'N/A' }}</td>
+                        <td>{{ applicationDetail.cpuThreshold ? `${applicationDetail.cpuThreshold}%` : 'N/A' }}</td>
+                        <td>{{ applicationDetail.memoryThreshold ? `${applicationDetail.memoryThreshold}%` : 'N/A' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               <!-- Ingress Information -->
               <div class="mb-3" v-if="applicationDetail.ingressEnabled">
                 <h6>Ingress Information</h6>

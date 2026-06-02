@@ -94,6 +94,7 @@ export interface SoftwareCatalog {
   sourceType: string
   logoUrlLarge: string
   logoUrlSmall: string
+  defaultPort: number
   registeredById: number
   hpaEnabled: boolean
   catalogRefs: Array<CatalogRefData>
@@ -113,6 +114,13 @@ export interface SoftwareCatalog {
 
   minReplicas: number
   maxReplicas: number
+
+  ingressEnabled?: boolean
+  ingressHost?: string
+  ingressPath?: string
+  ingressClass?: string
+  ingressTlsEnabled?: boolean
+  ingressTlsSecret?: string
 
   createdAt: Date
   updatedAt: Date

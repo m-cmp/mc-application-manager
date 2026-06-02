@@ -31,6 +31,7 @@ import kr.co.mcmp.softwarecatalog.application.service.ApplicationHistoryService;
 import kr.co.mcmp.softwarecatalog.application.service.DeploymentService;
 import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerDeployResult;
+import kr.co.mcmp.softwarecatalog.docker.model.DockerHostResourceInfo;
 import kr.co.mcmp.softwarecatalog.docker.service.DockerOperationService;
 import kr.co.mcmp.softwarecatalog.docker.service.DockerSetupService;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
@@ -558,7 +559,10 @@ public class DockerDeploymentService implements DeploymentService {
             if (infraSpecSnapshotRepository.existsByDeploymentId(history.getId())) return;
 
             VmAccessInfo vmInfo = resolveVmInfo(request, history);
+            DockerHostResourceInfo dockerHostResourceInfo = resolveDockerHostResourceInfo(history, vmInfo);
             VmSpecDto.VmSpecInfo vmSpecInfo = resolveVmSpecInfo(vmInfo);
+            Integer vmCpuCores = dockerHostResourceInfo != null ? dockerHostResourceInfo.getCpuCores() : extractVmCpuCores(vmSpecInfo);
+            Double vmMemoryGb = dockerHostResourceInfo != null ? dockerHostResourceInfo.getMemoryGb() : extractVmMemoryGb(vmSpecInfo);
 
             InfraSpecSnapshot snapshot = InfraSpecSnapshot.builder()
                     .deploymentId(history.getId())
@@ -566,8 +570,8 @@ public class DockerDeploymentService implements DeploymentService {
                     .resourceType(request.getResourceType())
                     .deploymentType("DOCKER")
                     .vmInstanceType(vmInfo != null ? firstNonBlank(vmInfo.getCspSpecName(), vmInfo.getSpecId()) : null)
-                    .vmCpuCores(extractVmCpuCores(vmSpecInfo))
-                    .vmMemoryGb(extractVmMemoryGb(vmSpecInfo))
+                    .vmCpuCores(vmCpuCores)
+                    .vmMemoryGb(vmMemoryGb)
                     .catalogMinCpu(catalog.getMinCpu() != null ? catalog.getMinCpu().doubleValue() : null)
                     .catalogRecCpu(catalog.getRecommendedCpu() != null ? catalog.getRecommendedCpu().doubleValue() : null)
                     .catalogMinMemoryMb(catalog.getMinMemory() != null ? catalog.getMinMemory().intValue() : null)
@@ -580,6 +584,14 @@ public class DockerDeploymentService implements DeploymentService {
         }
     }
 
+    private DockerHostResourceInfo resolveDockerHostResourceInfo(DeploymentHistory history, VmAccessInfo vmInfo) {
+        String dockerHost = firstNonBlank(history.getPublicIp(), vmInfo != null ? vmInfo.getPublicIP() : null);
+        if (dockerHost == null) {
+            return null;
+        }
+        return dockerOperationService.getHostResourceInfo(dockerHost);
+    }
+
     private VmAccessInfo resolveVmInfo(DeploymentRequest request, DeploymentHistory history) {
         String vmId = history.getVmId() != null ? history.getVmId() : request.getFirstVmId();
         if (request.getNamespace() == null || request.getMciId() == null || vmId == null) {
@@ -589,15 +601,26 @@ public class DockerDeploymentService implements DeploymentService {
     }
 
     private VmSpecDto.VmSpecInfo resolveVmSpecInfo(VmAccessInfo vmInfo) {
-        if (vmInfo == null || vmInfo.getConnectionName() == null || vmInfo.getCspSpecName() == null) {
+        if (vmInfo == null || vmInfo.getConnectionName() == null) {
             return null;
         }
 
-        VmSpecDto vmSpecDto = cbtumblebugRestApi.lookupVmSpec(vmInfo.getConnectionName(), vmInfo.getCspSpecName());
-        if (vmSpecDto == null || vmSpecDto.getVmspec() == null || vmSpecDto.getVmspec().isEmpty()) {
+        String vmSpecName = firstNonBlank(vmInfo.getCspSpecName(), vmInfo.getSpecId());
+        if (vmSpecName == null) {
             return null;
         }
-        return vmSpecDto.getVmspec().get(0);
+
+        try {
+            VmSpecDto vmSpecDto = cbtumblebugRestApi.lookupVmSpec(vmInfo.getConnectionName(), vmSpecName);
+            if (vmSpecDto == null || vmSpecDto.getVmspec() == null || vmSpecDto.getVmspec().isEmpty()) {
+                return null;
+            }
+            return vmSpecDto.getVmspec().get(0);
+        } catch (Exception e) {
+            log.warn("Failed to resolve VM spec info for deployment snapshot. connectionName={}, vmSpecName={}",
+                    vmInfo.getConnectionName(), vmSpecName, e);
+            return null;
+        }
     }
 
     private Integer extractVmCpuCores(VmSpecDto.VmSpecInfo vmSpecInfo) {
