@@ -101,6 +101,10 @@ export function getApplicationsStatus() {
   return request.get(`/api/applications/status/groups`)
 }
 
+export function getCatalogDeploymentStatus(catalogId: number) {
+  return request.get(`/api/applications/integrated/catalog/${catalogId}`)
+}
+
 export function applicationAction(
   params: {
   operation: string,
