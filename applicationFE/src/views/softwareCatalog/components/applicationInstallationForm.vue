@@ -240,7 +240,8 @@
                 class="form-select" 
                 id="mci-name" 
                 :disabled="selectNsId == ''" 
-                v-model="selectCluster">
+                v-model="selectCluster"
+                @change="onChangeCluster">
                 <option 
                   v-for="cluster in clusterList" 
                   :value=cluster.id 
@@ -414,6 +415,83 @@
                 </div> -->
               </div>
             </div>
+
+            <div class="mb-3" v-if="modalTitle == 'Application Installation' && showObjectStorageConfig">
+              <label class="form-label">Object Storage Configuration</label>
+
+              <div class="mb-2">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="objectStorageEnabled"
+                    v-model="objectStorageData.enabled">
+                  <label class="form-check-label" for="objectStorageEnabled">
+                    Enable Object Storage
+                  </label>
+                </div>
+              </div>
+
+              <div v-if="objectStorageData.enabled">
+                <div class="d-flex justify-content-between">
+                  <div class="w-50 me-2">
+                    <label class="form-label">Target CSP</label>
+                    <input type="text" class="form-control" :value="selectedClusterProvider || '-'" disabled>
+                  </div>
+                  <div class="w-50 ms-2">
+                    <label class="form-label">Storage API</label>
+                    <input type="text" class="form-control" value="S3-compatible" disabled>
+                  </div>
+                </div>
+
+                <div class="mt-2 mb-2">
+                  <label class="form-label">S3-compatible Endpoint</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    :placeholder="objectStorageEndpointPlaceholder"
+                    v-model="objectStorageData.endpoint">
+                </div>
+
+                <div class="d-flex justify-content-between">
+                  <div class="w-50 me-2">
+                    <label class="form-label">Region</label>
+                    <input type="text" class="form-control" :placeholder="objectStorageRegionPlaceholder" v-model="objectStorageData.region">
+                  </div>
+                  <div class="w-50 ms-2">
+                    <label class="form-label">Bucket Name</label>
+                    <input type="text" class="form-control" placeholder="object-storage-bucket" v-model="objectStorageData.bucket">
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-2">
+                  <div class="w-50 me-2">
+                    <label class="form-label">Access Key ID</label>
+                    <input type="password" class="form-control" placeholder="access key id" v-model="objectStorageData.accessKey" autocomplete="off">
+                  </div>
+                  <div class="w-50 ms-2">
+                    <label class="form-label">Secret Access Key</label>
+                    <input type="password" class="form-control" placeholder="secret access key" v-model="objectStorageData.secretKey" autocomplete="off">
+                  </div>
+                </div>
+
+                <div class="d-flex gap-4 mt-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="forcePathStyle" v-model="objectStorageData.forcePathStyle">
+                    <label class="form-check-label" for="forcePathStyle" title="On: endpoint/bucket/object. Off: bucket.endpoint/object.">Use path-style URL</label>
+                  </div>
+                </div>
+
+                <div class="alert mt-3" :class="objectStorageCheckResult.success ? 'alert-success' : 'alert-danger'" v-if="objectStorageCheckResult">
+                  <div>{{ objectStorageCheckResult.success ? 'Object Storage: SUCCESS' : 'Object Storage: FAILED' }}</div>
+                  <ul class="mb-0 ps-3">
+                    <li v-for="check in objectStorageCheckResult.checks" :key="check.name">
+                      {{ check.name }} - {{ check.success ? 'OK' : 'FAIL' }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </template>
         </div>
 
@@ -428,6 +506,14 @@
           </a>
 
           <div>
+            <button
+              v-if="modalTitle == 'Application Installation' && shouldRunObjectStorageCheck"
+              class="btn btn-outline-danger ms-auto me-1"
+              @click="runObjectStorageCheck()"
+              :disabled="objectStorageChecking"
+              title="Writes, reads, and deletes a temporary object in the selected bucket.">
+              {{ objectStorageChecking ? 'Checking...' : 'Storage Check' }}
+            </button>
             <button 
               v-if="modalTitle == 'Application Installation'" 
               class="btn btn-danger ms-auto me-1" 
@@ -439,7 +525,7 @@
               class="btn btn-primary ms-auto" 
               data-bs-dismiss="modal" 
               @click="runInstall" 
-              :disabled="specCheckFlag">
+              :disabled="deployDisabled">
               Deploy
             </button>
           </div>
@@ -456,7 +542,7 @@ import { onMounted, watch, computed } from 'vue';
 // @ts-ignore
 import _, { slice } from 'lodash';
 import { getNsInfo, getMciInfo, getVmInfo, getClusterInfo } from '@/api/tumblebug'
-import { getSoftwareCatalogList, k8sSpecCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
+import { getSoftwareCatalogList, k8sSpecCheck, objectStorageSmokeCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
 import { type SoftwareCatalog } from '@/views/type/type'
 import { useUserStore } from '@/stores/user'
 
@@ -485,6 +571,9 @@ const selectedVmList = ref([] as Array<string>)
 const selectDeploymentType = ref("Standalone" as string)
 const hpaData = ref({} as any)
 const ingressData = ref({} as any)
+const objectStorageData = ref({} as any)
+const objectStorageCheckResult = ref(null as any)
+const objectStorageChecking = ref(false as boolean)
 const selectedResourceType = ref("GENERAL_PURPOSE" as string)
 
 const clusterList = ref([] as any)
@@ -523,6 +612,10 @@ watch(selectInfra, async (newValue) => {
   inputApplications.value = "";
   onChangeForm();
 });
+
+watch(objectStorageData, () => {
+  objectStorageCheckResult.value = null
+}, { deep: true })
 
 // Handle deployment type changes
 watch(selectDeploymentType, () => {
@@ -571,6 +664,9 @@ const setInit = async () => {
     ingressTlsEnabled: false,
     ingressTlsSecret: ''
   }
+  objectStorageData.value = getDefaultObjectStorageData()
+  objectStorageCheckResult.value = null
+  objectStorageChecking.value = false
   selectedResourceType.value = "GENERAL_PURPOSE"
   inputServicePort.value = ""
 
@@ -681,6 +777,8 @@ const _getClusterName = async () => {
     } else {
       selectCluster.value = "";
     }
+    objectStorageData.value = getDefaultObjectStorageData()
+    objectStorageCheckResult.value = null
   })
 }
 
@@ -793,6 +891,9 @@ const runInstall = async () => {
     // History: The initial design has changed, currently only sending 1 Application (previously it could receive multiple apps)
     appList = inputApplications.value.split(",").map(item => item.toLowerCase().trim());
     const servicePort = inputServicePort.value === "" ? undefined : Number(inputServicePort.value);
+    const additionalConfig = showObjectStorageConfig.value && objectStorageData.value.enabled
+      ? { objectStorage: buildObjectStorageConfig() }
+      : undefined
     let params = {
       namespace: selectNsId.value,
       clusterName: selectCluster.value,
@@ -811,7 +912,8 @@ const runInstall = async () => {
       ingressPath: ingressData.value.ingressPath,
       ingressClass: ingressData.value.ingressClass,
       ingressTlsEnabled: ingressData.value.ingressTlsEnabled,
-      ingressTlsSecret: ingressData.value.ingressTlsSecret
+      ingressTlsSecret: ingressData.value.ingressTlsSecret,
+      additionalConfig
     }
 
     if(modalTitle.value == 'Application Installation') {
@@ -829,35 +931,33 @@ const runInstall = async () => {
 }
 
 const specCheck = async () => {
-
-  if (selectInfra.value === 'VM' || selectInfra.value === 'K8S') {
-    specCheckCallback().then((checkedValue: boolean | null | undefined) => {
-      let data = true;
-
-      if (checkedValue === null) {
-        toast.error('Please select all items')
-        return;
-      }
-
-      else if (checkedValue === false) {
-        let infraName = "";
-
-        if (selectInfra.value === 'VM') infraName = "VM"
-        else if (selectInfra.value === 'K8S') infraName = "CLUSTER"
-
-        const comment = 'Your selected ' + infraName + ' has lower specifications than recommended. Would you like to continue with the installation?'
-        data = confirm(comment)
-      }
-
-      if (data) {
-        toast.success('Please click RUN')
-        specCheckFlag.value = false
-      }
-    })
-  }
-  else {
+  if (selectInfra.value !== 'VM' && selectInfra.value !== 'K8S') {
     toast.error("Please Select Infra")
+    return
   }
+
+  const checkedValue = await specCheckCallback()
+  let data = true;
+
+  if (checkedValue == null) {
+    toast.error('Please select all items')
+    return;
+  }
+
+  else if (checkedValue === false) {
+    let infraName = "";
+
+    if (selectInfra.value === 'VM') infraName = "VM"
+    else if (selectInfra.value === 'K8S') infraName = "CLUSTER"
+
+    const comment = 'Your selected ' + infraName + ' has lower specifications than recommended. Would you like to continue with the installation?'
+    data = confirm(comment)
+  }
+
+  if (!data) return
+
+  toast.success('Please click RUN')
+  specCheckFlag.value = false
 }
 
 const specCheckCallback = async () => {
@@ -890,8 +990,7 @@ const specCheckCallback = async () => {
       selectNsId.value === "" ||
       selectCluster.value === "" ||
       selectedCatalogIdx.value === 0) {
-      toast.error('Please select all items')
-      return;
+      return null;
     }
     const params = {
       namespace: selectNsId.value,
@@ -907,6 +1006,123 @@ const specCheckCallback = async () => {
 }
 
 const selectedCatalogIdx = ref(0 as number)
+
+const selectedCatalogInfo = computed(() => {
+  return catalogList.value.find((catalog) => catalog.id === selectedCatalogIdx.value)
+})
+
+const selectedClusterProvider = computed(() => {
+  const cluster = clusterList.value.find((item: any) => item.id === selectCluster.value || item.name === selectCluster.value)
+  return cluster?.connectionConfig?.providerName || cluster?.connectionName || ''
+})
+
+const objectStorageEndpointPlaceholder = computed(() => {
+  return isAwsProvider(selectedClusterProvider.value)
+    ? 'Optional: https://s3.ap-northeast-2.amazonaws.com'
+    : 'https://object-storage.example.com'
+})
+
+const objectStorageRegionPlaceholder = computed(() => {
+  return isAwsProvider(selectedClusterProvider.value)
+    ? 'ap-northeast-2'
+    : 'region from object storage service'
+})
+
+const showObjectStorageConfig = computed(() => {
+  if (selectInfra.value !== 'K8S') return false
+  if (!selectedCatalogInfo.value?.helmChart) return false
+  return hasObjectStorageCapability(selectedCatalogInfo.value)
+})
+
+const shouldRunObjectStorageCheck = computed(() => {
+  return selectInfra.value === 'K8S' && showObjectStorageConfig.value && objectStorageData.value.enabled
+})
+
+const objectStorageCheckPassed = computed(() => {
+  return !shouldRunObjectStorageCheck.value || objectStorageCheckResult.value?.success === true
+})
+
+const deployDisabled = computed(() => {
+  return specCheckFlag.value || !objectStorageCheckPassed.value
+})
+
+function getDefaultObjectStorageData(provider = selectedClusterProvider.value) {
+  const isAws = isAwsProvider(provider)
+
+  return {
+    enabled: false,
+    backendType: 's3',
+    endpoint: '',
+    region: '',
+    bucket: '',
+    accessKey: '',
+    secretKey: '',
+    forcePathStyle: !isAws
+  }
+}
+
+function isAwsProvider(provider: string) {
+  return String(provider || '').toLowerCase().includes('aws')
+}
+
+function hasObjectStorageCapability(catalog: SoftwareCatalog) {
+  const refs = catalog.catalogRefs || []
+  return refs.some((ref: any) => {
+    const refType = String(ref.refType || '').toUpperCase()
+    const refValue = String(ref.refValue || '').toLowerCase()
+    return refValue === 'object-storage' && (refType === 'CAPABILITY' || refType === 'TAG')
+  })
+}
+
+function buildObjectStorageConfig() {
+  return {
+    enabled: objectStorageData.value.enabled,
+    backendType: objectStorageData.value.backendType,
+    endpoint: objectStorageData.value.endpoint,
+    region: objectStorageData.value.region,
+    bucket: objectStorageData.value.bucket,
+    accessKey: objectStorageData.value.accessKey,
+    secretKey: objectStorageData.value.secretKey,
+    forcePathStyle: objectStorageData.value.forcePathStyle,
+    insecure: isHttpEndpoint(objectStorageData.value.endpoint)
+  }
+}
+
+function isHttpEndpoint(endpoint: string) {
+  return String(endpoint || '').trim().toLowerCase().startsWith('http://')
+}
+
+const runObjectStorageCheck = async (showToast = true) => {
+  if (!shouldRunObjectStorageCheck.value) return true
+
+  objectStorageChecking.value = true
+  objectStorageCheckResult.value = null
+
+  const params = {
+    namespace: selectNsId.value,
+    clusterName: selectCluster.value,
+    catalogId: selectedCatalogIdx.value,
+    objectStorage: buildObjectStorageConfig()
+  }
+
+  try {
+    const { data } = await objectStorageSmokeCheck(params)
+    objectStorageCheckResult.value = data
+
+    if (data?.success) {
+      if (showToast) toast.success('Object Storage check succeeded')
+      return true
+    }
+
+    if (showToast) toast.error('Object Storage check failed')
+    return false
+  } catch (error) {
+    if (showToast) toast.error('Object Storage check failed')
+    return false
+  } finally {
+    objectStorageChecking.value = false
+  }
+}
 
 // Filter catalog list based on selected infrastructure
 const filteredCatalogList = computed(() => {
@@ -940,9 +1156,17 @@ const onChangeCatalog = () => {
         ingressTlsEnabled: Boolean(catalogInfo.ingressTlsEnabled),
         ingressTlsSecret: catalogInfo.ingressTlsSecret || ''
       }
+      objectStorageData.value = getDefaultObjectStorageData()
+      objectStorageCheckResult.value = null
       return;
     }
   })
+}
+
+const onChangeCluster = () => {
+  if(modalTitle.value === 'Application Installation') specCheckFlag.value = true
+  objectStorageData.value = getDefaultObjectStorageData()
+  objectStorageCheckResult.value = null
 }
 
 </script>

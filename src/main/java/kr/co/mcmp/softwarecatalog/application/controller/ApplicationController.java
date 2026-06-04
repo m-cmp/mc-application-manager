@@ -19,10 +19,13 @@ import kr.co.mcmp.response.ResponseWrapper;
 import kr.co.mcmp.softwarecatalog.application.dto.ApplicationOperationRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.ApplicationStatusDto;
 import kr.co.mcmp.softwarecatalog.application.dto.IntegratedApplicationInfoDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.ObjectStorageSmokeTestRequest;
+import kr.co.mcmp.softwarecatalog.application.dto.ObjectStorageSmokeTestResponse;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOrchestrationService;
+import kr.co.mcmp.softwarecatalog.application.service.ObjectStorageSmokeTestService;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequestDTO;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
@@ -39,6 +42,7 @@ public class ApplicationController {
 
     private final ApplicationService applicationService;
     private final ApplicationOrchestrationService applicationOrchestrationService;
+    private final ObjectStorageSmokeTestService objectStorageSmokeTestService;
 
     @Operation(summary = "Deploy application to VM", description = "Deploy an application to a specific VM.")
     @PostMapping("/vm/deploy")
@@ -84,6 +88,15 @@ public class ApplicationController {
             @Parameter(description = "Kubernetes cluster name", required = true, example = "cluster-001") @RequestParam String clusterName,
             @Parameter(description = "Catalog ID of the application to check", required = true, example = "123") @RequestParam Long catalogId) {
         boolean result = applicationOrchestrationService.checkSpecForK8s(namespace, clusterName, catalogId);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+
+    @Operation(summary = "Check S3-compatible Object Storage", description = "Smoke check Object Storage settings for applications that declare object-storage capability.")
+    @PostMapping("/k8s/object-storage/smoke-check")
+    public ResponseEntity<ResponseWrapper<ObjectStorageSmokeTestResponse>> checkObjectStorage(
+            @Parameter(description = "Object Storage smoke check request", required = true)
+            @RequestBody ObjectStorageSmokeTestRequest request) {
+        ObjectStorageSmokeTestResponse result = objectStorageSmokeTestService.runSmokeTest(request);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 

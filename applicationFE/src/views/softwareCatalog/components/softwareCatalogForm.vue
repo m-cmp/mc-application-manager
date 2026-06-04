@@ -273,6 +273,7 @@
                   <option value="IMAGE">IMAGE</option>
                   <option value="HOMEPAGE">HOMEPAGE</option>
                   <option value="TAG">TAG</option>
+                  <option value="CAPABILITY">CAPABILITY</option>
                   <option value="ETC">ETC</option>
                 </select>
               </div>

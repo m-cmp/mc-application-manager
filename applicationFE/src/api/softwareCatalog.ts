@@ -59,9 +59,19 @@ export const runK8SInstall = (params: {
   ingressPath?: string,
   ingressClass?: string,
   ingressTlsEnabled?: boolean,
-  ingressTlsSecret?: string
+  ingressTlsSecret?: string,
+  additionalConfig?: Record<string, any>
 }) => {
   return request.post(`/applications/k8s/deploy`, params)
+}
+
+export const objectStorageSmokeCheck = (params: {
+  namespace: string,
+  clusterName: string,
+  catalogId: number,
+  objectStorage: Record<string, any>
+}) => {
+  return request.post(`/applications/k8s/object-storage/smoke-check`, params)
 }
 
 export const vmSpecCheck = (params: {
