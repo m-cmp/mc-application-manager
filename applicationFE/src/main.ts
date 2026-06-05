@@ -7,11 +7,12 @@ import 'tabulator-tables/dist/css/tabulator_bootstrap4.min.css'
 import axios from 'axios'
 import './permission'
 import './styles/global.css'
+import { getApiBaseUrl } from './common/url'
 
 const app = createApp(App)
 
 // Axios
-axios.defaults.baseURL = import.meta.env.VITE_API_URL
+axios.defaults.baseURL = getApiBaseUrl(import.meta.env.VITE_API_URL)
 app.config.globalProperties.axios = axios
 
 app.use(createPinia())

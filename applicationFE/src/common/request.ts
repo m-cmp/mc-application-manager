@@ -1,9 +1,8 @@
 import axios from "axios";
 import { useToast } from "vue-toastification";
+import { getApiBaseUrl } from "@/common/url";
 
-const fallbackBaseUrl = `${window.location.protocol}//${window.location.hostname}:18084`
-const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim()
-const baseUrl = configuredBaseUrl || fallbackBaseUrl
+const baseUrl = getApiBaseUrl(import.meta.env.VITE_API_URL)
 const toast = useToast();
 const service = axios.create({
   // baseURL: process.env.VUE_APP_API_URL,
@@ -41,7 +40,7 @@ service.interceptors.response.use(
 
     const res = error.response
     console.log(error.response)
-    if (res.status === 404) {
+    if (res?.status === 404) {
       toast.error('API Call Fail :: Code 404')
     }
     if (axios.isCancel(error)) {
