@@ -10,9 +10,10 @@ INSERT INTO SOFTWARE_CATALOG (TITLE, DESCRIPTION, SUMMARY, CATEGORY, LOGO_URL_LA
 ('Apache HTTP Server', 'The Apache HTTP Server is a powerful, flexible, HTTP/1.1 compliant web server.', 'Popular web server', 'Web Servers', 'https://www.gravatar.com/avatar/d57617e2eca42ca07dfc380b85585d64?s=80&r=g&d=mm', 'https://www.gravatar.com/avatar/d57617e2eca42ca07dfc380b85585d64?s=80&r=g&d=mm', 1, 2, 1, 1, 1, 1, 80.0, 80.0, 1, 5, false, 80, true, 'apache.example.com', '/', 'nginx', true, 'apache-tls', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('Nexus Repository', 'Nexus Repository OSS is an open source repository that supports many artifact formats.', 'Artifact repository manager', 'Databases & Storage', 'https://www.gravatar.com/avatar/614e0f6491dbb293e540190b02b3024e?s=80&r=g&d=mm', 'https://www.gravatar.com/avatar/614e0f6491dbb293e540190b02b3024e?s=80&r=g&d=mm', 4, 8, 4, 8, 2, 4, 80.0, 80.0, 1, 3, true, 8081, true, 'nexus.example.com', '/', 'nginx', true, 'nexus-tls', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('MariaDB', 'MariaDB is a community-developed, commercially supported fork of the MySQL relational database management system.', 'Open-source relational database', 'Databases & Storage', 'https://djeqr6to3dedg.cloudfront.net/repo-logos/library/mariadb/live/logo-1720462226239.png', 'https://djeqr6to3dedg.cloudfront.net/repo-logos/library/mariadb/live/logo-1720462226239.png', 1, 4, 1, 4, 2, 4, 80.0, 80.0, 1, 3, false, 3306, false, NULL, NULL, NULL, false, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('Grafana', 'Grafana is an open-source platform for monitoring and observability.', 'Monitoring and visualization platform', 'MONITORING_AND_LOGGING', 'https://desktop.docker.com/extensions/grafana_docker-desktop-extension/storage_googleapis_com/grafanalabs-integration-logos/grafana_icon.svg', 'https://desktop.docker.com/extensions/grafana_docker-desktop-extension/storage_googleapis_com/grafanalabs-integration-logos/grafana_icon.svg', 0.1, 0.2, 0.1, 0.2, 1, 2, 80.0, 80.0, 1, 3, true, 3000, true, 'grafana.example.com', '/', 'nginx', true, 'grafana-tls', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('Grafana', 'Grafana is an open-source platform for monitoring and observability.', 'Monitoring and visualization platform', 'Monitoring & Observability', 'https://desktop.docker.com/extensions/grafana_docker-desktop-extension/storage_googleapis_com/grafanalabs-integration-logos/grafana_icon.svg', 'https://desktop.docker.com/extensions/grafana_docker-desktop-extension/storage_googleapis_com/grafanalabs-integration-logos/grafana_icon.svg', 0.1, 0.2, 0.1, 0.2, 1, 2, 80.0, 80.0, 1, 3, true, 3000, true, 'grafana.example.com', '/', 'nginx', true, 'grafana-tls', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('Prometheus', 'Prometheus is an open-source systems monitoring and alerting toolkit.', 'Monitoring and alerting toolkit', 'Integration & Delivery,Monitoring & Observability,Security', 'https://www.gravatar.com/avatar/31cea69afa424609b2d83621b4d47f1d?s=80&r=g&d=mm', 'https://www.gravatar.com/avatar/31cea69afa424609b2d83621b4d47f1d?s=80&r=g&d=mm', 2, 4, 2, 4, 1, 2, 80.0, 80.0, 1, 3, true, 9090, true, 'prometheus.example.com', '/', 'nginx', true, 'prometheus-tls', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('Elasticsearch', 'Elasticsearch is a distributed, RESTful search and analytics engine capable of solving a growing number of use cases.', 'Distributed search and analytics engine', 'Databases & Storage', 'https://www.gravatar.com/avatar/dd9d954997353b37b4c2684f478192d3?s=120&r=g&d=404', 'https://www.gravatar.com/avatar/dd9d954997353b37b4c2684f478192d3?s=120&r=g&d=404', 2, 4, 2, 8, 2, 4, 80.0, 80.0, 1, 5, true, 9200, true, 'elasticsearch.example.com', '/', 'nginx', true, 'elasticsearch-tls', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+('Elasticsearch', 'Elasticsearch is a distributed, RESTful search and analytics engine capable of solving a growing number of use cases.', 'Distributed search and analytics engine', 'Databases & Storage', 'https://www.gravatar.com/avatar/dd9d954997353b37b4c2684f478192d3?s=120&r=g&d=404', 'https://www.gravatar.com/avatar/dd9d954997353b37b4c2684f478192d3?s=120&r=g&d=404', 2, 4, 2, 8, 2, 4, 80.0, 80.0, 1, 5, true, 9200, true, 'elasticsearch.example.com', '/', 'nginx', true, 'elasticsearch-tls', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('Loki', 'Grafana Loki is a horizontally scalable, highly available log aggregation system designed to store and query logs efficiently.', 'Log aggregation system for Kubernetes', 'Monitoring & Observability', 'https://raw.githubusercontent.com/grafana/loki/main/docs/sources/logo_and_name.png', 'https://raw.githubusercontent.com/grafana/loki/main/docs/sources/logo_and_name.png', 1, 2, 2, 4, 10, 20, 80.0, 80.0, 1, 3, false, 3100, false, NULL, NULL, NULL, false, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 2. PACKAGE_INFO 테이블 데이터 삽입 (DockerHub 기반)
 INSERT INTO PACKAGE_INFO (CATALOG_ID, PACKAGE_TYPE, PACKAGE_NAME, PACKAGE_VERSION, REPOSITORY_URL, DOCKER_IMAGE_ID, DOCKER_PUBLISHER, DOCKER_CREATED_AT, DOCKER_UPDATED_AT, DOCKER_SHORT_DESCRIPTION, DOCKER_SOURCE, ARCHITECTURES, CATEGORIES, IS_ARCHIVED, IS_AUTOMATED, IS_OFFICIAL, LAST_PULLED_AT, OPERATING_SYSTEMS, PULL_COUNT, STAR_COUNT) VALUES
@@ -28,8 +29,9 @@ INSERT INTO PACKAGE_INFO (CATALOG_ID, PACKAGE_TYPE, PACKAGE_NAME, PACKAGE_VERSIO
 
 -- 3. HELM_CHART 테이블 데이터 삽입 (ArtifactHub 기반)
 INSERT INTO HELM_CHART (CATALOG_ID, CATEGORY, CHART_NAME, CHART_VERSION, CHART_REPOSITORY_URL, VALUES_FILE, HAS_VALUES_SCHEMA, REPOSITORY_NAME, REPOSITORY_OFFICIAL, REPOSITORY_DISPLAY_NAME, IMAGE_REPOSITORY) VALUES
-(7, 'MONITORING_AND_LOGGING', 'grafana', '7.3.0', 'https://grafana.github.io/helm-charts', 'https://artifacthub.io/packages/helm/grafana/grafana/values.yaml', true, 'grafana', true, 'Grafana', 'grafana/grafana'),
-(8, 'MONITORING_AND_LOGGING', 'prometheus', '25.8.0', 'https://prometheus-community.github.io/helm-charts', 'https://artifacthub.io/packages/helm/prometheus-community/prometheus/values.yaml', true, 'prometheus-community', true, 'Prometheus Community', 'bitnami/prometheus');
+(7, 'Monitoring & Observability', 'grafana', '7.3.0', 'https://grafana.github.io/helm-charts', 'https://artifacthub.io/packages/helm/grafana/grafana/values.yaml', true, 'grafana', true, 'Grafana', 'grafana/grafana'),
+(8, 'Monitoring & Observability', 'prometheus', '25.8.0', 'https://prometheus-community.github.io/helm-charts', 'https://artifacthub.io/packages/helm/prometheus-community/prometheus/values.yaml', true, 'prometheus-community', true, 'Prometheus Community', 'bitnami/prometheus'),
+(10, 'Monitoring & Observability', 'loki', '17.1.6', 'https://grafana-community.github.io/helm-charts', 'https://artifacthub.io/packages/helm/grafana-community/loki/values.yaml', true, 'grafana-community', true, 'Grafana Community', 'grafana/loki');
 
 -- 4. SOFTWARE_SOURCE_MAPPING 테이블 데이터 삽입 (서브쿼리 없이 직접 ID 사용)
 -- Grafana - DockerHub + ArtifactHub 둘 다 지원
@@ -169,6 +171,18 @@ INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_T
 (9, 8, 'vm_clustering_uninstall', '', 'workflow'),
 (9, 9, 'helm_application_install', '', 'workflow'),
 (9, 10, 'helm_application_uninstall', '', 'workflow');
+
+-- Loki
+INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE) VALUES
+(10, 0, 'https://grafana.com/oss/loki/', '', 'HOMEPAGE'),
+(10, 1, 'logging', '', 'TAG'),
+(10, 2, 'observability', '', 'TAG'),
+(10, 3, 'kubernetes', '', 'TAG'),
+(10, 4, 'object-storage', '', 'TAG'),
+(10, 5, 'oss', '', 'TAG'),
+(10, 6, 'object-storage', 'Supports deploy-time Object Storage configuration', 'CAPABILITY'),
+(10, 7, 'helm_application_install', '', 'workflow'),
+(10, 8, 'helm_application_uninstall', '', 'workflow');
 
 -- 6. OSS_TYPE 테이블 데이터 삽입
 INSERT INTO oss_type (oss_type_idx, oss_type_name, oss_type_desc) VALUES

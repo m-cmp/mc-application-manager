@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 배포 요청을 받는 DTO (API 요청용)
@@ -38,6 +39,7 @@ public class DeploymentRequestDTO {
 
     // 자원 유형 선택값
     private String resourceType;
+    private Map<String, Object> additionalConfig;
     
     // Ingress 설정
     private Boolean ingressEnabled;
@@ -68,6 +70,7 @@ public class DeploymentRequestDTO {
                 .cpuThreshold(this.cpuThreshold)
                 .memoryThreshold(this.memoryThreshold)
                 .resourceType(this.resourceType)
+                .additionalConfig(this.additionalConfig)
                 .ingressEnabled(this.ingressEnabled)
                 .ingressHost(this.ingressHost)
                 .ingressPath(this.ingressPath)

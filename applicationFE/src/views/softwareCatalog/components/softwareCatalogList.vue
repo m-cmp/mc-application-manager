@@ -23,8 +23,19 @@
               <div class="row g-2 align-items-center">
                 <!-- <div class="col-auto fs-3">{{ idx + 1 }}</div> -->
                 <div class="col-auto me-3">
-                  <img v-if="catalog.logoUrlLarge" :src="catalog.logoUrlLarge" class="rounded" alt="Catalog Icon" width="40" height="40">
-                  <img v-else src="https://artifacthub.io/static/media/placeholder_pkg_helm.png" class="rounded" alt="Catalog Icon" width="40" height="40">
+                  <img
+                    v-if="catalog.logoUrlLarge && !catalog.logoLoadFailed"
+                    :src="catalog.logoUrlLarge"
+                    class="rounded catalog-icon"
+                    alt="Catalog Icon"
+                    width="40"
+                    height="40"
+                    @error="onCatalogIconError(catalog)">
+                  <div
+                    v-else
+                    class="rounded catalog-icon-fallback d-flex align-items-center justify-content-center">
+                    <IconPackage class="icon" size="22" stroke-width="1.75" />
+                  </div>
                 </div>
                 
                 <!-- Catalog Name -->
@@ -146,6 +157,71 @@
                             </button>
                           </template>
                         </ul>
+
+                        <div class="mt-4">
+                          <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>Deployment Status</strong>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-icon btn-ghost-secondary"
+                              title="Refresh deployment status"
+                              aria-label="Refresh deployment status"
+                              :disabled="catalog.deploymentStatusLoading"
+                              @click.stop="loadDeploymentStatus(catalog)">
+                              <IconRefresh class="icon" size="18" stroke-width="1.75" />
+                            </button>
+                          </div>
+
+                          <div v-if="catalog.deploymentStatusLoading" class="text-center text-muted py-3">
+                            Loading deployment status...
+                          </div>
+
+                          <div v-else class="table-responsive">
+                            <table class="table table-sm table-vcenter">
+                              <thead>
+                                <tr>
+                                  <th>Type</th>
+                                  <th>Target</th>
+                                  <th>CSP</th>
+                                  <th>Status</th>
+                                  <th>IP/Endpoint</th>
+                                  <th>Last Checked/Deployed</th>
+                                  <th class="text-end">Detail</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr v-if="catalog.deploymentStatuses.length === 0">
+                                  <td colspan="7" class="text-center text-muted">
+                                    No deployment status available
+                                  </td>
+                                </tr>
+                                <tr
+                                  v-for="deployment in catalog.deploymentStatuses"
+                                  :key="deployment.rowKey">
+                                  <td>{{ deployment.deploymentType }}</td>
+                                  <td>{{ deployment.target }}</td>
+                                  <td>{{ deployment.csp }}</td>
+                                  <td>
+                                    <span :class="getDeploymentStatusClass(deployment.status)">
+                                      {{ deployment.status }}
+                                    </span>
+                                  </td>
+                                  <td>{{ deployment.ipOrEndpoint }}</td>
+                                  <td>{{ deployment.lastCheckedOrDeployedAt }}</td>
+                                  <td class="text-end">
+                                    <button
+                                      type="button"
+                                      class="btn btn-sm btn-outline-primary"
+                                      :disabled="!deployment.deploymentId"
+                                      @click.stop="openApplicationDetail(deployment.deploymentId)">
+                                      Detail
+                                    </button>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
                         <!-- <br />
                         <div class="btn-list" style="width:70%;" v-for="wf in catalog.refData.workflow"
                           :key="wf.catalogRefIdx">
@@ -296,6 +372,10 @@
     :source-data="uploadData"
     @uploaded="onUploaded"
     @close="onUploadModalClose" />
+
+  <ApplicationDetailModal
+    ref="applicationDetailModalRef"
+    :deployment-id="selectedDeploymentId" />
     
   <!-- <SoftwareCatalogForm 
     :mode="formMode" 
@@ -306,7 +386,7 @@
 </template>
 <script setup lang="ts">
 // Component
-import { IconDots, IconDownload, IconEdit, IconRowRemove, IconSearch, IconTrash, IconUpload, IconStar, IconCloud, IconCloudFilled, IconStarFilled, IconCloudDown, IconCloudDownload } from '@tabler/icons-vue'
+import { IconDots, IconDownload, IconEdit, IconRowRemove, IconSearch, IconTrash, IconUpload, IconStar, IconCloud, IconCloudFilled, IconStarFilled, IconCloudDown, IconCloudDownload, IconPackage, IconRefresh } from '@tabler/icons-vue'
 // @ts-ignore
 import SoftwareCatalogForm from './softwareCatalogForm.vue';
 // @ts-ignore
@@ -315,9 +395,11 @@ import SoftwareCatalogWizard from './softwareCatalogWizard.vue';
 import DeleteConfirmModal from './DeleteConfirmModal.vue';
 // @ts-ignore
 import UploadForm from './uploadForm.vue';
+// @ts-ignore
+import ApplicationDetailModal from './applicationDetailModal.vue';
 
 // API
-import { getSoftwareCatalogList, searchArtifacthubhub, searchDockerhub, upLoadDockerHubApplication, upLoadArtifactHubApplication } from '../../../api/softwareCatalog';
+import { getSoftwareCatalogList, searchArtifacthubhub, searchDockerhub, upLoadDockerHubApplication, upLoadArtifactHubApplication, getCatalogDeploymentStatus } from '../../../api/softwareCatalog';
 
 // ETC
 import { computed, onMounted, ref } from 'vue';
@@ -352,6 +434,8 @@ const wizardModal = ref<any>(null)
 const searchKeyword = ref("")
 const dockerHubSearchList = ref([] as any)
 const artifactHubSearchList = ref([] as any)
+const selectedDeploymentId = ref(0 as number)
+const applicationDetailModalRef = ref<any>(null)
 
 // Dropdown 제어를 위한 상태
 const activeDropdown = ref("")
@@ -410,13 +494,13 @@ const onClickRegist = () => {
 const _getSoftwareCatalogList = async () => {
   try {
     await getSoftwareCatalogList(searchKeyword.value).then(({ data }) => {
-      _.forEach(data, function(item: {
-        isShow: boolean;
-        refData: any;
-        catalogRefs: any;
-      }) {
+      _.forEach(data, function(item: any) {
         item.refData = groupedData(item.catalogRefs)
         item.isShow = false;
+        item.deploymentStatuses = []
+        item.deploymentStatusLoaded = false
+        item.deploymentStatusLoading = false
+        item.logoLoadFailed = false
       })
       catalogList.value = data;
     })
@@ -557,7 +641,186 @@ const onClickMovePageArtifactHub = () => {
 }
 
 const showSoftwareCatalogDetail = async (idx:any) => {
-  catalogList.value[idx].isShow = !catalogList.value[idx].isShow
+  const catalog = catalogList.value[idx]
+  catalog.isShow = !catalog.isShow
+  if (catalog.isShow && !catalog.deploymentStatusLoaded) {
+    await loadDeploymentStatus(catalog)
+  }
+}
+
+const loadDeploymentStatus = async (catalog: any) => {
+  if (!catalog?.id) return
+
+  catalog.deploymentStatusLoading = true
+  try {
+    const { data } = await getCatalogDeploymentStatus(catalog.id)
+    catalog.deploymentStatuses = buildDeploymentStatusRows(data)
+    catalog.deploymentStatusLoaded = true
+  } catch (error) {
+    console.log(error)
+    catalog.deploymentStatuses = []
+    toast.error('Unable to retrieve deployment status.')
+  } finally {
+    catalog.deploymentStatusLoading = false
+  }
+}
+
+const buildDeploymentStatusRows = (data: any) => {
+  const histories = Array.isArray(data?.deploymentHistories) ? data.deploymentHistories : []
+  const statuses = Array.isArray(data?.applicationStatuses) ? data.applicationStatuses : []
+  const usedStatusIndexes = new Set<number>()
+
+  const rows = histories.map((history: any) => {
+    const statusIndex = findMatchedStatusIndex(history, statuses, usedStatusIndexes)
+    const status = statusIndex >= 0 ? statuses[statusIndex] : null
+    if (statusIndex >= 0) usedStatusIndexes.add(statusIndex)
+
+    return toDeploymentStatusRow(history, status, `history-${history.id}`)
+  })
+
+  statuses.forEach((status: any, index: number) => {
+    if (!usedStatusIndexes.has(index)) {
+      rows.push(toDeploymentStatusRow(null, status, `status-${status.id || index}`))
+    }
+  })
+
+  return rows
+}
+
+const findMatchedStatusIndex = (history: any, statuses: any[], usedStatusIndexes: Set<number>) => {
+  if (!history) return -1
+
+  const byDeploymentHistoryId = statuses.findIndex((status: any, index: number) =>
+    !usedStatusIndexes.has(index) &&
+    status.deploymentHistoryId &&
+    String(status.deploymentHistoryId) === String(history.id)
+  )
+  if (byDeploymentHistoryId >= 0) return byDeploymentHistoryId
+
+  return statuses.findIndex((status: any, index: number) =>
+    !usedStatusIndexes.has(index) &&
+    sameValue(status.deploymentType, history.deploymentType) &&
+    sameValue(status.namespace, history.namespace) &&
+    (
+      sameValue(status.vmId, history.vmId) ||
+      sameValue(status.clusterName, history.clusterName)
+    )
+  )
+}
+
+const toDeploymentStatusRow = (history: any, status: any, rowKey: string) => {
+  return {
+    rowKey,
+    deploymentId: history?.id || status?.deploymentHistoryId || null,
+    deploymentType: displayValue(history?.deploymentType || status?.deploymentType),
+    target: displayValue(getTarget(history, status)),
+    csp: displayValue(history?.cloudProvider),
+    status: displayValue(status?.status || history?.status || status?.podStatus || history?.podStatus),
+    ipOrEndpoint: displayValue(getEndpoint(history, status)),
+    lastCheckedOrDeployedAt: displayValue(formatDateTime(status?.checkedAt || history?.updatedAt || history?.executedAt))
+  }
+}
+
+const getTarget = (history: any, status: any) => {
+  const deploymentType = history?.deploymentType || status?.deploymentType
+  const namespace = history?.namespace || status?.namespace
+  const mciId = history?.mciId || status?.mciId
+  const vmId = history?.vmId || status?.vmId
+  const clusterName = history?.clusterName || status?.clusterName
+
+  if (deploymentType === 'VM') {
+    return [namespace, mciId, vmId].filter(Boolean).join(' / ')
+  }
+  if (deploymentType === 'K8S') {
+    return [namespace, clusterName].filter(Boolean).join(' / ')
+  }
+  return [namespace, mciId, vmId, clusterName].filter(Boolean).join(' / ')
+}
+
+const getEndpoint = (history: any, status: any) => {
+  const publicIp = status?.publicIp || history?.publicIp
+  const servicePort = status?.servicePort || history?.servicePort
+  const ingressHost = history?.ingressHost
+  const ingressPath = history?.ingressPath
+
+  if (publicIp && servicePort) return `${publicIp}:${servicePort}`
+  if (publicIp) return publicIp
+  if (ingressHost && ingressPath) return `${ingressHost}${ingressPath}`
+  if (ingressHost) return ingressHost
+  return ''
+}
+
+const displayValue = (value: any) => {
+  if (value === null || value === undefined || value === '') return '-'
+  return value
+}
+
+const sameValue = (left: any, right: any) => {
+  if (!left || !right) return false
+  return String(left) === String(right)
+}
+
+const formatDateTime = (value: any) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return date.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+}
+
+const getDeploymentStatusClass = (status: string) => {
+  switch (status?.toLowerCase()) {
+    case 'running':
+    case 'success':
+    case 'completed':
+      return 'badge bg-success'
+    case 'failed':
+    case 'error':
+    case 'stopped':
+    case 'not_found':
+      return 'badge bg-danger'
+    case 'pending':
+    case 'in_progress':
+    case 'restart':
+      return 'badge bg-warning'
+    default:
+      return 'badge bg-secondary'
+  }
+}
+
+const openApplicationDetail = (deploymentId: number | null) => {
+  if (!deploymentId) return
+
+  selectedDeploymentId.value = deploymentId
+  const modal = document.getElementById('application-detail-modal')
+  if (modal) {
+    try {
+      if ((window as any).bootstrap && (window as any).bootstrap.Modal) {
+        const modalInstance = new (window as any).bootstrap.Modal(modal)
+        modalInstance.show()
+      } else {
+        modal.style.display = 'block'
+        modal.classList.add('show')
+        document.body.classList.add('modal-open')
+      }
+
+      setTimeout(() => {
+        if (applicationDetailModalRef.value) {
+          applicationDetailModalRef.value.refreshData(selectedDeploymentId.value)
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Error opening detail modal:', error)
+    }
+  }
 }
 
 const hasProperty = (data:any, prop:any) => {
@@ -566,6 +829,10 @@ const hasProperty = (data:any, prop:any) => {
 
 const goToPage = (url:string) => {
   window.open(url)
+}
+
+const onCatalogIconError = (catalog: any) => {
+  catalog.logoLoadFailed = true
 }
 
 const formattedText = (text:string) => {
@@ -663,5 +930,16 @@ body {
  }
  #resultArtifactHubSearch .card:hover .mouse-hover {
    opacity: 1;
+ }
+ .catalog-icon,
+ .catalog-icon-fallback {
+   width: 40px;
+   height: 40px;
+   object-fit: contain;
+ }
+ .catalog-icon-fallback {
+   color: #667085;
+   background-color: #f1f5f9;
+   border: 1px solid #dbe3ea;
  }
 </style>

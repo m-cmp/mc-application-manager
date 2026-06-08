@@ -139,6 +139,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import type { SoftwareCatalog } from '@/views/type/type'
 import { IconDots } from '@tabler/icons-vue';
 import { getSoftwareCaltalogDetail } from '@/api/softwareCatalog';
+import { toAbsoluteUrl } from '@/common/url';
 
 interface Props {
   catalogIdx: number | string
@@ -160,10 +161,7 @@ onMounted(async () => {
 const getCatalogDatail = async (catalogIdx : number | string) => {
   await getSoftwareCaltalogDetail(Number(catalogIdx)).then(({ data }) => {
 
-    const splitUrl = window.location.host.split(':');
-    const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
-
-    data.catalogIcon = baseUrl + data.catalogIcon
+    data.catalogIcon = toAbsoluteUrl(data.catalogIcon)
       
     catalogInfo.value = data
   })

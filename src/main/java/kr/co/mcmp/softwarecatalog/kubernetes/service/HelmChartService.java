@@ -5,9 +5,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.yaml.snakeyaml.Yaml;
 
 import com.marcnuri.helm.Release;
 
@@ -246,6 +249,7 @@ public class HelmChartService {
                 helmChart.getChartName(), namespace, clusterName);
         
         Path tempKubeconfigPath = null;
+        Path tempObjectStorageValuesPath = null;
 
         try {
             // 1. 클러스터 정보 조회
@@ -283,6 +287,7 @@ public class HelmChartService {
             
             // Values 맵 구성
             java.util.Map<String, String> values = new java.util.HashMap<>();
+            java.util.Map<String, Object> objectStorageValues = new java.util.HashMap<>();
             values.put("replicaCount", String.valueOf(config.getMinReplicas()));
             values.put("service.port", String.valueOf(config.getServicePort()));
             values.put("service.type", "ClusterIP");
@@ -352,8 +357,13 @@ public class HelmChartService {
             values.put("serviceAccount.create", "false");
             values.put("serviceAccount.name", "default");
 
+            applyObjectStorageValues(catalog, request, providerName, objectStorageValues);
+            if (!objectStorageValues.isEmpty()) {
+                tempObjectStorageValuesPath = createTempValuesFile(objectStorageValues);
+            }
+
             // Helm CLI로 설치 실행
-            runHelmInstallCli(releaseName, chartRef, namespace, helmChart.getChartVersion(), tempKubeconfigPath, values);
+            runHelmInstallCli(releaseName, chartRef, namespace, helmChart.getChartVersion(), tempKubeconfigPath, values, tempObjectStorageValuesPath);
             
             // 간단한 Release 스텁 반환 - null 반환으로 변경
             Release result = null;
@@ -378,6 +388,13 @@ public class HelmChartService {
                     log.info("임시 kubeconfig 파일 삭제 완료");
                 } catch (IOException e) {
                     log.warn("임시 kubeconfig 파일 삭제 중 오류 발생: {}", e.getMessage());
+                }
+            }
+            if (tempObjectStorageValuesPath != null) {
+                try {
+                    Files.deleteIfExists(tempObjectStorageValuesPath);
+                } catch (IOException e) {
+                    log.warn("Failed to delete temporary Object Storage values file: {}", e.getMessage());
                 }
             }
         }
@@ -690,12 +707,145 @@ public class HelmChartService {
         }
     }
 
+    private void applyObjectStorageValues(SoftwareCatalog catalog,
+                                          kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest request,
+                                          String providerName,
+                                          Map<String, Object> valuesFile) {
+        if (!hasObjectStorageCapability(catalog) || request == null || request.getAdditionalConfig() == null) {
+            return;
+        }
+
+        Object rawConfig = request.getAdditionalConfig().get("objectStorage");
+        if (!(rawConfig instanceof Map<?, ?> objectStorage)) {
+            return;
+        }
+
+        if (!asBoolean(objectStorage.get("enabled"))) {
+            return;
+        }
+
+        String backendType = stringValue(objectStorage.get("backendType"), "s3");
+        if (!"s3".equalsIgnoreCase(backendType) && !"s3-compatible".equalsIgnoreCase(backendType)) {
+            log.warn("Unsupported Object Storage backend type for current deployment path: {}", backendType);
+            return;
+        }
+
+        String endpoint = stringValue(objectStorage.get("endpoint"), null);
+        String region = stringValue(objectStorage.get("region"), null);
+        String bucket = stringValue(objectStorage.get("bucket"), null);
+        String accessKey = stringValue(objectStorage.get("accessKey"), null);
+        String secretKey = stringValue(objectStorage.get("secretKey"), null);
+        boolean forcePathStyle = asBoolean(objectStorage.get("forcePathStyle"));
+        boolean insecure = isHttpEndpoint(endpoint);
+
+        if (StringUtils.isAnyBlank(region, bucket, accessKey, secretKey)) {
+            log.warn("Object Storage config skipped because required S3-compatible fields are missing. provider={}", providerName);
+            return;
+        }
+        if (!isAwsProvider(providerName) && StringUtils.isBlank(endpoint)) {
+            log.warn("Object Storage config skipped because endpoint is required for non-AWS S3-compatible storage. provider={}", providerName);
+            return;
+        }
+        Map<String, Object> loki = nestedMap(valuesFile, "loki");
+        Map<String, Object> storage = nestedMap(loki, "storage");
+        storage.put("type", "s3");
+
+        Map<String, Object> s3 = nestedMap(storage, "s3");
+        if (StringUtils.isNotBlank(endpoint)) {
+            s3.put("endpoint", normalizeObjectStorageEndpoint(endpoint));
+        }
+        s3.put("region", region);
+        s3.put("accessKeyId", accessKey);
+        s3.put("secretAccessKey", secretKey);
+        s3.put("s3ForcePathStyle", forcePathStyle);
+        s3.put("insecure", insecure);
+
+        Map<String, Object> bucketNames = nestedMap(storage, "bucketNames");
+        bucketNames.put("chunks", bucket);
+        bucketNames.put("ruler", bucket);
+        bucketNames.put("admin", bucket);
+
+        log.info("Object Storage Helm values prepared for provider={}, backend=s3-compatible, bucketNames configured", providerName);
+    }
+
+    private boolean hasObjectStorageCapability(SoftwareCatalog catalog) {
+        if (catalog == null || catalog.getCatalogRefs() == null) {
+            return false;
+        }
+        return catalog.getCatalogRefs().stream().anyMatch(ref ->
+                "object-storage".equalsIgnoreCase(ref.getRefValue())
+                        && ("CAPABILITY".equalsIgnoreCase(ref.getRefType()) || "TAG".equalsIgnoreCase(ref.getRefType())));
+    }
+
+    private boolean isAwsProvider(String providerName) {
+        return StringUtils.containsIgnoreCase(providerName, "aws");
+    }
+
+    private boolean isHttpEndpoint(String endpoint) {
+        return StringUtils.startsWithIgnoreCase(StringUtils.trimToEmpty(endpoint), "http://");
+    }
+
+    private String normalizeObjectStorageEndpoint(String endpoint) {
+        String trimmed = StringUtils.trimToEmpty(endpoint);
+        if (StringUtils.startsWithIgnoreCase(trimmed, "http://")
+                || StringUtils.startsWithIgnoreCase(trimmed, "https://")) {
+            return trimmed;
+        }
+        return "https://" + trimmed;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> nestedMap(Map<String, Object> parent, String key) {
+        Object existing = parent.get(key);
+        if (existing instanceof Map<?, ?>) {
+            return (Map<String, Object>) existing;
+        }
+        Map<String, Object> created = new java.util.LinkedHashMap<>();
+        parent.put(key, created);
+        return created;
+    }
+
+    private String stringValue(Object value, String defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        String stringValue = String.valueOf(value).trim();
+        return stringValue.isEmpty() ? defaultValue : stringValue;
+    }
+
+    private boolean asBoolean(Object value) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        if (value == null) {
+            return false;
+        }
+        return "true".equalsIgnoreCase(String.valueOf(value));
+    }
+
+    private Path createTempValuesFile(Map<String, Object> values) throws IOException {
+        Path valuesFile = Files.createTempFile("helm-object-storage-", ".yaml");
+        String yaml = new Yaml().dump(values);
+        Files.writeString(valuesFile, yaml, StandardCharsets.UTF_8);
+        return valuesFile;
+    }
+
     private void runHelmInstallCli(String releaseName,
                                    String chartRef,
                                    String namespace,
                                    String version,
                                    Path kubeconfig,
                                    java.util.Map<String,String> values) throws Exception {
+        runHelmInstallCli(releaseName, chartRef, namespace, version, kubeconfig, values, null);
+    }
+
+    private void runHelmInstallCli(String releaseName,
+                                   String chartRef,
+                                   String namespace,
+                                   String version,
+                                   Path kubeconfig,
+                                   java.util.Map<String,String> values,
+                                   Path valuesFile) throws Exception {
         java.util.List<String> cmd = new java.util.ArrayList<>();
         // Helm 경로 지정 (관리자 권한 없이 사용)
         String helmPath = getHelmPath();
@@ -704,6 +854,10 @@ public class HelmChartService {
         cmd.add("--namespace"); cmd.add("default");
         cmd.add("--version"); cmd.add(version);
         cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
+        if (valuesFile != null) {
+            cmd.add("--values");
+            cmd.add(valuesFile.toString());
+        }
         for (java.util.Map.Entry<String,String> e : values.entrySet()) {
             cmd.add("--set");
             cmd.add(e.getKey() + "=" + e.getValue());

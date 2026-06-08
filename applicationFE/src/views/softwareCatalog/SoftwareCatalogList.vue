@@ -295,6 +295,7 @@ import '@/resources/css/tabler.min.css'
 import '@/resources/css/demo.min.css'
 import '@/resources/js/demo-theme.min.js'
 import { getSoftwareCatalogList, searchArtifacthubhub, searchDockerhub } from '@/api/softwareCatalog';
+import { toAbsoluteUrl } from '@/common/url';
   
 const toast = useToast()
 
@@ -339,10 +340,7 @@ const _getSoftwareCatalogList = async () => {
       refData: any;
       catalogRefData: any; catalogIcon: string; 
     }) {
-      const splitUrl = window.location.host.split(':');
-      const baseUrl = window.location.protocol + '//' + splitUrl[0] + ':18084'
-
-      item.catalogIcon = baseUrl + item.catalogIcon
+      item.catalogIcon = toAbsoluteUrl(item.catalogIcon)
       item.refData = groupedData(item.catalogRefData)
       item.isShow = false;
     })
