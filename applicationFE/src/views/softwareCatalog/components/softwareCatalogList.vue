@@ -24,8 +24,8 @@
                 <!-- <div class="col-auto fs-3">{{ idx + 1 }}</div> -->
                 <div class="col-auto me-3">
                   <img
-                    v-if="catalog.logoUrlLarge && !catalog.logoLoadFailed"
-                    :src="catalog.logoUrlLarge"
+                    v-if="catalog.resolvedLogoUrl && !catalog.logoLoadFailed"
+                    :src="catalog.resolvedLogoUrl"
                     class="rounded catalog-icon"
                     alt="Catalog Icon"
                     width="40"
@@ -500,6 +500,7 @@ const _getSoftwareCatalogList = async () => {
         item.deploymentStatuses = []
         item.deploymentStatusLoaded = false
         item.deploymentStatusLoading = false
+        item.resolvedLogoUrl = resolveCatalogIconUrl(item)
         item.logoLoadFailed = false
       })
       catalogList.value = data;
@@ -831,7 +832,38 @@ const goToPage = (url:string) => {
   window.open(url)
 }
 
+const catalogIconUrlByName: Record<string, string> = {
+  'apache tomcat': '/catalog-icons/apache-tomcat.png',
+  'redis': '/catalog-icons/redis.svg',
+  'nginx': '/catalog-icons/nginx.svg',
+  'apache http server': '/catalog-icons/apache-http-server.svg',
+  'nexus repository': '/catalog-icons/nexus-repository.svg',
+  'mariadb': '/catalog-icons/mariadb.svg',
+  'grafana': '/catalog-icons/grafana.svg',
+  'prometheus': '/catalog-icons/prometheus.svg',
+  'elasticsearch': '/catalog-icons/elasticsearch.svg'
+}
+
+const normalizeCatalogName = (name: any) => {
+  return String(name || '').trim().toLowerCase()
+}
+
+const getInternalCatalogIconUrl = (catalog: any) => {
+  return catalogIconUrlByName[normalizeCatalogName(catalog?.name)] || ''
+}
+
+const resolveCatalogIconUrl = (catalog: any) => {
+  return getInternalCatalogIconUrl(catalog) || catalog?.logoUrlLarge || catalog?.logoUrlSmall || ''
+}
+
 const onCatalogIconError = (catalog: any) => {
+  const internalIconUrl = getInternalCatalogIconUrl(catalog)
+  if (internalIconUrl && catalog.resolvedLogoUrl !== internalIconUrl) {
+    catalog.resolvedLogoUrl = internalIconUrl
+    catalog.logoLoadFailed = false
+    return
+  }
+
   catalog.logoLoadFailed = true
 }
 
