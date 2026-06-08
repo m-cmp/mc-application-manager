@@ -69,27 +69,6 @@
               </div>
             </div>
 
-            <!-- <div class="mb-3">
-              <label class="form-label required">Storage</label>
-              <div class="grid gap-0 column-gap-3">
-                <input type="text" class="form-control p-2 g-col-11" value="default" disabled />
-              </div>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label required">Http</label>
-              <div class="grid gap-0 column-gap-3">
-                <input type="number" class="form-control p-2 g-col-11" v-model="httpPort" :disabled="repositoryFormData.format != 'docker'" placeholder="Enter HTTP port" />
-              </div>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label required">Https</label>
-              <div class="grid gap-0 column-gap-3">
-                <input type="number" class="form-control p-2 g-col-11" v-model="httpsPort" :disabled="repositoryFormData.format != 'docker'" placeholder="Enter HTTPS port" />
-              </div>
-            </div> -->
-
           </div>
         </div>
 
@@ -152,8 +131,6 @@ onMounted(async () => {
 
 const repositoryFormData = ref({} as Repository)
 const writePolicy = ref("" as string)
-const httpPort = ref(0 as number)
-const httpsPort = ref(0 as number)
 
 const setInit = async () => {
   if (props.mode === 'new') {
@@ -162,18 +139,12 @@ const setInit = async () => {
     repositoryFormData.value.type = 'hosted'
     repositoryFormData.value.url = ''
     repositoryFormData.value.online = true
-    httpPort.value = 0
-    httpsPort.value = 0
     writePolicy.value = "allow"
   }
   else {
     const { data } = await getRepositoryDetailInfo("nexus", props.repositoryName)
     repositoryFormData.value = data
     writePolicy.value = data.storage.writePolicy
-    if(data.format == "docker") {
-      httpPort.value = data.docker.httpPort
-      httpsPort.value = data.docker.httpsPort
-    }
   }
 }
 
@@ -227,13 +198,12 @@ const onClickSubmit = async () => {
   if(repositoryFormData.value.format != "docker") {
     repositoryFormData.value.docker = {}
   } else {
-    repositoryFormData.value.docker = {
+    const dockerConfig: Record<string, boolean | number | string> = {
       "v1Enabled": true,
-      "forceBasicAuth": true,
-      "httpPort": httpPort.value,
-      "httpsPort": httpsPort.value,
-      "subdomain": "/test"
+      "forceBasicAuth": true
     }
+
+    repositoryFormData.value.docker = dockerConfig
   }
 
   let success = false;

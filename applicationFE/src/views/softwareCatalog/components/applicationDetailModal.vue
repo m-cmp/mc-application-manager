@@ -88,6 +88,95 @@
               </div>
             </div>
 
+            <!-- Policy Recommendation -->
+            <div class="mb-4">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="text-primary mb-0">Policy Recommendation</h6>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  :disabled="policyLoading || !applicationDetail.deploymentId"
+                  @click="runPolicyAnalysis">
+                  {{ policyLoading ? 'Analyzing...' : 'Analyze 7d' }}
+                </button>
+              </div>
+
+              <div v-if="policyLoading" class="text-center text-muted py-3">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                Loading recommendation
+              </div>
+
+              <div v-else-if="policyRecommendation" class="border rounded p-3">
+                <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
+                  <div>
+                    <div class="text-muted small">Selected Type</div>
+                    <span class="badge bg-secondary">{{ policyRecommendation.selectedResourceType || 'N/A' }}</span>
+                  </div>
+                  <div>
+                    <div class="text-muted small">Recommended Type</div>
+                    <span :class="getRecommendationClass(policyRecommendation.recommendedResourceType)">
+                      {{ policyRecommendation.recommendedResourceType || 'N/A' }}
+                    </span>
+                  </div>
+                  <div>
+                    <div class="text-muted small">Mismatch</div>
+                    <span :class="policyRecommendation.mismatch ? 'badge bg-warning' : 'badge bg-success'">
+                      {{ policyRecommendation.mismatch ? 'Review' : 'Aligned' }}
+                    </span>
+                  </div>
+                  <div>
+                    <div class="text-muted small">Confidence</div>
+                    <span class="badge bg-info">{{ formatPercent(policyRecommendation.confidence) }}</span>
+                  </div>
+                  <div>
+                    <div class="text-muted small">Status</div>
+                    <span class="badge bg-secondary">{{ policyRecommendation.status }}</span>
+                  </div>
+                </div>
+
+                <div v-if="operationProfile" class="row g-2 mb-3">
+                  <div class="col-md-3">
+                    <div class="text-muted small">Data Status</div>
+                    <span :class="getDataStatusClass(operationProfile.dataStatus)">
+                      {{ operationProfile.dataStatus || 'N/A' }}
+                    </span>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="text-muted small">CPU Status</div>
+                    <span>{{ operationProfile.cpuSizingStatus || 'N/A' }}</span>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="text-muted small">Memory Status</div>
+                    <span>{{ operationProfile.memorySizingStatus || 'N/A' }}</span>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="text-muted small">Valid / Missing Days</div>
+                    <span>{{ operationProfile.validDays ?? 0 }} / {{ operationProfile.missingDays ?? 0 }}</span>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <div class="text-muted small">Actions</div>
+                  <span v-for="action in parseActions(policyRecommendation.actions)" :key="action" class="badge bg-light text-dark me-1">
+                    {{ action }}
+                  </span>
+                </div>
+
+                <p class="mb-3">{{ policyRecommendation.message }}</p>
+
+                <div class="btn-list" v-if="policyRecommendation.status === 'OPEN'">
+                  <button type="button" class="btn btn-sm btn-success" @click="saveDecision('ACCEPTED')">Accept</button>
+                  <button type="button" class="btn btn-sm btn-outline-warning" @click="saveDecision('DEFERRED')">Defer</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" @click="saveDecision('IGNORED')">Ignore</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" @click="saveDecision('REJECTED')">Reject</button>
+                </div>
+              </div>
+
+              <div v-else class="text-muted border rounded p-3">
+                No policy recommendation available
+              </div>
+            </div>
+
             <!-- Action History -->
             <div class="mb-4">
               <h6 class="text-primary">Action History</h6>
@@ -363,7 +452,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useToast } from 'vue-toastification'
-import { getApplicationDetail } from '@/api/softwareCatalog'
+import {
+  analyzeOperationProfile,
+  getApplicationDetail,
+  getOperationProfile,
+  getPolicyRecommendation,
+  savePolicyRecommendationDecision
+} from '@/api/softwareCatalog'
 
 interface Props {
   deploymentId: number
@@ -374,7 +469,10 @@ const emit = defineEmits(['close'])
 
 const toast = useToast()
 const loading = ref(false)
+const policyLoading = ref(false)
 const applicationDetail = ref(null as any)
+const operationProfile = ref(null as any)
+const policyRecommendation = ref(null as any)
 
 // computed로 deploymentId 관리
 const currentDeploymentId = ref(0 as number)
@@ -382,8 +480,9 @@ const currentDeploymentId = ref(0 as number)
 // 강제로 API를 다시 호출하는 메서드
 const refreshData = (deploymentId: number) => {
   currentDeploymentId.value = deploymentId
-  if (currentDeploymentId) {
+  if (currentDeploymentId.value) {
     loadApplicationDetail()
+    loadPolicyRecommendation()
   }
 }
 
@@ -392,7 +491,7 @@ defineExpose({
 })
 
 const loadApplicationDetail = async () => {
-  if (!currentDeploymentId) return
+  if (!currentDeploymentId.value) return
   
   loading.value = true
   try {
@@ -405,6 +504,61 @@ const loadApplicationDetail = async () => {
     toast.error('Failed to load application detail')
   } finally {
     loading.value = false
+  }
+}
+
+const loadPolicyRecommendation = async () => {
+  if (!currentDeploymentId.value) return
+
+  policyLoading.value = true
+  try {
+    const profileRes = await getOperationProfile(currentDeploymentId.value)
+    operationProfile.value = profileRes.data || null
+
+    const recommendationRes = await getPolicyRecommendation(currentDeploymentId.value)
+    policyRecommendation.value = recommendationRes.data || null
+  } catch (error) {
+    console.error('Failed to load policy recommendation:', error)
+    operationProfile.value = null
+    policyRecommendation.value = null
+  } finally {
+    policyLoading.value = false
+  }
+}
+
+const runPolicyAnalysis = async () => {
+  if (!currentDeploymentId.value) return
+
+  policyLoading.value = true
+  try {
+    await analyzeOperationProfile(currentDeploymentId.value, 7)
+    await loadPolicyRecommendation()
+    toast.success('Policy recommendation analyzed')
+  } catch (error) {
+    console.error('Failed to analyze policy recommendation:', error)
+    toast.error('Failed to analyze policy recommendation')
+  } finally {
+    policyLoading.value = false
+  }
+}
+
+const saveDecision = async (status: string) => {
+  if (!policyRecommendation.value?.id) return
+
+  policyLoading.value = true
+  try {
+    const { data } = await savePolicyRecommendationDecision(policyRecommendation.value.id, {
+      status,
+      decidedBy: 'admin',
+      decisionReason: `Decision saved from application detail modal: ${status}`
+    })
+    policyRecommendation.value = data
+    toast.success('Recommendation decision saved')
+  } catch (error) {
+    console.error('Failed to save recommendation decision:', error)
+    toast.error('Failed to save recommendation decision')
+  } finally {
+    policyLoading.value = false
   }
 }
 
@@ -453,6 +607,42 @@ const getLogTypeClass = (logType: string) => {
     default:
       return 'badge bg-primary'
   }
+}
+
+const getRecommendationClass = (resourceType: string) => {
+  switch (resourceType) {
+    case 'CPU_INTENSIVE':
+      return 'badge bg-primary'
+    case 'MEMORY_INTENSIVE':
+      return 'badge bg-purple'
+    case 'GENERAL_PURPOSE':
+      return 'badge bg-success'
+    default:
+      return 'badge bg-secondary'
+  }
+}
+
+const getDataStatusClass = (dataStatus: string) => {
+  switch (dataStatus) {
+    case 'SUFFICIENT':
+      return 'badge bg-success'
+    case 'PARTIAL_DATA':
+      return 'badge bg-warning'
+    case 'INSUFFICIENT_DATA':
+      return 'badge bg-danger'
+    default:
+      return 'badge bg-secondary'
+  }
+}
+
+const parseActions = (actions: string) => {
+  if (!actions) return ['NO_ACTION']
+  return actions.split(',').map(action => action.trim()).filter(Boolean)
+}
+
+const formatPercent = (value: number | null | undefined) => {
+  if (value === null || value === undefined) return 'N/A'
+  return `${Math.round(value * 100)}%`
 }
 
 const formatBytes = (bytes: number) => {
@@ -509,6 +699,8 @@ const closeModal = () => {
   
   // 데이터 초기화
   applicationDetail.value = null
+  operationProfile.value = null
+  policyRecommendation.value = null
   emit('close')
 }
 
