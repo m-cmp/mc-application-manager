@@ -56,7 +56,7 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
     private int maxRetries;
 
     // Docker Registry 설정
-    @Value("${docker.registry.port:5500}")
+    @Value("${nexus.docker-port:${docker.registry.port:5000}}")
     private int dockerRegistryPort;
 
     @Value("${docker.registry.secure:false}")

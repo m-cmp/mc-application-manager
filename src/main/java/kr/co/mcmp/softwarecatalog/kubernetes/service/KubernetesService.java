@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import kr.co.mcmp.softwarecatalog.CatalogRepository;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
+import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.constants.LogType;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO;
@@ -47,6 +48,7 @@ public class KubernetesService {
         SoftwareCatalog catalog = null;
         try {
             catalog = findCatalogById(request.getCatalogId());
+            updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ApplicationStatusValues.DEPLOYING);
             // DTO를 포함하여 호출
             history = deploymentService.deployApplication(
                 request.getNamespace(), 
@@ -186,6 +188,7 @@ public class KubernetesService {
                 .namespace(namespace)
                 .clusterName(clusterName)
                 .catalog(catalog)
+                .deploymentType(DeploymentType.K8S)
                 .status("IN_PROGRESS")
                 .checkedAt(LocalDateTime.now())
                 .build();

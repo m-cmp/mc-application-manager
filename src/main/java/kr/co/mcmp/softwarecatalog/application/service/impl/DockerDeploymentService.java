@@ -17,6 +17,7 @@ import kr.co.mcmp.ape.cbtumblebug.dto.VmAccessInfo;
 import kr.co.mcmp.ape.cbtumblebug.dto.VmSpecDto;
 import kr.co.mcmp.softwarecatalog.CatalogService;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalogDTO;
+import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.constants.LogType;
 import kr.co.mcmp.softwarecatalog.application.constants.VmDeploymentMode;
@@ -94,6 +95,7 @@ public class DockerDeploymentService implements DeploymentService {
         } else {
             // 단일 VM 배포의 경우 기존 로직 사용
             DeploymentHistory history = applicationHistoryService.createDeploymentHistory(request, user);
+            history = deploymentHistoryRepository.save(history);
             
             try {
                 deployToVms(request, catalog, history, user);
@@ -146,6 +148,13 @@ public class DockerDeploymentService implements DeploymentService {
             // VM별 DeploymentHistory 생성
             DeploymentHistory vmHistory = applicationHistoryService.createDeploymentHistoryForVm(request, vmId, user);
             deploymentHistoryRepository.save(vmHistory);
+            applicationHistoryService.createApplicationStatusForVm(
+                    vmHistory,
+                    vmId,
+                    vmHistory.getPublicIp(),
+                    request.getServicePort(),
+                    ApplicationStatusValues.PREPARING_RUNTIME,
+                    user);
             vmHistories.put(vmId, vmHistory);
             
             if (firstHistory == null) {
@@ -225,6 +234,13 @@ public class DockerDeploymentService implements DeploymentService {
                 vmHistory.setStatus("FAILED");
                 vmHistory.setUpdatedAt(LocalDateTime.now());
                 deploymentHistoryRepository.save(vmHistory);
+                applicationHistoryService.createApplicationStatusForVm(
+                        vmHistory,
+                        vmHistory.getVmId(),
+                        vmHistory.getPublicIp(),
+                        request.getServicePort(),
+                        "FAILED",
+                        user);
                 applicationHistoryService.addDeploymentLog(vmHistory, LogType.ERROR, "Deployment timeout or error: " + e.getMessage());
             }
         }
@@ -266,7 +282,14 @@ public class DockerDeploymentService implements DeploymentService {
                 log.info("Skipping deployment for VM {} due to existing installation", vmId);
                 continue;
             }
-            
+
+            applicationHistoryService.createApplicationStatusForVm(
+                    history,
+                    vmId,
+                    history.getPublicIp(),
+                    request.getServicePort(),
+                    ApplicationStatusValues.PREPARING_RUNTIME,
+                    user);
             CompletableFuture<DeploymentResult> future = CompletableFuture.supplyAsync(() -> {
                 return deployToSingleVmAsync(request, catalog, history, user, vmId, vmIndex, vmIds, clusterConfig);
             }, asyncExecutor);
@@ -327,7 +350,13 @@ public class DockerDeploymentService implements DeploymentService {
         } catch (Exception e) {
             log.error("Deployment timeout or error", e);
             history.setStatus("FAILED");
-            applicationHistoryService.updateApplicationStatus(history, "FAILED", user);
+            applicationHistoryService.createApplicationStatusForVm(
+                    history,
+                    history.getVmId(),
+                    history.getPublicIp(),
+                    request.getServicePort(),
+                    "FAILED",
+                    user);
             applicationHistoryService.addDeploymentLog(history, LogType.ERROR, 
                 "Deployment failed due to timeout or error: " + e.getMessage());
         }
@@ -348,6 +377,13 @@ public class DockerDeploymentService implements DeploymentService {
             // 배포 파라미터 생성
             DeploymentParameters deployParams = createDeployParameters(request, catalog, vmIndex, vmIds, clusterConfig);
             VmAccessInfo vmAccessInfo = cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), vmId);
+            applicationHistoryService.createApplicationStatusForVm(
+                    history,
+                    vmId,
+                    vmAccessInfo.getPublicIP(),
+                    request.getServicePort(),
+                    ApplicationStatusValues.DEPLOYING,
+                    user);
             
             // VM 공인 IP 목록 생성 (클러스터링용)
             List<String> vmPublicIps = new ArrayList<>();

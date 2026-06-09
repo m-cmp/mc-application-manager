@@ -103,8 +103,6 @@ const _getApplicationsStatusList = async () => {
 }
 
 const initData = () => {
-  applicationsStatusList.value = []
-
   const now = new Date();
   const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false } as any;
 
@@ -172,6 +170,10 @@ const setColumns = () => {
       cellClick: async function (e, cell) {
         const target = e.target as HTMLElement;
         const btnFlag = target?.getAttribute('id')
+        const status = cell.getRow().getData().status
+        if (isActionDisabledStatus(status)) {
+          return
+        }
         const applicationStatusId = cell.getRow().getData().id
         const deploymentType = cell.getRow().getData().deploymentType
         const applicationName = cell.getRow().getData().applicationName
@@ -271,36 +273,51 @@ const infraFormatter = (cell: any) => {
   ` 
 }
 
+const statusLabels: Record<string, string> = {
+  PREPARING_RUNTIME: 'Preparing Runtime',
+  DEPLOYING: 'Deploying',
+  INSTALL: 'Deployment Submitted'
+}
+
+const progressStatuses = new Set(['PREPARING_RUNTIME', 'DEPLOYING', 'IN_PROGRESS', 'INSTALL', 'RESTART'])
+const successStatuses = new Set(['RUNNING', 'SUCCESS'])
+const warningStatuses = new Set(['NOT_FOUND', 'PENDING', 'UNKNOWN'])
+
+const getStatusLabel = (status: string) => statusLabels[status] || status || '-'
+const isActionDisabledStatus = (status: string) => ['PREPARING_RUNTIME', 'DEPLOYING', 'IN_PROGRESS'].includes(status)
+
 /**
  * @Title statusFormatter
  * @Desc Status Formatter
  */
 const statusFormatter = (cell: any) => {
   const status = cell.getRow().getData().status
-  if (status === 'RUNNING') {
+  const statusLabel = getStatusLabel(status)
+
+  if (successStatuses.has(status)) {
     return `
       <div style="cursor: pointer;">
         <span class="status status-green">  
           <span class="status-dot"></span>
-            ${status}
+            ${statusLabel}
         </span>
       </div>`
   }
-  else if (status === 'RESTART' || status === 'IN_PROGRESS' ) {
+  else if (progressStatuses.has(status)) {
   return `
     <div style="cursor: pointer;">
       <span class="status status-primary">  
         <span class="status-dot"></span>
-          ${status}
+          ${statusLabel}
       </span>
     </div>`
   }
-  else if (status === 'NOT_FOUND' ) {
+  else if (warningStatuses.has(status)) {
   return `
     <div style="cursor: pointer;">
       <span class="status status-yellow">  
         <span class="status-dot"></span>
-          ${status}
+          ${statusLabel}
       </span>
     </div>`
   }
@@ -309,7 +326,7 @@ const statusFormatter = (cell: any) => {
   <div style="cursor: pointer;">
     <span class="status status-red">  
       <span class="status-dot"></span>
-        ${status}
+        ${statusLabel}
     </span>
   </div>`
   }
@@ -319,35 +336,42 @@ const statusFormatter = (cell: any) => {
  * @Title actionButtonFormatter
  * @Desc 수정 / 삭제 버튼 Formatter
  */
-const actionButtonFormatter = () => {
+const actionButtonFormatter = (cell: any) => {
+  const status = cell.getRow().getData().status
+  const disabledAttr = isActionDisabledStatus(status) ? 'disabled' : ''
+
   return `
   <div>
     <button
       class='btn btn-ghost-primary d-none d-sm-inline-block'
       id='restart-btn'
       data-bs-toggle='modal' 
-      data-bs-target='#action-confirm'>
+      data-bs-target='#action-confirm'
+      ${disabledAttr}>
       Restart
     </button>
     <button
       class='btn btn-ghost-warning d-none d-sm-inline-block'
       id='stop-btn'
       data-bs-toggle='modal' 
-      data-bs-target='#action-confirm'>
+      data-bs-target='#action-confirm'
+      ${disabledAttr}>
       Stop
     </button>
     <button
       class='btn btn-ghost-danger d-none d-sm-inline-block'
       id='uninstall-btn'
       data-bs-toggle='modal' 
-      data-bs-target='#action-confirm'>
+      data-bs-target='#action-confirm'
+      ${disabledAttr}>
       Uninstall
     </button>
     <button
       class='btn btn-ghost-info d-none d-sm-inline-block'
       id='rating-btn'
       data-bs-toggle='modal' 
-      data-bs-target='#rating-modal'>
+      data-bs-target='#rating-modal'
+      ${disabledAttr}>
       Rating
     </button>
   </div>`;

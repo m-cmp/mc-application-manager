@@ -357,7 +357,7 @@ public class HelmChartService {
             values.put("serviceAccount.create", "false");
             values.put("serviceAccount.name", "default");
 
-            applyObjectStorageValues(catalog, request, providerName, objectStorageValues);
+            applyObjectStorageValues(catalog, request, providerName, helmChart.getChartName(), objectStorageValues);
             if (!objectStorageValues.isEmpty()) {
                 tempObjectStorageValuesPath = createTempValuesFile(objectStorageValues);
             }
@@ -710,7 +710,11 @@ public class HelmChartService {
     private void applyObjectStorageValues(SoftwareCatalog catalog,
                                           kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest request,
                                           String providerName,
+                                          String chartName,
                                           Map<String, Object> valuesFile) {
+        if (!StringUtils.equalsIgnoreCase(chartName, "loki")) {
+            return;
+        }
         if (!hasObjectStorageCapability(catalog) || request == null || request.getAdditionalConfig() == null) {
             return;
         }
@@ -747,6 +751,9 @@ public class HelmChartService {
             return;
         }
         Map<String, Object> loki = nestedMap(valuesFile, "loki");
+        loki.put("configStorageType", "Secret");
+        applyDefaultLokiSchemaConfig(loki);
+
         Map<String, Object> storage = nestedMap(loki, "storage");
         storage.put("type", "s3");
 
@@ -765,7 +772,32 @@ public class HelmChartService {
         bucketNames.put("ruler", bucket);
         bucketNames.put("admin", bucket);
 
+        Map<String, Object> minio = nestedMap(valuesFile, "minio");
+        minio.put("enabled", false);
+
         log.info("Object Storage Helm values prepared for provider={}, backend=s3-compatible, bucketNames configured", providerName);
+    }
+
+    private void applyDefaultLokiSchemaConfig(Map<String, Object> loki) {
+        Object existingSchemaConfig = loki.get("schemaConfig");
+        if (existingSchemaConfig instanceof Map<?, ?> existingSchemaMap && !existingSchemaMap.isEmpty()) {
+            return;
+        }
+
+        Map<String, Object> index = new java.util.LinkedHashMap<>();
+        index.put("prefix", "loki_index_");
+        index.put("period", "24h");
+
+        Map<String, Object> config = new java.util.LinkedHashMap<>();
+        config.put("from", "2024-04-01");
+        config.put("store", "tsdb");
+        config.put("object_store", "s3");
+        config.put("schema", "v13");
+        config.put("index", index);
+
+        Map<String, Object> schemaConfig = new java.util.LinkedHashMap<>();
+        schemaConfig.put("configs", java.util.List.of(config));
+        loki.put("schemaConfig", schemaConfig);
     }
 
     private boolean hasObjectStorageCapability(SoftwareCatalog catalog) {
