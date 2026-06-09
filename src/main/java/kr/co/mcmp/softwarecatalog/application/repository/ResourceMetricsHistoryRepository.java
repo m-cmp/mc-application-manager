@@ -38,6 +38,10 @@ public interface ResourceMetricsHistoryRepository extends JpaRepository<Resource
                 MAX(memory_usage_pct)                                               AS max_memory_pct,
                 PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY memory_usage_pct)     AS p95_memory_pct,
                 STDDEV(memory_usage_pct)                                            AS stddev_memory,
+                AVG(network_in_bytes)                                               AS avg_network_in_bytes,
+                MAX(network_in_bytes)                                               AS max_network_in_bytes,
+                AVG(network_out_bytes)                                              AS avg_network_out_bytes,
+                MAX(network_out_bytes)                                              AS max_network_out_bytes,
                 COUNT(*)                                                            AS sample_count,
                 SUM(CASE WHEN oom_killed = true THEN 1 ELSE 0 END)                 AS oom_count,
                 SUM(CASE WHEN status = 'RUNNING' THEN 1 ELSE 0 END) * 10           AS running_minutes,
@@ -62,6 +66,10 @@ public interface ResourceMetricsHistoryRepository extends JpaRepository<Resource
         Double getMaxMemoryPct();
         Double getP95MemoryPct();
         Double getStddevMemory();
+        Double getAvgNetworkInBytes();
+        Long getMaxNetworkInBytes();
+        Double getAvgNetworkOutBytes();
+        Long getMaxNetworkOutBytes();
         Integer getSampleCount();
         Integer getOomCount();
         Integer getRunningMinutes();

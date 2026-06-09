@@ -56,6 +56,26 @@ public interface UnifiedLogRepository extends JpaRepository<UnifiedLog, Long> {
      */
     List<UnifiedLog> findByDeploymentIdAndLoggedAtBetweenOrderByLoggedAtDesc(
             Long deploymentId, LocalDateTime startTime, LocalDateTime endTime);
+
+    @Query("SELECT COUNT(u) FROM UnifiedLog u "
+            + "WHERE u.deployment.id = :deploymentId "
+            + "AND u.severity = :severity "
+            + "AND u.loggedAt BETWEEN :startTime AND :endTime")
+    long countByDeploymentIdAndSeverityAndLoggedAtBetween(
+            @Param("deploymentId") Long deploymentId,
+            @Param("severity") UnifiedLog.LogSeverity severity,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
+
+    @Query("SELECT COUNT(u) FROM UnifiedLog u "
+            + "WHERE u.deployment.id = :deploymentId "
+            + "AND u.loggedAt BETWEEN :startTime AND :endTime "
+            + "AND LOWER(COALESCE(u.logMessage, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    long countByDeploymentIdAndMessageContainingBetween(
+            @Param("deploymentId") Long deploymentId,
+            @Param("keyword") String keyword,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
     
     /**
      * 모듈별 로그 개수 조회

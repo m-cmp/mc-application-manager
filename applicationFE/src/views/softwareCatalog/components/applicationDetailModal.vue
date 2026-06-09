@@ -92,13 +92,17 @@
             <div class="mb-4">
               <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="text-primary mb-0">Policy Recommendation</h6>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-primary"
-                  :disabled="policyLoading || !applicationDetail.deploymentId"
-                  @click="runPolicyAnalysis">
-                  {{ policyLoading ? 'Analyzing...' : 'Analyze 7d' }}
-                </button>
+                <div class="btn-list">
+                  <button
+                    v-for="period in analysisPeriods"
+                    :key="period"
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    :disabled="policyLoading || !applicationDetail.deploymentId"
+                    @click="runPolicyAnalysis(period)">
+                    {{ policyLoading ? 'Analyzing...' : `Analyze ${period}d` }}
+                  </button>
+                </div>
               </div>
 
               <div v-if="policyLoading" class="text-center text-muted py-3">
@@ -110,12 +114,12 @@
                 <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
                   <div>
                     <div class="text-muted small">Selected Type</div>
-                    <span class="badge bg-secondary">{{ policyRecommendation.selectedResourceType || 'N/A' }}</span>
+                    <span class="badge bg-secondary">{{ formatResourceType(policyRecommendation.selectedResourceType) }}</span>
                   </div>
                   <div>
                     <div class="text-muted small">Recommended Type</div>
                     <span :class="getRecommendationClass(policyRecommendation.recommendedResourceType)">
-                      {{ policyRecommendation.recommendedResourceType || 'N/A' }}
+                      {{ formatResourceType(policyRecommendation.recommendedResourceType) }}
                     </span>
                   </div>
                   <div>
@@ -125,8 +129,8 @@
                     </span>
                   </div>
                   <div>
-                    <div class="text-muted small">Confidence</div>
-                    <span class="badge bg-info">{{ formatPercent(policyRecommendation.confidence) }}</span>
+                    <div class="text-muted small">Judgment Confidence</div>
+                    <span class="badge bg-info">{{ formatConfidence(policyRecommendation.confidence) }}</span>
                   </div>
                   <div>
                     <div class="text-muted small">Status</div>
@@ -134,11 +138,38 @@
                   </div>
                 </div>
 
+                <div v-if="operationProfiles.length" class="table-responsive mb-3">
+                  <table class="table table-sm mb-0">
+                    <thead>
+                      <tr>
+                        <th>Period</th>
+                        <th>Policy</th>
+                        <th>Data</th>
+                        <th>Confidence</th>
+                        <th>Valid / Missing</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="profile in operationProfiles" :key="profile.id || `${profile.analysisStartDate}-${profile.analysisEndDate}`">
+                        <td>{{ getAnalysisDays(profile) }}d</td>
+                        <td>{{ formatResourceType(profile.recommendedResourceType) }}</td>
+                        <td>
+                          <span :class="getDataStatusClass(profile.dataStatus)">
+                            {{ formatDataStatus(profile.dataStatus) }}
+                          </span>
+                        </td>
+                        <td>{{ formatConfidence(profile.confidence) }}</td>
+                        <td>{{ profile.validDays ?? 0 }} / {{ profile.missingDays ?? 0 }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
                 <div v-if="operationProfile" class="row g-2 mb-3">
                   <div class="col-md-3">
                     <div class="text-muted small">Data Status</div>
                     <span :class="getDataStatusClass(operationProfile.dataStatus)">
-                      {{ operationProfile.dataStatus || 'N/A' }}
+                      {{ formatDataStatus(operationProfile.dataStatus) }}
                     </span>
                   </div>
                   <div class="col-md-3">
@@ -158,11 +189,18 @@
                 <div class="mb-3">
                   <div class="text-muted small">Actions</div>
                   <span v-for="action in parseActions(policyRecommendation.actions)" :key="action" class="badge bg-light text-dark me-1">
-                    {{ action }}
+                    {{ formatAction(action) }}
                   </span>
                 </div>
 
                 <p class="mb-3">{{ policyRecommendation.message }}</p>
+
+                <div v-if="operationProfile && parseReasons(operationProfile.reasons).length" class="mb-3">
+                  <div class="text-muted small">Evidence</div>
+                  <ul class="policy-evidence-list mb-0">
+                    <li v-for="reason in parseReasons(operationProfile.reasons)" :key="reason">{{ reason }}</li>
+                  </ul>
+                </div>
 
                 <div class="btn-list" v-if="policyRecommendation.status === 'OPEN'">
                   <button type="button" class="btn btn-sm btn-success" @click="saveDecision('ACCEPTED')">Accept</button>
@@ -472,7 +510,9 @@ const loading = ref(false)
 const policyLoading = ref(false)
 const applicationDetail = ref(null as any)
 const operationProfile = ref(null as any)
+const operationProfiles = ref([] as any[])
 const policyRecommendation = ref(null as any)
+const analysisPeriods = [7, 30, 90]
 
 // computed로 deploymentId 관리
 const currentDeploymentId = ref(0 as number)
@@ -514,26 +554,38 @@ const loadPolicyRecommendation = async () => {
   try {
     const profileRes = await getOperationProfile(currentDeploymentId.value)
     operationProfile.value = profileRes.data || null
+    const periodResults = await Promise.all(
+      analysisPeriods.map(async (period) => {
+        try {
+          const res = await getOperationProfile(currentDeploymentId.value, period)
+          return res.data || null
+        } catch {
+          return null
+        }
+      })
+    )
+    operationProfiles.value = periodResults.filter(Boolean)
 
     const recommendationRes = await getPolicyRecommendation(currentDeploymentId.value)
     policyRecommendation.value = recommendationRes.data || null
   } catch (error) {
     console.error('Failed to load policy recommendation:', error)
     operationProfile.value = null
+    operationProfiles.value = []
     policyRecommendation.value = null
   } finally {
     policyLoading.value = false
   }
 }
 
-const runPolicyAnalysis = async () => {
+const runPolicyAnalysis = async (days: number) => {
   if (!currentDeploymentId.value) return
 
   policyLoading.value = true
   try {
-    await analyzeOperationProfile(currentDeploymentId.value, 7)
+    await analyzeOperationProfile(currentDeploymentId.value, days)
     await loadPolicyRecommendation()
-    toast.success('Policy recommendation analyzed')
+    toast.success(`${days}d policy recommendation analyzed`)
   } catch (error) {
     console.error('Failed to analyze policy recommendation:', error)
     toast.error('Failed to analyze policy recommendation')
@@ -609,12 +661,14 @@ const getLogTypeClass = (logType: string) => {
   }
 }
 
-const getRecommendationClass = (resourceType: string) => {
+const getRecommendationClass = (resourceType: string | null | undefined) => {
   switch (resourceType) {
     case 'CPU_INTENSIVE':
       return 'badge bg-primary'
     case 'MEMORY_INTENSIVE':
       return 'badge bg-purple'
+    case 'CPU_MEMORY_INTENSIVE':
+      return 'badge bg-warning'
     case 'GENERAL_PURPOSE':
       return 'badge bg-success'
     default:
@@ -622,7 +676,22 @@ const getRecommendationClass = (resourceType: string) => {
   }
 }
 
-const getDataStatusClass = (dataStatus: string) => {
+const formatResourceType = (resourceType: string | null | undefined) => {
+  switch (resourceType) {
+    case 'CPU_INTENSIVE':
+      return 'CPU 중심'
+    case 'MEMORY_INTENSIVE':
+      return 'Memory 중심'
+    case 'CPU_MEMORY_INTENSIVE':
+      return 'CPU/Memory 복합'
+    case 'GENERAL_PURPOSE':
+      return '현행/범용'
+    default:
+      return resourceType || 'N/A'
+  }
+}
+
+const getDataStatusClass = (dataStatus: string | null | undefined) => {
   switch (dataStatus) {
     case 'SUFFICIENT':
       return 'badge bg-success'
@@ -635,14 +704,70 @@ const getDataStatusClass = (dataStatus: string) => {
   }
 }
 
+const formatDataStatus = (dataStatus: string | null | undefined) => {
+  switch (dataStatus) {
+    case 'SUFFICIENT':
+      return '충분'
+    case 'PARTIAL_DATA':
+      return '부분 데이터'
+    case 'INSUFFICIENT_DATA':
+      return '데이터 부족'
+    default:
+      return dataStatus || 'N/A'
+  }
+}
+
 const parseActions = (actions: string) => {
   if (!actions) return ['NO_ACTION']
   return actions.split(',').map(action => action.trim()).filter(Boolean)
 }
 
-const formatPercent = (value: number | null | undefined) => {
+const formatAction = (action: string) => {
+  switch (action) {
+    case 'INCREASE_CPU':
+      return 'CPU 정책 검토'
+    case 'INCREASE_MEMORY':
+      return 'Memory 정책 검토'
+    case 'REVIEW_CPU_MEMORY_POLICY':
+      return 'CPU/Memory 복합 검토'
+    case 'CHANGE_RESOURCE_TYPE':
+      return '운영 유형 검토'
+    case 'DOWNSIZE':
+      return '현행/하향 검토'
+    case 'INVESTIGATE_STABILITY':
+      return '안정성 점검'
+    case 'NO_ACTION':
+      return '현행 유지'
+    default:
+      return action
+  }
+}
+
+const formatConfidence = (value: number | null | undefined) => {
   if (value === null || value === undefined) return 'N/A'
-  return `${Math.round(value * 100)}%`
+  const percent = Math.round(value * 100)
+  if (percent >= 80) return `높음 ${percent}%`
+  if (percent >= 60) return `보통 ${percent}%`
+  if (percent >= 40) return `낮음 ${percent}%`
+  return `판단 보류 ${percent}%`
+}
+
+const parseReasons = (reasons: string | null | undefined) => {
+  if (!reasons) return []
+  try {
+    const parsed = JSON.parse(reasons)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return reasons.split(',').map(reason => reason.trim()).filter(Boolean)
+  }
+}
+
+const getAnalysisDays = (profile: any) => {
+  if (!profile?.analysisStartDate || !profile?.analysisEndDate) return '-'
+  const start = new Date(profile.analysisStartDate)
+  const end = new Date(profile.analysisEndDate)
+  const diff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  return diff + 1
 }
 
 const formatBytes = (bytes: number) => {
@@ -700,6 +825,7 @@ const closeModal = () => {
   // 데이터 초기화
   applicationDetail.value = null
   operationProfile.value = null
+  operationProfiles.value = []
   policyRecommendation.value = null
   emit('close')
 }
@@ -765,5 +891,11 @@ h6 {
 .col-md-3 strong,
 .col-md-10 strong {
   color: #495057;
+}
+
+.policy-evidence-list {
+  padding-left: 1rem;
+  color: #495057;
+  font-size: 0.8125rem;
 }
 </style>

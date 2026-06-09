@@ -180,8 +180,9 @@ export function analyzeOperationProfile(deploymentId: number, days = 14) {
   return request.post(`/api/applications/${deploymentId}/operation-profile/analyze?days=${days}`)
 }
 
-export function getOperationProfile(deploymentId: number) {
-  return request.get(`/api/applications/${deploymentId}/operation-profile`)
+export function getOperationProfile(deploymentId: number, days?: number) {
+  const query = days ? `?days=${days}` : ''
+  return request.get(`/api/applications/${deploymentId}/operation-profile${query}`)
 }
 
 export function getPolicyRecommendation(deploymentId: number) {
