@@ -61,6 +61,11 @@ public class GlobalExceptionHandler {
     	return new ResponseWrapper<>(de.getResponseCode(), de.getDetail());
     }
 
+    @ExceptionHandler(value = {NexusClientException.class})
+    protected ResponseWrapper<String> handleNexusClientException(NexusClientException de) {
+        return new ResponseWrapper<>(de.getResponseCode(), de.getDetail());
+    }
+
 //    @ExceptionHandler(value = {ArgocdException.class})
 //    protected ResponseWrapper<String> handleGeneralException(ArgocdException e) {
 //    	return new ResponseWrapper<>(e.getCode(), e.getMessag(), e.getDetail());

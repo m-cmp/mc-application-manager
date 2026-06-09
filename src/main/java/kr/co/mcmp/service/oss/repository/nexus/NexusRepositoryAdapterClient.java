@@ -10,6 +10,7 @@ import kr.co.mcmp.oss.dto.OssDto;
 import kr.co.mcmp.oss.service.OssServiceImpl;
 import kr.co.mcmp.util.Base64Util;
 import kr.co.mcmp.util.Base64Utils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
@@ -22,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Service
+@Slf4j
 public class NexusRepositoryAdapterClient {
 
     private static final String GET_REPO_LIST = "/service/rest/v1/repositories";
@@ -89,6 +91,8 @@ public class NexusRepositoryAdapterClient {
                 .toUriString();
 
         HttpEntity<CommonRepository.RepositoryDto> request = getRequest(repositoryDto);
+        log.info("Nexus repository create request: url={}, name={}, format={}, type={}, docker={}",
+                url, repositoryDto.getName(), repositoryDto.getFormat(), repositoryDto.getType(), repositoryDto.getDocker());
         return exchange(url, HttpMethod.POST, request, new ParameterizedTypeReference<Object>() {});
     }
 
@@ -151,10 +155,35 @@ public class NexusRepositoryAdapterClient {
         ObjectMapper mapper = new ObjectMapper();
         try {
             JsonNode rootNode = mapper.readTree(errorMessage);
+            if (rootNode.isArray()) {
+                StringBuilder messages = new StringBuilder();
+                for (JsonNode node : rootNode) {
+                    String id = cleanMessage(node.path("id").asText());
+                    String message = cleanMessage(node.path("message").asText());
+                    if (!id.isBlank() || !message.isBlank()) {
+                        if (messages.length() > 0) {
+                            messages.append("; ");
+                        }
+                        if (!id.isBlank()) {
+                            messages.append(id).append(": ");
+                        }
+                        messages.append(message.isBlank() ? cleanMessage(node.toString()) : message);
+                    }
+                }
+                if (messages.length() > 0) {
+                    return messages.toString();
+                }
+            }
+
             JsonNode messageNode = rootNode.path("message");
-            return messageNode.asText().replace("\\\"", "\"").replace("\"", "");
+            String message = cleanMessage(messageNode.asText());
+            return message.isBlank() ? cleanMessage(errorMessage) : message;
         } catch (Exception e) {
             return "Message Parsing Error";
         }
+    }
+
+    private String cleanMessage(String message) {
+        return message == null ? "" : message.replace("\\\"", "\"").replace("\"", "");
     }
 }

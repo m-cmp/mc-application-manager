@@ -53,7 +53,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private final OssService ossService;
     private final RestTemplate restTemplate;
     
-    @Value("${docker.registry.port:5500}")
+    @Value("${nexus.docker-port:${docker.registry.port:5000}}")
     private int dockerRegistryPort;
     
     @Value("${docker.push.timeout-seconds:600}")
@@ -822,8 +822,9 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             
             // Docker Repository 생성 JSON
             String repositoryConfig = String.format(
-                "{\"name\":\"%s\",\"online\":true,\"storage\":{\"blobStoreName\":\"default\",\"strictContentTypeValidation\":true,\"writePolicy\":\"allow_once\"},\"docker\":{\"v1Enabled\":false,\"forceBasicAuth\":true,\"httpPort\":5500}}",
-                repositoryName
+                "{\"name\":\"%s\",\"online\":true,\"storage\":{\"blobStoreName\":\"default\",\"strictContentTypeValidation\":true,\"writePolicy\":\"allow_once\"},\"docker\":{\"v1Enabled\":false,\"forceBasicAuth\":true,\"httpPort\":%d}}",
+                repositoryName,
+                dockerRegistryPort
             );
             
             ProcessBuilder curlProcess = new ProcessBuilder(
@@ -1047,8 +1048,6 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 .v1Enabled(false)
                 .forceBasicAuth(true)
                 .httpPort(dockerRegistryPort)
-                .httpsPort(dockerRegistryPort + 100)
-                .subdomain("/" + catalog.getName().toLowerCase().replaceAll("\\s+", "-"))
                 .build();
         
         // Storage 설정

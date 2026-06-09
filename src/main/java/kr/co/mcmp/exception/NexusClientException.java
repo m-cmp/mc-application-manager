@@ -16,15 +16,18 @@ public class NexusClientException extends RuntimeException {
     }
 
     public NexusClientException(ResponseCode responseCode) {
+        super(responseCode.getMessage());
         this.responseCode = responseCode;
     }
 
     public NexusClientException(ResponseCode responseCode, String detail) {
+        super(detail);
         this.responseCode = responseCode;
         this.detail = detail;
     }
 
     public NexusClientException(String detail) {
+        super(detail);
         this.detail = detail;
     }
 
