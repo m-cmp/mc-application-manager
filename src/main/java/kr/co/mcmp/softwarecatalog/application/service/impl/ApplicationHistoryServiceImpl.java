@@ -12,6 +12,7 @@ import kr.co.mcmp.ape.cbtumblebug.dto.VmAccessInfo;
 import kr.co.mcmp.softwarecatalog.CatalogService;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalogDTO;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
+import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.constants.LogType;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
@@ -189,12 +190,15 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
                 ApplicationStatus status = existingStatus.get();
                 // SUCCESS, RUNNING 상태만 기존 설치로 간주 (FAILED는 제외)
                 String currentStatus = status.getStatus();
-                boolean isExisting = "SUCCESS".equals(currentStatus) || "RUNNING".equals(currentStatus);
+                boolean isExisting = "SUCCESS".equals(currentStatus)
+                        || "RUNNING".equals(currentStatus)
+                        || ApplicationStatusValues.PREPARING_RUNTIME.equals(currentStatus)
+                        || ApplicationStatusValues.DEPLOYING.equals(currentStatus);
                 
                 if (isExisting) {
-                    log.info("Found existing successful installation for VM {}: status={}", vmId, currentStatus);
+                    log.info("Found existing or active installation for VM {}: status={}", vmId, currentStatus);
                 } else {
-                    log.info("Found existing failed installation for VM {}: status={}, will retry", vmId, currentStatus);
+                    log.info("Found retryable installation status for VM {}: status={}", vmId, currentStatus);
                 }
                 
                 return isExisting;
