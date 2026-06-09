@@ -68,6 +68,19 @@ public class DailyMetricsSummary {
     @Column(name = "stddev_memory")
     private Double stddevMemory;
 
+    // Network aggregates
+    @Column(name = "avg_network_in_bytes")
+    private Double avgNetworkInBytes;
+
+    @Column(name = "max_network_in_bytes")
+    private Long maxNetworkInBytes;
+
+    @Column(name = "avg_network_out_bytes")
+    private Double avgNetworkOutBytes;
+
+    @Column(name = "max_network_out_bytes")
+    private Long maxNetworkOutBytes;
+
     // Event aggregates
     @Column(name = "oom_count")
     private Integer oomCount;

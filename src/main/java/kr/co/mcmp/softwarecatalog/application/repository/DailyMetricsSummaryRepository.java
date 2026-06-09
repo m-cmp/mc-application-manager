@@ -22,6 +22,9 @@ public interface DailyMetricsSummaryRepository extends JpaRepository<DailyMetric
     List<DailyMetricsSummary> findByDeploymentIdAndSummaryDateBetweenOrderBySummaryDateAsc(
             Long deploymentId, LocalDate startDate, LocalDate endDate);
 
+    @Query("SELECT DISTINCT d.deploymentId FROM DailyMetricsSummary d WHERE d.summaryDate = :summaryDate ORDER BY d.deploymentId ASC")
+    List<Long> findDistinctDeploymentIdsBySummaryDate(@Param("summaryDate") LocalDate summaryDate);
+
     @Query("SELECT d FROM DailyMetricsSummary d WHERE d.summaryDate >= :afterDate ORDER BY d.summaryDate ASC")
     List<DailyMetricsSummary> findAllBySummaryDateAfter(@Param("afterDate") LocalDate afterDate);
 
