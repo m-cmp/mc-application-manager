@@ -1,14 +1,19 @@
 package kr.co.mcmp.softwarecatalog.application.service.impl;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
+import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
+import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationHistoryService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOperationService;
 import kr.co.mcmp.softwarecatalog.kubernetes.service.KubernetesService;
@@ -23,7 +28,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KubernetesApplicationOperationService implements ApplicationOperationService {
     
+    private static final List<ActionType> ACTIVE_DEPLOYMENT_ACTIONS = Arrays.asList(ActionType.INSTALL, ActionType.RUN);
+    private static final List<String> ACTIVE_DEPLOYMENT_STATUSES = Arrays.asList("SUCCESS", "RUNNING");
+
     private final ApplicationStatusRepository applicationStatusRepository;
+    private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final KubernetesService kubernetesService;
     private final ApplicationHistoryService applicationHistoryService;
     
@@ -39,6 +48,7 @@ public class KubernetesApplicationOperationService implements ApplicationOperati
         Map<String, Object> result = new HashMap<>();
         result.put("operation", operation);
         result.put("applicationStatusId", applicationStatusId);
+        result.put("success", false);
     
         try {
             switch (operation.toString().toLowerCase()) {
@@ -54,12 +64,14 @@ public class KubernetesApplicationOperationService implements ApplicationOperati
                 default:
                     throw new IllegalArgumentException("Unknown operation: " + operation);
             }
+            result.put("success", true);
             result.put("result", "SUCCESS");
             applicationHistoryService.insertOperationHistory(applicationStatus, username, reason, "Kubernetes operation: " + operation.name(), operation);
             updateApplicationStatus(applicationStatus, operation, result, username);
     
         } catch (Exception e) {
             log.error("Error performing Kubernetes operation: {} on application status: {}", operation, applicationStatusId, e);
+            result.put("success", false);
             result.put("error", e.getMessage());
         }
     
@@ -77,7 +89,8 @@ public class KubernetesApplicationOperationService implements ApplicationOperati
                 applicationStatus.setStatus(ActionType.STOP.name());
                 break;
             case "uninstall":
-                applicationStatus.setStatus(ActionType.UNINSTALL.name());
+                applicationStatus.setStatus(ApplicationStatusValues.UNINSTALLED);
+                markDeploymentHistoryAsUninstalled(applicationStatus);
                 break;
             case "restart":
                 applicationStatus.setStatus(ActionType.RESTART.name());
@@ -85,6 +98,35 @@ public class KubernetesApplicationOperationService implements ApplicationOperati
         }
         applicationStatus.setCheckedAt(java.time.LocalDateTime.now());
         applicationStatusRepository.save(applicationStatus);
+    }
+
+    private void markDeploymentHistoryAsUninstalled(ApplicationStatus applicationStatus) {
+        DeploymentHistory deploymentHistory = null;
+
+        if (applicationStatus.getDeploymentHistoryId() != null) {
+            deploymentHistory = deploymentHistoryRepository.findById(applicationStatus.getDeploymentHistoryId()).orElse(null);
+        }
+
+        if (deploymentHistory == null && applicationStatus.getCatalog() != null
+                && applicationStatus.getClusterName() != null && applicationStatus.getNamespace() != null) {
+            deploymentHistory = deploymentHistoryRepository
+                    .findTopByCatalogIdAndClusterNameAndNamespaceAndActionTypeInAndStatusInOrderByExecutedAtDesc(
+                            applicationStatus.getCatalog().getId(),
+                            applicationStatus.getClusterName(),
+                            applicationStatus.getNamespace(),
+                            ACTIVE_DEPLOYMENT_ACTIONS,
+                            ACTIVE_DEPLOYMENT_STATUSES)
+                    .orElse(null);
+        }
+
+        if (deploymentHistory == null) {
+            log.warn("No active deployment history found to mark uninstalled for applicationStatusId={}", applicationStatus.getId());
+            return;
+        }
+
+        deploymentHistory.setStatus(ApplicationStatusValues.UNINSTALLED);
+        deploymentHistory.setUpdatedAt(java.time.LocalDateTime.now());
+        deploymentHistoryRepository.save(deploymentHistory);
     }
 }
 

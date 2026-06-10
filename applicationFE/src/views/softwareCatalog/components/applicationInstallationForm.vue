@@ -178,6 +178,15 @@
               <p class="text-muted">Please enter a port accessible from the outside</p>
               <input type="number"  class="form-control" placeholder="8080"  v-model="inputServicePort">
             </div>
+
+            <div class="mb-3" v-if="modalTitle == 'Application Installation'">
+              <label class="form-label">Resource Type</label>
+              <select class="form-select" v-model="selectedResourceType">
+                <option value="GENERAL_PURPOSE">General Purpose</option>
+                <option value="CPU_INTENSIVE">CPU Intensive</option>
+                <option value="MEMORY_INTENSIVE">Memory Intensive</option>
+              </select>
+            </div>
           </template>
 
           <!-- 
@@ -874,6 +883,7 @@ const runInstall = async () => {
         username: "admin",
         deploymentType: selectInfra.value,
         vmDeploymentMode: selectDeploymentType.value.toUpperCase(),
+        resourceType: selectedResourceType.value,
       }
       res = await runVmInstall(params)
     } else {

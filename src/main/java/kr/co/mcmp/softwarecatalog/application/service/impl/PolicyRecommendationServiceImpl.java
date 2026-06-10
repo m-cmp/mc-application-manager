@@ -48,6 +48,7 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
 
     private static final String STATUS_OPEN = "OPEN";
     private static final Set<String> DECISION_STATUSES = Set.of("OPEN", "ACCEPTED", "DEFERRED", "IGNORED", "REJECTED");
+    private static final List<Integer> STANDARD_ANALYSIS_DAYS = List.of(90, 30, 7);
 
     private final DailyMetricsSummaryRepository dailyMetricsSummaryRepository;
     private final AbnormalEventRepository abnormalEventRepository;
@@ -117,9 +118,19 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
     }
 
     @Override
+    @Transactional
+    public List<OperationProfileAnalysisDTO> analyzeStandardPeriods(Long deploymentId) {
+        List<OperationProfileAnalysisDTO> results = new ArrayList<>();
+        for (Integer days : STANDARD_ANALYSIS_DAYS) {
+            results.add(analyze(deploymentId, days));
+        }
+        return results;
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public OperationProfileAnalysisDTO getLatestAnalysis(Long deploymentId) {
-        return operationProfileAnalysisRepository.findTopByDeploymentIdOrderByCreatedAtDesc(deploymentId)
+        return operationProfileAnalysisRepository.findTopByDeploymentIdOrderByCreatedAtDescIdDesc(deploymentId)
                 .map(OperationProfileAnalysisDTO::from)
                 .orElse(null);
     }
@@ -131,7 +142,7 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
         LocalDate endDate = LocalDate.now().minusDays(1);
         LocalDate startDate = endDate.minusDays(analysisDays - 1L);
         return operationProfileAnalysisRepository
-                .findTopByDeploymentIdAndAnalysisStartDateAndAnalysisEndDateOrderByCreatedAtDesc(
+                .findTopByDeploymentIdAndAnalysisStartDateAndAnalysisEndDateOrderByCreatedAtDescIdDesc(
                         deploymentId, startDate, endDate)
                 .map(OperationProfileAnalysisDTO::from)
                 .orElse(null);
@@ -140,7 +151,7 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
     @Override
     @Transactional(readOnly = true)
     public PolicyRecommendationDTO getLatestRecommendation(Long deploymentId) {
-        return policyRecommendationRepository.findTopByDeploymentIdOrderByCreatedAtDesc(deploymentId)
+        return policyRecommendationRepository.findTopByDeploymentIdOrderByCreatedAtDescIdDesc(deploymentId)
                 .map(PolicyRecommendationDTO::from)
                 .orElse(null);
     }

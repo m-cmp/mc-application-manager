@@ -1,5 +1,5 @@
 <template>
-  <div class="modal modal-blur fade" id="application-detail-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal modal-blur fade" :id="props.modalId" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
       <div class="modal-content">
         <div class="modal-header">
@@ -19,8 +19,17 @@
               <h6 class="text-primary">Application Overview</h6>
               <div class="row">
                 <div class="col-md-2 text-center">
-                  <img v-if="applicationDetail.logoUrlLarge" :src="applicationDetail.logoUrlLarge" 
-                       :alt="applicationDetail.catalogName" class="img-fluid" style="max-height: 80px;">
+                  <img
+                    v-if="applicationLogoUrl && !logoLoadFailed"
+                    :src="applicationLogoUrl"
+                    :alt="applicationDetail.catalogName"
+                    class="img-fluid application-detail-logo"
+                    @error="logoLoadFailed = true">
+                  <div
+                    v-else
+                    class="application-detail-logo-fallback d-inline-flex align-items-center justify-content-center">
+                    <IconPackage class="icon" size="32" stroke-width="1.75" />
+                  </div>
                 </div>
                 <div class="col-md-10">
                   <h5>{{ applicationDetail.catalogName }}</h5>
@@ -35,7 +44,7 @@
                     <div class="col-md-3">
                       <strong class="me-2">Status:</strong> 
                       <span :class="getStatusClass(applicationDetail.applicationStatus)">
-                        {{ applicationDetail.applicationStatus }}
+                        {{ formatApplicationStatus(applicationDetail.applicationStatus) }}
                       </span>
                     </div>
                     <div class="col-md-3">
@@ -51,37 +60,40 @@
 
             <!-- Performance Metrics -->
             <div class="mb-4">
-              <h6 class="text-primary">Performance Metrics</h6>
+              <h6 class="text-primary">성능 지표</h6>
+              <div v-if="!isRuntimeMetricAvailable" class="text-muted small mb-2">
+                현재 실행 중인 상태가 아니므로 최신 성능 지표를 표시하지 않습니다.
+              </div>
               <div class="row">
                 <div class="col-md-3">
                   <div class="card text-center">
                     <div class="card-body">
-                      <h5 class="card-title">{{ applicationDetail.cpuUsage }}%</h5>
-                      <p class="card-text">CPU Usage</p>
+                      <h5 class="card-title">{{ formatMetricPercent(applicationDetail.cpuUsage) }}</h5>
+                      <p class="card-text">CPU 사용률</p>
                     </div>
                   </div>
                 </div>
                 <div class="col-md-3">
                   <div class="card text-center">
                     <div class="card-body">
-                      <h5 class="card-title">{{ applicationDetail.memoryUsage }}%</h5>
-                      <p class="card-text">Memory Usage</p>
+                      <h5 class="card-title">{{ formatMetricPercent(applicationDetail.memoryUsage) }}</h5>
+                      <p class="card-text">Memory 사용률</p>
                     </div>
                   </div>
                 </div>
                 <div class="col-md-3">
                   <div class="card text-center">
                     <div class="card-body">
-                      <h5 class="card-title">{{ formatBytes(applicationDetail.networkIn) }}</h5>
-                      <p class="card-text">Network In</p>
+                      <h5 class="card-title">{{ formatMetricBytes(applicationDetail.networkIn) }}</h5>
+                      <p class="card-text">네트워크 수신</p>
                     </div>
                   </div>
                 </div>
                 <div class="col-md-3">
                   <div class="card text-center">
                     <div class="card-body">
-                      <h5 class="card-title">{{ formatBytes(applicationDetail.networkOut) }}</h5>
-                      <p class="card-text">Network Out</p>
+                      <h5 class="card-title">{{ formatMetricBytes(applicationDetail.networkOut) }}</h5>
+                      <p class="card-text">네트워크 송신</p>
                     </div>
                   </div>
                 </div>
@@ -91,75 +103,82 @@
             <!-- Policy Recommendation -->
             <div class="mb-4">
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="text-primary mb-0">Policy Recommendation</h6>
+                <div>
+                  <h6 class="text-primary mb-0">정책 추천</h6>
+                  <div class="text-muted small">최근 분석 시각: {{ lastPolicyAnalysisAt }}</div>
+                </div>
                 <div class="btn-list">
                   <button
-                    v-for="period in analysisPeriods"
-                    :key="period"
                     type="button"
-                    class="btn btn-sm btn-outline-primary"
-                    :disabled="policyLoading || !applicationDetail.deploymentId"
-                    @click="runPolicyAnalysis(period)">
-                    {{ policyLoading ? 'Analyzing...' : `Analyze ${period}d` }}
+                    class="btn btn-outline-primary"
+                    :disabled="policyLoading || !applicationDetail.deploymentId || !isPolicyAnalysisAvailable"
+                    @click="runPolicyAnalysis">
+                    {{ policyLoading ? 'Analyzing...' : 'Analyze' }}
                   </button>
                 </div>
               </div>
 
               <div v-if="policyLoading" class="text-center text-muted py-3">
                 <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                Loading recommendation
+                정책 추천 정보를 불러오는 중입니다.
               </div>
 
               <div v-else-if="policyRecommendation" class="border rounded p-3">
+                <div v-if="!isPolicyAnalysisAvailable" class="alert alert-light border text-muted py-2 mb-3">
+                  운영 종료 또는 미확인 상태의 배포는 정책 추천 분석을 실행하지 않습니다. 아래 내용은 마지막으로 저장된 분석 결과입니다.
+                </div>
                 <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
                   <div>
-                    <div class="text-muted small">Selected Type</div>
+                    <div class="text-muted small">현재 설정 유형</div>
                     <span class="badge bg-secondary">{{ formatResourceType(policyRecommendation.selectedResourceType) }}</span>
                   </div>
                   <div>
-                    <div class="text-muted small">Recommended Type</div>
+                    <div class="text-muted small">추천 운영 유형</div>
                     <span :class="getRecommendationClass(policyRecommendation.recommendedResourceType)">
                       {{ formatResourceType(policyRecommendation.recommendedResourceType) }}
                     </span>
                   </div>
                   <div>
-                    <div class="text-muted small">Mismatch</div>
+                    <div class="text-muted small">정책 차이</div>
                     <span :class="policyRecommendation.mismatch ? 'badge bg-warning' : 'badge bg-success'">
-                      {{ policyRecommendation.mismatch ? 'Review' : 'Aligned' }}
+                      {{ policyRecommendation.mismatch ? '검토 필요' : '일치' }}
                     </span>
                   </div>
                   <div>
-                    <div class="text-muted small">Judgment Confidence</div>
+                    <div class="text-muted small">분석 신뢰도</div>
                     <span class="badge bg-info">{{ formatConfidence(policyRecommendation.confidence) }}</span>
                   </div>
                   <div>
-                    <div class="text-muted small">Status</div>
-                    <span class="badge bg-secondary">{{ policyRecommendation.status }}</span>
+                    <div class="text-muted small">검토 상태</div>
+                    <span class="badge bg-secondary">{{ formatRecommendationStatus(policyRecommendation.status) }}</span>
                   </div>
                 </div>
 
-                <div v-if="operationProfiles.length" class="table-responsive mb-3">
+                <div class="table-responsive mb-3">
                   <table class="table table-sm mb-0">
                     <thead>
                       <tr>
-                        <th>Period</th>
-                        <th>Policy</th>
-                        <th>Data</th>
-                        <th>Confidence</th>
-                        <th>Valid / Missing</th>
+                        <th>분석 기간</th>
+                        <th>추천 유형</th>
+                        <th>데이터 상태</th>
+                        <th>신뢰도</th>
+                        <th>분석 데이터</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="profile in operationProfiles" :key="profile.id || `${profile.analysisStartDate}-${profile.analysisEndDate}`">
-                        <td>{{ getAnalysisDays(profile) }}d</td>
-                        <td>{{ formatResourceType(profile.recommendedResourceType) }}</td>
+                      <tr
+                        v-for="row in policyPeriodRows"
+                        :key="row.period"
+                        :class="{ 'policy-period-muted': row.dimmed }">
+                        <td>{{ row.period }}d</td>
+                        <td>{{ row.profile ? formatResourceType(row.profile.recommendedResourceType) : '-' }}</td>
                         <td>
-                          <span :class="getDataStatusClass(profile.dataStatus)">
-                            {{ formatDataStatus(profile.dataStatus) }}
+                          <span :class="getDataStatusClass(row.dataStatus)">
+                            {{ formatDataStatus(row.dataStatus) }}
                           </span>
                         </td>
-                        <td>{{ formatConfidence(profile.confidence) }}</td>
-                        <td>{{ profile.validDays ?? 0 }} / {{ profile.missingDays ?? 0 }}</td>
+                        <td>{{ row.profile ? formatConfidence(row.profile.confidence) : '-' }}</td>
+                        <td>{{ formatDataCoverage(row.profile, row.period) }}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -167,27 +186,27 @@
 
                 <div v-if="operationProfile" class="row g-2 mb-3">
                   <div class="col-md-3">
-                    <div class="text-muted small">Data Status</div>
+                    <div class="text-muted small">데이터 상태</div>
                     <span :class="getDataStatusClass(operationProfile.dataStatus)">
                       {{ formatDataStatus(operationProfile.dataStatus) }}
                     </span>
                   </div>
                   <div class="col-md-3">
-                    <div class="text-muted small">CPU Status</div>
-                    <span>{{ operationProfile.cpuSizingStatus || 'N/A' }}</span>
+                    <div class="text-muted small">CPU 상태</div>
+                    <span>{{ formatSizingStatus(operationProfile.cpuSizingStatus) }}</span>
                   </div>
                   <div class="col-md-3">
-                    <div class="text-muted small">Memory Status</div>
-                    <span>{{ operationProfile.memorySizingStatus || 'N/A' }}</span>
+                    <div class="text-muted small">Memory 상태</div>
+                    <span>{{ formatSizingStatus(operationProfile.memorySizingStatus) }}</span>
                   </div>
                   <div class="col-md-3">
-                    <div class="text-muted small">Valid / Missing Days</div>
-                    <span>{{ operationProfile.validDays ?? 0 }} / {{ operationProfile.missingDays ?? 0 }}</span>
+                    <div class="text-muted small">분석 데이터</div>
+                    <span>{{ formatDataCoverage(operationProfile) }}</span>
                   </div>
                 </div>
 
                 <div class="mb-3">
-                  <div class="text-muted small">Actions</div>
+                  <div class="text-muted small">검토 항목</div>
                   <span v-for="action in parseActions(policyRecommendation.actions)" :key="action" class="badge bg-light text-dark me-1">
                     {{ formatAction(action) }}
                   </span>
@@ -196,22 +215,22 @@
                 <p class="mb-3">{{ policyRecommendation.message }}</p>
 
                 <div v-if="operationProfile && parseReasons(operationProfile.reasons).length" class="mb-3">
-                  <div class="text-muted small">Evidence</div>
+                  <div class="text-muted small">분석 근거</div>
                   <ul class="policy-evidence-list mb-0">
                     <li v-for="reason in parseReasons(operationProfile.reasons)" :key="reason">{{ reason }}</li>
                   </ul>
                 </div>
 
-                <div class="btn-list" v-if="policyRecommendation.status === 'OPEN'">
-                  <button type="button" class="btn btn-sm btn-success" @click="saveDecision('ACCEPTED')">Accept</button>
-                  <button type="button" class="btn btn-sm btn-outline-warning" @click="saveDecision('DEFERRED')">Defer</button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" @click="saveDecision('IGNORED')">Ignore</button>
-                  <button type="button" class="btn btn-sm btn-outline-danger" @click="saveDecision('REJECTED')">Reject</button>
+                <div class="btn-list" v-if="policyRecommendation.status === 'OPEN' && isPolicyAnalysisAvailable">
+                  <button type="button" class="btn btn-sm btn-success" @click="saveDecision('ACCEPTED')">수락</button>
+                  <button type="button" class="btn btn-sm btn-outline-warning" @click="saveDecision('DEFERRED')">보류</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" @click="saveDecision('IGNORED')">무시</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" @click="saveDecision('REJECTED')">거부</button>
                 </div>
               </div>
 
               <div v-else class="text-muted border rounded p-3">
-                No policy recommendation available
+                정책 추천 정보가 없습니다.
               </div>
             </div>
 
@@ -239,7 +258,7 @@
                       <td>{{ history.executedBy || 'system' }}</td>
                       <td>
                         <span :class="getStatusClass(history.status)">
-                          {{ history.status }}
+                          {{ formatApplicationStatus(history.status) }}
                         </span>
                       </td>
                       <td>{{ history.detailReason || history.reason }}</td>
@@ -310,7 +329,7 @@
                         <td>{{ applicationDetail.executedBy || 'system' }}</td>
                         <td>
                           <span :class="getStatusClass(applicationDetail.status)">
-                            {{ applicationDetail.status }}
+                            {{ formatApplicationStatus(applicationDetail.status) }}
                           </span>
                         </td>
                       </tr>
@@ -366,7 +385,11 @@
                     <tbody>
                       <tr>
                         <td>{{ applicationDetail.namespace }}</td>
-                        <td>{{ applicationDetail.podStatus || applicationDetail.applicationStatus }}</td>
+                        <td>
+                          <span :class="getStatusClass(applicationDetail.podStatus || applicationDetail.applicationStatus)">
+                            {{ formatApplicationStatus(applicationDetail.podStatus || applicationDetail.applicationStatus) }}
+                          </span>
+                        </td>
                         <td>{{ applicationDetail.publicIp }}</td>
                         <td>{{ applicationDetail.servicePort || applicationDetail.defaultPort }}</td>
                         <td>{{ applicationDetail.vmId }}</td>
@@ -488,21 +511,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useToast } from 'vue-toastification'
+import { IconPackage } from '@tabler/icons-vue'
 import {
-  analyzeOperationProfile,
+  analyzePolicyRecommendation,
   getApplicationDetail,
   getOperationProfile,
   getPolicyRecommendation,
   savePolicyRecommendationDecision
 } from '@/api/softwareCatalog'
+import { toAbsoluteUrl } from '@/common/url'
+import {
+  getApplicationStatusBadgeClass,
+  getApplicationStatusLabel
+} from '../applicationStatusDisplay'
 
 interface Props {
   deploymentId: number
+  modalId?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  modalId: 'application-detail-modal'
+})
 const emit = defineEmits(['close'])
 
 const toast = useToast()
@@ -512,10 +544,41 @@ const applicationDetail = ref(null as any)
 const operationProfile = ref(null as any)
 const operationProfiles = ref([] as any[])
 const policyRecommendation = ref(null as any)
+const logoLoadFailed = ref(false)
 const analysisPeriods = [7, 30, 90]
 
 // computed로 deploymentId 관리
 const currentDeploymentId = ref(0 as number)
+
+const catalogIconUrlByName: Record<string, string> = {
+  'apache tomcat': '/catalog-icons/apache-tomcat.png',
+  'redis': '/catalog-icons/redis.svg',
+  'nginx': '/catalog-icons/nginx.svg',
+  'apache http server': '/catalog-icons/apache-http-server.svg',
+  'nexus repository': '/catalog-icons/nexus-repository.svg',
+  'mariadb': '/catalog-icons/mariadb.svg',
+  'grafana': '/catalog-icons/grafana.svg',
+  'prometheus': '/catalog-icons/prometheus.svg',
+  'elasticsearch': '/catalog-icons/elasticsearch.svg'
+}
+
+const normalizeCatalogName = (name: any) => String(name || '').trim().toLowerCase()
+
+const getInternalCatalogIconUrl = (catalogName: any) => {
+  return catalogIconUrlByName[normalizeCatalogName(catalogName)] || ''
+}
+
+const applicationLogoUrl = computed(() => {
+  const detail = applicationDetail.value
+  if (!detail) return ''
+
+  return toAbsoluteUrl(
+    getInternalCatalogIconUrl(detail.catalogName) ||
+    detail.logoUrlLarge ||
+    detail.logoUrlSmall ||
+    ''
+  )
+})
 
 // 강제로 API를 다시 호출하는 메서드
 const refreshData = (deploymentId: number) => {
@@ -535,6 +598,7 @@ const loadApplicationDetail = async () => {
   
   loading.value = true
   try {
+    logoLoadFailed.value = false
     const { data } = await getApplicationDetail(currentDeploymentId.value)
     if (data) {
       applicationDetail.value = data.integratedInfo
@@ -578,14 +642,119 @@ const loadPolicyRecommendation = async () => {
   }
 }
 
-const runPolicyAnalysis = async (days: number) => {
+const parseDateTime = (value: any) => {
+  if (!value) return null
+
+  const parsed = new Date(String(value).replace(' ', 'T'))
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+const formatDateTime = (value: any) => {
+  const parsed = value instanceof Date ? value : parseDateTime(value)
+  if (!parsed) return '-'
+
+  const pad = (input: number) => String(input).padStart(2, '0')
+  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())} ${pad(parsed.getHours())}:${pad(parsed.getMinutes())}:${pad(parsed.getSeconds())}`
+}
+
+const normalizeStatus = (status: any) => String(status || '').trim().toUpperCase()
+const runtimeMetricStatuses = new Set(['RUN', 'RUNNING', 'SUCCESS'])
+const terminalRuntimeStatuses = new Set(['UNINSTALL', 'UNINSTALLED', 'NOT_FOUND', 'STOP', 'STOPPED', 'FAILED', 'ERROR'])
+
+const currentRuntimeStatus = computed(() => {
+  return normalizeStatus(
+    applicationDetail.value?.applicationStatus ||
+    applicationDetail.value?.podStatus ||
+    applicationDetail.value?.status
+  )
+})
+
+const hasUninstallAfterDeployment = computed(() => {
+  const deployedAt = parseDateTime(applicationDetail.value?.executedAt)
+  const histories = Array.isArray(applicationDetail.value?.operationHistories)
+    ? applicationDetail.value.operationHistories
+    : []
+
+  return histories.some((history: any) => {
+    if (normalizeStatus(history?.operationType) !== 'UNINSTALL') return false
+    const executedAt = parseDateTime(history?.executedAt || history?.createdAt)
+    if (!deployedAt || !executedAt) return true
+    return executedAt.getTime() >= deployedAt.getTime()
+  })
+})
+
+const isRuntimeMetricAvailable = computed(() => {
+  if (hasUninstallAfterDeployment.value) return false
+  if (terminalRuntimeStatuses.has(currentRuntimeStatus.value)) return false
+  return runtimeMetricStatuses.has(currentRuntimeStatus.value)
+})
+
+const isPolicyAnalysisAvailable = computed(() => isRuntimeMetricAvailable.value)
+
+const deploymentAgeDays = computed(() => {
+  const deployedAt = parseDateTime(applicationDetail.value?.executedAt)
+  if (!deployedAt) return 0
+
+  const today = new Date()
+  const deployedDate = new Date(deployedAt.getFullYear(), deployedAt.getMonth(), deployedAt.getDate())
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const diff = todayDate.getTime() - deployedDate.getTime()
+  return Math.max(Math.floor(diff / (1000 * 60 * 60 * 24)), 0)
+})
+
+const profileByPeriod = computed(() => {
+  const map = new Map<number, any>()
+  operationProfiles.value.forEach((profile) => {
+    const days = getAnalysisDays(profile)
+    if (typeof days === 'number') {
+      map.set(days, profile)
+    }
+  })
+  return map
+})
+
+const policyPeriodRows = computed(() => {
+  return analysisPeriods.map((period) => {
+    const profile = profileByPeriod.value.get(period) || null
+    const eligible = deploymentAgeDays.value >= period
+    const dataStatus = profile?.dataStatus || (eligible ? 'PENDING_ANALYSIS' : 'ACCUMULATING')
+
+    return {
+      period,
+      profile,
+      eligible,
+      dataStatus,
+      dimmed: !eligible || ['INSUFFICIENT_DATA', 'PENDING_ANALYSIS', 'ACCUMULATING'].includes(dataStatus)
+    }
+  })
+})
+
+const lastPolicyAnalysisAt = computed(() => {
+  const candidates = [
+    policyRecommendation.value?.updatedAt,
+    policyRecommendation.value?.createdAt,
+    operationProfile.value?.createdAt,
+    ...operationProfiles.value.map((profile) => profile?.createdAt)
+  ]
+    .map(parseDateTime)
+    .filter((value): value is Date => Boolean(value))
+    .sort((a, b) => b.getTime() - a.getTime())
+
+  return candidates.length ? formatDateTime(candidates[0]) : '분석 이력 없음'
+})
+
+const runPolicyAnalysis = async () => {
   if (!currentDeploymentId.value) return
+  if (!isPolicyAnalysisAvailable.value) {
+    toast.info('현재 실행 중인 배포만 정책 추천을 분석할 수 있습니다.')
+    return
+  }
 
   policyLoading.value = true
   try {
-    await analyzeOperationProfile(currentDeploymentId.value, days)
+    await analyzePolicyRecommendation(currentDeploymentId.value)
     await loadPolicyRecommendation()
-    toast.success(`${days}d policy recommendation analyzed`)
+    toast.success('Policy recommendation analyzed')
   } catch (error) {
     console.error('Failed to analyze policy recommendation:', error)
     toast.error('Failed to analyze policy recommendation')
@@ -615,22 +784,11 @@ const saveDecision = async (status: string) => {
 }
 
 const getStatusClass = (status: string) => {
-  switch (status?.toLowerCase()) {
-    case 'success':
-    case 'completed':
-    case 'running':
-      return 'badge bg-success'
-    case 'failed':
-    case 'error':
-    case 'not_found':
-      return 'badge bg-danger'
-    case 'in_progress':
-    case 'pending':
-    case 'restart':
-      return 'badge bg-warning'
-    default:
-      return 'badge bg-secondary'
-  }
+  return getApplicationStatusBadgeClass(status)
+}
+
+const formatApplicationStatus = (status: string | null | undefined) => {
+  return getApplicationStatusLabel(status)
 }
 
 const getSeverityClass = (severity: string) => {
@@ -691,6 +849,36 @@ const formatResourceType = (resourceType: string | null | undefined) => {
   }
 }
 
+const formatRecommendationStatus = (status: string | null | undefined) => {
+  switch (normalizeStatus(status)) {
+    case 'OPEN':
+      return '검토 대기'
+    case 'ACCEPTED':
+      return '수락'
+    case 'DEFERRED':
+      return '보류'
+    case 'IGNORED':
+      return '무시'
+    case 'REJECTED':
+      return '거부'
+    default:
+      return status || 'N/A'
+  }
+}
+
+const formatSizingStatus = (status: string | null | undefined) => {
+  switch (normalizeStatus(status)) {
+    case 'UNDER_PROVISIONED':
+      return '용량 부족'
+    case 'OVER_PROVISIONED':
+      return '사용률 낮음'
+    case 'RIGHT_SIZED':
+      return '적정'
+    default:
+      return status || 'N/A'
+  }
+}
+
 const getDataStatusClass = (dataStatus: string | null | undefined) => {
   switch (dataStatus) {
     case 'SUFFICIENT':
@@ -698,7 +886,9 @@ const getDataStatusClass = (dataStatus: string | null | undefined) => {
     case 'PARTIAL_DATA':
       return 'badge bg-warning'
     case 'INSUFFICIENT_DATA':
-      return 'badge bg-danger'
+    case 'ACCUMULATING':
+    case 'PENDING_ANALYSIS':
+      return 'badge bg-secondary'
     default:
       return 'badge bg-secondary'
   }
@@ -711,7 +901,10 @@ const formatDataStatus = (dataStatus: string | null | undefined) => {
     case 'PARTIAL_DATA':
       return '부분 데이터'
     case 'INSUFFICIENT_DATA':
-      return '데이터 부족'
+    case 'ACCUMULATING':
+      return '데이터 축적 중'
+    case 'PENDING_ANALYSIS':
+      return '분석 대기'
     default:
       return dataStatus || 'N/A'
   }
@@ -770,6 +963,36 @@ const getAnalysisDays = (profile: any) => {
   return diff + 1
 }
 
+const getAnalysisWindowDays = (profile: any, fallbackPeriod?: number) => {
+  const analysisDays = getAnalysisDays(profile)
+  if (typeof analysisDays === 'number') return analysisDays
+
+  const validDays = profile?.validDays ?? 0
+  const missingDays = profile?.missingDays ?? 0
+  const totalDays = validDays + missingDays
+  return totalDays || fallbackPeriod || 0
+}
+
+const formatDataCoverage = (profile: any, fallbackPeriod?: number) => {
+  const validDays = profile?.validDays ?? 0
+  const windowDays = getAnalysisWindowDays(profile, fallbackPeriod)
+
+  if (!windowDays) {
+    return `${validDays}일 확보`
+  }
+  return `${validDays}일 확보 / ${windowDays}일 기준`
+}
+
+const formatMetricPercent = (value: number | null | undefined) => {
+  if (!isRuntimeMetricAvailable.value || value === null || value === undefined) return '-'
+  return `${value}%`
+}
+
+const formatMetricBytes = (bytes: number | null | undefined) => {
+  if (!isRuntimeMetricAvailable.value) return '-'
+  return formatBytes(bytes as number)
+}
+
 const formatBytes = (bytes: number) => {
   if (bytes === 0) return '0 Bytes'
   if (!bytes) return 'N/A'
@@ -782,7 +1005,7 @@ const formatBytes = (bytes: number) => {
 }
 
 const closeModal = () => {
-  const modal = document.getElementById('application-detail-modal')
+  const modal = document.getElementById(props.modalId)
   if (modal) {
     try {
       // Bootstrap 5를 사용하는 경우
@@ -884,6 +1107,23 @@ h6 {
   border-radius: 8px;
 }
 
+.application-detail-logo,
+.application-detail-logo-fallback {
+  width: 80px;
+  height: 80px;
+}
+
+.application-detail-logo {
+  object-fit: contain;
+}
+
+.application-detail-logo-fallback {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  color: #6c757d;
+  background-color: #f8f9fa;
+}
+
 .row {
   margin-bottom: 1rem;
 }
@@ -897,5 +1137,14 @@ h6 {
   padding-left: 1rem;
   color: #495057;
   font-size: 0.8125rem;
+}
+
+.policy-period-muted {
+  color: #6c757d;
+  opacity: 0.62;
+}
+
+.policy-period-muted .badge {
+  opacity: 0.82;
 }
 </style>

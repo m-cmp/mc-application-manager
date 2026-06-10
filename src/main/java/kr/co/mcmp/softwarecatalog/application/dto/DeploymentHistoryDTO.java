@@ -1,7 +1,6 @@
 package kr.co.mcmp.softwarecatalog.application.dto;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
@@ -17,16 +16,21 @@ public class DeploymentHistoryDTO {
 
     private Long id;
     private Long catalogId;
+    private String catalogName;
     private DeploymentType deploymentType;
     private String namespace;
     private String mciId;
     private String vmId;
     private String clusterName;
+    private String nodeGroupName;
+    private String publicIp;
     private ActionType actionType;
     private String status;
     private LocalDateTime executedAt;
+    private LocalDateTime updatedAt;
     private Long executedById;
     private String cloudProvider;
+    private String uid;
     private String cloudRegion;
     private Integer servicePort;
     private String podStatus;
@@ -46,17 +50,22 @@ public class DeploymentHistoryDTO {
 
     public DeploymentHistoryDTO(DeploymentHistory entity) {
         this.id = entity.getId();
-        this.catalogId = entity.getCatalog().getId();
+        this.catalogId = entity.getCatalog() != null ? entity.getCatalog().getId() : null;
+        this.catalogName = entity.getCatalog() != null ? entity.getCatalog().getName() : null;
         this.deploymentType = entity.getDeploymentType();
         this.namespace = entity.getNamespace();
         this.mciId = entity.getMciId();
         this.vmId   = entity.getVmId();
         this.clusterName = entity.getClusterName();
+        this.nodeGroupName = entity.getNodeGroupName();
+        this.publicIp = entity.getPublicIp();
         this.actionType = entity.getActionType();
         this.status = entity.getStatus();
         this.executedAt = entity.getExecutedAt();
-        this.executedById = entity.getExecutedBy().getId();
+        this.updatedAt = entity.getUpdatedAt();
+        this.executedById = entity.getExecutedBy() != null ? entity.getExecutedBy().getId() : null;
         this.cloudProvider = entity.getCloudProvider();
+        this.uid = entity.getUid();
         this.cloudRegion = entity.getCloudRegion();
         this.servicePort = entity.getServicePort();
         this.podStatus = entity.getPodStatus();

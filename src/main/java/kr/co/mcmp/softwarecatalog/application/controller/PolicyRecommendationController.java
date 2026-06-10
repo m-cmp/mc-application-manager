@@ -1,5 +1,7 @@
 package kr.co.mcmp.softwarecatalog.application.controller;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,6 +36,14 @@ public class PolicyRecommendationController {
             @Parameter(description = "Deployment ID", required = true, example = "123") @PathVariable Long deploymentId,
             @Parameter(description = "Analysis period days", example = "14") @RequestParam(required = false, defaultValue = "14") Integer days) {
         OperationProfileAnalysisDTO result = policyRecommendationService.analyze(deploymentId, days);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+
+    @Operation(summary = "Run policy recommendation analysis", description = "Manually run the same standard analysis windows used by the scheduler: 90, 30, and 7 days.")
+    @PostMapping("/{deploymentId}/policy-recommendation/analyze")
+    public ResponseEntity<ResponseWrapper<List<OperationProfileAnalysisDTO>>> analyzeStandardPeriods(
+            @Parameter(description = "Deployment ID", required = true, example = "123") @PathVariable Long deploymentId) {
+        List<OperationProfileAnalysisDTO> result = policyRecommendationService.analyzeStandardPeriods(deploymentId);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 

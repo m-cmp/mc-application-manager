@@ -77,6 +77,7 @@ public class ContainerStatsCollector {
             
             Double cpuUsage = calculateCpuUsage(stats);
             Double memoryUsage = calculateMemoryUsage(stats);
+            Long memoryBytes = extractMemoryBytes(stats);
             Long memoryLimitBytes = extractMemoryLimit(stats);
             Double networkIn = calculateNetworkIn(stats);
             Double networkOut = calculateNetworkOut(stats);
@@ -91,6 +92,7 @@ public class ContainerStatsCollector {
                     .servicePorts(servicePort)
                     .cpuUsage(cpuUsage)
                     .memoryUsage(memoryUsage)
+                    .memoryBytes(memoryBytes)
                     .memoryLimitBytes(memoryLimitBytes)
                     .isPortAccess(isPortAccessible)
                     .isHealthCheck(isHealthCheck)
@@ -270,6 +272,17 @@ public class ContainerStatsCollector {
             }
         } catch (Exception e) {
             log.error("Error calculating memory usage", e);
+        }
+        return null;
+    }
+
+    private Long extractMemoryBytes(Statistics stats) {
+        try {
+            if (stats != null && stats.getMemoryStats() != null) {
+                return stats.getMemoryStats().getUsage();
+            }
+        } catch (Exception e) {
+            log.debug("Error extracting memory bytes", e);
         }
         return null;
     }

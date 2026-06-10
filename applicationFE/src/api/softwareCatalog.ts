@@ -1,5 +1,15 @@
 import request from "../common/request";
 import type { SoftwareCatalog } from "@/views/type/type";
+import axios from "axios";
+import { getApiBaseUrl } from "@/common/url";
+
+const apiBaseUrl = getApiBaseUrl(import.meta.env.VITE_API_URL).replace(/\/$/, '')
+const standardPolicyAnalysisDays = [90, 30, 7]
+
+const isMissingPolicyAnalyzeEndpoint = (responseData: any) => {
+  const detail = String(responseData?.detail || '')
+  return detail.includes('No static resource') && detail.includes('/policy-recommendation/analyze')
+}
 
 // software catalog list
 export const getSoftwareCatalogList = (name:string) => {
@@ -178,6 +188,43 @@ export function getApplicationDetail(deploymentId: number) {
 
 export function analyzeOperationProfile(deploymentId: number, days = 14) {
   return request.post(`/api/applications/${deploymentId}/operation-profile/analyze?days=${days}`)
+}
+
+export async function analyzePolicyRecommendation(deploymentId: number) {
+  try {
+    const response = await axios.post(`${apiBaseUrl}/api/applications/${deploymentId}/policy-recommendation/analyze`)
+    const responseData = response.data
+
+    if (responseData?.code === 200) {
+      return responseData
+    }
+
+    if (isMissingPolicyAnalyzeEndpoint(responseData)) {
+      return analyzePolicyRecommendationWithLegacyEndpoints(deploymentId)
+    }
+
+    return Promise.reject(new Error(responseData?.detail || responseData?.message || 'Failed to analyze policy recommendation'))
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      return analyzePolicyRecommendationWithLegacyEndpoints(deploymentId)
+    }
+    return Promise.reject(error)
+  }
+}
+
+async function analyzePolicyRecommendationWithLegacyEndpoints(deploymentId: number) {
+  const results = []
+  for (const days of standardPolicyAnalysisDays) {
+    const result = await analyzeOperationProfile(deploymentId, days)
+    results.push(result.data)
+  }
+
+  return {
+    code: 200,
+    data: results,
+    detail: null,
+    message: 'OK'
+  }
 }
 
 export function getOperationProfile(deploymentId: number, days?: number) {

@@ -18,11 +18,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.co.mcmp.response.ResponseWrapper;
 import kr.co.mcmp.softwarecatalog.application.dto.ApplicationOperationRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.ApplicationStatusDto;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentHistoryDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentLogDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.IntegratedApplicationInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.ObjectStorageSmokeTestRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.ObjectStorageSmokeTestResponse;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
-import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOrchestrationService;
 import kr.co.mcmp.softwarecatalog.application.service.ObjectStorageSmokeTestService;
@@ -46,7 +47,7 @@ public class ApplicationController {
 
     @Operation(summary = "Deploy application to VM", description = "Deploy an application to a specific VM.")
     @PostMapping("/vm/deploy")
-    public ResponseEntity<ResponseWrapper<DeploymentHistory>> deployVmApplication(
+    public ResponseEntity<ResponseWrapper<DeploymentHistoryDTO>> deployVmApplication(
             @Parameter(description = "Deployment request for VM", required = true) @RequestBody DeploymentRequestDTO requestDTO) {
 
         // VM 배포 타입 설정
@@ -54,12 +55,12 @@ public class ApplicationController {
         
         DeploymentRequest request = requestDTO.toDeploymentRequest();
         DeploymentHistory result = applicationOrchestrationService.deployApplication(request);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
+        return ResponseEntity.ok(new ResponseWrapper<>(new DeploymentHistoryDTO(result)));
     }
 
     @Operation(summary = "Deploy application to K8s cluster", description = "Deploy an application to a specific K8s cluster.")
     @PostMapping("/k8s/deploy")
-    public ResponseEntity<ResponseWrapper<DeploymentHistory>> deployK8sApplication(
+    public ResponseEntity<ResponseWrapper<DeploymentHistoryDTO>> deployK8sApplication(
             @Parameter(description = "Deployment request for K8s", required = true) @RequestBody DeploymentRequestDTO requestDTO) {
 
         // K8s 배포 타입 설정
@@ -67,7 +68,7 @@ public class ApplicationController {
         
         DeploymentRequest request = requestDTO.toDeploymentRequest();
         DeploymentHistory result = applicationOrchestrationService.deployApplication(request);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
+        return ResponseEntity.ok(new ResponseWrapper<>(new DeploymentHistoryDTO(result)));
     }
 
     @Operation(summary = "Check VM resources", description = "Check if there are sufficient resources to deploy an application to the VM.")
@@ -102,19 +103,23 @@ public class ApplicationController {
 
     @Operation(summary = "Get deployment history", description = "Retrieve deployment history for a specific catalog ID.")
     @GetMapping("/history")
-    public ResponseEntity<ResponseWrapper<List<DeploymentHistory>>> getDeploymentHistories(
+    public ResponseEntity<ResponseWrapper<List<DeploymentHistoryDTO>>> getDeploymentHistories(
             @Parameter(description = "Catalog ID to get deployment history for", required = true, example = "123") @RequestParam Long catalogId, 
             @Parameter(description = "Username filter (optional)", example = "admin") @RequestParam(required = false) String username) {
-        List<DeploymentHistory> histories = applicationOrchestrationService.getDeploymentHistories(catalogId, username);
+        List<DeploymentHistoryDTO> histories = applicationOrchestrationService.getDeploymentHistories(catalogId, username).stream()
+                .map(DeploymentHistoryDTO::new)
+                .toList();
         return ResponseEntity.ok(new ResponseWrapper<>(histories));
     }
 
     @Operation(summary = "Get deployment logs", description = "Retrieve logs for a specific deployment.")
     @GetMapping("/logs")
-    public ResponseEntity<ResponseWrapper<List<DeploymentLog>>> getDeploymentLogs(
+    public ResponseEntity<ResponseWrapper<List<DeploymentLogDTO>>> getDeploymentLogs(
             @Parameter(description = "Deployment ID to get logs for", required = true, example = "456") @RequestParam Long deploymentId, 
             @Parameter(description = "Username filter (optional)", example = "admin") @RequestParam(required = false) String username) {
-        List<DeploymentLog> logs = applicationOrchestrationService.getDeploymentLogs(deploymentId, username);
+        List<DeploymentLogDTO> logs = applicationOrchestrationService.getDeploymentLogs(deploymentId, username).stream()
+                .map(DeploymentLogDTO::new)
+                .toList();
         return ResponseEntity.ok(new ResponseWrapper<>(logs));
     }
 

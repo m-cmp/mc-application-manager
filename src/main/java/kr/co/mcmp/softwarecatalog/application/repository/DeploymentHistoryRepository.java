@@ -1,6 +1,7 @@
 package kr.co.mcmp.softwarecatalog.application.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -48,6 +49,12 @@ public interface DeploymentHistoryRepository extends JpaRepository<DeploymentHis
     // 릴리스 이름 관련 쿼리
     DeploymentHistory findTopByCatalogIdAndClusterNameAndNamespaceAndActionTypeOrderByExecutedAtDesc(
         Long catalogId, String clusterName, String namespace, ActionType actionType);
+
+    Optional<DeploymentHistory> findTopByCatalogIdAndVmIdAndActionTypeInAndStatusInOrderByExecutedAtDesc(
+        Long catalogId, String vmId, List<ActionType> actionTypes, List<String> statuses);
+
+    Optional<DeploymentHistory> findTopByCatalogIdAndClusterNameAndNamespaceAndActionTypeInAndStatusInOrderByExecutedAtDesc(
+        Long catalogId, String clusterName, String namespace, List<ActionType> actionTypes, List<String> statuses);
     
     List<DeploymentHistory> findByCatalogIdAndClusterNameAndNamespaceAndActionTypeOrderByExecutedAtDesc(
         Long catalogId, String clusterName, String namespace, ActionType actionType);

@@ -1,6 +1,8 @@
 package kr.co.mcmp.softwarecatalog.application.service.impl;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
@@ -9,8 +11,11 @@ import com.github.dockerjava.api.DockerClient;
 
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
+import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
+import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationHistoryService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOperationService;
 import kr.co.mcmp.softwarecatalog.docker.service.ContainerStatsCollector;
@@ -27,7 +32,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DockerApplicationOperationService implements ApplicationOperationService {
     
+    private static final List<ActionType> ACTIVE_DEPLOYMENT_ACTIONS = Arrays.asList(ActionType.INSTALL, ActionType.RUN);
+    private static final List<String> ACTIVE_DEPLOYMENT_STATUSES = Arrays.asList("SUCCESS", "RUNNING");
+
     private final ApplicationStatusRepository applicationStatusRepository;
+    private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final DockerClientFactory dockerClientFactory;
     private final DockerOperationService dockerOperationService;
     private final ContainerStatsCollector containerStatsCollector;
@@ -38,20 +47,31 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
         ApplicationStatus applicationStatus = applicationStatusRepository.findById(applicationStatusId)
             .orElseThrow(() -> new IllegalArgumentException("ApplicationStatus not found with id: " + applicationStatusId));
     
-        String host = applicationStatus.getPublicIp();
-        DockerClient dockerClient = dockerClientFactory.getDockerClient(host);
-        String containerName = applicationStatus.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");
-        String containerId = containerStatsCollector.getContainerId(dockerClient, containerName);
-
-        if (containerId == null) {
-            throw new IllegalStateException("Container ID is not available for application status: " + applicationStatusId);
-        }
-    
         Map<String, Object> result = new HashMap<>();
         result.put("operation", operation);
         result.put("applicationStatusId", applicationStatusId);
+        result.put("success", false);
     
         try {
+            String host = applicationStatus.getPublicIp();
+            String containerName = applicationStatus.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");
+            String containerId;
+
+            try (DockerClient dockerClient = dockerClientFactory.getDockerClient(host)) {
+                containerId = containerStatsCollector.getContainerId(dockerClient, containerName);
+            }
+
+            if (containerId == null) {
+                if (ActionType.UNINSTALL.equals(operation)) {
+                    result.put("result", "Container already removed");
+                    result.put("success", true);
+                    applicationHistoryService.insertOperationHistory(applicationStatus, username, reason, "Docker operation: " + operation.name(), operation);
+                    updateApplicationStatus(applicationStatus, operation, result, username);
+                    return result;
+                }
+                throw new IllegalStateException("Container ID is not available for application status: " + applicationStatusId);
+            }
+
             switch (operation.toString().toLowerCase()) {
                 case "status":
                     String status = dockerOperationService.getDockerContainerStatus(host, containerId);
@@ -76,12 +96,14 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
                 default:
                     throw new IllegalArgumentException("Unknown operation: " + operation);
             }
-    
+
+            result.put("success", true);
             applicationHistoryService.insertOperationHistory(applicationStatus, username, reason, "Docker operation: " + operation.name(), operation);
             updateApplicationStatus(applicationStatus, operation, result, username);
     
         } catch (Exception e) {
             log.error("Error performing Docker operation: {} on application status: {}", operation, applicationStatusId, e);
+            result.put("success", false);
             result.put("error", e.getMessage());
         }
     
@@ -102,7 +124,8 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
                 applicationStatus.setStatus(ActionType.STOP.name());
                 break;
             case "uninstall":
-                applicationStatus.setStatus(ActionType.UNINSTALL.name());
+                applicationStatus.setStatus(ApplicationStatusValues.UNINSTALLED);
+                markDeploymentHistoryAsUninstalled(applicationStatus);
                 break;
             case "restart":
                 applicationStatus.setStatus(ActionType.RESTART.name());
@@ -113,6 +136,33 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
         }
         applicationStatus.setCheckedAt(java.time.LocalDateTime.now());
         applicationStatusRepository.save(applicationStatus);
+    }
+
+    private void markDeploymentHistoryAsUninstalled(ApplicationStatus applicationStatus) {
+        DeploymentHistory deploymentHistory = null;
+
+        if (applicationStatus.getDeploymentHistoryId() != null) {
+            deploymentHistory = deploymentHistoryRepository.findById(applicationStatus.getDeploymentHistoryId()).orElse(null);
+        }
+
+        if (deploymentHistory == null && applicationStatus.getCatalog() != null && applicationStatus.getVmId() != null) {
+            deploymentHistory = deploymentHistoryRepository
+                    .findTopByCatalogIdAndVmIdAndActionTypeInAndStatusInOrderByExecutedAtDesc(
+                            applicationStatus.getCatalog().getId(),
+                            applicationStatus.getVmId(),
+                            ACTIVE_DEPLOYMENT_ACTIONS,
+                            ACTIVE_DEPLOYMENT_STATUSES)
+                    .orElse(null);
+        }
+
+        if (deploymentHistory == null) {
+            log.warn("No active deployment history found to mark uninstalled for applicationStatusId={}", applicationStatus.getId());
+            return;
+        }
+
+        deploymentHistory.setStatus(ApplicationStatusValues.UNINSTALLED);
+        deploymentHistory.setUpdatedAt(java.time.LocalDateTime.now());
+        deploymentHistoryRepository.save(deploymentHistory);
     }
 }
 

@@ -12,13 +12,13 @@ import kr.co.mcmp.softwarecatalog.application.model.OperationProfileAnalysis;
 @Repository
 public interface OperationProfileAnalysisRepository extends JpaRepository<OperationProfileAnalysis, Long> {
 
-    Optional<OperationProfileAnalysis> findTopByDeploymentIdOrderByCreatedAtDesc(Long deploymentId);
+    Optional<OperationProfileAnalysis> findTopByDeploymentIdOrderByCreatedAtDescIdDesc(Long deploymentId);
 
-    Optional<OperationProfileAnalysis> findTopByDeploymentIdAndAnalysisStartDateAndAnalysisEndDateOrderByCreatedAtDesc(
+    Optional<OperationProfileAnalysis> findTopByDeploymentIdAndAnalysisStartDateAndAnalysisEndDateOrderByCreatedAtDescIdDesc(
             Long deploymentId, LocalDate analysisStartDate, LocalDate analysisEndDate);
 
     boolean existsByDeploymentIdAndAnalysisStartDateAndAnalysisEndDate(
             Long deploymentId, LocalDate analysisStartDate, LocalDate analysisEndDate);
 
-    List<OperationProfileAnalysis> findByDeploymentIdOrderByCreatedAtDesc(Long deploymentId);
+    List<OperationProfileAnalysis> findByDeploymentIdOrderByCreatedAtDescIdDesc(Long deploymentId);
 }

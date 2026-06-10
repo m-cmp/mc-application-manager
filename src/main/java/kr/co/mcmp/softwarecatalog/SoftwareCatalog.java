@@ -16,7 +16,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import kr.co.mcmp.softwarecatalog.Ref.CatalogRefEntity;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
@@ -84,6 +84,7 @@ public class SoftwareCatalog {
       
     @ManyToOne
     @JoinColumn(name = "registered_by")
+    @JsonIgnore
     private User registeredBy; // 이 소프트웨어를 등록한 사용자
 
     @Column(name = "created_at")
@@ -145,20 +146,21 @@ public class SoftwareCatalog {
     private String ingressTlsSecret; // TLS 시크릿 이름
 
     @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     @Builder.Default
     private List<PortMapping> ports = new ArrayList<>();
 
     @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    @JsonIgnore
     @Builder.Default
     private List<CatalogRefEntity> catalogRefs = new ArrayList<>();
     
     @OneToOne(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    @JsonIgnore
     private PackageInfo packageInfo;
 
     @OneToOne(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    @JsonIgnore
     private HelmChart helmChart;
     
     // @OneToMany(mappedBy = "catalog", cascade = CascadeType.ALL, orphanRemoval = true)

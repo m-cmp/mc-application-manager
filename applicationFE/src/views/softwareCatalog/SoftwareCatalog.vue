@@ -68,7 +68,7 @@
 
                     <!-- Status -->
                     <li class="nav-item">
-                      <a href="#tabs-status" class="nav-link" data-bs-toggle="tab">
+                      <a href="#tabs-status" class="nav-link" data-bs-toggle="tab" @click="onClickStatusTab">
                         <IconActivityHeartbeat class="icon me-2" width="24" height="24" stroke-width="2" /> 
                         Apps Status
                       </a>
@@ -98,7 +98,7 @@
                     <!-- Status -->
                     <div class="tab-pane" id="tabs-status">
                       <div>
-                        <ApplicationStatusList />
+                        <ApplicationStatusList ref="applicationStatusListRef" />
                       </div>
                     </div>
 
@@ -142,8 +142,7 @@ import RepositoryList from '@/views/repository/RepositoryList.vue';
 import RepositoryDetail from '@/views/repository/RepositoryDetail.vue';
 
 // ETC
-import { onMounted } from 'vue';
-import { ref } from 'vue';
+import { nextTick, onMounted, ref } from 'vue';
 import { useUserStore } from '@/stores/user'
 
 // @ts-ignore
@@ -154,6 +153,7 @@ const nsId = ref("" as string)
 const modalTite = ref("" as string)
 const showRepositoryDetail = ref(false)
 const selectedRepositoryName = ref("")
+const applicationStatusListRef = ref<InstanceType<typeof ApplicationStatusList> | null>(null)
 
 /**
 * @Title Life Cycle
@@ -170,6 +170,11 @@ onMounted(async () => {
 */
 const onClickDeploy = (value: string) => {
   modalTite.value = value
+}
+
+const onClickStatusTab = async () => {
+  await nextTick()
+  applicationStatusListRef.value?.refresh()
 }
 
 const onOpenRepositoryDetail = (name: string) => {

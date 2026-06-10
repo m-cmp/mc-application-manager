@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import {ref, watch} from 'vue';
+import {nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import {TabulatorFull as Tabulator, type ColumnDefinition, type OptionsData} from 'tabulator-tables';
 
 interface Props {
@@ -18,19 +18,35 @@ const table = ref(null) as any;
 const tabulator = ref(null) as any;
 
 watch(()=> props.columns, () => {
-  makeTable()
+  if (tabulator.value) {
+    tabulator.value.setColumns(props.columns)
+  } else {
+    makeTable()
+  }
 })
 watch(()=> props.tableData, () => {
+  refreshTableData()
+})
+
+onMounted(async () => {
+  await nextTick()
   makeTable()
 })
 
-// onMounted(() => {
-//   makeTable()
-// })
+onBeforeUnmount(() => {
+  if (tabulator.value) {
+    tabulator.value.destroy()
+    tabulator.value = null
+  }
+})
 
 const makeTable = () => {
+  if (!table.value || tabulator.value) {
+    return
+  }
+
   tabulator.value = new Tabulator(table.value, {
-    data: props.tableData,
+    data: props.tableData ?? [],
     reactiveData:true,
     columns: props.columns,
     height: "auto", // 테이블 높이를 데이터 양에 맞게 자동 조절
@@ -40,6 +56,15 @@ const makeTable = () => {
     movableColumns:true,
     paginationCounter:"rows",
 });
+}
+
+const refreshTableData = () => {
+  if (!tabulator.value) {
+    makeTable()
+    return
+  }
+
+  tabulator.value.replaceData(props.tableData ?? [])
 }
 
 </script>
