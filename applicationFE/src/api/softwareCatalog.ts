@@ -236,17 +236,6 @@ export function getPolicyRecommendation(deploymentId: number) {
   return request.get(`/api/applications/${deploymentId}/policy-recommendation`)
 }
 
-export function savePolicyRecommendationDecision(
-  recommendationId: number,
-  params: {
-    status: string,
-    decidedBy?: string,
-    decisionReason?: string
-  }
-) {
-  return request.put(`/api/applications/policy-recommendations/${recommendationId}/decision`, params)
-}
-
 export function getReasonList(operation: string) {
   return request.get(`/catalog/selectbox/options?type=${operation}`)
 }

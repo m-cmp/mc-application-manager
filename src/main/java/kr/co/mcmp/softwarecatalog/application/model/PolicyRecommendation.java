@@ -19,7 +19,7 @@ import lombok.Setter;
 @Table(name = "policy_recommendation",
         indexes = {
             @Index(name = "idx_policy_recommendation_deployment_created", columnList = "deployment_id, created_at DESC"),
-            @Index(name = "idx_policy_recommendation_status", columnList = "status, created_at DESC")
+    @Index(name = "idx_policy_recommendation_status", columnList = "status, created_at DESC")
         })
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class PolicyRecommendation {
@@ -53,16 +53,7 @@ public class PolicyRecommendation {
     private String message;
 
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
-
-    @Column(name = "decided_by", length = 100)
-    private String decidedBy;
-
-    @Column(name = "decision_reason", columnDefinition = "TEXT")
-    private String decisionReason;
-
-    @Column(name = "decided_at")
-    private LocalDateTime decidedAt;
+    private String recommendationStatus;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

@@ -4,7 +4,6 @@ import java.util.List;
 
 import kr.co.mcmp.softwarecatalog.application.dto.OperationProfileAnalysisDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.PolicyRecommendationDTO;
-import kr.co.mcmp.softwarecatalog.application.dto.PolicyRecommendationDecisionRequest;
 
 public interface PolicyRecommendationService {
 
@@ -17,6 +16,4 @@ public interface PolicyRecommendationService {
     OperationProfileAnalysisDTO getAnalysis(Long deploymentId, Integer days);
 
     PolicyRecommendationDTO getLatestRecommendation(Long deploymentId);
-
-    PolicyRecommendationDTO decide(Long recommendationId, PolicyRecommendationDecisionRequest request);
 }

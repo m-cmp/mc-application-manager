@@ -148,10 +148,6 @@
                     <div class="text-muted small">분석 신뢰도</div>
                     <span class="badge bg-info">{{ formatConfidence(policyRecommendation.confidence) }}</span>
                   </div>
-                  <div>
-                    <div class="text-muted small">검토 상태</div>
-                    <span class="badge bg-secondary">{{ formatRecommendationStatus(policyRecommendation.status) }}</span>
-                  </div>
                 </div>
 
                 <div class="table-responsive mb-3">
@@ -217,16 +213,10 @@
                 <div v-if="operationProfile && parseReasons(operationProfile.reasons).length" class="mb-3">
                   <div class="text-muted small">분석 근거</div>
                   <ul class="policy-evidence-list mb-0">
-                    <li v-for="reason in parseReasons(operationProfile.reasons)" :key="reason">{{ reason }}</li>
+                    <li v-for="reason in parseReasons(operationProfile.reasons)" :key="reason">{{ formatReason(reason) }}</li>
                   </ul>
                 </div>
 
-                <div class="btn-list" v-if="policyRecommendation.status === 'OPEN' && isPolicyAnalysisAvailable">
-                  <button type="button" class="btn btn-sm btn-success" @click="saveDecision('ACCEPTED')">수락</button>
-                  <button type="button" class="btn btn-sm btn-outline-warning" @click="saveDecision('DEFERRED')">보류</button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" @click="saveDecision('IGNORED')">무시</button>
-                  <button type="button" class="btn btn-sm btn-outline-danger" @click="saveDecision('REJECTED')">거부</button>
-                </div>
               </div>
 
               <div v-else class="text-muted border rounded p-3">
@@ -518,8 +508,7 @@ import {
   analyzePolicyRecommendation,
   getApplicationDetail,
   getOperationProfile,
-  getPolicyRecommendation,
-  savePolicyRecommendationDecision
+  getPolicyRecommendation
 } from '@/api/softwareCatalog'
 import { toAbsoluteUrl } from '@/common/url'
 import {
@@ -761,26 +750,7 @@ const runPolicyAnalysis = async () => {
   } finally {
     policyLoading.value = false
   }
-}
 
-const saveDecision = async (status: string) => {
-  if (!policyRecommendation.value?.id) return
-
-  policyLoading.value = true
-  try {
-    const { data } = await savePolicyRecommendationDecision(policyRecommendation.value.id, {
-      status,
-      decidedBy: 'admin',
-      decisionReason: `Decision saved from application detail modal: ${status}`
-    })
-    policyRecommendation.value = data
-    toast.success('Recommendation decision saved')
-  } catch (error) {
-    console.error('Failed to save recommendation decision:', error)
-    toast.error('Failed to save recommendation decision')
-  } finally {
-    policyLoading.value = false
-  }
 }
 
 const getStatusClass = (status: string) => {
@@ -849,22 +819,6 @@ const formatResourceType = (resourceType: string | null | undefined) => {
   }
 }
 
-const formatRecommendationStatus = (status: string | null | undefined) => {
-  switch (normalizeStatus(status)) {
-    case 'OPEN':
-      return '검토 대기'
-    case 'ACCEPTED':
-      return '수락'
-    case 'DEFERRED':
-      return '보류'
-    case 'IGNORED':
-      return '무시'
-    case 'REJECTED':
-      return '거부'
-    default:
-      return status || 'N/A'
-  }
-}
 
 const formatSizingStatus = (status: string | null | undefined) => {
   switch (normalizeStatus(status)) {
@@ -953,6 +907,67 @@ const parseReasons = (reasons: string | null | undefined) => {
   } catch {
     return reasons.split(',').map(reason => reason.trim()).filter(Boolean)
   }
+}
+
+const formatReason = (reason: string) => {
+  const validDaysMatch = reason.match(/^validDays=(\d+) is below (\d+)$/)
+  if (validDaysMatch) {
+    return `유효 분석일이 ${validDaysMatch[1]}일로 최소 기준 ${validDaysMatch[2]}일에 미달합니다.`
+  }
+
+  const cpuP95Match = reason.match(/^cpuPressureP95=([\d.]+)$/)
+  if (cpuP95Match) {
+    return `CPU p95 사용률이 ${cpuP95Match[1]}%입니다.`
+  }
+
+  const memoryP95Match = reason.match(/^memoryPressureP95=([\d.]+)$/)
+  if (memoryP95Match) {
+    return `Memory p95 사용률이 ${memoryP95Match[1]}%입니다.`
+  }
+
+  const oomMatch = reason.match(/^oomCount=(\d+)$/)
+  if (oomMatch) {
+    return `OOM 이벤트가 ${oomMatch[1]}건 발생했습니다.`
+  }
+
+  const restartMatch = reason.match(/^restartCount=(\d+), crashLoopCount=(\d+)$/)
+  if (restartMatch) {
+    return `재시작 이벤트 ${restartMatch[1]}건, CrashLoop 이벤트 ${restartMatch[2]}건이 확인되었습니다.`
+  }
+
+  const networkMatch = reason.match(/^networkEvidence=maxInBytes=(\d+), maxOutBytes=(\d+)$/)
+  if (networkMatch) {
+    return `네트워크 최대 수신 ${formatBytes(Number(networkMatch[1]))}, 최대 송신 ${formatBytes(Number(networkMatch[2]))}가 확인되었습니다.`
+  }
+
+  const errorLogMatch = reason.match(/^errorLogCount=(\d+)$/)
+  if (errorLogMatch) {
+    return `ERROR 로그가 ${errorLogMatch[1]}건 확인되었습니다.`
+  }
+
+  const oomLogMatch = reason.match(/^oomRelatedLogCount=(\d+)$/)
+  if (oomLogMatch) {
+    return `OOM 관련 로그가 ${oomLogMatch[1]}건 확인되었습니다.`
+  }
+
+  const networkLogMatch = reason.match(/^networkOrTimeoutLogCount=(\d+)$/)
+  if (networkLogMatch) {
+    return `네트워크 또는 timeout 관련 로그가 ${networkLogMatch[1]}건 확인되었습니다.`
+  }
+
+  if (reason === 'cpuPressureP95 and memoryPressureP95 are below 40') {
+    return 'CPU와 Memory p95 사용률이 모두 40% 미만입니다.'
+  }
+
+  if (reason === 'CPU/Memory pressure is within right-sized range') {
+    return 'CPU와 Memory 사용률이 적정 범위입니다.'
+  }
+
+  if (reason === 'K8s percentage metrics require request/limit normalization; confidence capped at 0.60') {
+    return 'K8s 백분율 지표는 request/limit 기준 정규화가 필요하여 신뢰도가 60%로 제한됩니다.'
+  }
+
+  return reason
 }
 
 const getAnalysisDays = (profile: any) => {

@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -14,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import kr.co.mcmp.softwarecatalog.application.dto.OperationProfileAnalysisDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.PolicyRecommendationDTO;
-import kr.co.mcmp.softwarecatalog.application.dto.PolicyRecommendationDecisionRequest;
 import kr.co.mcmp.softwarecatalog.application.model.DailyMetricsSummary;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.InfraSpecSnapshot;
@@ -46,8 +44,7 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
     private static final String RESOURCE_CPU_MEMORY = "CPU_MEMORY_INTENSIVE";
     private static final String RESOURCE_GENERAL = "GENERAL_PURPOSE";
 
-    private static final String STATUS_OPEN = "OPEN";
-    private static final Set<String> DECISION_STATUSES = Set.of("OPEN", "ACCEPTED", "DEFERRED", "IGNORED", "REJECTED");
+    private static final String RECOMMENDATION_STATUS = "RECOMMENDED";
     private static final List<Integer> STANDARD_ANALYSIS_DAYS = List.of(90, 30, 7);
 
     private final DailyMetricsSummaryRepository dailyMetricsSummaryRepository;
@@ -106,7 +103,7 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
                 .actions(String.join(",", result.actions))
                 .confidence(result.confidence)
                 .message(result.message)
-                .status(STATUS_OPEN)
+                .recommendationStatus(RECOMMENDATION_STATUS)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build());
@@ -154,22 +151,6 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
         return policyRecommendationRepository.findTopByDeploymentIdOrderByCreatedAtDescIdDesc(deploymentId)
                 .map(PolicyRecommendationDTO::from)
                 .orElse(null);
-    }
-
-    @Override
-    @Transactional
-    public PolicyRecommendationDTO decide(Long recommendationId, PolicyRecommendationDecisionRequest request) {
-        PolicyRecommendation recommendation = policyRecommendationRepository.findById(recommendationId)
-                .orElseThrow(() -> new IllegalArgumentException("Policy recommendation not found: " + recommendationId));
-
-        String status = normalizeDecisionStatus(request != null ? request.getStatus() : null);
-        recommendation.setStatus(status);
-        recommendation.setDecidedBy(request != null ? request.getDecidedBy() : null);
-        recommendation.setDecisionReason(request != null ? request.getDecisionReason() : null);
-        recommendation.setDecidedAt(LocalDateTime.now());
-        recommendation.setUpdatedAt(LocalDateTime.now());
-
-        return PolicyRecommendationDTO.from(policyRecommendationRepository.save(recommendation));
     }
 
     private AnalysisResult buildAnalysis(
@@ -391,14 +372,6 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
             return DEFAULT_DAYS;
         }
         return Math.max(1, Math.min(days, 90));
-    }
-
-    private String normalizeDecisionStatus(String status) {
-        String normalized = status == null ? STATUS_OPEN : status.trim().toUpperCase(Locale.ROOT);
-        if (!DECISION_STATUSES.contains(normalized)) {
-            throw new IllegalArgumentException("Unsupported decision status: " + status);
-        }
-        return normalized;
     }
 
     private static int value(Integer value) {
