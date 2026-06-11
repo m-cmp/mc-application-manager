@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import kr.co.mcmp.response.ResponseWrapper;
-import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
-import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentHistoryDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentLogDTO;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOrchestrationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,19 +33,23 @@ public class DeploymentHistoryController {
 
     @Operation(summary = "Get deployment history by catalog ID", description = "Retrieve deployment history for a specific catalog.")
     @GetMapping("/catalog/{catalogId}")
-    public ResponseEntity<ResponseWrapper<List<DeploymentHistory>>> getDeploymentHistories(
+    public ResponseEntity<ResponseWrapper<List<DeploymentHistoryDTO>>> getDeploymentHistories(
             @Parameter(description = "Catalog ID to get deployment history for", required = true, example = "123") @PathVariable Long catalogId,
             @Parameter(description = "Username filter (optional)", example = "admin") @RequestParam(required = false) String username) {
-        List<DeploymentHistory> result = applicationOrchestrationService.getDeploymentHistories(catalogId, username);
+        List<DeploymentHistoryDTO> result = applicationOrchestrationService.getDeploymentHistories(catalogId, username).stream()
+                .map(DeploymentHistoryDTO::new)
+                .toList();
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     
     @Operation(summary = "Get deployment logs by deployment ID", description = "Retrieve deployment logs for a specific deployment.")
     @GetMapping("/{deploymentId}/logs")
-    public ResponseEntity<ResponseWrapper<List<DeploymentLog>>> getDeploymentLogs(
+    public ResponseEntity<ResponseWrapper<List<DeploymentLogDTO>>> getDeploymentLogs(
             @Parameter(description = "Deployment ID to get logs for", required = true, example = "123") @PathVariable Long deploymentId,
             @Parameter(description = "Username filter (optional)", example = "admin") @RequestParam(required = false) String username) {
-        List<DeploymentLog> result = applicationOrchestrationService.getDeploymentLogs(deploymentId, username);
+        List<DeploymentLogDTO> result = applicationOrchestrationService.getDeploymentLogs(deploymentId, username).stream()
+                .map(DeploymentLogDTO::new)
+                .toList();
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
     

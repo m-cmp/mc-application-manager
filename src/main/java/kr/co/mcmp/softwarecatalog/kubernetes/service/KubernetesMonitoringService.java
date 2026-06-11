@@ -27,6 +27,7 @@ import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
+import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.AutoscaleCheckSample;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
@@ -291,6 +292,11 @@ public class KubernetesMonitoringService {
             log.error("HelmChart is null for catalog ID: {}", deployment.getCatalog().getId());
             return;
         }
+
+        if (ApplicationStatusValues.UNINSTALLED.equalsIgnoreCase(deployment.getStatus())) {
+            log.debug("Skipping Kubernetes monitoring for uninstalled deployment history: {}", deployment.getId());
+            return;
+        }
         
         String appName = deployment.getCatalog().getHelmChart().getChartName();
         Long catalogId = deployment.getCatalog().getId();
@@ -323,6 +329,12 @@ public class KubernetesMonitoringService {
                         .deploymentType(DeploymentType.K8S)
                         .deploymentHistoryId(deployment.getId())
                         .build());
+
+        if (ApplicationStatusValues.UNINSTALLED.equalsIgnoreCase(status.getStatus())
+                && Objects.equals(status.getDeploymentHistoryId(), deployment.getId())) {
+            log.debug("Skipping Kubernetes monitoring for uninstalled application status: {}", status.getId());
+            return;
+        }
         
         // 기존 상태가 있더라도 deploymentType과 deploymentHistoryId 업데이트
         if (status.getDeploymentType() == null) {

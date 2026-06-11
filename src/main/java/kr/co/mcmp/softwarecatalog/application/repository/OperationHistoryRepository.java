@@ -1,6 +1,7 @@
 package kr.co.mcmp.softwarecatalog.application.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -11,4 +12,6 @@ import kr.co.mcmp.softwarecatalog.application.model.OperationHistory;
 public interface OperationHistoryRepository extends JpaRepository<OperationHistory, Long>{
     
     List<OperationHistory> findByApplicationStatusId(Long applicationStatusId);
+
+    Optional<OperationHistory> findTopByApplicationStatusIdOrderByCreatedAtDesc(Long applicationStatusId);
 }

@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
+import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
@@ -276,6 +278,96 @@ public class ApplicationServiceImpl implements ApplicationService {
         return result;
     }
 
+    private Map<String, Object> toDeploymentHistoryMap(DeploymentHistory history) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", history.getId());
+        map.put("catalogId", history.getCatalog() != null ? history.getCatalog().getId() : null);
+        map.put("catalogName", history.getCatalog() != null ? history.getCatalog().getName() : null);
+        map.put("deploymentType", history.getDeploymentType() != null ? history.getDeploymentType().name() : null);
+        map.put("namespace", history.getNamespace());
+        map.put("mciId", history.getMciId());
+        map.put("vmId", history.getVmId());
+        map.put("clusterName", history.getClusterName());
+        map.put("nodeGroupName", history.getNodeGroupName());
+        map.put("publicIp", history.getPublicIp());
+        map.put("actionType", history.getActionType() != null ? history.getActionType().name() : null);
+        map.put("status", history.getStatus());
+        map.put("executedAt", history.getExecutedAt());
+        map.put("updatedAt", history.getUpdatedAt());
+        map.put("executedBy", history.getExecutedBy() != null ? history.getExecutedBy().getUsername() : null);
+        map.put("cloudProvider", history.getCloudProvider());
+        map.put("uid", history.getUid());
+        map.put("cloudRegion", history.getCloudRegion());
+        map.put("servicePort", history.getServicePort());
+        map.put("podStatus", history.getPodStatus());
+        map.put("releaseName", history.getReleaseName());
+        map.put("hpaEnabled", history.getHpaEnabled());
+        map.put("minReplicas", history.getMinReplicas());
+        map.put("maxReplicas", history.getMaxReplicas());
+        map.put("cpuThreshold", history.getCpuThreshold());
+        map.put("memoryThreshold", history.getMemoryThreshold());
+        map.put("ingressEnabled", history.getIngressEnabled());
+        map.put("ingressHost", history.getIngressHost());
+        map.put("ingressPath", history.getIngressPath());
+        map.put("ingressClass", history.getIngressClass());
+        map.put("ingressTlsEnabled", history.getIngressTlsEnabled());
+        map.put("ingressTlsSecret", history.getIngressTlsSecret());
+        map.put("resourceType", history.getResourceType());
+        return map;
+    }
+
+    private Map<String, Object> toApplicationStatusMap(ApplicationStatus status) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", status.getId());
+        map.put("catalogId", status.getCatalog() != null ? status.getCatalog().getId() : null);
+        map.put("catalogName", status.getCatalog() != null ? status.getCatalog().getName() : null);
+        map.put("namespace", status.getNamespace());
+        map.put("mciId", status.getMciId());
+        map.put("clusterName", status.getClusterName());
+        map.put("nodeGroupName", status.getNodeGroupName());
+        map.put("vmId", status.getVmId());
+        map.put("deploymentHistoryId", status.getDeploymentHistoryId());
+        map.put("deploymentType", status.getDeploymentType() != null ? status.getDeploymentType().name() : null);
+        map.put("servicePort", status.getServicePort());
+        map.put("isPortAccessible", status.getIsPortAccessible());
+        map.put("portAccessible", status.getIsPortAccessible());
+        map.put("isHealthCheck", status.getIsHealthCheck());
+        map.put("healthCheck", status.getIsHealthCheck());
+        map.put("status", resolveApplicationStatus(status));
+        map.put("cpuUsage", status.getCpuUsage());
+        map.put("memoryUsage", status.getMemoryUsage());
+        map.put("networkIn", status.getNetworkIn());
+        map.put("publicIp", status.getPublicIp());
+        map.put("networkOut", status.getNetworkOut());
+        map.put("podStatus", status.getPodStatus());
+        map.put("checkedAt", status.getCheckedAt());
+        map.put("executedBy", status.getExecutedBy() != null ? status.getExecutedBy().getUsername() : null);
+        map.put("unifiedLogsHash", status.getUnifiedLogsHash());
+        return map;
+    }
+
+    private Map<String, Object> toDeploymentLogMap(DeploymentLog log) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", log.getId());
+        map.put("deploymentId", log.getDeployment() != null ? log.getDeployment().getId() : null);
+        map.put("logType", log.getLogType() != null ? log.getLogType().name() : null);
+        map.put("logMessage", log.getLogMessage());
+        map.put("loggedAt", log.getLoggedAt());
+        return map;
+    }
+
+    private Map<String, Object> toOperationHistoryMap(OperationHistory operation) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", operation.getId());
+        map.put("applicationStatusId", operation.getApplicationStatus() != null ? operation.getApplicationStatus().getId() : null);
+        map.put("reason", operation.getReason());
+        map.put("detailReason", operation.getDetailReason());
+        map.put("operationType", operation.getOperationType());
+        map.put("createdAt", operation.getCreatedAt());
+        map.put("executedBy", operation.getExecutedBy() != null ? operation.getExecutedBy().getUsername() : null);
+        return map;
+    }
+
     // ===== 애플리케이션 상태/배포 관련 조회 메서드 =====
 
     /**
@@ -344,12 +436,16 @@ public class ApplicationServiceImpl implements ApplicationService {
         
         // 애플리케이션 상태 조회
         List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId);
-        result.put("applicationStatuses", applicationStatuses);
+        result.put("applicationStatuses", applicationStatuses.stream()
+                .map(this::toApplicationStatusMap)
+                .collect(Collectors.toList()));
         log.debug("Found {} application statuses for catalog ID {}", applicationStatuses.size(), catalogId);
         
         // 배포 이력 조회
         List<DeploymentHistory> deploymentHistories = deploymentHistoryRepository.findByCatalogIdOrderByExecutedAtDesc(catalogId);
-        result.put("deploymentHistories", deploymentHistories);
+        result.put("deploymentHistories", deploymentHistories.stream()
+                .map(this::toDeploymentHistoryMap)
+                .collect(Collectors.toList()));
         log.debug("Found {} deployment histories for catalog ID {}", deploymentHistories.size(), catalogId);
         
         // 배포 로그 조회 (각 배포 이력에 대한 로그)
@@ -357,8 +453,10 @@ public class ApplicationServiceImpl implements ApplicationService {
         for (DeploymentHistory history : deploymentHistories) {
             List<DeploymentLog> logs = deploymentLogRepository.findByDeploymentIdOrderByLoggedAtDesc(history.getId());
             Map<String, Object> historyWithLogs = new HashMap<>();
-            historyWithLogs.put("deploymentHistory", history);
-            historyWithLogs.put("logs", logs);
+            historyWithLogs.put("deploymentHistory", toDeploymentHistoryMap(history));
+            historyWithLogs.put("logs", logs.stream()
+                    .map(this::toDeploymentLogMap)
+                    .collect(Collectors.toList()));
             deploymentLogsWithHistory.add(historyWithLogs);
         }
         result.put("deploymentLogsWithHistory", deploymentLogsWithHistory);
@@ -369,8 +467,10 @@ public class ApplicationServiceImpl implements ApplicationService {
         for (ApplicationStatus status : applicationStatuses) {
             List<OperationHistory> operations = operationHistoryRepository.findByApplicationStatusId(status.getId());
             Map<String, Object> statusWithOperations = new HashMap<>();
-            statusWithOperations.put("applicationStatus", status);
-            statusWithOperations.put("operations", operations);
+            statusWithOperations.put("applicationStatus", toApplicationStatusMap(status));
+            statusWithOperations.put("operations", operations.stream()
+                    .map(this::toOperationHistoryMap)
+                    .collect(Collectors.toList()));
             operationHistoriesWithStatus.add(statusWithOperations);
         }
         result.put("operationHistoriesWithStatus", operationHistoriesWithStatus);
@@ -530,7 +630,8 @@ public class ApplicationServiceImpl implements ApplicationService {
         // 애플리케이션 상태 정보 설정 (가장 최근 상태 사용)
         if (!applicationStatuses.isEmpty()) {
             ApplicationStatus latestStatus = applicationStatuses.get(0);
-            builder.applicationStatus(latestStatus.getStatus())
+            String resolvedStatus = resolveApplicationStatus(latestStatus);
+            builder.applicationStatus(resolvedStatus)
                    .cpuUsage(latestStatus.getCpuUsage())
                    .memoryUsage(latestStatus.getMemoryUsage())
                    .networkIn(latestStatus.getNetworkIn())
@@ -543,7 +644,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                    .vmId(latestStatus.getVmId())
                    .publicIp(latestStatus.getPublicIp())
                    .servicePort(latestStatus.getServicePort())
-                   .podStatus(latestStatus.getPodStatus());
+                   .podStatus(latestStatus.getPodStatus() != null ? latestStatus.getPodStatus() : resolvedStatus);
         }
         
         // 배포 로그 변환
@@ -654,7 +755,8 @@ public class ApplicationServiceImpl implements ApplicationService {
         // 애플리케이션 상태 정보 설정
         if (!applicationStatuses.isEmpty()) {
             ApplicationStatus latestStatus = applicationStatuses.get(0);
-            builder.applicationStatus(latestStatus.getStatus())
+            String resolvedStatus = resolveApplicationStatus(latestStatus);
+            builder.applicationStatus(resolvedStatus)
                     .cpuUsage(latestStatus.getCpuUsage())
                     .memoryUsage(latestStatus.getMemoryUsage())
                     .networkIn(latestStatus.getNetworkIn())
@@ -662,7 +764,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                     .healthCheck(latestStatus.getIsHealthCheck())
                     .portAccessible(latestStatus.getIsPortAccessible())
                     .lastCheckedAt(latestStatus.getCheckedAt())
-                    .podStatus(latestStatus.getPodStatus());
+                    .podStatus(latestStatus.getPodStatus() != null ? latestStatus.getPodStatus() : resolvedStatus);
         }
         
         // Ingress 정보 설정
@@ -734,7 +836,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                         .collect(Collectors.toList()))
                 .totalCount(podLogs.size())
                 .lastLogTime(podLogs.isEmpty() ? null : podLogs.get(0).getLoggedAt().toString())
-                .podStatus(applicationStatuses.isEmpty() ? null : applicationStatuses.get(0).getPodStatus())
+                .podStatus(applicationStatuses.isEmpty() ? null : resolveApplicationStatus(applicationStatuses.get(0)))
                 .podName(podLogs.isEmpty() ? null : podLogs.get(0).getPodName())
                 .build();
         builder.podLogs(podLogsDTO);
@@ -742,6 +844,39 @@ public class ApplicationServiceImpl implements ApplicationService {
         // infoLogs와 debugLogs는 통합 로그로 대체되어 제거됨
         
         return builder.build();
+    }
+
+    private String resolveApplicationStatus(ApplicationStatus status) {
+        if (isEffectivelyUninstalled(status)) {
+            return ApplicationStatusValues.UNINSTALLED;
+        }
+        return status != null ? status.getStatus() : null;
+    }
+
+    private boolean isEffectivelyUninstalled(ApplicationStatus status) {
+        if (status == null) {
+            return false;
+        }
+        if (ApplicationStatusValues.UNINSTALLED.equalsIgnoreCase(status.getStatus())) {
+            return true;
+        }
+        if (status.getId() == null) {
+            return false;
+        }
+        Optional<OperationHistory> latestOperation = operationHistoryRepository
+                .findTopByApplicationStatusIdOrderByCreatedAtDesc(status.getId());
+        if (latestOperation.isEmpty() || !ActionType.UNINSTALL.name().equalsIgnoreCase(latestOperation.get().getOperationType())) {
+            return false;
+        }
+
+        if (status.getDeploymentHistoryId() == null) {
+            return true;
+        }
+        Optional<DeploymentHistory> deploymentHistory = deploymentHistoryRepository.findById(status.getDeploymentHistoryId());
+        return deploymentHistory
+                .map(history -> history.getExecutedAt() == null
+                        || !latestOperation.get().getCreatedAt().isBefore(history.getExecutedAt()))
+                .orElse(true);
     }
     
     /**

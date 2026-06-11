@@ -66,6 +66,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
                     .actionType(ActionType.INSTALL)
                     .status("IN_PROGRESS")
                     .servicePort(request.getServicePort())
+                    .resourceType(request.getResourceType())
                     .executedAt(LocalDateTime.now())
                     .executedBy(user)
                     .build();
@@ -77,6 +78,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
                     .clusterName(request.getClusterName())
                     .actionType(ActionType.INSTALL)
                     .status("IN_PROGRESS")
+                    .resourceType(request.getResourceType())
                     .executedAt(LocalDateTime.now())
                     .executedBy(user)
                     .build();
@@ -160,6 +162,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
                     .actionType(ActionType.INSTALL)
                     .status("IN_PROGRESS")
                     .servicePort(request.getServicePort())
+                    .resourceType(request.getResourceType())
                     .executedAt(LocalDateTime.now())
                     .executedBy(user)
                     .build();
@@ -171,6 +174,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
                     .clusterName(request.getClusterName())
                     .actionType(ActionType.INSTALL)
                     .status("IN_PROGRESS")
+                    .resourceType(request.getResourceType())
                     .executedAt(LocalDateTime.now())
                     .executedBy(user)
                     .build();

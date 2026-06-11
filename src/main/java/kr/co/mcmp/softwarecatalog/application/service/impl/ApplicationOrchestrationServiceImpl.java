@@ -11,19 +11,23 @@ import jakarta.persistence.EntityNotFoundException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
+import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.dto.ApplicationStatusDto;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentLog;
+import kr.co.mcmp.softwarecatalog.application.model.OperationHistory;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sSpec;
 import kr.co.mcmp.ape.cbtumblebug.dto.Spec;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.OperationHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationHistoryService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOperationService;
 import kr.co.mcmp.softwarecatalog.application.service.ApplicationOrchestrationService;
@@ -50,8 +54,10 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
     private final List<DeploymentService> deploymentServices;
     private final List<ApplicationOperationService> operationServices;
     private final DeploymentHistoryRepository deploymentHistoryRepository;
+    private final OperationHistoryRepository operationHistoryRepository;
     
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public DeploymentHistory deployApplication(DeploymentRequest request) {
         // 스펙 검증
         if (!validateSpec(request)) {
@@ -110,9 +116,43 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
                     namespace, mciId, vmId);
                 
                 return applications.stream()
-                    .map(ApplicationStatusDto::fromEntity);
+                    .map(this::toStatusDto);
             })
             .collect(Collectors.toList());
+    }
+
+    private ApplicationStatusDto toStatusDto(ApplicationStatus status) {
+        ApplicationStatusDto dto = ApplicationStatusDto.fromEntity(status);
+        if (isEffectivelyUninstalled(status)) {
+            dto.setStatus(ApplicationStatusValues.UNINSTALLED);
+        }
+        return dto;
+    }
+
+    private boolean isEffectivelyUninstalled(ApplicationStatus status) {
+        if (status == null) {
+            return false;
+        }
+        if (ApplicationStatusValues.UNINSTALLED.equalsIgnoreCase(status.getStatus())) {
+            return true;
+        }
+        if (status.getId() == null) {
+            return false;
+        }
+        Optional<OperationHistory> latestOperation = operationHistoryRepository
+                .findTopByApplicationStatusIdOrderByCreatedAtDesc(status.getId());
+        if (latestOperation.isEmpty() || !ActionType.UNINSTALL.name().equalsIgnoreCase(latestOperation.get().getOperationType())) {
+            return false;
+        }
+
+        if (status.getDeploymentHistoryId() == null) {
+            return true;
+        }
+        Optional<DeploymentHistory> deploymentHistory = deploymentHistoryRepository.findById(status.getDeploymentHistoryId());
+        return deploymentHistory
+                .map(history -> history.getExecutedAt() == null
+                        || !latestOperation.get().getCreatedAt().isBefore(history.getExecutedAt()))
+                .orElse(true);
     }
     
     @Override

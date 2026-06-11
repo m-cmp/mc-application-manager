@@ -21,10 +21,6 @@ public class PolicyRecommendationDTO {
     private String actions;
     private Double confidence;
     private String message;
-    private String status;
-    private String decidedBy;
-    private String decisionReason;
-    private LocalDateTime decidedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -42,10 +38,6 @@ public class PolicyRecommendationDTO {
                 .actions(recommendation.getActions())
                 .confidence(recommendation.getConfidence())
                 .message(recommendation.getMessage())
-                .status(recommendation.getStatus())
-                .decidedBy(recommendation.getDecidedBy())
-                .decisionReason(recommendation.getDecisionReason())
-                .decidedAt(recommendation.getDecidedAt())
                 .createdAt(recommendation.getCreatedAt())
                 .updatedAt(recommendation.getUpdatedAt())
                 .build();

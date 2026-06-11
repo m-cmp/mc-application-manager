@@ -430,7 +430,7 @@ public class DockerOperationService {
             return "Container stopped successfully";
         } catch (Exception e) {
             log.error("Error stopping Docker container", e);
-            return "Error: " + e.getMessage();
+            throw new RuntimeException("Failed to stop Docker container: " + e.getMessage(), e);
         }
     }
 
@@ -441,9 +441,12 @@ public class DockerOperationService {
                 .withRemoveVolumes(true)
                 .exec();
             return "Container removed successfully";
+        } catch (NotFoundException e) {
+            log.warn("Docker container already removed: {}", containerId);
+            return "Container already removed";
         } catch (Exception e) {
             log.error("Error removing Docker container", e);
-            return "Error: " + e.getMessage();
+            throw new RuntimeException("Failed to remove Docker container: " + e.getMessage(), e);
         }
     }
 
@@ -453,7 +456,7 @@ public class DockerOperationService {
             return "Container restarted successfully";
         } catch (Exception e) {
             log.error("Error restarting Docker container", e);
-            return "Error: " + e.getMessage();
+            throw new RuntimeException("Failed to restart Docker container: " + e.getMessage(), e);
         }
     }
 

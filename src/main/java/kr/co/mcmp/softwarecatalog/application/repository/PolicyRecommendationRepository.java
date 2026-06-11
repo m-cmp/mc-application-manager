@@ -11,7 +11,7 @@ import kr.co.mcmp.softwarecatalog.application.model.PolicyRecommendation;
 @Repository
 public interface PolicyRecommendationRepository extends JpaRepository<PolicyRecommendation, Long> {
 
-    Optional<PolicyRecommendation> findTopByDeploymentIdOrderByCreatedAtDesc(Long deploymentId);
+    Optional<PolicyRecommendation> findTopByDeploymentIdOrderByCreatedAtDescIdDesc(Long deploymentId);
 
-    List<PolicyRecommendation> findByDeploymentIdOrderByCreatedAtDesc(Long deploymentId);
+    List<PolicyRecommendation> findByDeploymentIdOrderByCreatedAtDescIdDesc(Long deploymentId);
 }

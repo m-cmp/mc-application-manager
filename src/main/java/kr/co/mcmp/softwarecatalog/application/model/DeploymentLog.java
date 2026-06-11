@@ -2,7 +2,6 @@ package kr.co.mcmp.softwarecatalog.application.model;
 
 import java.time.LocalDateTime;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -33,7 +32,7 @@ public class DeploymentLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; // 배포 로그의 고유 식별자
 
-    @ManyToOne(cascade = CascadeType.PERSIST)
+    @ManyToOne
     @JoinColumn(name = "deployment_id")
     private DeploymentHistory deployment; // 이 로그가 속한 배포 이력
 

@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -14,14 +15,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
+import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
+import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.model.AbnormalEvent;
+import kr.co.mcmp.softwarecatalog.application.model.OperationHistory;
 import kr.co.mcmp.softwarecatalog.application.model.ResourceMetricsHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.AbnormalEventRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.OperationHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.ResourceMetricsHistoryRepository;
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerHealthInfo;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +41,7 @@ public class DockerMonitoringService {
     private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final ResourceMetricsHistoryRepository metricsHistoryRepository;
     private final AbnormalEventRepository abnormalEventRepository;
+    private final OperationHistoryRepository operationHistoryRepository;
     private final DockerClientFactory dockerClientFactory;
     private final ContainerStatsCollector containerStatsCollector;
     private final DockerLogCollector dockerLogCollector;
@@ -86,6 +92,12 @@ public class DockerMonitoringService {
 
         ApplicationStatus status = applicationStatusRepository.findByCatalogIdAndVmId(
                 deployment.getCatalog().getId(), deployment.getVmId()).orElse(new ApplicationStatus());
+
+        if (isEffectivelyUninstalled(status, deployment)) {
+            markUninstalled(status, deployment);
+            log.debug("Skipping Docker monitoring for uninstalled application status: {}", status.getId());
+            return;
+        }
 
         try (var dockerClient = dockerClientFactory.getDockerClient(deployment.getPublicIp())) {
             log.info("Docker client connected successfully to: {}", deployment.getPublicIp());
@@ -148,6 +160,7 @@ public class DockerMonitoringService {
                     .recordedAt(now)
                     .cpuUsagePct(healthInfo.getCpuUsage())
                     .memoryUsagePct(healthInfo.getMemoryUsage())
+                    .memoryBytes(healthInfo.getMemoryBytes())
                     .memoryLimitBytes(healthInfo.getMemoryLimitBytes())
                     .networkInBytes(healthInfo.getNetworkIn() != null ? healthInfo.getNetworkIn().longValue() : null)
                     .networkOutBytes(healthInfo.getNetworkOut() != null ? healthInfo.getNetworkOut().longValue() : null)
@@ -243,5 +256,38 @@ public class DockerMonitoringService {
         status.setNetworkIn(healthInfo.getNetworkIn());
         status.setNetworkOut(healthInfo.getNetworkOut());
         status.setExecutedBy(deployment.getExecutedBy() != null ? deployment.getExecutedBy() : null);
+    }
+
+    private boolean isEffectivelyUninstalled(ApplicationStatus status, DeploymentHistory deployment) {
+        if (status == null) {
+            return false;
+        }
+        if (ApplicationStatusValues.UNINSTALLED.equalsIgnoreCase(status.getStatus())) {
+            return true;
+        }
+        if (status.getId() == null) {
+            return false;
+        }
+        Optional<OperationHistory> latestOperation = operationHistoryRepository
+                .findTopByApplicationStatusIdOrderByCreatedAtDesc(status.getId());
+        if (latestOperation.isEmpty() || !ActionType.UNINSTALL.name().equalsIgnoreCase(latestOperation.get().getOperationType())) {
+            return false;
+        }
+
+        LocalDateTime deployedAt = deployment != null ? deployment.getExecutedAt() : null;
+        return deployedAt == null || !latestOperation.get().getCreatedAt().isBefore(deployedAt);
+    }
+
+    private void markUninstalled(ApplicationStatus status, DeploymentHistory deployment) {
+        if (!ApplicationStatusValues.UNINSTALLED.equalsIgnoreCase(status.getStatus())) {
+            status.setStatus(ApplicationStatusValues.UNINSTALLED);
+            status.setCheckedAt(LocalDateTime.now());
+            applicationStatusRepository.save(status);
+        }
+        if (deployment != null && !ApplicationStatusValues.UNINSTALLED.equalsIgnoreCase(deployment.getStatus())) {
+            deployment.setStatus(ApplicationStatusValues.UNINSTALLED);
+            deployment.setUpdatedAt(LocalDateTime.now());
+            deploymentHistoryRepository.save(deployment);
+        }
     }
 }

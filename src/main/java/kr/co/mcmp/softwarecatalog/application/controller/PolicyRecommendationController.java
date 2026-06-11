@@ -1,11 +1,11 @@
 package kr.co.mcmp.softwarecatalog.application.controller;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import kr.co.mcmp.response.ResponseWrapper;
 import kr.co.mcmp.softwarecatalog.application.dto.OperationProfileAnalysisDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.PolicyRecommendationDTO;
-import kr.co.mcmp.softwarecatalog.application.dto.PolicyRecommendationDecisionRequest;
 import kr.co.mcmp.softwarecatalog.application.service.PolicyRecommendationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +36,14 @@ public class PolicyRecommendationController {
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 
+    @Operation(summary = "Run policy recommendation analysis", description = "Manually run the same standard analysis windows used by the scheduler: 90, 30, and 7 days.")
+    @PostMapping("/{deploymentId}/policy-recommendation/analyze")
+    public ResponseEntity<ResponseWrapper<List<OperationProfileAnalysisDTO>>> analyzeStandardPeriods(
+            @Parameter(description = "Deployment ID", required = true, example = "123") @PathVariable Long deploymentId) {
+        List<OperationProfileAnalysisDTO> result = policyRecommendationService.analyzeStandardPeriods(deploymentId);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+
     @Operation(summary = "Get latest operation profile analysis", description = "Retrieve the latest operation profile analysis for a deployment.")
     @GetMapping("/{deploymentId}/operation-profile")
     public ResponseEntity<ResponseWrapper<OperationProfileAnalysisDTO>> getLatestAnalysis(
@@ -53,15 +60,6 @@ public class PolicyRecommendationController {
     public ResponseEntity<ResponseWrapper<PolicyRecommendationDTO>> getLatestRecommendation(
             @Parameter(description = "Deployment ID", required = true, example = "123") @PathVariable Long deploymentId) {
         PolicyRecommendationDTO result = policyRecommendationService.getLatestRecommendation(deploymentId);
-        return ResponseEntity.ok(new ResponseWrapper<>(result));
-    }
-
-    @Operation(summary = "Save policy recommendation decision", description = "Save an operator decision for a recommendation.")
-    @PutMapping("/policy-recommendations/{recommendationId}/decision")
-    public ResponseEntity<ResponseWrapper<PolicyRecommendationDTO>> decide(
-            @Parameter(description = "Policy recommendation ID", required = true, example = "456") @PathVariable Long recommendationId,
-            @RequestBody PolicyRecommendationDecisionRequest request) {
-        PolicyRecommendationDTO result = policyRecommendationService.decide(recommendationId, request);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 }

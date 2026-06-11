@@ -34,6 +34,7 @@
     />
   <ApplicationDetailModal 
     ref="applicationDetailModalRef"
+    :modal-id="applicationStatusDetailModalId"
     :deploymentId="selectedDeploymentId"
     />
 </template>
@@ -48,6 +49,11 @@ import { IconRefresh } from '@tabler/icons-vue'
 import ApplicationActionConfirm from './applicationActionConfirm.vue';
 import ApplicationRatingModal from './applicationRatingModal.vue';
 import ApplicationDetailModal from './applicationDetailModal.vue';
+import {
+  getApplicationStatusBadgeClass,
+  getApplicationStatusLabel,
+  isApplicationActionDisabledStatus
+} from '../applicationStatusDisplay'
 
 const toast = useToast()
 /**
@@ -67,6 +73,7 @@ const applicationName = ref('' as string)
 const catalogId = ref(0 as number)
 const showRatingModal = ref(false)
 const selectedDeploymentId = ref(0 as number)
+const applicationStatusDetailModalId = 'application-status-detail-modal'
 const applicationDetailModalRef = ref()
 const applicationActionConfirmModalRef = ref()
 /**
@@ -126,7 +133,8 @@ const setColumns = () => {
     // },
     {
       title: "Infra",
-      width: '25%',
+      width: 230,
+      minWidth: 180,
       formatter: infraFormatter,
       cellClick: function (e, cell) {
         openDetailModal(cell)
@@ -135,7 +143,8 @@ const setColumns = () => {
     {
       title: "Application",
       field: "applicationName",
-      width: '15%',
+      width: 180,
+      minWidth: 150,
       cellClick: function (e, cell) {
         openDetailModal(cell)
       },
@@ -145,7 +154,8 @@ const setColumns = () => {
     },
     {
       title: "Status",
-      width: '13%',
+      width: 210,
+      minWidth: 190,
       formatter: statusFormatter,
       cellClick: function (e, cell) {
         openDetailModal(cell)
@@ -155,7 +165,8 @@ const setColumns = () => {
     {
       title: "CheckedAt",
       field: "checkedAt",
-      width: '17%',
+      width: 210,
+      minWidth: 190,
       cellClick: function (e, cell) {
         openDetailModal(cell)
       },
@@ -165,7 +176,9 @@ const setColumns = () => {
     },
     {
       title: "Action",
-      width: '30%',
+      width: 320,
+      minWidth: 300,
+      headerSort: false,
       formatter: actionButtonFormatter,
       cellClick: async function (e, cell) {
         const target = e.target as HTMLElement;
@@ -225,10 +238,10 @@ const _applicationAction = async (params: {
 
 const openDetailModal = (cell: any) => {
   const rowData = cell.getRow().getData()
-  selectedDeploymentId.value = rowData.deploymentId || rowData.id
+  selectedDeploymentId.value = rowData.deploymentHistoryId || rowData.deploymentId || rowData.id
   
   // Bootstrap 모달 열기
-  const modal = document.getElementById('application-detail-modal')
+  const modal = document.getElementById(applicationStatusDetailModalId)
   if (modal) {
     try {
       if ((window as any).bootstrap && (window as any).bootstrap.Modal) {
@@ -273,18 +286,8 @@ const infraFormatter = (cell: any) => {
   ` 
 }
 
-const statusLabels: Record<string, string> = {
-  PREPARING_RUNTIME: 'Preparing Runtime',
-  DEPLOYING: 'Deploying',
-  INSTALL: 'Deployment Submitted'
-}
-
-const progressStatuses = new Set(['PREPARING_RUNTIME', 'DEPLOYING', 'IN_PROGRESS', 'INSTALL', 'RESTART'])
-const successStatuses = new Set(['RUNNING', 'SUCCESS'])
-const warningStatuses = new Set(['NOT_FOUND', 'PENDING', 'UNKNOWN'])
-
-const getStatusLabel = (status: string) => statusLabels[status] || status || '-'
-const isActionDisabledStatus = (status: string) => ['PREPARING_RUNTIME', 'DEPLOYING', 'IN_PROGRESS'].includes(status)
+const isActionDisabledStatus = (status: string) =>
+  isApplicationActionDisabledStatus(status)
 
 /**
  * @Title statusFormatter
@@ -292,44 +295,15 @@ const isActionDisabledStatus = (status: string) => ['PREPARING_RUNTIME', 'DEPLOY
  */
 const statusFormatter = (cell: any) => {
   const status = cell.getRow().getData().status
-  const statusLabel = getStatusLabel(status)
+  const statusLabel = getApplicationStatusLabel(status)
+  const statusClass = getApplicationStatusBadgeClass(status)
 
-  if (successStatuses.has(status)) {
-    return `
-      <div style="cursor: pointer;">
-        <span class="status status-green">  
-          <span class="status-dot"></span>
-            ${statusLabel}
-        </span>
-      </div>`
-  }
-  else if (progressStatuses.has(status)) {
   return `
     <div style="cursor: pointer;">
-      <span class="status status-primary">  
-        <span class="status-dot"></span>
-          ${statusLabel}
-      </span>
-    </div>`
-  }
-  else if (warningStatuses.has(status)) {
-  return `
-    <div style="cursor: pointer;">
-      <span class="status status-yellow">  
-        <span class="status-dot"></span>
-          ${statusLabel}
-      </span>
-    </div>`
-  }
-  else {
-    return `
-  <div style="cursor: pointer;">
-    <span class="status status-red">  
-      <span class="status-dot"></span>
+      <span class="${statusClass}">
         ${statusLabel}
-    </span>
-  </div>`
-  }
+      </span>
+    </div>`
 }
 
 /**
@@ -341,9 +315,9 @@ const actionButtonFormatter = (cell: any) => {
   const disabledAttr = isActionDisabledStatus(status) ? 'disabled' : ''
 
   return `
-  <div>
+  <div class='d-flex align-items-center gap-3 flex-nowrap'>
     <button
-      class='btn btn-ghost-primary d-none d-sm-inline-block'
+      class='btn btn-link text-primary px-2 py-1'
       id='restart-btn'
       data-bs-toggle='modal' 
       data-bs-target='#action-confirm'
@@ -351,7 +325,7 @@ const actionButtonFormatter = (cell: any) => {
       Restart
     </button>
     <button
-      class='btn btn-ghost-warning d-none d-sm-inline-block'
+      class='btn btn-link text-warning px-2 py-1'
       id='stop-btn'
       data-bs-toggle='modal' 
       data-bs-target='#action-confirm'
@@ -359,7 +333,7 @@ const actionButtonFormatter = (cell: any) => {
       Stop
     </button>
     <button
-      class='btn btn-ghost-danger d-none d-sm-inline-block'
+      class='btn btn-link text-danger px-2 py-1'
       id='uninstall-btn'
       data-bs-toggle='modal' 
       data-bs-target='#action-confirm'
@@ -367,7 +341,7 @@ const actionButtonFormatter = (cell: any) => {
       Uninstall
     </button>
     <button
-      class='btn btn-ghost-info d-none d-sm-inline-block'
+      class='btn btn-link text-info px-2 py-1'
       id='rating-btn'
       data-bs-toggle='modal' 
       data-bs-target='#rating-modal'
@@ -376,6 +350,10 @@ const actionButtonFormatter = (cell: any) => {
     </button>
   </div>`;
 }
+
+defineExpose({
+  refresh: _getApplicationsStatusList
+})
 
 
 </script>

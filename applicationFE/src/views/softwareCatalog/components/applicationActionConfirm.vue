@@ -92,24 +92,27 @@ const _getReasonList = async (operation: string) => {
 
 const onClickAction = async () => {
 
-  let result
   const params = {
     operation: modalTitle.value,
     applicationStatusId: applicationStatusId.value,
     reason: reason.value,
     detailReason: detailReason.value
   }
-  const { data } = await runAction(params)
-  result = data
 
-  
-  emit('getApplicationsStatusList')
+  try {
+    const { data } = await runAction(params)
+    const result = data
 
-  if (result) {
-    toast.success(`${modalTitle.value} Action SUCCESS`)
-  }
-  else {
-    toast.error(`${modalTitle.value} Action FAIL`)
+    if (result && result.success !== false && !result.error) {
+      toast.success(`${modalTitle.value} Action SUCCESS`)
+    }
+    else {
+      toast.error(result?.error || `${modalTitle.value} Action FAIL`)
+    }
+  } catch (error: any) {
+    toast.error(error?.response?.data?.message || error?.message || `${modalTitle.value} Action FAIL`)
+  } finally {
+    emit('getApplicationsStatusList')
   }
 }
 

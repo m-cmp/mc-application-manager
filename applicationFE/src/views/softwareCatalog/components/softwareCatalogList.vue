@@ -185,7 +185,7 @@
                                   <th>CSP</th>
                                   <th>Status</th>
                                   <th>IP/Endpoint</th>
-                                  <th>Last Checked/Deployed</th>
+                                  <th>Last Checked</th>
                                   <th class="text-end">Detail</th>
                                 </tr>
                               </thead>
@@ -202,8 +202,8 @@
                                   <td>{{ deployment.target }}</td>
                                   <td>{{ deployment.csp }}</td>
                                   <td>
-                                    <span :class="getDeploymentStatusClass(deployment.status)">
-                                      {{ deployment.status }}
+                                    <span :class="getApplicationStatusBadgeClass(deployment.status)">
+                                      {{ getApplicationStatusLabel(deployment.status) }}
                                     </span>
                                   </td>
                                   <td>{{ deployment.ipOrEndpoint }}</td>
@@ -211,7 +211,7 @@
                                   <td class="text-end">
                                     <button
                                       type="button"
-                                      class="btn btn-sm btn-outline-primary"
+                                      class="btn btn-outline-primary"
                                       :disabled="!deployment.deploymentId"
                                       @click.stop="openApplicationDetail(deployment.deploymentId)">
                                       Detail
@@ -400,6 +400,10 @@ import ApplicationDetailModal from './applicationDetailModal.vue';
 
 // API
 import { getSoftwareCatalogList, searchArtifacthubhub, searchDockerhub, upLoadDockerHubApplication, upLoadArtifactHubApplication, getCatalogDeploymentStatus } from '../../../api/softwareCatalog';
+import {
+  getApplicationStatusBadgeClass,
+  getApplicationStatusLabel
+} from '../applicationStatusDisplay'
 
 // ETC
 import { computed, onMounted, ref } from 'vue';
@@ -669,37 +673,23 @@ const loadDeploymentStatus = async (catalog: any) => {
 const buildDeploymentStatusRows = (data: any) => {
   const histories = Array.isArray(data?.deploymentHistories) ? data.deploymentHistories : []
   const statuses = Array.isArray(data?.applicationStatuses) ? data.applicationStatuses : []
-  const usedStatusIndexes = new Set<number>()
 
-  const rows = histories.map((history: any) => {
-    const statusIndex = findMatchedStatusIndex(history, statuses, usedStatusIndexes)
-    const status = statusIndex >= 0 ? statuses[statusIndex] : null
-    if (statusIndex >= 0) usedStatusIndexes.add(statusIndex)
-
-    return toDeploymentStatusRow(history, status, `history-${history.id}`)
+  return statuses.map((status: any, index: number) => {
+    const history = findMatchedHistory(status, histories)
+    return toDeploymentStatusRow(history, status, `status-${status.id || index}`)
   })
-
-  statuses.forEach((status: any, index: number) => {
-    if (!usedStatusIndexes.has(index)) {
-      rows.push(toDeploymentStatusRow(null, status, `status-${status.id || index}`))
-    }
-  })
-
-  return rows
 }
 
-const findMatchedStatusIndex = (history: any, statuses: any[], usedStatusIndexes: Set<number>) => {
-  if (!history) return -1
+const findMatchedHistory = (status: any, histories: any[]) => {
+  if (!status) return null
 
-  const byDeploymentHistoryId = statuses.findIndex((status: any, index: number) =>
-    !usedStatusIndexes.has(index) &&
+  const byDeploymentHistoryId = histories.find((history: any) =>
     status.deploymentHistoryId &&
     String(status.deploymentHistoryId) === String(history.id)
   )
-  if (byDeploymentHistoryId >= 0) return byDeploymentHistoryId
+  if (byDeploymentHistoryId) return byDeploymentHistoryId
 
-  return statuses.findIndex((status: any, index: number) =>
-    !usedStatusIndexes.has(index) &&
+  return histories.find((history: any) =>
     sameValue(status.deploymentType, history.deploymentType) &&
     sameValue(status.namespace, history.namespace) &&
     (
@@ -712,22 +702,22 @@ const findMatchedStatusIndex = (history: any, statuses: any[], usedStatusIndexes
 const toDeploymentStatusRow = (history: any, status: any, rowKey: string) => {
   return {
     rowKey,
-    deploymentId: history?.id || status?.deploymentHistoryId || null,
-    deploymentType: displayValue(history?.deploymentType || status?.deploymentType),
+    deploymentId: status?.deploymentHistoryId || history?.id || null,
+    deploymentType: displayValue(status?.deploymentType || history?.deploymentType),
     target: displayValue(getTarget(history, status)),
     csp: displayValue(history?.cloudProvider),
-    status: displayValue(status?.status || history?.status || status?.podStatus || history?.podStatus),
+    status: displayValue(status?.status || status?.podStatus),
     ipOrEndpoint: displayValue(getEndpoint(history, status)),
-    lastCheckedOrDeployedAt: displayValue(formatDateTime(status?.checkedAt || history?.updatedAt || history?.executedAt))
+    lastCheckedOrDeployedAt: displayValue(formatDateTime(status?.checkedAt))
   }
 }
 
 const getTarget = (history: any, status: any) => {
-  const deploymentType = history?.deploymentType || status?.deploymentType
-  const namespace = history?.namespace || status?.namespace
-  const mciId = history?.mciId || status?.mciId
-  const vmId = history?.vmId || status?.vmId
-  const clusterName = history?.clusterName || status?.clusterName
+  const deploymentType = status?.deploymentType || history?.deploymentType
+  const namespace = status?.namespace || history?.namespace
+  const mciId = status?.mciId || history?.mciId
+  const vmId = status?.vmId || history?.vmId
+  const clusterName = status?.clusterName || history?.clusterName
 
   if (deploymentType === 'VM') {
     return [namespace, mciId, vmId].filter(Boolean).join(' / ')
@@ -775,26 +765,6 @@ const formatDateTime = (value: any) => {
     second: '2-digit',
     hour12: false
   })
-}
-
-const getDeploymentStatusClass = (status: string) => {
-  switch (status?.toLowerCase()) {
-    case 'running':
-    case 'success':
-    case 'completed':
-      return 'badge bg-success'
-    case 'failed':
-    case 'error':
-    case 'stopped':
-    case 'not_found':
-      return 'badge bg-danger'
-    case 'pending':
-    case 'in_progress':
-    case 'restart':
-      return 'badge bg-warning'
-    default:
-      return 'badge bg-secondary'
-  }
 }
 
 const openApplicationDetail = (deploymentId: number | null) => {
