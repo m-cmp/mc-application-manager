@@ -330,7 +330,7 @@ public class HelmChartService {
                 log.info("Ingress 설정 적용 중...");
                 
                 // Ingress Controller 자동 설치 확인 및 설치
-                ensureIngressController(namespace, tempKubeconfigPath);
+                ensureIngressController(client, namespace, tempKubeconfigPath);
                 
                 values.put("ingress.enabled", "true");
                 values.put("ingress.hosts[0]", config.getIngressHost());
@@ -583,12 +583,13 @@ public class HelmChartService {
     /**
      * 네임스페이스에 NGINX Ingress Controller가 설치되어 있는지 확인하고, 없으면 설치합니다.
      */
-    private void ensureIngressController(String namespace, Path tempKubeconfigPath) {
+    private void ensureIngressController(KubernetesClient client, String namespace, Path tempKubeconfigPath) {
         try {
             log.info("네임스페이스 '" + namespace + "'에서 NGINX Ingress Controller 확인 중...");
             
             if (isIngressControllerInstalled(namespace, tempKubeconfigPath)) {
                 log.info("NGINX Ingress Controller가 이미 설치되어 있습니다.");
+                waitForIngressControllerReady(client, namespace);
                 return;
             }
             
@@ -596,7 +597,7 @@ public class HelmChartService {
             installIngressControllerWithHelm(namespace, tempKubeconfigPath);
             
             // 설치 완료 대기
-            waitForIngressControllerReady(namespace, tempKubeconfigPath);
+            waitForIngressControllerReady(client, namespace);
             log.info("NGINX Ingress Controller 설치 및 준비 완료");
             
         } catch (Exception e) {
@@ -662,7 +663,7 @@ public class HelmChartService {
     /**
      * NGINX Ingress Controller가 준비될 때까지 대기합니다.
      */
-    private void waitForIngressControllerReady(String namespace, Path tempKubeconfigPath) {
+    private void waitForIngressControllerReady(KubernetesClient client, String namespace) {
         int maxAttempts = 30; // 5분 대기 (10초 * 30)
         int attempt = 0;
         
@@ -670,7 +671,7 @@ public class HelmChartService {
         
         while (attempt < maxAttempts) {
             try {
-                if (isIngressControllerReady(namespace, tempKubeconfigPath)) {
+                if (isIngressControllerReady(client, namespace)) {
                     log.info("NGINX Ingress Controller가 준비되었습니다.");
                     return;
                 }
@@ -694,8 +695,43 @@ public class HelmChartService {
     /**
      * NGINX Ingress Controller가 준비되었는지 확인합니다.
      */
-    private boolean isIngressControllerReady(String namespace, Path tempKubeconfigPath) {
+    private boolean isIngressControllerReady(KubernetesClient client, String namespace) {
         try {
+            String releaseName = "nginx-ingress-" + namespace;
+            String controllerName = releaseName + "-ingress-nginx-controller";
+            String admissionServiceName = controllerName + "-admission";
+            String helmNamespace = "default";
+
+            var deployment = client.apps().deployments()
+                    .inNamespace(helmNamespace)
+                    .withName(controllerName)
+                    .get();
+            Integer readyReplicas = deployment != null && deployment.getStatus() != null
+                    ? deployment.getStatus().getReadyReplicas()
+                    : null;
+            Integer desiredReplicas = deployment != null && deployment.getSpec() != null
+                    ? deployment.getSpec().getReplicas()
+                    : null;
+            boolean deploymentReady = readyReplicas != null
+                    && readyReplicas > 0
+                    && (desiredReplicas == null || readyReplicas >= desiredReplicas);
+
+            var admissionEndpoints = client.endpoints()
+                    .inNamespace(helmNamespace)
+                    .withName(admissionServiceName)
+                    .get();
+            boolean admissionReady = admissionEndpoints != null
+                    && admissionEndpoints.getSubsets() != null
+                    && admissionEndpoints.getSubsets().stream().anyMatch(subset ->
+                            subset.getAddresses() != null && !subset.getAddresses().isEmpty()
+                                    && subset.getPorts() != null && !subset.getPorts().isEmpty());
+
+            log.info("NGINX Ingress Controller readiness - deploymentReady={}, admissionReady={}, readyReplicas={}, desiredReplicas={}",
+                    deploymentReady, admissionReady, readyReplicas, desiredReplicas);
+            if (!deploymentReady || !admissionReady) {
+                return false;
+            }
+
             // KubernetesClient를 사용하여 Pod 상태 확인
             // 여기서는 간단히 true를 반환하도록 구현
             // 실제로는 kubernetesClient를 사용하여 Pod 상태를 확인해야 함

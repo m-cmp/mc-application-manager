@@ -136,7 +136,7 @@ public class KubernetesMonitoringService {
             try (KubernetesClient client = clientFactory.getClient(namespace, clusterName)) {
 
                 if (!isMetricsServerInstalled(client)) {
-                    installMetricsServer(client);
+                    log.debug("metrics-server is not installed. Pod status monitoring will continue without CPU/memory metrics.");
                 }
 
                 updateApplicationStatus(deployment, client);
@@ -670,12 +670,16 @@ public class KubernetesMonitoringService {
                 .withNamespaced(true)
                 .build();
 
-        // log.debug("appName : " + appName);
-        List<GenericKubernetesResource> podMetrics = client.genericKubernetesResources(context)
-                .inNamespace(namespace)
-                // .withLabel("app", appName)
-                .list()
-                .getItems();
+        List<GenericKubernetesResource> podMetrics = Collections.emptyList();
+        try {
+            podMetrics = client.genericKubernetesResources(context)
+                    .inNamespace(namespace)
+                    // .withLabel("app", appName)
+                    .list()
+                    .getItems();
+        } catch (Exception e) {
+            log.warn("Pod metrics API is unavailable for namespace '{}'. Runtime status will be based on pod phase only.", namespace);
+        }
 
         log.debug("Found {} pod metrics in namespace {}", podMetrics.size(), namespace);
         
@@ -689,15 +693,14 @@ public class KubernetesMonitoringService {
         }
 
         if (podMetrics.isEmpty()) {
-            log.warn("No pod metrics found. Checking if metrics-server is running...");
-            checkMetricsServerStatus(client);
+            log.warn("No pod metrics found. Runtime status will be based on pod phase only.");
             Map<String, Object> result = new HashMap<>();
             result.put("cpuPercentage", 0.0);
             result.put("memoryPercentage", 0.0);
             result.put("networkIn", 0.0);
             result.put("networkOut", 0.0);
-            result.put("status", "UNKNOWN");
-            result.put("port", null);
+            result.put("status", resolveRuntimeStatus(pods, runningPods, pendingPods, failedPods));
+            result.put("port", findPrimaryServicePort(client, namespace, appName));
             return result;
         }
 
@@ -777,46 +780,9 @@ public class KubernetesMonitoringService {
         Double roundedMemoryUsage = Math.round(memoryUsagePercentage * 100.0) / 100.0;
 
         // 서비스 포트 정보 수집
-        List<Integer> ports = new ArrayList<>();
-        client.services().inNamespace(namespace).list().getItems().stream()
-                .filter(service -> service.getMetadata().getName().startsWith(appName.toLowerCase()))
-                .forEach(service -> {
-                    service.getSpec().getPorts().forEach(servicePort -> {
-                        if (servicePort.getNodePort() != null) {
-                            ports.add(servicePort.getNodePort());
-                        }
-                    });
-                });
-        Integer primaryPort = ports.isEmpty() ? null : ports.get(0);
+        Integer primaryPort = findPrimaryServicePort(client, namespace, appName);
 
-        // 상태 결정 로직 개선
-        String status;
-        if (runningPods > 0) {
-            status = "RUNNING";
-        } else if (pods.isEmpty()) {
-            status = "STOPPED";
-        } else if (failedPods > 0) {
-            status = "FAILED";
-        } else if (pendingPods > 0) {
-            // Pending 상태인 경우 ImagePullBackOff 등을 확인
-            boolean hasImagePullError = pods.stream()
-                    .filter(pod -> "PENDING".equalsIgnoreCase(pod.getStatus().getPhase()))
-                    .anyMatch(pod -> pod.getStatus().getContainerStatuses() != null &&
-                            pod.getStatus().getContainerStatuses().stream()
-                                    .anyMatch(containerStatus -> 
-                                            containerStatus.getState() != null &&
-                                            containerStatus.getState().getWaiting() != null &&
-                                            "ImagePullBackOff".equals(containerStatus.getState().getWaiting().getReason())));
-            
-            if (hasImagePullError) {
-                status = "IMAGE_PULL_ERROR";
-            } else {
-                status = "PENDING";
-            }
-        } else {
-            // Pod는 있지만 Metrics가 없는 경우
-            status = "UNKNOWN";
-        }
+        String status = resolveRuntimeStatus(pods, runningPods, pendingPods, failedPods);
 
         Map<String, Object> result = new HashMap<>();
         result.put("cpuPercentage", roundedCpuUsage != null ? roundedCpuUsage : 0.0);
@@ -830,6 +796,50 @@ public class KubernetesMonitoringService {
                 appName, status, podCount, pods.size());
 
         return result;
+    }
+
+    private String resolveRuntimeStatus(List<Pod> pods, long runningPods, long pendingPods, long failedPods) {
+        if (runningPods > 0) {
+            return "RUNNING";
+        }
+        if (pods.isEmpty()) {
+            return "STOPPED";
+        }
+        if (failedPods > 0) {
+            return "FAILED";
+        }
+        if (pendingPods > 0) {
+            boolean hasImagePullError = pods.stream()
+                    .filter(pod -> pod.getStatus() != null && "PENDING".equalsIgnoreCase(pod.getStatus().getPhase()))
+                    .anyMatch(pod -> pod.getStatus().getContainerStatuses() != null &&
+                            pod.getStatus().getContainerStatuses().stream()
+                                    .anyMatch(containerStatus ->
+                                            containerStatus.getState() != null &&
+                                                    containerStatus.getState().getWaiting() != null &&
+                                                    "ImagePullBackOff".equals(containerStatus.getState().getWaiting().getReason())));
+
+            return hasImagePullError ? "IMAGE_PULL_ERROR" : "PENDING";
+        }
+        return "UNKNOWN";
+    }
+
+    private Integer findPrimaryServicePort(KubernetesClient client, String namespace, String appName) {
+        try {
+            return client.services().inNamespace(namespace).list().getItems().stream()
+                    .filter(service -> service.getMetadata() != null
+                            && service.getMetadata().getName() != null
+                            && service.getMetadata().getName().startsWith(appName.toLowerCase()))
+                    .flatMap(service -> service.getSpec() != null && service.getSpec().getPorts() != null
+                            ? service.getSpec().getPorts().stream()
+                            : java.util.stream.Stream.empty())
+                    .map(servicePort -> servicePort.getNodePort() != null ? servicePort.getNodePort() : servicePort.getPort())
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+        } catch (Exception e) {
+            log.warn("Failed to resolve service port for app '{}': {}", appName, e.getMessage());
+            return null;
+        }
     }
 
     private double getTotalCpuCapacity(KubernetesClient client) {
@@ -939,7 +949,12 @@ public class KubernetesMonitoringService {
     }
 
     private boolean isMetricsServerInstalled(KubernetesClient client) {
-        return client.apps().deployments().inNamespace("kube-system").withName("metrics-server").get() != null;
+        try {
+            return client.apps().deployments().inNamespace("kube-system").withName("metrics-server").get() != null;
+        } catch (Exception e) {
+            log.debug("Unable to check metrics-server installation. Continuing without CPU/memory metrics.", e);
+            return false;
+        }
     }
 
     private void installMetricsServer(KubernetesClient client) throws IOException {
