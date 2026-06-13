@@ -286,6 +286,27 @@
               </select>
             </div>
 
+            <div class="mb-3" v-if="modalTitle == 'Application Installation' && showStorageClassConfig">
+              <label class="form-label" :class="{ required: storageClassRequired }">Storage Class</label>
+              <select
+                class="form-select"
+                v-model="selectedStorageClass"
+                :disabled="storageClassSelectDisabled">
+                <option value="" disabled>
+                  {{ storageClassPlaceholder }}
+                </option>
+                <option
+                  v-for="storageClass in storageClassList"
+                  :key="storageClass.name"
+                  :value="storageClass.name">
+                  {{ storageClass.name }}{{ storageClass.defaultClass ? ' (default)' : '' }}
+                </option>
+              </select>
+              <p class="text-danger mt-1 mb-0" v-if="storageClassRequired && storageClassErrorMessage">
+                {{ storageClassErrorMessage }}
+              </p>
+            </div>
+
             <!-- K8S :: HPA -->
             <div class="mb-3" v-if="modalTitle == 'Application Installation'" >
               <label class="form-label">HPA Configuration</label>
@@ -434,7 +455,8 @@
                     class="form-check-input"
                     type="checkbox"
                     id="objectStorageEnabled"
-                    v-model="objectStorageData.enabled">
+                    v-model="objectStorageData.enabled"
+                    :disabled="objectStorageRequired">
                   <label class="form-check-label" for="objectStorageEnabled">
                     Enable Object Storage
                   </label>
@@ -519,7 +541,7 @@
               v-if="modalTitle == 'Application Installation' && shouldRunObjectStorageCheck"
               class="btn btn-outline-danger ms-auto me-1"
               @click="runObjectStorageCheck()"
-              :disabled="objectStorageChecking"
+              :disabled="objectStorageChecking || objectStorageCheckPassed"
               title="Writes, reads, and deletes a temporary object in the selected bucket.">
               {{ objectStorageChecking ? 'Checking...' : 'Storage Check' }}
             </button>
@@ -551,7 +573,7 @@ import { onMounted, watch, computed } from 'vue';
 // @ts-ignore
 import _, { slice } from 'lodash';
 import { getNsInfo, getMciInfo, getVmInfo, getClusterInfo } from '@/api/tumblebug'
-import { getSoftwareCatalogList, k8sSpecCheck, objectStorageSmokeCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
+import { getK8sStorageClasses, getSoftwareCatalogList, k8sSpecCheck, objectStorageSmokeCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
 import { type SoftwareCatalog } from '@/views/type/type'
 import { useUserStore } from '@/stores/user'
 
@@ -584,6 +606,10 @@ const objectStorageData = ref({} as any)
 const objectStorageCheckResult = ref(null as any)
 const objectStorageChecking = ref(false as boolean)
 const selectedResourceType = ref("GENERAL_PURPOSE" as string)
+const storageClassList = ref([] as any[])
+const selectedStorageClass = ref("" as string)
+const storageClassLoading = ref(false as boolean)
+const storageClassLoadError = ref(false as boolean)
 
 const clusterList = ref([] as any)
 const selectCluster = ref("" as string)
@@ -625,6 +651,10 @@ watch(selectInfra, async (newValue) => {
 watch(objectStorageData, () => {
   objectStorageCheckResult.value = null
 }, { deep: true })
+
+watch(selectedStorageClass, () => {
+  onChangeForm()
+})
 
 // Handle deployment type changes
 watch(selectDeploymentType, () => {
@@ -676,6 +706,10 @@ const setInit = async () => {
   objectStorageData.value = getDefaultObjectStorageData()
   objectStorageCheckResult.value = null
   objectStorageChecking.value = false
+  storageClassList.value = []
+  selectedStorageClass.value = ""
+  storageClassLoading.value = false
+  storageClassLoadError.value = false
   selectedResourceType.value = "GENERAL_PURPOSE"
   inputServicePort.value = ""
 
@@ -808,6 +842,37 @@ const _getClusterName = async () => {
     objectStorageData.value = getDefaultObjectStorageData()
     objectStorageCheckResult.value = null
   })
+  await fetchStorageClasses()
+}
+
+const fetchStorageClasses = async () => {
+  storageClassList.value = []
+  selectedStorageClass.value = ""
+  storageClassLoadError.value = false
+
+  if (selectInfra.value !== 'K8S' || _.isEmpty(selectNsId.value) || _.isEmpty(selectCluster.value)) {
+    return
+  }
+
+  storageClassLoading.value = true
+  try {
+    const { data } = await getK8sStorageClasses({
+      namespace: selectNsId.value,
+      clusterName: selectCluster.value
+    })
+    storageClassList.value = Array.isArray(data) ? data : []
+    selectedStorageClass.value = getInitialStorageClass(storageClassList.value)
+  } catch (error) {
+    storageClassLoadError.value = true
+    selectedStorageClass.value = ""
+  } finally {
+    storageClassLoading.value = false
+  }
+}
+
+const getInitialStorageClass = (items: any[]) => {
+  const defaultClass = items.find((item: any) => item.defaultClass)
+  return defaultClass?.name || items[0]?.name || ""
 }
 
 const onChangeNsId = async () => {
@@ -917,12 +982,12 @@ const runInstall = async () => {
   }
 
   else if (selectInfra.value === 'K8S') {
+    if (!validateStorageClassSelection()) return
+
     // History: The initial design has changed, currently only sending 1 Application (previously it could receive multiple apps)
     appList = inputApplications.value.split(",").map(item => item.toLowerCase().trim());
     const servicePort = inputServicePort.value === "" ? undefined : Number(inputServicePort.value);
-    const additionalConfig = showObjectStorageConfig.value && objectStorageData.value.enabled
-      ? { objectStorage: buildObjectStorageConfig() }
-      : undefined
+    const additionalConfig = buildK8sAdditionalConfig()
     let params = {
       namespace: selectNsId.value,
       clusterName: selectCluster.value,
@@ -964,6 +1029,7 @@ const specCheck = async () => {
     toast.error("Please Select Infra")
     return
   }
+  if (!validateStorageClassSelection()) return
 
   const checkedValue = await specCheckCallback()
   let data = true;
@@ -1045,6 +1111,42 @@ const selectedClusterProvider = computed(() => {
   return cluster?.connectionConfig?.providerName || cluster?.connectionName || ''
 })
 
+const selectedCatalogChartName = computed(() => {
+  return String(selectedCatalogInfo.value?.helmChart?.chartName || '').toLowerCase()
+})
+
+const isLokiCatalog = computed(() => selectedCatalogChartName.value === 'loki')
+
+const storageClassRequired = computed(() => {
+  return selectInfra.value === 'K8S' && isLokiCatalog.value
+})
+
+const showStorageClassConfig = computed(() => {
+  return selectInfra.value === 'K8S'
+    && modalTitle.value === 'Application Installation'
+    && (storageClassRequired.value || storageClassList.value.length > 0 || storageClassLoadError.value)
+})
+
+const storageClassSelectDisabled = computed(() => {
+  return storageClassLoading.value || storageClassList.value.length <= 1
+})
+
+const storageClassPlaceholder = computed(() => {
+  if (storageClassLoading.value) return 'Loading StorageClasses...'
+  if (storageClassLoadError.value) return 'Failed to load StorageClasses'
+  if (storageClassList.value.length === 0) return 'No StorageClass found'
+  return 'Select StorageClass'
+})
+
+const storageClassErrorMessage = computed(() => {
+  if (!storageClassRequired.value) return ''
+  if (storageClassLoading.value) return 'StorageClass list is loading.'
+  if (storageClassLoadError.value) return 'StorageClass list could not be loaded.'
+  if (storageClassList.value.length === 0) return 'Loki requires a StorageClass, but none was found.'
+  if (_.isEmpty(selectedStorageClass.value)) return 'Loki requires a StorageClass.'
+  return ''
+})
+
 const objectStorageEndpointPlaceholder = computed(() => {
   return isAwsProvider(selectedClusterProvider.value)
     ? 'Optional: https://s3.ap-northeast-2.amazonaws.com'
@@ -1060,7 +1162,7 @@ const objectStorageRegionPlaceholder = computed(() => {
 const showObjectStorageConfig = computed(() => {
   if (selectInfra.value !== 'K8S') return false
   if (!selectedCatalogInfo.value?.helmChart) return false
-  return hasObjectStorageCapability(selectedCatalogInfo.value)
+  return isLokiCatalog.value || hasObjectStorageCapability(selectedCatalogInfo.value)
 })
 
 const shouldRunObjectStorageCheck = computed(() => {
@@ -1072,14 +1174,14 @@ const objectStorageCheckPassed = computed(() => {
 })
 
 const deployDisabled = computed(() => {
-  return specCheckFlag.value || !objectStorageCheckPassed.value
+  return specCheckFlag.value || !objectStorageCheckPassed.value || (storageClassRequired.value && !_.isEmpty(storageClassErrorMessage.value))
 })
 
-function getDefaultObjectStorageData(provider = selectedClusterProvider.value) {
+function getDefaultObjectStorageData(provider = selectedClusterProvider.value, enabled = objectStorageRequired.value) {
   const isAws = isAwsProvider(provider)
 
   return {
-    enabled: false,
+    enabled: Boolean(enabled),
     backendType: 's3',
     endpoint: '',
     region: '',
@@ -1093,6 +1195,10 @@ function getDefaultObjectStorageData(provider = selectedClusterProvider.value) {
 function isAwsProvider(provider: string) {
   return String(provider || '').toLowerCase().includes('aws')
 }
+
+const objectStorageRequired = computed(() => {
+  return selectInfra.value === 'K8S' && isLokiCatalog.value
+})
 
 function hasObjectStorageCapability(catalog: SoftwareCatalog) {
   const refs = catalog.catalogRefs || []
@@ -1115,6 +1221,28 @@ function buildObjectStorageConfig() {
     forcePathStyle: objectStorageData.value.forcePathStyle,
     insecure: isHttpEndpoint(objectStorageData.value.endpoint)
   }
+}
+
+function buildK8sAdditionalConfig() {
+  const config = {} as Record<string, any>
+  if (!_.isEmpty(selectedStorageClass.value)) {
+    config.storageClass = selectedStorageClass.value
+  }
+  if (showObjectStorageConfig.value && objectStorageData.value.enabled) {
+    config.objectStorage = buildObjectStorageConfig()
+  }
+  return Object.keys(config).length > 0 ? config : undefined
+}
+
+function validateStorageClassSelection() {
+  if (!storageClassRequired.value) return true
+
+  const message = storageClassErrorMessage.value
+  if (!_.isEmpty(message)) {
+    toast.error(message)
+    return false
+  }
+  return true
 }
 
 function isHttpEndpoint(endpoint: string) {
@@ -1192,10 +1320,11 @@ const onChangeCatalog = () => {
   })
 }
 
-const onChangeCluster = () => {
+const onChangeCluster = async () => {
   if(modalTitle.value === 'Application Installation') specCheckFlag.value = true
   objectStorageData.value = getDefaultObjectStorageData()
   objectStorageCheckResult.value = null
+  await fetchStorageClasses()
 }
 
 </script>

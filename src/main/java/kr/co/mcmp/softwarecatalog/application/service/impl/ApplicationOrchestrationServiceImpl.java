@@ -120,7 +120,8 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
                     .map(this::toStatusDto);
             })
             .sorted(Comparator
-                .comparing(ApplicationStatusDto::getDeploymentHistoryId, Comparator.nullsLast(Comparator.reverseOrder()))
+                .comparing(ApplicationStatusDto::getCheckedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(ApplicationStatusDto::getDeploymentHistoryId, Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(ApplicationStatusDto::getId, Comparator.nullsLast(Comparator.reverseOrder())))
             .collect(Collectors.toList());
     }

@@ -21,6 +21,7 @@ import kr.co.mcmp.softwarecatalog.application.dto.ApplicationStatusDto;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentHistoryDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentLogDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.IntegratedApplicationInfoDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.K8sStorageClassDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.ObjectStorageSmokeTestRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.ObjectStorageSmokeTestResponse;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
@@ -30,6 +31,7 @@ import kr.co.mcmp.softwarecatalog.application.service.ObjectStorageSmokeTestServ
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequestDTO;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
+import kr.co.mcmp.softwarecatalog.kubernetes.service.KubernetesStorageClassService;
 import org.springframework.web.bind.annotation.PathVariable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +46,7 @@ public class ApplicationController {
     private final ApplicationService applicationService;
     private final ApplicationOrchestrationService applicationOrchestrationService;
     private final ObjectStorageSmokeTestService objectStorageSmokeTestService;
+    private final KubernetesStorageClassService kubernetesStorageClassService;
 
     @Operation(summary = "Deploy application to VM", description = "Deploy an application to a specific VM.")
     @PostMapping("/vm/deploy")
@@ -98,6 +101,15 @@ public class ApplicationController {
             @Parameter(description = "Object Storage smoke check request", required = true)
             @RequestBody ObjectStorageSmokeTestRequest request) {
         ObjectStorageSmokeTestResponse result = objectStorageSmokeTestService.runSmokeTest(request);
+        return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+
+    @Operation(summary = "List K8s StorageClasses", description = "Retrieve StorageClasses from the selected K8s cluster.")
+    @GetMapping("/k8s/storage-classes")
+    public ResponseEntity<ResponseWrapper<List<K8sStorageClassDTO>>> getK8sStorageClasses(
+            @Parameter(description = "Namespace used to locate the K8s cluster", required = true) @RequestParam String namespace,
+            @Parameter(description = "Kubernetes cluster name", required = true) @RequestParam String clusterName) {
+        List<K8sStorageClassDTO> result = kubernetesStorageClassService.getStorageClasses(namespace, clusterName);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
     }
 

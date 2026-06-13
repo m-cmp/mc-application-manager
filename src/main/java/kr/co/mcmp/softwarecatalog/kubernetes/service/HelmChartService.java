@@ -18,6 +18,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
+import kr.co.mcmp.softwarecatalog.CatalogRepository;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProviderFactory;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProvider;
@@ -47,6 +48,8 @@ public class HelmChartService {
     private final CbtumblebugRestApi cbtumblebugRestApi;
     private final KubeConfigProviderFactory providerFactory;
     private final ReleaseNameGenerator releaseNameGenerator;
+    private final CatalogRepository catalogRepository;
+    private final KubernetesStorageClassService kubernetesStorageClassService;
 
     public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog, String clusterName) {
         return deployHelmChart(client, namespace, catalog, catalog.getHelmChart(), clusterName);
@@ -131,13 +134,16 @@ public class HelmChartService {
             values.put("securityContext.runAsNonRoot", "false");
             values.put("containerSecurityContext.allowPrivilegeEscalation", "false");
             values.put("global.security.allowInsecureImages", "true");
-            values.put("global.imageRegistry", "docker.io");
+            boolean lokiChart = helmChart.getChartName().equalsIgnoreCase("loki");
+            if (!lokiChart) {
+                values.put("global.imageRegistry", "docker.io");
+            }
 
             if (helmChart.getChartName().equalsIgnoreCase("grafana")) {
                 values.put("image.repository", "grafana/grafana");
                 values.put("image.tag", "latest");
                 values.put("image.pullPolicy", "IfNotPresent");
-            } else {
+            } else if (!lokiChart) {
                 values.put("image.repository", imageRepository);
                 values.put("image.tag", "latest");
                 values.put("image.pullPolicy", "IfNotPresent");
@@ -313,13 +319,16 @@ public class HelmChartService {
             values.put("securityContext.runAsNonRoot", "false");
             values.put("containerSecurityContext.allowPrivilegeEscalation", "false");
             values.put("global.security.allowInsecureImages", "true");
-            values.put("global.imageRegistry", "docker.io");
+            boolean lokiChart = helmChart.getChartName().equalsIgnoreCase("loki");
+            if (!lokiChart) {
+                values.put("global.imageRegistry", "docker.io");
+            }
 
             if (helmChart.getChartName().equalsIgnoreCase("grafana")) {
                 values.put("image.repository", "grafana/grafana");
                 values.put("image.tag", "latest");
                 values.put("image.pullPolicy", "IfNotPresent");
-            } else {
+            } else if (!lokiChart) {
                 values.put("image.repository", imageRepository);
                 values.put("image.tag", "latest");
                 values.put("image.pullPolicy", "IfNotPresent");
@@ -935,17 +944,17 @@ public class HelmChartService {
         if (!StringUtils.equalsIgnoreCase(chartName, "loki")) {
             return;
         }
-        if (!hasObjectStorageCapability(catalog) || request == null || request.getAdditionalConfig() == null) {
-            return;
+        if (request == null || request.getAdditionalConfig() == null) {
+            throw new IllegalArgumentException("Object Storage configuration is required for Loki deployment.");
         }
 
         Object rawConfig = request.getAdditionalConfig().get("objectStorage");
         if (!(rawConfig instanceof Map<?, ?> objectStorage)) {
-            return;
+            throw new IllegalArgumentException("Object Storage configuration is required for Loki deployment.");
         }
 
         if (!asBoolean(objectStorage.get("enabled"))) {
-            return;
+            throw new IllegalArgumentException("Object Storage configuration is required for Loki deployment.");
         }
 
         String backendType = stringValue(objectStorage.get("backendType"), "s3");
@@ -963,13 +972,20 @@ public class HelmChartService {
         boolean insecure = isHttpEndpoint(endpoint);
 
         if (StringUtils.isAnyBlank(region, bucket, accessKey, secretKey)) {
-            log.warn("Object Storage config skipped because required S3-compatible fields are missing. provider={}", providerName);
-            return;
+            throw new IllegalArgumentException("Object Storage region, bucket, access key, and secret key are required for Loki deployment.");
         }
         if (!isAwsProvider(providerName) && StringUtils.isBlank(endpoint)) {
-            log.warn("Object Storage config skipped because endpoint is required for non-AWS S3-compatible storage. provider={}", providerName);
-            return;
+            throw new IllegalArgumentException("Object Storage endpoint is required for non-AWS S3-compatible Loki deployment.");
         }
+
+        String storageClassName = stringValue(request.getAdditionalConfig().get("storageClass"), null);
+        if (StringUtils.isBlank(storageClassName)) {
+            throw new IllegalArgumentException("Storage Class is required for Loki deployment.");
+        }
+        if (!kubernetesStorageClassService.exists(request.getNamespace(), request.getClusterName(), storageClassName)) {
+            throw new IllegalArgumentException("Storage Class not found in the selected cluster: " + storageClassName);
+        }
+
         Map<String, Object> loki = nestedMap(valuesFile, "loki");
         loki.put("configStorageType", "Secret");
         applyDefaultLokiSchemaConfig(loki);
@@ -995,7 +1011,51 @@ public class HelmChartService {
         Map<String, Object> minio = nestedMap(valuesFile, "minio");
         minio.put("enabled", false);
 
+        applyLokiObjectStorageRuntimeDefaults(valuesFile, storageClassName, catalog);
+
         log.info("Object Storage Helm values prepared for provider={}, backend=s3-compatible, bucketNames configured", providerName);
+    }
+
+    private void applyLokiObjectStorageRuntimeDefaults(Map<String, Object> valuesFile, String storageClassName, SoftwareCatalog catalog) {
+        nestedMap(valuesFile, "gateway").put("verboseLogging", false);
+        nestedMap(valuesFile, "chunksCache").put("enabled", false);
+        nestedMap(valuesFile, "resultsCache").put("enabled", false);
+        nestedMap(valuesFile, "lokiCanary").put("enabled", false);
+        nestedMap(valuesFile, "test").put("enabled", false);
+
+        Map<String, Object> singleBinary = nestedMap(valuesFile, "singleBinary");
+        Map<String, Object> persistence = nestedMap(singleBinary, "persistence");
+        persistence.put("enabled", true);
+        persistence.put("storageClass", storageClassName);
+        applyLokiResourceValues(singleBinary, catalog);
+
+        Map<String, Object> gateway = nestedMap(valuesFile, "gateway");
+        applyLokiResourceValues(gateway, catalog);
+    }
+
+    private void applyLokiResourceValues(Map<String, Object> component, SoftwareCatalog catalog) {
+        if (catalog == null) {
+            return;
+        }
+
+        Map<String, Object> resources = nestedMap(component, "resources");
+        Map<String, Object> requests = nestedMap(resources, "requests");
+        Map<String, Object> limits = nestedMap(resources, "limits");
+
+        if (catalog.getMinCpu() != null) {
+            requests.put("cpu", catalog.getMinCpu().toString());
+        }
+        String minMemory = formatMemoryMi(catalog.getMinMemory());
+        if (StringUtils.isNotBlank(minMemory)) {
+            requests.put("memory", minMemory);
+        }
+        if (catalog.getRecommendedCpu() != null) {
+            limits.put("cpu", catalog.getRecommendedCpu().toString());
+        }
+        String recommendedMemory = formatMemoryMi(catalog.getRecommendedMemory());
+        if (StringUtils.isNotBlank(recommendedMemory)) {
+            limits.put("memory", recommendedMemory);
+        }
     }
 
     private void applyDefaultLokiSchemaConfig(Map<String, Object> loki) {
@@ -1021,10 +1081,16 @@ public class HelmChartService {
     }
 
     private boolean hasObjectStorageCapability(SoftwareCatalog catalog) {
-        if (catalog == null || catalog.getCatalogRefs() == null) {
+        if (catalog == null || catalog.getId() == null) {
             return false;
         }
-        return catalog.getCatalogRefs().stream().anyMatch(ref ->
+
+        SoftwareCatalog catalogWithRefs = catalogRepository.findByIdWithCatalogRefs(catalog.getId()).orElse(catalog);
+        if (catalogWithRefs.getCatalogRefs() == null) {
+            return false;
+        }
+
+        return catalogWithRefs.getCatalogRefs().stream().anyMatch(ref ->
                 "object-storage".equalsIgnoreCase(ref.getRefValue())
                         && ("CAPABILITY".equalsIgnoreCase(ref.getRefType()) || "TAG".equalsIgnoreCase(ref.getRefType())));
     }

@@ -1,4 +1,4 @@
-import{L as l}from"./index-2RdC8Fmv.js";/**
+import{L as l}from"./index-DgPLCZcu.js";/**
  * @license @tabler/icons-vue v3.22.0 - MIT
  *
  * This source code is licensed under the MIT license.

@@ -53,7 +53,8 @@ const ACTION_DISABLED_STATUSES = new Set([
   'RESTART',
   'RESTARTING',
   'UNINSTALL',
-  'UNINSTALLED'
+  'UNINSTALLED',
+  'FAILED'
 ])
 
 const normalizeStatus = (status: string | null | undefined) => String(status || '').trim().toUpperCase()
