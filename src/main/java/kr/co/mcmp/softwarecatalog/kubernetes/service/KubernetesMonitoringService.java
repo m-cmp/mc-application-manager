@@ -1,16 +1,22 @@
 package kr.co.mcmp.softwarecatalog.kubernetes.service;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,12 +26,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.fabric8.kubernetes.api.model.ContainerStatus;
 import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
+import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.Node;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodSpec;
+import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DaemonSet;
+import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
+import io.fabric8.kubernetes.client.impl.BaseClient;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
@@ -52,6 +63,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class KubernetesMonitoringService {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String DEFAULT_WORKLOAD_NAMESPACE = "default";
+    private static final String HELM_INSTANCE_LABEL = "app.kubernetes.io/instance";
 
     private final KubernetesClientFactory clientFactory;
     private final DeploymentHistoryRepository historyRepository;
@@ -210,13 +225,18 @@ public class KubernetesMonitoringService {
             return;
         }
 
-        String namespace = "default";
+        String namespace = DEFAULT_WORKLOAD_NAMESPACE;
         String appName = deployment.getCatalog().getHelmChart().getChartName();
-        List<Pod> pods = findPodsByAppName(client, namespace, appName);
+        String lookupName = resolveWorkloadLookupName(deployment, appName);
+        List<Pod> pods = findPodsForDeployment(client, namespace, deployment, appName);
+        if (pods.isEmpty()) {
+            log.debug("Skipping autoscale sample collection because no pods are running for deployment={}", deployment.getId());
+            return;
+        }
         long runningPods = countPodsByPhase(pods, "RUNNING");
         long pendingPods = countPodsByPhase(pods, "PENDING");
         long failedPods = countPodsByPhase(pods, "FAILED");
-        Map<String, Object> resourceUsage = getResourceUsagePercentage(client, namespace, appName, pods, runningPods, pendingPods, failedPods);
+        Map<String, Object> resourceUsage = getResourceUsagePercentage(client, namespace, appName, lookupName, pods, runningPods, pendingPods, failedPods);
 
         Double cpuUsage = (Double) resourceUsage.get("cpuPercentage");
         Double memoryUsage = (Double) resourceUsage.get("memoryPercentage");
@@ -239,17 +259,111 @@ public class KubernetesMonitoringService {
                 .build());
     }
 
-    private List<Pod> findPodsByAppName(KubernetesClient client, String namespace, String appName) {
-        return client.pods().inNamespace(namespace).list().getItems().stream()
-                .filter(pod -> {
-                    String podName = pod.getMetadata().getName();
-                    return podName.startsWith(appName) ||
-                           podName.startsWith(appName.toLowerCase()) ||
-                           podName.contains(appName) ||
-                           podName.contains(appName.toLowerCase()) ||
-                           podName.toLowerCase().startsWith(appName.toLowerCase());
-                })
-                .collect(Collectors.toList());
+    private List<Pod> findPodsForDeployment(KubernetesClient client, String namespace, DeploymentHistory deployment, String appName) {
+        String lookupName = resolveWorkloadLookupName(deployment, appName);
+        Map<String, Pod> matchedPods = new LinkedHashMap<>();
+
+        if (StringUtils.isNotBlank(deployment.getReleaseName())) {
+            client.pods().inNamespace(namespace)
+                    .withLabel(HELM_INSTANCE_LABEL, deployment.getReleaseName())
+                    .list()
+                    .getItems()
+                    .forEach(pod -> addPod(matchedPods, pod));
+        }
+
+        addPodsFromWorkloadSelectors(client, namespace, lookupName, matchedPods);
+
+        if (matchedPods.isEmpty()) {
+            client.pods().inNamespace(namespace).list().getItems().stream()
+                    .filter(pod -> isNameMatch(pod.getMetadata().getName(), lookupName)
+                            || isNameMatch(pod.getMetadata().getName(), appName))
+                    .forEach(pod -> addPod(matchedPods, pod));
+        }
+
+        return new ArrayList<>(matchedPods.values());
+    }
+
+    private void addPodsFromWorkloadSelectors(KubernetesClient client, String namespace, String workloadName, Map<String, Pod> matchedPods) {
+        if (StringUtils.isBlank(workloadName)) {
+            return;
+        }
+
+        Deployment namedDeployment = client.apps().deployments().inNamespace(namespace).withName(workloadName).get();
+        if (namedDeployment != null) {
+            addPodsBySelector(client, namespace, selectorOf(namedDeployment), matchedPods);
+        }
+
+        client.apps().deployments().inNamespace(namespace)
+                .withLabel(HELM_INSTANCE_LABEL, workloadName)
+                .list()
+                .getItems()
+                .forEach(deployment -> addPodsBySelector(client, namespace, selectorOf(deployment), matchedPods));
+
+        StatefulSet namedStatefulSet = client.apps().statefulSets().inNamespace(namespace).withName(workloadName).get();
+        if (namedStatefulSet != null) {
+            addPodsBySelector(client, namespace, selectorOf(namedStatefulSet), matchedPods);
+        }
+
+        client.apps().statefulSets().inNamespace(namespace)
+                .withLabel(HELM_INSTANCE_LABEL, workloadName)
+                .list()
+                .getItems()
+                .forEach(statefulSet -> addPodsBySelector(client, namespace, selectorOf(statefulSet), matchedPods));
+
+        DaemonSet namedDaemonSet = client.apps().daemonSets().inNamespace(namespace).withName(workloadName).get();
+        if (namedDaemonSet != null) {
+            addPodsBySelector(client, namespace, selectorOf(namedDaemonSet), matchedPods);
+        }
+
+        client.apps().daemonSets().inNamespace(namespace)
+                .withLabel(HELM_INSTANCE_LABEL, workloadName)
+                .list()
+                .getItems()
+                .forEach(daemonSet -> addPodsBySelector(client, namespace, selectorOf(daemonSet), matchedPods));
+    }
+
+    private LabelSelector selectorOf(Deployment deployment) {
+        return deployment != null && deployment.getSpec() != null ? deployment.getSpec().getSelector() : null;
+    }
+
+    private LabelSelector selectorOf(StatefulSet statefulSet) {
+        return statefulSet != null && statefulSet.getSpec() != null ? statefulSet.getSpec().getSelector() : null;
+    }
+
+    private LabelSelector selectorOf(DaemonSet daemonSet) {
+        return daemonSet != null && daemonSet.getSpec() != null ? daemonSet.getSpec().getSelector() : null;
+    }
+
+    private void addPodsBySelector(KubernetesClient client, String namespace, LabelSelector selector, Map<String, Pod> matchedPods) {
+        if (selector == null || selector.getMatchLabels() == null || selector.getMatchLabels().isEmpty()) {
+            return;
+        }
+
+        client.pods().inNamespace(namespace)
+                .withLabels(selector.getMatchLabels())
+                .list()
+                .getItems()
+                .forEach(pod -> addPod(matchedPods, pod));
+    }
+
+    private void addPod(Map<String, Pod> matchedPods, Pod pod) {
+        if (pod == null || pod.getMetadata() == null || pod.getMetadata().getName() == null) {
+            return;
+        }
+        matchedPods.putIfAbsent(pod.getMetadata().getName(), pod);
+    }
+
+    private String resolveWorkloadLookupName(DeploymentHistory deployment, String appName) {
+        return StringUtils.defaultIfBlank(deployment.getReleaseName(), appName);
+    }
+
+    private boolean isNameMatch(String candidate, String expected) {
+        if (StringUtils.isBlank(candidate) || StringUtils.isBlank(expected)) {
+            return false;
+        }
+        String lowerCandidate = candidate.toLowerCase();
+        String lowerExpected = expected.toLowerCase();
+        return lowerCandidate.startsWith(lowerExpected) || lowerCandidate.contains(lowerExpected);
     }
 
     private long countPodsByPhase(List<Pod> pods, String phase) {
@@ -279,7 +393,7 @@ public class KubernetesMonitoringService {
     @Transactional
     private void updateApplicationStatus(DeploymentHistory deployment, KubernetesClient client) {
         // K8s 배포는 항상 default namespace에 배포됨
-        String namespace = "default";
+        String namespace = DEFAULT_WORKLOAD_NAMESPACE;
         String clusterName = deployment.getClusterName();
         
         // null 체크 추가
@@ -299,36 +413,27 @@ public class KubernetesMonitoringService {
         }
         
         String appName = deployment.getCatalog().getHelmChart().getChartName();
+        String lookupName = resolveWorkloadLookupName(deployment, appName);
         Long catalogId = deployment.getCatalog().getId();
 
         // 모든 Pod 목록 가져오기
-        List<Pod> allPods = client.pods().inNamespace(namespace).list().getItems();
+        List<Pod> pods = findPodsForDeployment(client, namespace, deployment, appName);
 
-        // 앱 이름으로 필터링된 Pod 목록
-        List<Pod> pods = allPods.stream()
-                .filter(pod -> {
-                    String podName = pod.getMetadata().getName();
-                    // 더 유연한 매칭: appName으로 시작하거나 포함하는 모든 Pod
-                    return podName.startsWith(appName) || 
-                           podName.startsWith(appName.toLowerCase()) ||
-                           podName.contains(appName) ||
-                           podName.contains(appName.toLowerCase()) ||
-                           podName.toLowerCase().startsWith(appName.toLowerCase());
-                })
-                .collect(Collectors.toList());
                 
         // 매칭되지 않은 경우 로그 출력
         if (pods.isEmpty()) {
-            log.warn("No pods found matching app name '{}' in namespace '{}'", appName, namespace);
+            log.warn("No pods found for deployment ID {} using lookup '{}' in namespace '{}'", deployment.getId(), lookupName, namespace);
         }
             
 
         // 최신 ApplicationStatus 조회 (기존 메서드 사용)
-        ApplicationStatus status = statusRepository.findTopByCatalogIdOrderByCheckedAtDesc(catalogId)
-                .orElse(ApplicationStatus.builder()
-                        .deploymentType(DeploymentType.K8S)
-                        .deploymentHistoryId(deployment.getId())
-                        .build());
+        ApplicationStatus status = statusRepository.findByDeploymentHistoryId(deployment.getId())
+                .orElseGet(() -> statusRepository.findLatestByNamespaceAndClusterNameAndCatalogId(
+                                deployment.getNamespace(), clusterName, catalogId)
+                        .orElseGet(() -> ApplicationStatus.builder()
+                                .deploymentType(DeploymentType.K8S)
+                                .deploymentHistoryId(deployment.getId())
+                                .build()));
 
         if (ApplicationStatusValues.UNINSTALLED.equalsIgnoreCase(status.getStatus())
                 && Objects.equals(status.getDeploymentHistoryId(), deployment.getId())) {
@@ -414,7 +519,7 @@ public class KubernetesMonitoringService {
             log.debug("  - Pod: {}, Node: {}, Status: {}", podName, nodeName != null ? nodeName : "Not scheduled", podPhase);
         }
 
-        Map<String, Object> resourceUsage = getResourceUsagePercentage(client, namespace, appName, pods, runningPods, pendingPods, failedPods);
+        Map<String, Object> resourceUsage = getResourceUsagePercentage(client, namespace, appName, lookupName, pods, runningPods, pendingPods, failedPods);
         status.setCpuUsage((Double) resourceUsage.get("cpuPercentage"));
         status.setMemoryUsage((Double) resourceUsage.get("memoryPercentage"));
         status.setNetworkIn((Double) resourceUsage.get("networkIn"));
@@ -443,7 +548,7 @@ public class KubernetesMonitoringService {
         checkAndHandleScalingCompletion(deployment, client);
 
         // Persist 10-minute metrics snapshot if interval has elapsed
-        saveMetricsSnapshotIfDue(deployment, status, pods);
+        saveMetricsSnapshotIfDue(deployment, status, pods, resourceUsage);
 
         // Detect and save Pod lifecycle events (OOM, CrashLoop, etc.)
         detectAndSaveAbnormalPodEvents(deployment, pods);
@@ -497,7 +602,7 @@ public class KubernetesMonitoringService {
      * For K8s, CPU/Memory values are taken directly from ApplicationStatus (Pod metrics-based),
      * not relative to total cluster node capacity.
      */
-    private void saveMetricsSnapshotIfDue(DeploymentHistory deployment, ApplicationStatus status, List<Pod> pods) {
+    private void saveMetricsSnapshotIfDue(DeploymentHistory deployment, ApplicationStatus status, List<Pod> pods, Map<String, Object> resourceUsage) {
         Long deploymentId = deployment.getId();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime last = lastSnapshotTime.get(deploymentId);
@@ -518,6 +623,8 @@ public class KubernetesMonitoringService {
                     .recordedAt(now)
                     .cpuUsagePct(status.getCpuUsage())
                     .memoryUsagePct(status.getMemoryUsage())
+                    .memoryBytes(asLong(resourceUsage.get("memoryBytes")))
+                    .memoryLimitBytes(asLong(resourceUsage.get("memoryLimitBytes")))
                     .networkInBytes(status.getNetworkIn() != null ? status.getNetworkIn().longValue() : null)
                     .networkOutBytes(status.getNetworkOut() != null ? status.getNetworkOut().longValue() : null)
                     .restartCount(totalRestartCount)
@@ -661,7 +768,7 @@ public class KubernetesMonitoringService {
         }
     }
 
-    private Map<String, Object> getResourceUsagePercentage(KubernetesClient client, String namespace, String appName, List<Pod> pods, long runningPods, long pendingPods, long failedPods) {
+    private Map<String, Object> getResourceUsagePercentage(KubernetesClient client, String namespace, String appName, String lookupName, List<Pod> pods, long runningPods, long pendingPods, long failedPods) {
         ResourceDefinitionContext context = new ResourceDefinitionContext.Builder()
                 .withGroup("metrics.k8s.io")
                 .withVersion("v1beta1")
@@ -681,6 +788,11 @@ public class KubernetesMonitoringService {
             log.warn("Pod metrics API is unavailable for namespace '{}'. Runtime status will be based on pod phase only.", namespace);
         }
 
+        Set<String> targetPodNames = pods.stream()
+                .filter(pod -> pod.getMetadata() != null && pod.getMetadata().getName() != null)
+                .map(pod -> pod.getMetadata().getName())
+                .collect(Collectors.toSet());
+
         log.debug("Found {} pod metrics in namespace {}", podMetrics.size(), namespace);
         
         // Pod metrics 상세 정보 로깅
@@ -688,19 +800,27 @@ public class KubernetesMonitoringService {
             log.debug("Pod metrics details:");
             podMetrics.forEach(metric -> {
                 String podName = metric.getMetadata().getName();
-                log.debug("  - Pod: {}, starts with {}: {}", podName, appName.toLowerCase(), podName.startsWith(appName.toLowerCase()));
+                log.debug("  - Pod: {}, selected for {}: {}", podName, lookupName, targetPodNames.contains(podName));
             });
         }
+
+        Map<String, PodSummaryStats> podSummaryStats = getPodSummaryStats(client, namespace, pods);
+        Long summaryMemoryBytes = sumPodSummaryValue(podSummaryStats, PodSummaryStats::getMemoryBytes);
+        Long summaryNetworkInBytes = sumPodSummaryValue(podSummaryStats, PodSummaryStats::getNetworkInBytes);
+        Long summaryNetworkOutBytes = sumPodSummaryValue(podSummaryStats, PodSummaryStats::getNetworkOutBytes);
+        Long memoryLimitBytes = calculateMemoryLimitBytes(pods);
 
         if (podMetrics.isEmpty()) {
             log.warn("No pod metrics found. Runtime status will be based on pod phase only.");
             Map<String, Object> result = new HashMap<>();
             result.put("cpuPercentage", 0.0);
             result.put("memoryPercentage", 0.0);
-            result.put("networkIn", 0.0);
-            result.put("networkOut", 0.0);
+            result.put("memoryBytes", summaryMemoryBytes);
+            result.put("memoryLimitBytes", memoryLimitBytes);
+            result.put("networkIn", summaryNetworkInBytes != null ? summaryNetworkInBytes.doubleValue() : null);
+            result.put("networkOut", summaryNetworkOutBytes != null ? summaryNetworkOutBytes.doubleValue() : null);
             result.put("status", resolveRuntimeStatus(pods, runningPods, pendingPods, failedPods));
-            result.put("port", findPrimaryServicePort(client, namespace, appName));
+            result.put("port", findPrimaryServicePort(client, namespace, lookupName, appName));
             return result;
         }
 
@@ -708,16 +828,16 @@ public class KubernetesMonitoringService {
         double totalMemoryUsage = 0.0;
         double totalNetworkIn = 0.0;
         double totalNetworkOut = 0.0;
+        long totalMemoryBytes = 0L;
+        boolean hasMemoryBytes = false;
+        boolean hasNetworkMetrics = false;
         int podCount = 0;
 
         for (GenericKubernetesResource podMetric : podMetrics) {
             String podName = podMetric.getMetadata().getName();
-            boolean matchesApp = podName.startsWith(appName.toLowerCase()) || 
-                               podName.startsWith(appName) ||
-                               podName.contains(appName.toLowerCase()) ||
-                               podName.contains(appName);
+            boolean matchesApp = targetPodNames.contains(podName);
             
-            log.debug("Processing pod metric: {} - matches app '{}': {}", podName, appName, matchesApp);
+            log.debug("Processing pod metric: {} - selected for '{}': {}", podName, lookupName, matchesApp);
             
             if (matchesApp) {
                 try {
@@ -735,12 +855,19 @@ public class KubernetesMonitoringService {
                                 
                                 totalCpuUsage += parseCpuUsage(cpuUsage);
                                 totalMemoryUsage += parseMemoryUsage(memoryUsage);
+                                Long memoryBytes = parseMemoryBytes(memoryUsage);
+                                if (memoryBytes != null) {
+                                    totalMemoryBytes += memoryBytes;
+                                    hasMemoryBytes = true;
+                                }
                                 
                                 if (networkRxBytes != null) {
                                     totalNetworkIn += parseNetworkBytes(networkRxBytes);
+                                    hasNetworkMetrics = true;
                                 }
                                 if (networkTxBytes != null) {
                                     totalNetworkOut += parseNetworkBytes(networkTxBytes);
+                                    hasNetworkMetrics = true;
                                 }
                                 
                                 log.debug("Added usage for pod {}: CPU={}, Memory={}, NetworkIn={}, NetworkOut={}", 
@@ -780,15 +907,25 @@ public class KubernetesMonitoringService {
         Double roundedMemoryUsage = Math.round(memoryUsagePercentage * 100.0) / 100.0;
 
         // 서비스 포트 정보 수집
-        Integer primaryPort = findPrimaryServicePort(client, namespace, appName);
+        Integer primaryPort = findPrimaryServicePort(client, namespace, lookupName, appName);
 
         String status = resolveRuntimeStatus(pods, runningPods, pendingPods, failedPods);
+        Long memoryBytes;
+        if (hasMemoryBytes) {
+            memoryBytes = totalMemoryBytes;
+        } else {
+            memoryBytes = summaryMemoryBytes;
+        }
+        Long networkInBytes = summaryNetworkInBytes != null ? summaryNetworkInBytes : (hasNetworkMetrics ? Math.round(totalNetworkIn) : null);
+        Long networkOutBytes = summaryNetworkOutBytes != null ? summaryNetworkOutBytes : (hasNetworkMetrics ? Math.round(totalNetworkOut) : null);
 
         Map<String, Object> result = new HashMap<>();
         result.put("cpuPercentage", roundedCpuUsage != null ? roundedCpuUsage : 0.0);
         result.put("memoryPercentage", roundedMemoryUsage != null ? roundedMemoryUsage : 0.0);
-        result.put("networkIn", totalNetworkIn);
-        result.put("networkOut", totalNetworkOut);
+        result.put("memoryBytes", memoryBytes);
+        result.put("memoryLimitBytes", memoryLimitBytes);
+        result.put("networkIn", networkInBytes != null ? networkInBytes.doubleValue() : null);
+        result.put("networkOut", networkOutBytes != null ? networkOutBytes.doubleValue() : null);
         result.put("status", status);
         result.put("port", primaryPort);
 
@@ -823,12 +960,105 @@ public class KubernetesMonitoringService {
         return "UNKNOWN";
     }
 
-    private Integer findPrimaryServicePort(KubernetesClient client, String namespace, String appName) {
+    private Map<String, PodSummaryStats> getPodSummaryStats(KubernetesClient client, String namespace, List<Pod> pods) {
+        if (!(client instanceof BaseClient baseClient) || pods == null || pods.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Set<String> targetPodNames = pods.stream()
+                .filter(pod -> pod.getMetadata() != null && pod.getMetadata().getName() != null)
+                .map(pod -> pod.getMetadata().getName())
+                .collect(Collectors.toSet());
+
+        if (targetPodNames.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, PodSummaryStats> statsByPodName = new HashMap<>();
+        List<String> nodeNames = pods.stream()
+                .filter(pod -> pod.getSpec() != null && pod.getSpec().getNodeName() != null)
+                .map(pod -> pod.getSpec().getNodeName())
+                .distinct()
+                .collect(Collectors.toList());
+
+        for (String nodeName : nodeNames) {
+            try {
+                String raw = baseClient.raw("/api/v1/nodes/" + nodeName + "/proxy/stats/summary");
+                JsonNode root = OBJECT_MAPPER.readTree(raw);
+                for (JsonNode podNode : root.path("pods")) {
+                    JsonNode podRef = podNode.path("podRef");
+                    String podNamespace = podRef.path("namespace").asText(null);
+                    String podName = podRef.path("name").asText(null);
+                    if (!namespace.equals(podNamespace) || !targetPodNames.contains(podName)) {
+                        continue;
+                    }
+
+                    statsByPodName.put(podName, new PodSummaryStats(
+                            asNullableLong(podNode.path("memory").get("workingSetBytes")),
+                            asNullableLong(podNode.path("network").get("rxBytes")),
+                            asNullableLong(podNode.path("network").get("txBytes"))));
+                }
+            } catch (Exception e) {
+                log.debug("Unable to read kubelet stats summary for node '{}'. Continuing without pod network summary.", nodeName, e);
+            }
+        }
+
+        return statsByPodName;
+    }
+
+    private Long calculateMemoryLimitBytes(List<Pod> pods) {
+        if (pods == null || pods.isEmpty()) {
+            return null;
+        }
+
+        long total = 0L;
+        boolean found = false;
+        for (Pod pod : pods) {
+            if (pod.getSpec() == null || pod.getSpec().getContainers() == null) {
+                continue;
+            }
+
+            for (var container : pod.getSpec().getContainers()) {
+                if (container.getResources() == null
+                        || container.getResources().getLimits() == null
+                        || !container.getResources().getLimits().containsKey("memory")) {
+                    continue;
+                }
+
+                Long bytes = parseMemoryQuantityBytes(container.getResources().getLimits().get("memory"));
+                if (bytes != null) {
+                    total += bytes;
+                    found = true;
+                }
+            }
+        }
+
+        return found ? total : null;
+    }
+
+    private Integer findPrimaryServicePort(KubernetesClient client, String namespace, String lookupName, String appName) {
         try {
+            Integer releasePort = client.services().inNamespace(namespace)
+                    .withLabel(HELM_INSTANCE_LABEL, lookupName)
+                    .list()
+                    .getItems()
+                    .stream()
+                    .flatMap(service -> service.getSpec() != null && service.getSpec().getPorts() != null
+                            ? service.getSpec().getPorts().stream()
+                            : java.util.stream.Stream.empty())
+                    .map(servicePort -> servicePort.getNodePort() != null ? servicePort.getNodePort() : servicePort.getPort())
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+            if (releasePort != null) {
+                return releasePort;
+            }
+
             return client.services().inNamespace(namespace).list().getItems().stream()
                     .filter(service -> service.getMetadata() != null
                             && service.getMetadata().getName() != null
-                            && service.getMetadata().getName().startsWith(appName.toLowerCase()))
+                            && (service.getMetadata().getName().startsWith(lookupName.toLowerCase())
+                            || service.getMetadata().getName().startsWith(appName.toLowerCase())))
                     .flatMap(service -> service.getSpec() != null && service.getSpec().getPorts() != null
                             ? service.getSpec().getPorts().stream()
                             : java.util.stream.Stream.empty())
@@ -837,7 +1067,7 @@ public class KubernetesMonitoringService {
                     .findFirst()
                     .orElse(null);
         } catch (Exception e) {
-            log.warn("Failed to resolve service port for app '{}': {}", appName, e.getMessage());
+            log.warn("Failed to resolve service port for app '{}': {}", lookupName, e.getMessage());
             return null;
         }
     }
@@ -924,6 +1154,45 @@ public class KubernetesMonitoringService {
         }
     }
 
+    private Long parseMemoryBytes(String memoryUsage) {
+        if (memoryUsage == null || memoryUsage.trim().isEmpty()) {
+            return null;
+        }
+
+        String value = memoryUsage.trim();
+        try {
+            if (value.endsWith("Ki")) {
+                return Math.round(Double.parseDouble(value.substring(0, value.length() - 2)) * 1024.0);
+            } else if (value.endsWith("Mi")) {
+                return Math.round(Double.parseDouble(value.substring(0, value.length() - 2)) * 1024.0 * 1024.0);
+            } else if (value.endsWith("Gi")) {
+                return Math.round(Double.parseDouble(value.substring(0, value.length() - 2)) * 1024.0 * 1024.0 * 1024.0);
+            } else if (value.endsWith("Ti")) {
+                return Math.round(Double.parseDouble(value.substring(0, value.length() - 2)) * 1024.0 * 1024.0 * 1024.0 * 1024.0);
+            } else if (value.endsWith("K")) {
+                return Math.round(Double.parseDouble(value.substring(0, value.length() - 1)) * 1000.0);
+            } else if (value.endsWith("M")) {
+                return Math.round(Double.parseDouble(value.substring(0, value.length() - 1)) * 1000.0 * 1000.0);
+            } else if (value.endsWith("G")) {
+                return Math.round(Double.parseDouble(value.substring(0, value.length() - 1)) * 1000.0 * 1000.0 * 1000.0);
+            } else {
+                return Math.round(Double.parseDouble(value));
+            }
+        } catch (NumberFormatException e) {
+            log.warn("Error parsing memory bytes: {}", memoryUsage, e);
+            return null;
+        }
+    }
+
+    private Long parseMemoryQuantityBytes(Quantity quantity) {
+        if (quantity == null || quantity.getAmount() == null) {
+            return null;
+        }
+
+        String format = quantity.getFormat() != null ? quantity.getFormat() : "";
+        return parseMemoryBytes(quantity.getAmount() + format);
+    }
+
     private double parseNetworkBytes(String networkBytes) {
         if (networkBytes == null || networkBytes.trim().isEmpty()) {
             log.warn("Network bytes string is null or empty");
@@ -931,20 +1200,90 @@ public class KubernetesMonitoringService {
         }
         
         try {
-            // 바이트를 MB로 변환
+            // Keep network values in bytes because resource_metrics_history stores bytes.
             if (networkBytes.endsWith("Ki")) {
-                return Double.parseDouble(networkBytes.substring(0, networkBytes.length() - 2)) / 1024.0;
-            } else if (networkBytes.endsWith("Mi")) {
-                return Double.parseDouble(networkBytes.substring(0, networkBytes.length() - 2));
-            } else if (networkBytes.endsWith("Gi")) {
                 return Double.parseDouble(networkBytes.substring(0, networkBytes.length() - 2)) * 1024.0;
+            } else if (networkBytes.endsWith("Mi")) {
+                return Double.parseDouble(networkBytes.substring(0, networkBytes.length() - 2)) * 1024.0 * 1024.0;
+            } else if (networkBytes.endsWith("Gi")) {
+                return Double.parseDouble(networkBytes.substring(0, networkBytes.length() - 2)) * 1024.0 * 1024.0 * 1024.0;
             } else {
-                // 기본값은 바이트 단위로 간주하고 MB로 변환
-                return Double.parseDouble(networkBytes) / (1024.0 * 1024.0);
+                // No suffix means bytes.
+                return Double.parseDouble(networkBytes);
             }
         } catch (NumberFormatException e) {
             log.warn("Error parsing network bytes: {}", networkBytes, e);
             return 0.0;
+        }
+    }
+
+    private Long sumPodSummaryValue(Map<String, PodSummaryStats> statsByPodName, java.util.function.Function<PodSummaryStats, Long> extractor) {
+        long total = 0L;
+        boolean found = false;
+        for (PodSummaryStats stats : statsByPodName.values()) {
+            Long value = extractor.apply(stats);
+            if (value != null) {
+                total += value;
+                found = true;
+            }
+        }
+        return found ? total : null;
+    }
+
+    private Long asLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Long longValue) {
+            return longValue;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return null;
+    }
+
+    private Long asNullableLong(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        if (node.isIntegralNumber()) {
+            return node.asLong();
+        }
+        if (node.isNumber()) {
+            return BigDecimal.valueOf(node.asDouble()).setScale(0, RoundingMode.HALF_UP).longValue();
+        }
+        if (node.isTextual()) {
+            try {
+                return new BigDecimal(node.asText()).setScale(0, RoundingMode.HALF_UP).longValue();
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static class PodSummaryStats {
+        private final Long memoryBytes;
+        private final Long networkInBytes;
+        private final Long networkOutBytes;
+
+        private PodSummaryStats(Long memoryBytes, Long networkInBytes, Long networkOutBytes) {
+            this.memoryBytes = memoryBytes;
+            this.networkInBytes = networkInBytes;
+            this.networkOutBytes = networkOutBytes;
+        }
+
+        private Long getMemoryBytes() {
+            return memoryBytes;
+        }
+
+        private Long getNetworkInBytes() {
+            return networkInBytes;
+        }
+
+        private Long getNetworkOutBytes() {
+            return networkOutBytes;
         }
     }
 

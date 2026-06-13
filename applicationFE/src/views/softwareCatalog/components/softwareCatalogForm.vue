@@ -66,7 +66,7 @@
                       </div>
                       <div>
                         <label class="form-label required">MEMORY</label>
-                        <input type="number" class="form-control w-90-per" placeholder="4" v-model="catalogDto.recommendedMemory" />
+                        <input type="number" step="0.1" class="form-control w-90-per" placeholder="4" v-model.number="catalogDto.recommendedMemory" />
                       </div>
                       <div>
                         <label class="form-label required">DISK</label>
@@ -93,7 +93,7 @@
                       </div>
                       <div>
                         <label class="form-label required">MEMORY</label>
-                        <input type="number" class="form-control w-90-per" placeholder="4" v-model="catalogDto.minMemory" />
+                        <input type="number" step="0.1" class="form-control w-90-per" placeholder="4" v-model.number="catalogDto.minMemory" />
                       </div>
                       <div>
                         <label class="form-label required">DISK</label>
@@ -200,7 +200,7 @@
               </div>
               <div>
                 <label class="form-label required">MEMORY</label>
-                <input type="number" class="form-control w-90-per" placeholder="4" v-model="catalogDto.recommendedMemory" />
+                <input type="number" step="0.1" class="form-control w-90-per" placeholder="4" v-model.number="catalogDto.recommendedMemory" />
               </div>
               <div>
                 <label class="form-label required">DISK</label>
@@ -219,7 +219,7 @@
               </div>
               <div>
                 <label class="form-label required">MEMORY</label>
-                <input type="number" class="form-control w-90-per" placeholder="4" v-model="catalogDto.minMemory" />
+                <input type="number" step="0.1" class="form-control w-90-per" placeholder="4" v-model.number="catalogDto.minMemory" />
               </div>
               <div>
                 <label class="form-label required">DISK</label>

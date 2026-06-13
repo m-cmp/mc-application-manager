@@ -37,6 +37,7 @@ public class ApplicationStatusDto {
     private Double networkOut;
     private Integer servicePort;
     private String podStatus;
+    private String stoppedWorkloadReplicas;
     private LocalDateTime checkedAt;
     private Long executedById;
 
@@ -61,6 +62,7 @@ public class ApplicationStatusDto {
                 .networkOut(entity.getNetworkOut())
                 .servicePort(entity.getServicePort())
                 .podStatus(entity.getPodStatus())
+                .stoppedWorkloadReplicas(entity.getStoppedWorkloadReplicas())
                 .checkedAt(entity.getCheckedAt())
                 .executedById(entity.getExecutedBy() != null ? entity.getExecutedBy().getId() : null)
                 .build();
@@ -78,6 +80,7 @@ public class ApplicationStatusDto {
         entity.setNetworkOut(this.networkOut);
         entity.setServicePort(this.servicePort);
         entity.setPodStatus(this.podStatus);
+        entity.setStoppedWorkloadReplicas(this.stoppedWorkloadReplicas);
         entity.setCheckedAt(this.checkedAt);
 
         if (this.catalogId != null) {

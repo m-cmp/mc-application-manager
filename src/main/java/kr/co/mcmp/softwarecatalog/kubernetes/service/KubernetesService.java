@@ -1,6 +1,7 @@
 package kr.co.mcmp.softwarecatalog.kubernetes.service;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -48,7 +49,7 @@ public class KubernetesService {
         SoftwareCatalog catalog = null;
         try {
             catalog = findCatalogById(request.getCatalogId());
-            updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ApplicationStatusValues.DEPLOYING);
+            updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ApplicationStatusValues.PREPARING_METRICS_SERVER);
             // DTO를 포함하여 호출
             history = deploymentService.deployApplication(
                 request.getNamespace(), 
@@ -60,7 +61,7 @@ public class KubernetesService {
             applyDeploymentRequestConfig(history, request, catalog);
             DeploymentHistory saved = historyRepository.save(history);
             addDeploymentLog(saved, LogType.INFO, "Deployment initiated successfully with DTO configuration.");
-            updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ActionType.INSTALL.name());
+            updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ActionType.INSTALL.name(), saved.getId());
             saveInfraSpecSnapshot(saved, request, catalog);
             return saved;
         } catch (Exception e) {
@@ -103,11 +104,12 @@ public class KubernetesService {
     }
 
 
-    public void stopApplication(String namespace, String clusterName, Long catalogId, String username) {
+    public Map<String, Integer> stopApplication(String namespace, String clusterName, Long catalogId, String username) {
         try {
             SoftwareCatalog catalog = findCatalogById(catalogId);
-            operationService.stopApplication(namespace, clusterName, catalog, username);
+            Map<String, Integer> stoppedReplicas = operationService.stopApplication(namespace, clusterName, catalog, username);
             updateApplicationStatus(namespace, clusterName, catalog, ActionType.STOP.name() );
+            return stoppedReplicas;
         } catch (Exception e) {
             log.error("애플리케이션 중지 중 오류 발생", e);
             throw new RuntimeException("애플리케이션 중지 실패", e);
@@ -122,6 +124,17 @@ public class KubernetesService {
         } catch (Exception e) {
             log.error("애플리케이션 재시작 중 오류 발생", e);
             throw new RuntimeException("애플리케이션 재시작 실패", e);
+        }
+    }
+
+    public void startApplication(String namespace, String clusterName, Long catalogId, Map<String, Integer> previousReplicas, String username) {
+        try {
+            SoftwareCatalog catalog = findCatalogById(catalogId);
+            operationService.startApplication(namespace, clusterName, catalog, previousReplicas, username);
+            updateApplicationStatus(namespace, clusterName, catalog, ActionType.START.name());
+        } catch (Exception e) {
+            log.error("Application start failed", e);
+            throw new RuntimeException("Application start failed", e);
         }
     }
 
@@ -163,18 +176,29 @@ public class KubernetesService {
     }
 
     private void updateApplicationStatus(String namespace, String clusterName, SoftwareCatalog catalog, String status) {
+        updateApplicationStatus(namespace, clusterName, catalog, status, null);
+    }
+
+    private void updateApplicationStatus(String namespace, String clusterName, SoftwareCatalog catalog, String status, Long deploymentHistoryId) {
 
         // ApplicationStatus status = createApplicationStatus(namespace, clusterName, catalog);
         // statusRepository.save(status);
         Optional<ApplicationStatus> optApplicationStatus = statusRepository.findLatestByNamespaceAndClusterNameAndCatalogId(namespace, clusterName, catalog.getId());
 
         if(optApplicationStatus.isPresent()){
-            optApplicationStatus.get().setStatus(status);
-            optApplicationStatus.get().setCheckedAt(LocalDateTime.now());
-            statusRepository.save(optApplicationStatus.get());
+            ApplicationStatus applicationStatus = optApplicationStatus.get();
+            applicationStatus.setStatus(status);
+            if (deploymentHistoryId != null) {
+                applicationStatus.setDeploymentHistoryId(deploymentHistoryId);
+            }
+            applicationStatus.setCheckedAt(LocalDateTime.now());
+            statusRepository.save(applicationStatus);
         }else{
             ApplicationStatus applicationStatus = createApplicationStatus(namespace, clusterName, catalog);
             applicationStatus.setStatus(status);
+            if (deploymentHistoryId != null) {
+                applicationStatus.setDeploymentHistoryId(deploymentHistoryId);
+            }
             statusRepository.save(applicationStatus);
         }
 
@@ -226,7 +250,7 @@ public class KubernetesService {
                     .podMemoryLimit(formatMemoryMi(catalog.getRecommendedMemory()))
                     .catalogMinCpu(catalog.getMinCpu() != null ? catalog.getMinCpu().doubleValue() : null)
                     .catalogRecCpu(catalog.getRecommendedCpu() != null ? catalog.getRecommendedCpu().doubleValue() : null)
-                    .catalogMinMemoryMb(catalog.getMinMemory() != null ? catalog.getMinMemory().intValue() : null)
+                    .catalogMinMemoryMb(formatMemoryMb(catalog.getMinMemory()))
                     .build();
 
             infraSpecSnapshotRepository.save(snapshot);
@@ -240,7 +264,15 @@ public class KubernetesService {
         return cpuValue != null ? cpuValue.toString() : null;
     }
 
-    private String formatMemoryMi(Long memoryGi) {
-        return memoryGi != null ? (memoryGi * 1024) + "Mi" : null;
+    private String formatMemoryMi(Double memoryGi) {
+        Integer memoryMb = formatMemoryMb(memoryGi);
+        return memoryMb != null ? memoryMb + "Mi" : null;
+    }
+
+    private Integer formatMemoryMb(Double memoryGi) {
+        if (memoryGi == null || memoryGi <= 0) {
+            return null;
+        }
+        return (int) Math.ceil(memoryGi * 1024.0);
     }
 }

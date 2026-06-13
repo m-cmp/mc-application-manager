@@ -1,6 +1,7 @@
 package kr.co.mcmp.softwarecatalog.kubernetes.service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -10,11 +11,15 @@ import com.marcnuri.helm.Release;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
+import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO;
+import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
 import kr.co.mcmp.softwarecatalog.kubernetes.util.KubernetesUtils;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
+import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;
 import kr.co.mcmp.softwarecatalog.service.SoftwareSourceService;
@@ -36,6 +41,7 @@ public class KubernetesDeployService {
     private final KubernetesNamespaceService namespaceService;
     private final HelmChartService helmChartService;
     private final UserRepository userRepository;
+    private final ApplicationStatusRepository applicationStatusRepository;
     private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final SoftwareSourceService softwareSourceService;
     private final CbtumblebugRestApi cbtumblebugRestApi;
@@ -93,6 +99,18 @@ public class KubernetesDeployService {
         try (KubernetesClient client = clientFactory.getClient(namespace, clusterName)) {
             // namespaceService.ensureNamespaceExists(client, namespace); // 불필요한 코드 제거
 
+            boolean ingressEnabled = isIngressEnabled(request, catalog);
+
+            updateApplicationStatus(namespace, clusterName, catalog, ApplicationStatusValues.PREPARING_METRICS_SERVER);
+            helmChartService.ensureMetricsServer(client, namespace, clusterName);
+
+            if (ingressEnabled) {
+                updateApplicationStatus(namespace, clusterName, catalog, ApplicationStatusValues.PREPARING_INGRESS_NGINX);
+                helmChartService.ensureIngressController(client, namespace, clusterName);
+            }
+
+            updateApplicationStatus(namespace, clusterName, catalog, ApplicationStatusValues.DEPLOYING);
+
             Release result;
             if (request != null) {
                 result = helmChartService.deployHelmChart(client, namespace, catalog, helmChart, clusterName, request);
@@ -111,6 +129,9 @@ public class KubernetesDeployService {
 
             // 릴리스 이름을 배포 히스토리에 저장
             String releaseName = result != null ? result.getName() : null;
+            if (StringUtils.isBlank(releaseName)) {
+                releaseName = helmChartService.findLatestReleaseNameForChart(namespace, clusterName, helmChart.getChartName());
+            }
 
             return createDeploymentHistory(
                     namespace,
@@ -126,6 +147,29 @@ public class KubernetesDeployService {
             log.error("애플리케이션 배포 중 오류 발생", e);
             throw new RuntimeException("애플리케이션 배포 실패", e);
         }
+    }
+
+    private boolean isIngressEnabled(kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest request, SoftwareCatalog catalog) {
+        if (request != null) {
+            return DeploymentConfigDTO.from(request, catalog).isIngressEnabled();
+        }
+        return Boolean.TRUE.equals(catalog.getIngressEnabled());
+    }
+
+    private void updateApplicationStatus(String namespace, String clusterName, SoftwareCatalog catalog, String status) {
+        Optional<ApplicationStatus> currentStatus =
+                applicationStatusRepository.findLatestByNamespaceAndClusterNameAndCatalogId(namespace, clusterName, catalog.getId());
+
+        ApplicationStatus applicationStatus = currentStatus.orElseGet(() -> ApplicationStatus.builder()
+                .namespace(namespace)
+                .clusterName(clusterName)
+                .catalog(catalog)
+                .deploymentType(DeploymentType.K8S)
+                .build());
+
+        applicationStatus.setStatus(status);
+        applicationStatus.setCheckedAt(LocalDateTime.now());
+        applicationStatusRepository.save(applicationStatus);
     }
 
     public DeploymentHistory stopApplication(String namespace, String clusterName, SoftwareCatalog catalog,

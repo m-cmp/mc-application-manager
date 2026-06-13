@@ -81,6 +81,10 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
                     String stopResult = dockerOperationService.stopDockerContainer(host, containerId);
                     result.put("result", stopResult);
                     break;
+                case "start":
+                    String startResult = dockerOperationService.startDockerContainer(host, containerId);
+                    result.put("result", startResult);
+                    break;
                 case "uninstall":
                     String removeResult = dockerOperationService.removeDockerContainer(host, containerId);
                     result.put("result", removeResult);
@@ -122,6 +126,9 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
                 break;
             case "stop":
                 applicationStatus.setStatus(ActionType.STOP.name());
+                break;
+            case "start":
+                applicationStatus.setStatus(ActionType.START.name());
                 break;
             case "uninstall":
                 applicationStatus.setStatus(ApplicationStatusValues.UNINSTALLED);

@@ -3,6 +3,10 @@ server:
 config:
   config-string: application,manager,m-cmp
 
+app:
+  scheduling:
+    enabled: ${APP_SCHEDULING_ENABLED:true}
+
 spring:
   application:
     name: application-manager
@@ -65,7 +69,7 @@ spider:
   checkhost: localhost,127.0.0.1,0.0.0.0
 
 nexus:
-  url: ${NEXUS_URL:nexus-repository}
+  url: ${NEXUS_URL:210.217.178.130}
   port: ${NEXUS_PORT:8081}
   docker-port: ${NEXUS_DOCKER_PORT:5000}
   username: ${NEXUS_USERNAME:admin}
@@ -104,4 +108,3 @@ rabbitmq:
     email: ${ALERT_EMAIL:}
     sms-phonenumber: ${ALERT_SMS_PHONE_NUMBER:}
     kakao-phonenumber: ${ALERT_KAKAO_PHONE_NUMBER:}
-

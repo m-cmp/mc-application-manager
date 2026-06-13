@@ -434,6 +434,16 @@ public class DockerOperationService {
         }
     }
 
+    public String startDockerContainer(String host, String containerId) {
+        try (DockerClient dockerClient = dockerClientFactory.getDockerClient(host)) {
+            dockerClient.startContainerCmd(containerId).exec();
+            return "Container started successfully";
+        } catch (Exception e) {
+            log.error("Error starting Docker container", e);
+            throw new RuntimeException("Failed to start Docker container: " + e.getMessage(), e);
+        }
+    }
+
     public String removeDockerContainer(String host, String containerId) {
         try (DockerClient dockerClient = dockerClientFactory.getDockerClient(host)) {
             dockerClient.removeContainerCmd(containerId)

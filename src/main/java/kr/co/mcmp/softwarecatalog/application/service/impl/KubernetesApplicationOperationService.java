@@ -7,6 +7,9 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
@@ -30,6 +33,7 @@ public class KubernetesApplicationOperationService implements ApplicationOperati
     
     private static final List<ActionType> ACTIVE_DEPLOYMENT_ACTIONS = Arrays.asList(ActionType.INSTALL, ActionType.RUN);
     private static final List<String> ACTIVE_DEPLOYMENT_STATUSES = Arrays.asList("SUCCESS", "RUNNING");
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final ApplicationStatusRepository applicationStatusRepository;
     private final DeploymentHistoryRepository deploymentHistoryRepository;
@@ -52,8 +56,12 @@ public class KubernetesApplicationOperationService implements ApplicationOperati
     
         try {
             switch (operation.toString().toLowerCase()) {
+                case "start":
+                    kubernetesService.startApplication(namespace, clusterName, catalogId, readStoppedWorkloadReplicas(applicationStatus), username);
+                    break;
                 case "stop":
-                    kubernetesService.stopApplication(namespace, clusterName, catalogId, username);
+                    Map<String, Integer> stoppedReplicas = kubernetesService.stopApplication(namespace, clusterName, catalogId, username);
+                    result.put("stoppedWorkloadReplicas", stoppedReplicas);
                     break;
                 case "uninstall":
                     kubernetesService.uninstallApplication(namespace, clusterName, catalogId, username);
@@ -85,8 +93,13 @@ public class KubernetesApplicationOperationService implements ApplicationOperati
     
     private void updateApplicationStatus(ApplicationStatus applicationStatus, ActionType operation, Map<String, Object> result, String username) {
         switch (operation.toString().toLowerCase()) {
+            case "start":
+                applicationStatus.setStatus(ActionType.START.name());
+                applicationStatus.setStoppedWorkloadReplicas(null);
+                break;
             case "stop":
                 applicationStatus.setStatus(ActionType.STOP.name());
+                applicationStatus.setStoppedWorkloadReplicas(writeStoppedWorkloadReplicas(result.get("stoppedWorkloadReplicas")));
                 break;
             case "uninstall":
                 applicationStatus.setStatus(ApplicationStatusValues.UNINSTALLED);
@@ -98,6 +111,32 @@ public class KubernetesApplicationOperationService implements ApplicationOperati
         }
         applicationStatus.setCheckedAt(java.time.LocalDateTime.now());
         applicationStatusRepository.save(applicationStatus);
+    }
+
+    private Map<String, Integer> readStoppedWorkloadReplicas(ApplicationStatus applicationStatus) {
+        String raw = applicationStatus.getStoppedWorkloadReplicas();
+        if (raw == null || raw.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return OBJECT_MAPPER.readValue(raw, new TypeReference<Map<String, Integer>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse stopped workload replicas for applicationStatusId={}: {}",
+                    applicationStatus.getId(), e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private String writeStoppedWorkloadReplicas(Object stoppedWorkloadReplicas) {
+        if (stoppedWorkloadReplicas == null) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(stoppedWorkloadReplicas);
+        } catch (Exception e) {
+            log.warn("Failed to serialize stopped workload replicas: {}", e.getMessage());
+            return null;
+        }
     }
 
     private void markDeploymentHistoryAsUninstalled(ApplicationStatus applicationStatus) {

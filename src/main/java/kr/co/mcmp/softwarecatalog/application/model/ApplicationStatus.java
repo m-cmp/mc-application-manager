@@ -97,6 +97,9 @@ public class ApplicationStatus {
     @Column(name = "pod_status")
     private String podStatus; // For K8S deployments
 
+    @Column(name = "stopped_workload_replicas", columnDefinition = "TEXT")
+    private String stoppedWorkloadReplicas;
+
     @Column(name = "checked_at")
     private LocalDateTime checkedAt;
 
