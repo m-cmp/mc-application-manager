@@ -685,6 +685,25 @@ const setInit = async () => {
   await _getNsId()
 }
 
+const normalizeIngressHost = (host: string) => {
+  let normalized = (host || '').trim()
+  if (!normalized) return normalized
+
+  normalized = normalized.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, '')
+  const atIndex = normalized.lastIndexOf('@')
+  if (atIndex >= 0) normalized = normalized.slice(atIndex + 1)
+
+  const delimiterIndex = normalized.search(/[/?#]/)
+  if (delimiterIndex >= 0) normalized = normalized.slice(0, delimiterIndex)
+
+  const firstColonIndex = normalized.indexOf(':')
+  if (firstColonIndex >= 0 && normalized.indexOf(':', firstColonIndex + 1) < 0) {
+    normalized = normalized.slice(0, firstColonIndex)
+  }
+
+  return normalized.trim().toLowerCase()
+}
+
 const _getSoftwareCatalogList = async () => {
   await getSoftwareCatalogList("").then(({ data }) => {
     catalogList.value = data
@@ -918,7 +937,7 @@ const runInstall = async () => {
       memoryThreshold: hpaData.value.hpaMemoryUtilization,
       resourceType: selectedResourceType.value,
       ingressEnabled: ingressData.value.ingressEnabled,
-      ingressHost: ingressData.value.ingressHost,
+      ingressHost: normalizeIngressHost(ingressData.value.ingressHost),
       ingressPath: ingressData.value.ingressPath,
       ingressClass: ingressData.value.ingressClass,
       ingressTlsEnabled: ingressData.value.ingressTlsEnabled,
