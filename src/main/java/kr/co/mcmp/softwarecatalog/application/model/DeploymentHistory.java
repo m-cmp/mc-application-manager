@@ -113,6 +113,9 @@ public class DeploymentHistory {
     @Column(name = "memory_threshold")
     private Double memoryThreshold;
 
+    @Column(name = "workload_rebalancing_enabled")
+    private Boolean workloadRebalancingEnabled;
+
     @Column(name = "ingress_enabled")
     private Boolean ingressEnabled;
 

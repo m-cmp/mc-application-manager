@@ -376,6 +376,9 @@ public class KubernetesMonitoringService {
         if (testMode) {
             return testCpuThreshold;
         }
+        if (deployment.getCpuThreshold() != null) {
+            return deployment.getCpuThreshold();
+        }
         return deployment.getCatalog() != null ? deployment.getCatalog().getCpuThreshold() : null;
     }
 
@@ -383,7 +386,19 @@ public class KubernetesMonitoringService {
         if (testMode) {
             return testMemoryThreshold;
         }
+        if (deployment.getMemoryThreshold() != null) {
+            return deployment.getMemoryThreshold();
+        }
         return deployment.getCatalog() != null ? deployment.getCatalog().getMemoryThreshold() : null;
+    }
+
+    private int getAutoscaleMaxNodes(DeploymentHistory deployment) {
+        if (deployment.getMaxReplicas() != null) {
+            return deployment.getMaxReplicas();
+        }
+        return deployment.getCatalog() != null && deployment.getCatalog().getMaxReplicas() != null
+                ? deployment.getCatalog().getMaxReplicas()
+                : defaultMaxNodes;
     }
 
     private boolean isThresholdExceeded(Double usage, Double threshold) {
@@ -541,11 +556,15 @@ public class KubernetesMonitoringService {
                 catalogId, status.getStatus(), status.getPodStatus(), status.getCpuUsage(), status.getMemoryUsage());
         
         // 오토스케일링 처리 (스케일 아웃만)
-        log.debug("Calling handleK8sAutoscaling for deployment: {}, CatalogId: {}", deployment.getId(), catalogId);
-        handleK8sAutoscaling(deployment, status, client);
+        if (isWorkloadRebalancingEnabled(deployment)) {
+            log.debug("Calling handleK8sAutoscaling for deployment: {}, CatalogId: {}", deployment.getId(), catalogId);
+            handleK8sAutoscaling(deployment, status, client);
 
         // 스케일 아웃 완료 감지 및 재배포 처리
-        checkAndHandleScalingCompletion(deployment, client);
+            checkAndHandleScalingCompletion(deployment, client);
+        } else {
+            log.debug("Skipping workload rebalancing for deployment: {}, CatalogId: {}", deployment.getId(), catalogId);
+        }
 
         // Persist 10-minute metrics snapshot if interval has elapsed
         saveMetricsSnapshotIfDue(deployment, status, pods, resourceUsage);
@@ -1343,6 +1362,10 @@ public class KubernetesMonitoringService {
     /**
      * K8S 오토스케일링 처리 (스케일 아웃만)
      */
+    private boolean isWorkloadRebalancingEnabled(DeploymentHistory deployment) {
+        return Boolean.TRUE.equals(deployment.getWorkloadRebalancingEnabled());
+    }
+
     private void handleK8sAutoscaling(DeploymentHistory deployment, ApplicationStatus status, KubernetesClient client) {
         try {
             log.debug("=== Starting autoscaling check for deployment: {} ===", deployment.getId());
@@ -1442,7 +1465,7 @@ public class KubernetesMonitoringService {
             int targetSize = currentSize + 1;
             log.info("Target node count: {}", targetSize);
             
-            int maxSize = deployment.getCatalog().getMaxReplicas() != null ? deployment.getCatalog().getMaxReplicas() : defaultMaxNodes;
+            int maxSize = getAutoscaleMaxNodes(deployment);
             
             // 이미 스케일 아웃이 완료되었고 nodeSelector가 설정되어 있는지 확인
             if (isAlreadyScaledOut(deployment, client)) {
@@ -1470,20 +1493,20 @@ public class KubernetesMonitoringService {
                         status.getCpuUsage(), testCpuThreshold, status.getMemoryUsage(), testMemoryThreshold);
             } else {
                 // 운영 모드: 실제 임계값 사용
-                cpuExceeded = deployment.getCatalog().getCpuThreshold() != null && 
-                            status.getCpuUsage() > deployment.getCatalog().getCpuThreshold();
-                memoryExceeded = deployment.getCatalog().getMemoryThreshold() != null && 
-                               status.getMemoryUsage() > deployment.getCatalog().getMemoryThreshold();
+                Double cpuThreshold = getAutoscaleCpuThreshold(deployment);
+                Double memoryThreshold = getAutoscaleMemoryThreshold(deployment);
+                cpuExceeded = isThresholdExceeded(status.getCpuUsage(), cpuThreshold);
+                memoryExceeded = isThresholdExceeded(status.getMemoryUsage(), memoryThreshold);
                 log.debug("Production mode - CPU: {}% (threshold: {}), Memory: {}% (threshold: {})", 
-                        status.getCpuUsage(), deployment.getCatalog().getCpuThreshold(), 
-                        status.getMemoryUsage(), deployment.getCatalog().getMemoryThreshold());
+                        status.getCpuUsage(), cpuThreshold,
+                        status.getMemoryUsage(), memoryThreshold);
             }
 
             // 스케일 아웃 조건: 부하 초과 AND 목표 노드 수 < 최대 노드 수
             boolean thresholdExceeded = cpuExceeded || memoryExceeded;
             boolean sustainedThresholdExceeded = hasSustainedAutoscalePressure(deployment.getId(), thresholdExceeded);
 
-            if (thresholdExceeded && sustainedThresholdExceeded && targetSize <= maxSize) {
+            if (thresholdExceeded && sustainedThresholdExceeded) {
                 log.info("Sustained resource pressure confirmed for K8S deployment: CPU={}%, Memory={}%, scaling out from {} to {}",
                         status.getCpuUsage(), status.getMemoryUsage(), currentSize, targetSize);
                 
@@ -1502,27 +1525,26 @@ public class KubernetesMonitoringService {
                     
                     log.debug("Current desired node size: {}, target: {}", currentDesiredNodeSize, targetSize);
                     
-                    // 로직 1: desiredNodeSize < maxNodeSize인 경우, API 호출하지 않고 기다림
+                    // 로직 1: desiredNodeSize < maxNodeSize인 경우, 현재 max 안에서 1개 증설 요청
                     if (currentDesiredNodeSize < maxSize) {
-                        log.debug("desiredNodeSize ({}) < maxNodeSize ({}). Waiting for desired size to reach max.", 
+                        log.debug("desiredNodeSize ({}) < maxNodeSize ({}). Scaling out within current max.",
                                 currentDesiredNodeSize, maxSize);
                         scalingEvent.setStatus(ScalingEvent.ScalingStatus.IN_PROGRESS);
                         scalingEventRepository.save(scalingEvent);
-                        log.info("Will check for node creation in next cycle when desiredNodeSize reaches max.");
-                        return;
+                        log.info("Requesting node creation within current maxNodeSize.");
                     }
                     
-                    // 로직 2: desiredNodeSize == maxNodeSize인 경우, max+1로 API 호출
-                    if (currentDesiredNodeSize >= maxSize) {
-                        log.debug("desiredNodeSize ({}) >= maxNodeSize ({}). Scaling out to max+1", 
+                    // 로직 2: 현재 desired 기준으로 1개 증설 요청
+                    {
+                        log.debug("Scaling out node group by one node. desiredNodeSize={}, maxNodeSize={}",
                                 currentDesiredNodeSize, maxSize);
                         
-                        int newMaxSize = currentDesiredNodeSize + 1;
-                        targetSize = newMaxSize;
+                        int requestedNodeSize = currentDesiredNodeSize + 1;
+                        targetSize = requestedNodeSize;
                         scalingEvent.setNewNodeCount(targetSize);
                         
                         // API 호출
-                        boolean scaleResult = k8sAutoscaleService.scaleOutNodeGroup(namespace, clusterName, nodeGroupName, currentDesiredNodeSize, newMaxSize);
+                        boolean scaleResult = k8sAutoscaleService.scaleOutNodeGroup(namespace, clusterName, nodeGroupName, currentDesiredNodeSize, requestedNodeSize);
                         
                         if (scaleResult) {
                             log.debug("Scale out API returned true: {} -> {}", currentDesiredNodeSize, targetSize);
@@ -1544,9 +1566,6 @@ public class KubernetesMonitoringService {
                     scalingEventRepository.save(scalingEvent);
                 }
                 
-            } else if (targetSize > maxSize) {
-                log.warn("Cannot scale out: target size {} > max size {} (CPU={}%, Memory={}%)", 
-                        targetSize, maxSize, status.getCpuUsage(), status.getMemoryUsage());
             } else if (thresholdExceeded) {
                 log.info("Resource threshold currently exceeded for K8S deployment, but sustained pressure has not been confirmed yet (CPU={}%, Memory={}%)",
                         status.getCpuUsage(), status.getMemoryUsage());

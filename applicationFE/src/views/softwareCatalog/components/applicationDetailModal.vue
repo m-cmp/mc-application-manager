@@ -398,6 +398,7 @@
                       <tr>
                         <th>Resource Type</th>
                         <th>HPA</th>
+                        <th>Rebalancing</th>
                         <th>Min Replicas</th>
                         <th>Max Replicas</th>
                         <th>CPU Threshold</th>
@@ -410,6 +411,11 @@
                         <td>
                           <span :class="applicationDetail.hpaEnabled ? 'text-success' : 'text-muted'">
                             {{ applicationDetail.hpaEnabled ? 'Enabled' : 'Disabled' }}
+                          </span>
+                        </td>
+                        <td>
+                          <span :class="applicationDetail.workloadRebalancingEnabled ? 'text-success' : 'text-muted'">
+                            {{ applicationDetail.workloadRebalancingEnabled ? 'Enabled' : 'Disabled' }}
                           </span>
                         </td>
                         <td>{{ applicationDetail.minReplicas || 'N/A' }}</td>

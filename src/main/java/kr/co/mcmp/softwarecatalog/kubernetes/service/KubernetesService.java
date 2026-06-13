@@ -77,6 +77,7 @@ public class KubernetesService {
                         .status("FAILED")
                         .actionType(ActionType.INSTALL)
                         .executedAt(LocalDateTime.now())
+                        .workloadRebalancingEnabled(Boolean.TRUE.equals(request.getWorkloadRebalancingEnabled()))
                         .build();
             } else {
                 history.setStatus("FAILED");
@@ -214,6 +215,7 @@ public class KubernetesService {
         history.setMaxReplicas(config.getMaxReplicas());
         history.setCpuThreshold(config.getCpuThreshold());
         history.setMemoryThreshold(config.getMemoryThreshold());
+        history.setWorkloadRebalancingEnabled(Boolean.TRUE.equals(request.getWorkloadRebalancingEnabled()));
         history.setIngressEnabled(config.getIngressEnabled());
         history.setIngressHost(config.getIngressHost());
         history.setIngressPath(config.getIngressPath());

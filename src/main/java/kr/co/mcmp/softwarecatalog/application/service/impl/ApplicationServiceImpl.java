@@ -306,6 +306,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         map.put("maxReplicas", history.getMaxReplicas());
         map.put("cpuThreshold", history.getCpuThreshold());
         map.put("memoryThreshold", history.getMemoryThreshold());
+        map.put("workloadRebalancingEnabled", history.getWorkloadRebalancingEnabled());
         map.put("ingressEnabled", history.getIngressEnabled());
         map.put("ingressHost", history.getIngressHost());
         map.put("ingressPath", history.getIngressPath());
@@ -602,6 +603,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .maxReplicas(valueOrDefault(deploymentHistory.getMaxReplicas(), deploymentHistory.getCatalog().getMaxReplicas()))
                 .cpuThreshold(valueOrDefault(deploymentHistory.getCpuThreshold(), deploymentHistory.getCatalog().getCpuThreshold()))
                 .memoryThreshold(valueOrDefault(deploymentHistory.getMemoryThreshold(), deploymentHistory.getCatalog().getMemoryThreshold()))
+                .workloadRebalancingEnabled(Boolean.TRUE.equals(deploymentHistory.getWorkloadRebalancingEnabled()))
                 .ingressEnabled(valueOrDefault(deploymentHistory.getIngressEnabled(), deploymentHistory.getCatalog().getIngressEnabled()))
                 .ingressHost(valueOrDefault(deploymentHistory.getIngressHost(), deploymentHistory.getCatalog().getIngressHost()))
                 .ingressPath(valueOrDefault(deploymentHistory.getIngressPath(), deploymentHistory.getCatalog().getIngressPath()))
@@ -731,6 +733,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .maxReplicas(valueOrDefault(deploymentHistory.getMaxReplicas(), deploymentHistory.getCatalog().getMaxReplicas()))
                 .cpuThreshold(valueOrDefault(deploymentHistory.getCpuThreshold(), deploymentHistory.getCatalog().getCpuThreshold()))
                 .memoryThreshold(valueOrDefault(deploymentHistory.getMemoryThreshold(), deploymentHistory.getCatalog().getMemoryThreshold()))
+                .workloadRebalancingEnabled(Boolean.TRUE.equals(deploymentHistory.getWorkloadRebalancingEnabled()))
                 .ingressEnabled(valueOrDefault(deploymentHistory.getIngressEnabled(), deploymentHistory.getCatalog().getIngressEnabled()))
                 .ingressHost(valueOrDefault(deploymentHistory.getIngressHost(), deploymentHistory.getCatalog().getIngressHost()))
                 .ingressPath(valueOrDefault(deploymentHistory.getIngressPath(), deploymentHistory.getCatalog().getIngressPath()))

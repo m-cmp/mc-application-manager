@@ -36,6 +36,7 @@ public class DeploymentRequestDTO {
     private Integer maxReplicas;
     private Double cpuThreshold;
     private Double memoryThreshold;
+    private Boolean workloadRebalancingEnabled;
 
     // 자원 유형 선택값
     private String resourceType;
@@ -69,6 +70,7 @@ public class DeploymentRequestDTO {
                 .maxReplicas(this.maxReplicas)
                 .cpuThreshold(this.cpuThreshold)
                 .memoryThreshold(this.memoryThreshold)
+                .workloadRebalancingEnabled(this.workloadRebalancingEnabled)
                 .resourceType(this.resourceType)
                 .additionalConfig(this.additionalConfig)
                 .ingressEnabled(this.ingressEnabled)

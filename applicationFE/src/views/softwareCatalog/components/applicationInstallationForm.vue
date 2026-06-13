@@ -378,6 +378,23 @@
             </div>
 
             <div class="mb-3" v-if="modalTitle == 'Application Installation'">
+              <label class="form-label">Workload Rebalancing</label>
+
+              <div class="mb-2">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="workloadRebalancingEnabled"
+                    v-model="workloadRebalancingEnabled">
+                  <label class="form-check-label" for="workloadRebalancingEnabled">
+                    Enable Workload Rebalancing
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-3" v-if="modalTitle == 'Application Installation'">
               <label class="form-label">Ingress Configuration</label>
               
               <div class="mb-2">
@@ -601,6 +618,7 @@ const selectVm = ref("" as string)
 const selectedVmList = ref([] as Array<string>)
 const selectDeploymentType = ref("Standalone" as string)
 const hpaData = ref({} as any)
+const workloadRebalancingEnabled = ref(false)
 const ingressData = ref({} as any)
 const objectStorageData = ref({} as any)
 const objectStorageCheckResult = ref(null as any)
@@ -695,6 +713,7 @@ const setInit = async () => {
     hpaCpuUtilization: 60,
     hpaMemoryUtilization: 80
   }
+  workloadRebalancingEnabled.value = false
   ingressData.value = {
     ingressEnabled: false,
     ingressHost: '',
@@ -1000,6 +1019,7 @@ const runInstall = async () => {
       maxReplicas: hpaData.value.hpaMaxReplicas,
       cpuThreshold: hpaData.value.hpaCpuUtilization,
       memoryThreshold: hpaData.value.hpaMemoryUtilization,
+      workloadRebalancingEnabled: workloadRebalancingEnabled.value,
       resourceType: selectedResourceType.value,
       ingressEnabled: ingressData.value.ingressEnabled,
       ingressHost: normalizeIngressHost(ingressData.value.ingressHost),

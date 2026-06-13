@@ -988,6 +988,8 @@ public class HelmChartService {
 
         Map<String, Object> loki = nestedMap(valuesFile, "loki");
         loki.put("configStorageType", "Secret");
+        loki.put("auth_enabled", false);
+        nestedMap(loki, "commonConfig").put("replication_factor", 1);
         applyDefaultLokiSchemaConfig(loki);
 
         Map<String, Object> storage = nestedMap(loki, "storage");
