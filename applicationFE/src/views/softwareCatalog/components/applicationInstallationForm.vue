@@ -82,17 +82,17 @@
               </template>
             </div>
 
-            <!-- VM :: MCI Name -->
+            <!-- VM :: Infra ID -->
             <div class="mb-3">
-              <label class="form-label">MCI Name</label>
+              <label class="form-label">Infra ID</label>
               <p 
                 v-if="modalTitle == 'Application Installation'" 
                 class="text-muted">
-                Select the multi-cloud infrastructure information where the application will be deployed</p>
+                Select the infra ID where the application will be deployed</p>
               <p 
                 v-else-if="modalTitle == 'Application Uninstallation'" 
                 class="text-muted">
-                Remove the application and associated resources from the multi-cloud infrastructure</p>
+                Remove the application and associated resources from the infra</p>
               <select 
                 class="form-select" 
                 id="mci-name" 
@@ -101,9 +101,10 @@
                 @change="onChangeMci">
                 <option 
                   v-for="mci in mciList" 
-                  :value=mci.id 
-                  :key="mci.name">
-                    {{ mci.name }}
+                  :value="mci.id || mci.name"
+                  :key="mci.id || mci.name"
+                  :title="mci.id || mci.name">
+                    {{ mci.id || mci.name }}
                   </option>
               </select>
             </div>
@@ -827,7 +828,7 @@ const _getMciName = async () => {
   await getMciInfo(selectNsId.value).then(async ({ data }) => {
     mciList.value = data;
     if(mciList.value.length > 0) {
-      selectMci.value = mciList.value[0].name;
+      selectMci.value = mciList.value[0].id || mciList.value[0].name;
       await _getVmName();
     } else {
       selectMci.value = "";

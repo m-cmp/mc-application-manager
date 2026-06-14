@@ -298,6 +298,48 @@ public class CbtumblebugRestApi {
         });
     }
 
+    public String getK8sClusterKubeconfig(String namespace, String clusterName) {
+        log.info("Fetching K8s Cluster kubeconfig by name: {} in namespace: {}", clusterName, namespace);
+        return executeWithConnectionCheck("getK8sClusterKubeconfig", () -> {
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/k8sCluster/%s/kubeconfig", namespace, clusterName));
+            HttpHeaders headers = createCommonHeaders();
+            ResponseEntity<JsonNode> response = restClient.request(
+                    apiUrl,
+                    headers,
+                    null,
+                    HttpMethod.GET,
+                    new ParameterizedTypeReference<JsonNode>() {
+                    });
+            JsonNode body = response.getBody();
+            String kubeconfig = body != null ? body.path("kubeconfig").asText(null) : null;
+            if (kubeconfig == null || kubeconfig.trim().isEmpty()) {
+                throw new CbtumblebugException("Tumblebug kubeconfig response is empty");
+            }
+            return kubeconfig;
+        });
+    }
+
+    public String getK8sClusterToken(String namespace, String clusterName) {
+        log.info("Fetching K8s Cluster token by name: {} in namespace: {}", clusterName, namespace);
+        return executeWithConnectionCheck("getK8sClusterToken", () -> {
+            String apiUrl = createApiUrl(String.format("/tumblebug/ns/%s/k8sCluster/%s/token", namespace, clusterName));
+            HttpHeaders headers = createCommonHeaders();
+            ResponseEntity<JsonNode> response = restClient.request(
+                    apiUrl,
+                    headers,
+                    null,
+                    HttpMethod.GET,
+                    new ParameterizedTypeReference<JsonNode>() {
+                    });
+            JsonNode body = response.getBody();
+            String token = body != null ? body.path("execCredential").path("status").path("token").asText(null) : null;
+            if (token == null || token.trim().isEmpty()) {
+                throw new CbtumblebugException("Tumblebug token response is empty");
+            }
+            return token;
+        });
+    }
+
     public MciDto getMciByMciId(String nsId, String mciId) {
         log.info("Fetching MCI by mciId: {}", mciId);
         return executeWithConnectionCheck("getMciByMciId", () -> {

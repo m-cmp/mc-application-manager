@@ -13,7 +13,7 @@ INSERT INTO SOFTWARE_CATALOG (TITLE, DESCRIPTION, SUMMARY, CATEGORY, LOGO_URL_LA
 ('Grafana', 'Grafana is an open-source platform for monitoring and observability.', 'Monitoring and visualization platform', 'Monitoring & Observability', 'https://desktop.docker.com/extensions/grafana_docker-desktop-extension/storage_googleapis_com/grafanalabs-integration-logos/grafana_icon.svg', 'https://desktop.docker.com/extensions/grafana_docker-desktop-extension/storage_googleapis_com/grafanalabs-integration-logos/grafana_icon.svg', 0.1, 0.2, 0.1, 0.2, 1, 2, 80.0, 80.0, 1, 3, true, 3000, true, 'grafana.example.com', '/', 'nginx', true, 'grafana-tls', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('Prometheus', 'Prometheus is an open-source systems monitoring and alerting toolkit.', 'Monitoring and alerting toolkit', 'Integration & Delivery,Monitoring & Observability,Security', 'https://www.gravatar.com/avatar/31cea69afa424609b2d83621b4d47f1d?s=80&r=g&d=mm', 'https://www.gravatar.com/avatar/31cea69afa424609b2d83621b4d47f1d?s=80&r=g&d=mm', 2, 4, 2, 4, 1, 2, 80.0, 80.0, 1, 3, true, 9090, true, 'prometheus.example.com', '/', 'nginx', true, 'prometheus-tls', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('Elasticsearch', 'Elasticsearch is a distributed, RESTful search and analytics engine capable of solving a growing number of use cases.', 'Distributed search and analytics engine', 'Databases & Storage', 'https://www.gravatar.com/avatar/dd9d954997353b37b4c2684f478192d3?s=120&r=g&d=404', 'https://www.gravatar.com/avatar/dd9d954997353b37b4c2684f478192d3?s=120&r=g&d=404', 2, 4, 2, 8, 2, 4, 80.0, 80.0, 1, 5, true, 9200, true, 'elasticsearch.example.com', '/', 'nginx', true, 'elasticsearch-tls', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('Loki', 'Grafana Loki is a horizontally scalable, highly available log aggregation system designed to store and query logs efficiently.', 'Log aggregation system for Kubernetes', 'Monitoring & Observability', 'https://raw.githubusercontent.com/grafana/loki/main/docs/sources/logo_and_name.png', 'https://raw.githubusercontent.com/grafana/loki/main/docs/sources/logo_and_name.png', 1, 2, 2, 4, 10, 20, 80.0, 80.0, 1, 3, false, 3100, false, NULL, NULL, NULL, false, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+('Rclone GUI', 'Rclone is a lightweight file transfer and cloud storage management tool with a web GUI for S3-compatible object storage operations.', 'Cloud/object storage file management tool', 'Databases & Storage', 'https://raw.githubusercontent.com/rclone/rclone/master/graphics/logo/svg/logo_symbol_color.svg', 'https://raw.githubusercontent.com/rclone/rclone/master/graphics/logo/svg/logo_symbol_color.svg', 0.05, 0.1, 0.125, 0.25, 0, 1, 80.0, 80.0, 1, 1, false, 5572, true, 'rclone.example.com', '/', 'nginx', false, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 2. PACKAGE_INFO 테이블 데이터 삽입 (DockerHub 기반)
 INSERT INTO PACKAGE_INFO (CATALOG_ID, PACKAGE_TYPE, PACKAGE_NAME, PACKAGE_VERSION, REPOSITORY_URL, DOCKER_IMAGE_ID, DOCKER_PUBLISHER, DOCKER_CREATED_AT, DOCKER_UPDATED_AT, DOCKER_SHORT_DESCRIPTION, DOCKER_SOURCE, ARCHITECTURES, CATEGORIES, IS_ARCHIVED, IS_AUTOMATED, IS_OFFICIAL, LAST_PULLED_AT, OPERATING_SYSTEMS, PULL_COUNT, STAR_COUNT) VALUES
@@ -31,7 +31,7 @@ INSERT INTO PACKAGE_INFO (CATALOG_ID, PACKAGE_TYPE, PACKAGE_NAME, PACKAGE_VERSIO
 INSERT INTO HELM_CHART (CATALOG_ID, CATEGORY, CHART_NAME, CHART_VERSION, CHART_REPOSITORY_URL, VALUES_FILE, HAS_VALUES_SCHEMA, REPOSITORY_NAME, REPOSITORY_OFFICIAL, REPOSITORY_DISPLAY_NAME, IMAGE_REPOSITORY) VALUES
 (7, 'Monitoring & Observability', 'grafana', '7.3.0', 'https://grafana.github.io/helm-charts', 'https://artifacthub.io/packages/helm/grafana/grafana/values.yaml', true, 'grafana', true, 'Grafana', 'grafana/grafana'),
 (8, 'Monitoring & Observability', 'prometheus', '25.8.0', 'https://prometheus-community.github.io/helm-charts', 'https://artifacthub.io/packages/helm/prometheus-community/prometheus/values.yaml', true, 'prometheus-community', true, 'Prometheus Community', 'bitnami/prometheus'),
-(10, 'Monitoring & Observability', 'loki', '17.1.6', 'https://grafana-community.github.io/helm-charts', 'https://artifacthub.io/packages/helm/grafana-community/loki/values.yaml', true, 'grafana-community', true, 'Grafana Community', 'grafana/loki');
+(10, 'Databases & Storage', 'rclone', '1.0.1', 'https://jacobcolvin.com/helm-charts', 'https://artifacthub.io/packages/helm/jacobcolvin/rclone/values.yaml', false, 'jacobcolvin', false, 'Jacob Colvin''s Helm Charts', 'rclone/rclone');
 
 -- 4. SOFTWARE_SOURCE_MAPPING 테이블 데이터 삽입 (서브쿼리 없이 직접 ID 사용)
 -- Grafana - DockerHub + ArtifactHub 둘 다 지원
@@ -172,17 +172,16 @@ INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_T
 (9, 9, 'helm_application_install', '', 'workflow'),
 (9, 10, 'helm_application_uninstall', '', 'workflow');
 
--- Loki
+-- Rclone GUI
 INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_TYPE) VALUES
-(10, 0, 'https://grafana.com/oss/loki/', '', 'HOMEPAGE'),
-(10, 1, 'logging', '', 'TAG'),
-(10, 2, 'observability', '', 'TAG'),
-(10, 3, 'kubernetes', '', 'TAG'),
-(10, 4, 'object-storage', '', 'TAG'),
-(10, 5, 'oss', '', 'TAG'),
-(10, 6, 'object-storage', 'Supports deploy-time Object Storage configuration', 'CAPABILITY'),
-(10, 7, 'helm_application_install', '', 'workflow'),
-(10, 8, 'helm_application_uninstall', '', 'workflow');
+(10, 0, 'https://rclone.org/', '', 'HOMEPAGE'),
+(10, 1, 's3', '', 'TAG'),
+(10, 2, 's3-compatible', '', 'TAG'),
+(10, 3, 'file-transfer', '', 'TAG'),
+(10, 4, 'artifacthub-community', '', 'TAG'),
+(10, 5, 'helm_application_install', '', 'workflow'),
+(10, 6, 'helm_application_uninstall', '', 'workflow');
+
 
 -- 6. OSS_TYPE 테이블 데이터 삽입
 INSERT INTO oss_type (oss_type_idx, oss_type_name, oss_type_desc) VALUES

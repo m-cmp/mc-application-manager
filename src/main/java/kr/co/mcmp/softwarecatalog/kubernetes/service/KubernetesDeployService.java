@@ -25,9 +25,7 @@ import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;
 import kr.co.mcmp.softwarecatalog.service.SoftwareSourceService;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
-import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
-import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProviderFactory;
-import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeconfigResolver;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,8 +42,7 @@ public class KubernetesDeployService {
     private final ApplicationStatusRepository applicationStatusRepository;
     private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final SoftwareSourceService softwareSourceService;
-    private final CbtumblebugRestApi cbtumblebugRestApi;
-    private final KubeConfigProviderFactory providerFactory;
+    private final KubeconfigResolver kubeconfigResolver;
 
     /**
      * 입력 파라미터 검증 공통 메서드
@@ -76,9 +73,7 @@ public class KubernetesDeployService {
      */
     private String getKubeconfigYaml(String namespace, String clusterName) {
         try {
-            K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
-            return providerFactory.getProvider(clusterDto.getConnectionConfig().getProviderName())
-                    .getOriginalKubeconfigYaml(clusterDto);
+            return kubeconfigResolver.getKubeconfigYaml(namespace, clusterName);
         } catch (Exception e) {
             log.error("kubeconfig 획득 중 오류 발생: {}", e.getMessage(), e);
             throw new RuntimeException("kubeconfig 획득 실패", e);

@@ -20,8 +20,7 @@ import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.softwarecatalog.CatalogRepository;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
-import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProviderFactory;
-import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProvider;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeconfigResolver;
 import kr.co.mcmp.softwarecatalog.kubernetes.util.ReleaseNameGenerator;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +45,7 @@ public class HelmChartService {
     private static final String HELM_WAIT_TIMEOUT = "10m";
 
     private final CbtumblebugRestApi cbtumblebugRestApi;
-    private final KubeConfigProviderFactory providerFactory;
+    private final KubeconfigResolver kubeconfigResolver;
     private final ReleaseNameGenerator releaseNameGenerator;
     private final CatalogRepository catalogRepository;
     private final KubernetesStorageClassService kubernetesStorageClassService;
@@ -69,10 +68,9 @@ public class HelmChartService {
         try {
             // 1. 클러스터 정보 조회
             K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
+            String kubeconfigYaml = kubeconfigResolver.getKubeconfigYaml(namespace, clusterName);
 
             // 2. Kubeconfig YAML 생성
-            String kubeconfigYaml = providerFactory.getProvider(clusterDto.getConnectionConfig().getProviderName())
-                    .getOriginalKubeconfigYaml(clusterDto);
 
             // 3. 임시 kubeconfig 파일 생성
             tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
@@ -229,6 +227,10 @@ public class HelmChartService {
             }
 
             // Helm CLI로 설치 실행
+            if (isRcloneChart(helmChart)) {
+                applyRcloneGuiDefaults(values, catalog.getDefaultPort());
+            }
+
             runHelmInstallCli(releaseName, chartRef, namespace, helmChart.getChartVersion(), tempKubeconfigPath, values);
             
             // 간단한 Release 스텁 반환 - null 반환으로 변경
@@ -280,8 +282,7 @@ public class HelmChartService {
 
             // 2. kubeconfig 파일 생성
             String providerName = clusterDto.getConnectionConfig().getProviderName();
-            KubeConfigProvider provider = providerFactory.getProvider(providerName);
-            String kubeconfigYaml = provider.getOriginalKubeconfigYaml(clusterDto);
+            String kubeconfigYaml = kubeconfigResolver.getKubeconfigYaml(namespace, clusterName);
             
             tempKubeconfigPath = Files.createTempFile("kubeconfig-", ".yaml");
             Files.write(tempKubeconfigPath, kubeconfigYaml.getBytes());
@@ -377,6 +378,10 @@ public class HelmChartService {
             values.put("rbac.create", "false");
             values.put("serviceAccount.create", "false");
             values.put("serviceAccount.name", "default");
+
+            if (isRcloneChart(helmChart)) {
+                applyRcloneGuiDefaults(values, config.getServicePort());
+            }
 
             applyObjectStorageValues(catalog, request, providerName, helmChart.getChartName(), objectStorageValues);
             if (!objectStorageValues.isEmpty()) {
@@ -568,9 +573,7 @@ public class HelmChartService {
         }
 
         // Provider별 kubeconfig 생성
-        String providerName = clusterDto.getConnectionConfig().getProviderName();
-        KubeConfigProvider provider = providerFactory.getProvider(providerName);
-        return provider.getOriginalKubeconfigYaml(clusterDto);
+        return kubeconfigResolver.getKubeconfigYaml(namespace, clusterName);
     }
 
     public String findLatestReleaseNameForChart(String namespace, String clusterName, String chartName) {
@@ -933,6 +936,61 @@ public class HelmChartService {
         } catch (Exception e) {
             log.info("NGINX Ingress Controller 준비 상태 확인 중 오류 발생: " + e.getMessage());
             return false;
+        }
+    }
+
+    private boolean isRcloneChart(HelmChart helmChart) {
+        return helmChart != null && StringUtils.equalsIgnoreCase(helmChart.getChartName(), "rclone");
+    }
+
+    private void applyRcloneGuiDefaults(Map<String, String> values, Integer servicePort) {
+        String port = String.valueOf(servicePort != null ? servicePort : 5572);
+        boolean ingressEnabled = Boolean.parseBoolean(values.getOrDefault("ingress.enabled", "false"));
+        String ingressHost = values.get("ingress.hosts[0]");
+        String ingressPath = values.getOrDefault("ingress.path", "/");
+        String ingressClassName = values.getOrDefault("ingress.ingressClassName",
+                values.getOrDefault("ingress.className", "nginx"));
+        boolean ingressTlsEnabled = Boolean.parseBoolean(values.getOrDefault("ingress.tls.enabled", "false"));
+        String ingressTlsSecretName = values.get("ingress.tls.secretName");
+
+        values.remove("persistence.enabled");
+        values.remove("persistence.storageClass");
+        values.remove("persistence.size");
+        values.remove("persistence.accessMode");
+        values.remove("service.type");
+        values.remove("service.port");
+        values.remove("ingress.enabled");
+        values.remove("ingress.host");
+        values.remove("ingress.hosts[0]");
+        values.remove("ingress.path");
+        values.remove("ingress.ingressClassName");
+        values.remove("ingress.className");
+        values.remove("ingress.tls.enabled");
+        values.remove("ingress.tls.secretName");
+
+        values.put("persistence.config.enabled", "false");
+        values.put("service.main.enabled", "true");
+        values.put("service.main.type", "ClusterIP");
+        values.put("service.main.ports.http.enabled", "true");
+        values.put("service.main.ports.http.primary", "true");
+        values.put("service.main.ports.http.port", port);
+        values.put("probes.liveness.enabled", "false");
+        values.put("probes.readiness.enabled", "false");
+        values.put("probes.startup.enabled", "false");
+
+        if (ingressEnabled && StringUtils.isNotBlank(ingressHost)) {
+            values.put("ingress.main.enabled", "true");
+            values.put("ingress.main.ingressClassName", ingressClassName);
+            values.put("ingress.main.hosts[0].host", ingressHost);
+            values.put("ingress.main.hosts[0].paths[0].path", StringUtils.defaultIfBlank(ingressPath, "/"));
+            values.put("ingress.main.hosts[0].paths[0].pathType", "Prefix");
+
+            if (ingressTlsEnabled && StringUtils.isNotBlank(ingressTlsSecretName)) {
+                values.put("ingress.main.tls[0].secretName", ingressTlsSecretName);
+                values.put("ingress.main.tls[0].hosts[0]", ingressHost);
+            }
+        } else {
+            values.put("ingress.main.enabled", "false");
         }
     }
 
