@@ -51,8 +51,8 @@ public class SoftwareCatalogDTO {
     // 3. Resource Requeirements
     private Double minCpu;
     private Double recommendedCpu;
-    private Long minMemory;
-    private Long recommendedMemory;
+    private Double minMemory;
+    private Double recommendedMemory;
     private Long minDisk;
     private Long recommendedDisk;
 

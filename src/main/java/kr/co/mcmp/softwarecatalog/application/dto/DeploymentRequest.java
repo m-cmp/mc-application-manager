@@ -74,7 +74,8 @@ public class DeploymentRequest {
     private Integer maxReplicas;
     private Double cpuThreshold;
     private Double memoryThreshold;
-    
+    private Boolean workloadRebalancingEnabled;
+
     /**
      * Resource type selected by the user: CPU_INTENSIVE, MEMORY_INTENSIVE, GENERAL_PURPOSE
      */

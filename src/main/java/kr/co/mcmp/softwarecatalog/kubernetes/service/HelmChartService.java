@@ -15,11 +15,12 @@ import org.yaml.snakeyaml.Yaml;
 import com.marcnuri.helm.Release;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
+import kr.co.mcmp.softwarecatalog.CatalogRepository;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
-import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProviderFactory;
-import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeConfigProvider;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeconfigResolver;
 import kr.co.mcmp.softwarecatalog.kubernetes.util.ReleaseNameGenerator;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO;
 import lombok.RequiredArgsConstructor;
@@ -30,9 +31,24 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class HelmChartService {
 
+    private static final String DEFAULT_HELM_NAMESPACE = "default";
+    private static final String METRICS_SERVER_NAMESPACE = "kube-system";
+    private static final String METRICS_SERVER_RELEASE = "metrics-server";
+    private static final String METRICS_SERVER_REPOSITORY = "metrics-server";
+    private static final String METRICS_SERVER_REPOSITORY_URL = "https://kubernetes-sigs.github.io/metrics-server/";
+    private static final String METRICS_SERVER_CHART = "metrics-server/metrics-server";
+    private static final String METRICS_SERVER_CHART_VERSION = "3.13.1";
+    private static final String INGRESS_NGINX_REPOSITORY = "ingress-nginx";
+    private static final String INGRESS_NGINX_REPOSITORY_URL = "https://kubernetes.github.io/ingress-nginx";
+    private static final String INGRESS_NGINX_CHART = "ingress-nginx/ingress-nginx";
+    private static final String INGRESS_NGINX_CHART_VERSION = "4.14.0";
+    private static final String HELM_WAIT_TIMEOUT = "10m";
+
     private final CbtumblebugRestApi cbtumblebugRestApi;
-    private final KubeConfigProviderFactory providerFactory;
+    private final KubeconfigResolver kubeconfigResolver;
     private final ReleaseNameGenerator releaseNameGenerator;
+    private final CatalogRepository catalogRepository;
+    private final KubernetesStorageClassService kubernetesStorageClassService;
 
     public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog, String clusterName) {
         return deployHelmChart(client, namespace, catalog, catalog.getHelmChart(), clusterName);
@@ -52,10 +68,9 @@ public class HelmChartService {
         try {
             // 1. 클러스터 정보 조회
             K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
+            String kubeconfigYaml = kubeconfigResolver.getKubeconfigYaml(namespace, clusterName);
 
             // 2. Kubeconfig YAML 생성
-            String kubeconfigYaml = providerFactory.getProvider(clusterDto.getConnectionConfig().getProviderName())
-                    .getOriginalKubeconfigYaml(clusterDto);
 
             // 3. 임시 kubeconfig 파일 생성
             tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
@@ -110,20 +125,23 @@ public class HelmChartService {
             values.put("service.port", String.valueOf(catalog.getDefaultPort()));
             values.put("service.type", "ClusterIP");
             values.put("resources.requests.cpu", catalog.getMinCpu().toString());
-            values.put("resources.requests.memory", (int)(catalog.getMinMemory() * 1024) + "Mi");
+            putHelmValueIfPresent(values, "resources.requests.memory", formatMemoryMi(catalog.getMinMemory()));
             values.put("resources.limits.cpu", catalog.getRecommendedCpu().toString());
-            values.put("resources.limits.memory", (int)(catalog.getRecommendedMemory() * 1024) + "Mi");
+            putHelmValueIfPresent(values, "resources.limits.memory", formatMemoryMi(catalog.getRecommendedMemory()));
             values.put("persistence.enabled", "false");
             values.put("securityContext.runAsNonRoot", "false");
             values.put("containerSecurityContext.allowPrivilegeEscalation", "false");
             values.put("global.security.allowInsecureImages", "true");
-            values.put("global.imageRegistry", "docker.io");
+            boolean lokiChart = helmChart.getChartName().equalsIgnoreCase("loki");
+            if (!lokiChart) {
+                values.put("global.imageRegistry", "docker.io");
+            }
 
             if (helmChart.getChartName().equalsIgnoreCase("grafana")) {
                 values.put("image.repository", "grafana/grafana");
                 values.put("image.tag", "latest");
                 values.put("image.pullPolicy", "IfNotPresent");
-            } else {
+            } else if (!lokiChart) {
                 values.put("image.repository", imageRepository);
                 values.put("image.tag", "latest");
                 values.put("image.pullPolicy", "IfNotPresent");
@@ -209,6 +227,10 @@ public class HelmChartService {
             }
 
             // Helm CLI로 설치 실행
+            if (isRcloneChart(helmChart)) {
+                applyRcloneGuiDefaults(values, catalog.getDefaultPort());
+            }
+
             runHelmInstallCli(releaseName, chartRef, namespace, helmChart.getChartVersion(), tempKubeconfigPath, values);
             
             // 간단한 Release 스텁 반환 - null 반환으로 변경
@@ -260,8 +282,7 @@ public class HelmChartService {
 
             // 2. kubeconfig 파일 생성
             String providerName = clusterDto.getConnectionConfig().getProviderName();
-            KubeConfigProvider provider = providerFactory.getProvider(providerName);
-            String kubeconfigYaml = provider.getOriginalKubeconfigYaml(clusterDto);
+            String kubeconfigYaml = kubeconfigResolver.getKubeconfigYaml(namespace, clusterName);
             
             tempKubeconfigPath = Files.createTempFile("kubeconfig-", ".yaml");
             Files.write(tempKubeconfigPath, kubeconfigYaml.getBytes());
@@ -292,20 +313,23 @@ public class HelmChartService {
             values.put("service.port", String.valueOf(config.getServicePort()));
             values.put("service.type", "ClusterIP");
             values.put("resources.requests.cpu", catalog.getMinCpu().toString());
-            values.put("resources.requests.memory", (int)(catalog.getMinMemory() * 1024) + "Mi");
+            putHelmValueIfPresent(values, "resources.requests.memory", formatMemoryMi(catalog.getMinMemory()));
             values.put("resources.limits.cpu", catalog.getRecommendedCpu().toString());
-            values.put("resources.limits.memory", (int)(catalog.getRecommendedMemory() * 1024) + "Mi");
+            putHelmValueIfPresent(values, "resources.limits.memory", formatMemoryMi(catalog.getRecommendedMemory()));
             values.put("persistence.enabled", "false");
             values.put("securityContext.runAsNonRoot", "false");
             values.put("containerSecurityContext.allowPrivilegeEscalation", "false");
             values.put("global.security.allowInsecureImages", "true");
-            values.put("global.imageRegistry", "docker.io");
+            boolean lokiChart = helmChart.getChartName().equalsIgnoreCase("loki");
+            if (!lokiChart) {
+                values.put("global.imageRegistry", "docker.io");
+            }
 
             if (helmChart.getChartName().equalsIgnoreCase("grafana")) {
                 values.put("image.repository", "grafana/grafana");
                 values.put("image.tag", "latest");
                 values.put("image.pullPolicy", "IfNotPresent");
-            } else {
+            } else if (!lokiChart) {
                 values.put("image.repository", imageRepository);
                 values.put("image.tag", "latest");
                 values.put("image.pullPolicy", "IfNotPresent");
@@ -330,8 +354,6 @@ public class HelmChartService {
                 log.info("Ingress 설정 적용 중...");
                 
                 // Ingress Controller 자동 설치 확인 및 설치
-                ensureIngressController(namespace, tempKubeconfigPath);
-                
                 values.put("ingress.enabled", "true");
                 values.put("ingress.hosts[0]", config.getIngressHost());
                 values.put("ingress.path", config.getIngressPath());
@@ -356,6 +378,10 @@ public class HelmChartService {
             values.put("rbac.create", "false");
             values.put("serviceAccount.create", "false");
             values.put("serviceAccount.name", "default");
+
+            if (isRcloneChart(helmChart)) {
+                applyRcloneGuiDefaults(values, config.getServicePort());
+            }
 
             applyObjectStorageValues(catalog, request, providerName, helmChart.getChartName(), objectStorageValues);
             if (!objectStorageValues.isEmpty()) {
@@ -547,9 +573,178 @@ public class HelmChartService {
         }
 
         // Provider별 kubeconfig 생성
-        String providerName = clusterDto.getConnectionConfig().getProviderName();
-        KubeConfigProvider provider = providerFactory.getProvider(providerName);
-        return provider.getOriginalKubeconfigYaml(clusterDto);
+        return kubeconfigResolver.getKubeconfigYaml(namespace, clusterName);
+    }
+
+    public String findLatestReleaseNameForChart(String namespace, String clusterName, String chartName) {
+        Path tempKubeconfigPath = null;
+        try {
+            tempKubeconfigPath = createTempKubeconfigFile(getKubeconfigForCluster(namespace, clusterName));
+            String releaseList = runHelmListCli(DEFAULT_HELM_NAMESPACE, tempKubeconfigPath);
+            com.fasterxml.jackson.databind.JsonNode releases =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(releaseList);
+            if (!releases.isArray()) {
+                return null;
+            }
+
+            for (com.fasterxml.jackson.databind.JsonNode release : releases) {
+                String name = release.path("name").asText(null);
+                String chart = release.path("chart").asText("");
+                if (name != null && chart.toLowerCase().contains(chartName.toLowerCase())) {
+                    return name;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to resolve Helm release name for chart '{}': {}", chartName, e.getMessage());
+        } finally {
+            deleteTempFile(tempKubeconfigPath);
+        }
+        return null;
+    }
+
+    public void ensureMetricsServer(KubernetesClient client, String namespace, String clusterName) {
+        Path tempKubeconfigPath = null;
+        try {
+            tempKubeconfigPath = createTempKubeconfigFile(getKubeconfigForCluster(namespace, clusterName));
+            ensureMetricsServer(client, tempKubeconfigPath);
+        } catch (Exception e) {
+            throw new RuntimeException("metrics-server installation failed", e);
+        } finally {
+            deleteTempFile(tempKubeconfigPath);
+        }
+    }
+
+    public void ensureIngressController(KubernetesClient client, String namespace, String clusterName) {
+        Path tempKubeconfigPath = null;
+        try {
+            tempKubeconfigPath = createTempKubeconfigFile(getKubeconfigForCluster(namespace, clusterName));
+            ensureIngressController(client, namespace, tempKubeconfigPath);
+        } catch (Exception e) {
+            throw new RuntimeException("ingress-nginx installation failed", e);
+        } finally {
+            deleteTempFile(tempKubeconfigPath);
+        }
+    }
+
+    private void deleteTempFile(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            log.warn("Failed to delete temporary kubeconfig file: {}", e.getMessage());
+        }
+    }
+
+    private void ensureMetricsServer(KubernetesClient client, Path tempKubeconfigPath) {
+        if (isMetricsServerReady(client)) {
+            log.info("metrics-server is already ready.");
+            return;
+        }
+
+        if (!isMetricsServerReleaseInstalled(tempKubeconfigPath)) {
+            installMetricsServerWithHelm(tempKubeconfigPath);
+        } else {
+            log.info("metrics-server Helm release already exists. Waiting for readiness.");
+        }
+
+        waitForMetricsServerReady(client);
+    }
+
+    private boolean isMetricsServerReleaseInstalled(Path tempKubeconfigPath) {
+        try {
+            String releaseList = runHelmListCliInNamespace(METRICS_SERVER_NAMESPACE, tempKubeconfigPath);
+            return releaseList != null && releaseList.contains("\"name\":\"" + METRICS_SERVER_RELEASE + "\"");
+        } catch (Exception e) {
+            log.info("Failed to check metrics-server Helm release: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private void installMetricsServerWithHelm(Path tempKubeconfigPath) {
+        try {
+            HelmChart metricsHelmChart = new HelmChart();
+            metricsHelmChart.setChartRepositoryUrl(METRICS_SERVER_REPOSITORY_URL);
+            metricsHelmChart.setRepositoryName(METRICS_SERVER_REPOSITORY);
+            addHelmRepository(metricsHelmChart);
+
+            runHelmInstallCliInNamespace(
+                    METRICS_SERVER_RELEASE,
+                    METRICS_SERVER_CHART,
+                    METRICS_SERVER_NAMESPACE,
+                    METRICS_SERVER_CHART_VERSION,
+                    tempKubeconfigPath,
+                    new java.util.HashMap<>(),
+                    null,
+                    true);
+        } catch (Exception e) {
+            throw new RuntimeException("metrics-server Helm install failed", e);
+        }
+    }
+
+    private void waitForMetricsServerReady(KubernetesClient client) {
+        int maxAttempts = 30;
+        int attempt = 0;
+
+        while (attempt < maxAttempts) {
+            if (isMetricsServerReady(client)) {
+                log.info("metrics-server is ready.");
+                return;
+            }
+
+            attempt++;
+            log.info("Waiting for metrics-server readiness... ({}/{})", attempt, maxAttempts);
+            try {
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("metrics-server readiness wait interrupted", e);
+            }
+        }
+
+        throw new RuntimeException("metrics-server was not ready before timeout");
+    }
+
+    private boolean isMetricsServerReady(KubernetesClient client) {
+        try {
+            var deployment = client.apps().deployments()
+                    .inNamespace(METRICS_SERVER_NAMESPACE)
+                    .withName(METRICS_SERVER_RELEASE)
+                    .get();
+            Integer readyReplicas = deployment != null && deployment.getStatus() != null
+                    ? deployment.getStatus().getReadyReplicas()
+                    : null;
+            Integer desiredReplicas = deployment != null && deployment.getSpec() != null
+                    ? deployment.getSpec().getReplicas()
+                    : null;
+            boolean deploymentReady = readyReplicas != null
+                    && readyReplicas > 0
+                    && (desiredReplicas == null || readyReplicas >= desiredReplicas);
+
+            return deploymentReady && isMetricsApiAvailable(client);
+        } catch (Exception e) {
+            log.debug("metrics-server readiness check failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean isMetricsApiAvailable(KubernetesClient client) {
+        ResourceDefinitionContext context = new ResourceDefinitionContext.Builder()
+                .withGroup("metrics.k8s.io")
+                .withVersion("v1beta1")
+                .withKind("NodeMetrics")
+                .withPlural("nodes")
+                .withNamespaced(false)
+                .build();
+
+        try {
+            client.genericKubernetesResources(context).list();
+            return true;
+        } catch (Exception e) {
+            log.debug("metrics.k8s.io API is not ready yet: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**
@@ -583,12 +778,13 @@ public class HelmChartService {
     /**
      * 네임스페이스에 NGINX Ingress Controller가 설치되어 있는지 확인하고, 없으면 설치합니다.
      */
-    private void ensureIngressController(String namespace, Path tempKubeconfigPath) {
+    private void ensureIngressController(KubernetesClient client, String namespace, Path tempKubeconfigPath) {
         try {
             log.info("네임스페이스 '" + namespace + "'에서 NGINX Ingress Controller 확인 중...");
             
             if (isIngressControllerInstalled(namespace, tempKubeconfigPath)) {
                 log.info("NGINX Ingress Controller가 이미 설치되어 있습니다.");
+                waitForIngressControllerReady(client, namespace);
                 return;
             }
             
@@ -596,7 +792,7 @@ public class HelmChartService {
             installIngressControllerWithHelm(namespace, tempKubeconfigPath);
             
             // 설치 완료 대기
-            waitForIngressControllerReady(namespace, tempKubeconfigPath);
+            waitForIngressControllerReady(client, namespace);
             log.info("NGINX Ingress Controller 설치 및 준비 완료");
             
         } catch (Exception e) {
@@ -612,8 +808,9 @@ public class HelmChartService {
         try {
             // Helm 릴리스 목록에서 nginx-ingress 확인
             String releaseList = runHelmListCli(namespace, tempKubeconfigPath);
+            String releaseName = "nginx-ingress-" + namespace;
             
-            if (releaseList != null && (releaseList.contains("nginx-ingress") || releaseList.contains("ingress-nginx"))) {
+            if (releaseList != null && releaseList.contains("\"name\":\"" + releaseName + "\"")) {
                 log.info("NGINX Ingress Controller 발견: nginx-ingress 또는 ingress-nginx");
                 return true;
             }
@@ -642,12 +839,12 @@ public class HelmChartService {
 
             // Helm CLI로 repository 추가
             kr.co.mcmp.softwarecatalog.application.model.HelmChart ingressHelmChart = new HelmChart();
-            ingressHelmChart.setChartRepositoryUrl("https://kubernetes.github.io/ingress-nginx");
-            ingressHelmChart.setRepositoryName("ingress-nginx");
+            ingressHelmChart.setChartRepositoryUrl(INGRESS_NGINX_REPOSITORY_URL);
+            ingressHelmChart.setRepositoryName(INGRESS_NGINX_REPOSITORY);
             addHelmRepository(ingressHelmChart);
 
             // Helm CLI로 설치 실행
-            runHelmInstallCli(releaseName, "ingress-nginx/ingress-nginx", namespace, "4.14.0", tempKubeconfigPath, values);
+            runHelmInstallCli(releaseName, INGRESS_NGINX_CHART, namespace, INGRESS_NGINX_CHART_VERSION, tempKubeconfigPath, values);
             
             // 간단한 Release 스텁 반환 - null 반환으로 변경
             Release result = null;
@@ -662,7 +859,7 @@ public class HelmChartService {
     /**
      * NGINX Ingress Controller가 준비될 때까지 대기합니다.
      */
-    private void waitForIngressControllerReady(String namespace, Path tempKubeconfigPath) {
+    private void waitForIngressControllerReady(KubernetesClient client, String namespace) {
         int maxAttempts = 30; // 5분 대기 (10초 * 30)
         int attempt = 0;
         
@@ -670,7 +867,7 @@ public class HelmChartService {
         
         while (attempt < maxAttempts) {
             try {
-                if (isIngressControllerReady(namespace, tempKubeconfigPath)) {
+                if (isIngressControllerReady(client, namespace)) {
                     log.info("NGINX Ingress Controller가 준비되었습니다.");
                     return;
                 }
@@ -694,8 +891,43 @@ public class HelmChartService {
     /**
      * NGINX Ingress Controller가 준비되었는지 확인합니다.
      */
-    private boolean isIngressControllerReady(String namespace, Path tempKubeconfigPath) {
+    private boolean isIngressControllerReady(KubernetesClient client, String namespace) {
         try {
+            String releaseName = "nginx-ingress-" + namespace;
+            String controllerName = releaseName + "-ingress-nginx-controller";
+            String admissionServiceName = controllerName + "-admission";
+            String helmNamespace = "default";
+
+            var deployment = client.apps().deployments()
+                    .inNamespace(helmNamespace)
+                    .withName(controllerName)
+                    .get();
+            Integer readyReplicas = deployment != null && deployment.getStatus() != null
+                    ? deployment.getStatus().getReadyReplicas()
+                    : null;
+            Integer desiredReplicas = deployment != null && deployment.getSpec() != null
+                    ? deployment.getSpec().getReplicas()
+                    : null;
+            boolean deploymentReady = readyReplicas != null
+                    && readyReplicas > 0
+                    && (desiredReplicas == null || readyReplicas >= desiredReplicas);
+
+            var admissionEndpoints = client.endpoints()
+                    .inNamespace(helmNamespace)
+                    .withName(admissionServiceName)
+                    .get();
+            boolean admissionReady = admissionEndpoints != null
+                    && admissionEndpoints.getSubsets() != null
+                    && admissionEndpoints.getSubsets().stream().anyMatch(subset ->
+                            subset.getAddresses() != null && !subset.getAddresses().isEmpty()
+                                    && subset.getPorts() != null && !subset.getPorts().isEmpty());
+
+            log.info("NGINX Ingress Controller readiness - deploymentReady={}, admissionReady={}, readyReplicas={}, desiredReplicas={}",
+                    deploymentReady, admissionReady, readyReplicas, desiredReplicas);
+            if (!deploymentReady || !admissionReady) {
+                return false;
+            }
+
             // KubernetesClient를 사용하여 Pod 상태 확인
             // 여기서는 간단히 true를 반환하도록 구현
             // 실제로는 kubernetesClient를 사용하여 Pod 상태를 확인해야 함
@@ -707,6 +939,61 @@ public class HelmChartService {
         }
     }
 
+    private boolean isRcloneChart(HelmChart helmChart) {
+        return helmChart != null && StringUtils.equalsIgnoreCase(helmChart.getChartName(), "rclone");
+    }
+
+    private void applyRcloneGuiDefaults(Map<String, String> values, Integer servicePort) {
+        String port = String.valueOf(servicePort != null ? servicePort : 5572);
+        boolean ingressEnabled = Boolean.parseBoolean(values.getOrDefault("ingress.enabled", "false"));
+        String ingressHost = values.get("ingress.hosts[0]");
+        String ingressPath = values.getOrDefault("ingress.path", "/");
+        String ingressClassName = values.getOrDefault("ingress.ingressClassName",
+                values.getOrDefault("ingress.className", "nginx"));
+        boolean ingressTlsEnabled = Boolean.parseBoolean(values.getOrDefault("ingress.tls.enabled", "false"));
+        String ingressTlsSecretName = values.get("ingress.tls.secretName");
+
+        values.remove("persistence.enabled");
+        values.remove("persistence.storageClass");
+        values.remove("persistence.size");
+        values.remove("persistence.accessMode");
+        values.remove("service.type");
+        values.remove("service.port");
+        values.remove("ingress.enabled");
+        values.remove("ingress.host");
+        values.remove("ingress.hosts[0]");
+        values.remove("ingress.path");
+        values.remove("ingress.ingressClassName");
+        values.remove("ingress.className");
+        values.remove("ingress.tls.enabled");
+        values.remove("ingress.tls.secretName");
+
+        values.put("persistence.config.enabled", "false");
+        values.put("service.main.enabled", "true");
+        values.put("service.main.type", "ClusterIP");
+        values.put("service.main.ports.http.enabled", "true");
+        values.put("service.main.ports.http.primary", "true");
+        values.put("service.main.ports.http.port", port);
+        values.put("probes.liveness.enabled", "false");
+        values.put("probes.readiness.enabled", "false");
+        values.put("probes.startup.enabled", "false");
+
+        if (ingressEnabled && StringUtils.isNotBlank(ingressHost)) {
+            values.put("ingress.main.enabled", "true");
+            values.put("ingress.main.ingressClassName", ingressClassName);
+            values.put("ingress.main.hosts[0].host", ingressHost);
+            values.put("ingress.main.hosts[0].paths[0].path", StringUtils.defaultIfBlank(ingressPath, "/"));
+            values.put("ingress.main.hosts[0].paths[0].pathType", "Prefix");
+
+            if (ingressTlsEnabled && StringUtils.isNotBlank(ingressTlsSecretName)) {
+                values.put("ingress.main.tls[0].secretName", ingressTlsSecretName);
+                values.put("ingress.main.tls[0].hosts[0]", ingressHost);
+            }
+        } else {
+            values.put("ingress.main.enabled", "false");
+        }
+    }
+
     private void applyObjectStorageValues(SoftwareCatalog catalog,
                                           kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest request,
                                           String providerName,
@@ -715,17 +1002,17 @@ public class HelmChartService {
         if (!StringUtils.equalsIgnoreCase(chartName, "loki")) {
             return;
         }
-        if (!hasObjectStorageCapability(catalog) || request == null || request.getAdditionalConfig() == null) {
-            return;
+        if (request == null || request.getAdditionalConfig() == null) {
+            throw new IllegalArgumentException("Object Storage configuration is required for Loki deployment.");
         }
 
         Object rawConfig = request.getAdditionalConfig().get("objectStorage");
         if (!(rawConfig instanceof Map<?, ?> objectStorage)) {
-            return;
+            throw new IllegalArgumentException("Object Storage configuration is required for Loki deployment.");
         }
 
         if (!asBoolean(objectStorage.get("enabled"))) {
-            return;
+            throw new IllegalArgumentException("Object Storage configuration is required for Loki deployment.");
         }
 
         String backendType = stringValue(objectStorage.get("backendType"), "s3");
@@ -743,15 +1030,24 @@ public class HelmChartService {
         boolean insecure = isHttpEndpoint(endpoint);
 
         if (StringUtils.isAnyBlank(region, bucket, accessKey, secretKey)) {
-            log.warn("Object Storage config skipped because required S3-compatible fields are missing. provider={}", providerName);
-            return;
+            throw new IllegalArgumentException("Object Storage region, bucket, access key, and secret key are required for Loki deployment.");
         }
         if (!isAwsProvider(providerName) && StringUtils.isBlank(endpoint)) {
-            log.warn("Object Storage config skipped because endpoint is required for non-AWS S3-compatible storage. provider={}", providerName);
-            return;
+            throw new IllegalArgumentException("Object Storage endpoint is required for non-AWS S3-compatible Loki deployment.");
         }
+
+        String storageClassName = stringValue(request.getAdditionalConfig().get("storageClass"), null);
+        if (StringUtils.isBlank(storageClassName)) {
+            throw new IllegalArgumentException("Storage Class is required for Loki deployment.");
+        }
+        if (!kubernetesStorageClassService.exists(request.getNamespace(), request.getClusterName(), storageClassName)) {
+            throw new IllegalArgumentException("Storage Class not found in the selected cluster: " + storageClassName);
+        }
+
         Map<String, Object> loki = nestedMap(valuesFile, "loki");
         loki.put("configStorageType", "Secret");
+        loki.put("auth_enabled", false);
+        nestedMap(loki, "commonConfig").put("replication_factor", 1);
         applyDefaultLokiSchemaConfig(loki);
 
         Map<String, Object> storage = nestedMap(loki, "storage");
@@ -775,7 +1071,51 @@ public class HelmChartService {
         Map<String, Object> minio = nestedMap(valuesFile, "minio");
         minio.put("enabled", false);
 
+        applyLokiObjectStorageRuntimeDefaults(valuesFile, storageClassName, catalog);
+
         log.info("Object Storage Helm values prepared for provider={}, backend=s3-compatible, bucketNames configured", providerName);
+    }
+
+    private void applyLokiObjectStorageRuntimeDefaults(Map<String, Object> valuesFile, String storageClassName, SoftwareCatalog catalog) {
+        nestedMap(valuesFile, "gateway").put("verboseLogging", false);
+        nestedMap(valuesFile, "chunksCache").put("enabled", false);
+        nestedMap(valuesFile, "resultsCache").put("enabled", false);
+        nestedMap(valuesFile, "lokiCanary").put("enabled", false);
+        nestedMap(valuesFile, "test").put("enabled", false);
+
+        Map<String, Object> singleBinary = nestedMap(valuesFile, "singleBinary");
+        Map<String, Object> persistence = nestedMap(singleBinary, "persistence");
+        persistence.put("enabled", true);
+        persistence.put("storageClass", storageClassName);
+        applyLokiResourceValues(singleBinary, catalog);
+
+        Map<String, Object> gateway = nestedMap(valuesFile, "gateway");
+        applyLokiResourceValues(gateway, catalog);
+    }
+
+    private void applyLokiResourceValues(Map<String, Object> component, SoftwareCatalog catalog) {
+        if (catalog == null) {
+            return;
+        }
+
+        Map<String, Object> resources = nestedMap(component, "resources");
+        Map<String, Object> requests = nestedMap(resources, "requests");
+        Map<String, Object> limits = nestedMap(resources, "limits");
+
+        if (catalog.getMinCpu() != null) {
+            requests.put("cpu", catalog.getMinCpu().toString());
+        }
+        String minMemory = formatMemoryMi(catalog.getMinMemory());
+        if (StringUtils.isNotBlank(minMemory)) {
+            requests.put("memory", minMemory);
+        }
+        if (catalog.getRecommendedCpu() != null) {
+            limits.put("cpu", catalog.getRecommendedCpu().toString());
+        }
+        String recommendedMemory = formatMemoryMi(catalog.getRecommendedMemory());
+        if (StringUtils.isNotBlank(recommendedMemory)) {
+            limits.put("memory", recommendedMemory);
+        }
     }
 
     private void applyDefaultLokiSchemaConfig(Map<String, Object> loki) {
@@ -801,10 +1141,16 @@ public class HelmChartService {
     }
 
     private boolean hasObjectStorageCapability(SoftwareCatalog catalog) {
-        if (catalog == null || catalog.getCatalogRefs() == null) {
+        if (catalog == null || catalog.getId() == null) {
             return false;
         }
-        return catalog.getCatalogRefs().stream().anyMatch(ref ->
+
+        SoftwareCatalog catalogWithRefs = catalogRepository.findByIdWithCatalogRefs(catalog.getId()).orElse(catalog);
+        if (catalogWithRefs.getCatalogRefs() == null) {
+            return false;
+        }
+
+        return catalogWithRefs.getCatalogRefs().stream().anyMatch(ref ->
                 "object-storage".equalsIgnoreCase(ref.getRefValue())
                         && ("CAPABILITY".equalsIgnoreCase(ref.getRefType()) || "TAG".equalsIgnoreCase(ref.getRefType())));
     }
@@ -862,6 +1208,19 @@ public class HelmChartService {
         return valuesFile;
     }
 
+    private void putHelmValueIfPresent(Map<String, String> values, String key, String value) {
+        if (StringUtils.isNotBlank(value)) {
+            values.put(key, value);
+        }
+    }
+
+    private String formatMemoryMi(Double memoryGb) {
+        if (memoryGb == null || memoryGb <= 0) {
+            return null;
+        }
+        return (long) Math.ceil(memoryGb * 1024.0) + "Mi";
+    }
+
     private void runHelmInstallCli(String releaseName,
                                    String chartRef,
                                    String namespace,
@@ -904,12 +1263,51 @@ public class HelmChartService {
         }
         log.info("helm install output: {}", out);
     }
+
+    private void runHelmInstallCliInNamespace(String releaseName,
+                                             String chartRef,
+                                             String helmNamespace,
+                                             String version,
+                                             Path kubeconfig,
+                                             java.util.Map<String,String> values,
+                                             Path valuesFile,
+                                             boolean waitForReady) throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        String helmPath = getHelmPath();
+        cmd.add(helmPath); cmd.add("install");
+        cmd.add(releaseName); cmd.add(chartRef);
+        cmd.add("--namespace"); cmd.add(helmNamespace);
+        cmd.add("--version"); cmd.add(version);
+        cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
+        if (waitForReady) {
+            cmd.add("--wait");
+            cmd.add("--timeout");
+            cmd.add(HELM_WAIT_TIMEOUT);
+        }
+        if (valuesFile != null) {
+            cmd.add("--values");
+            cmd.add(valuesFile.toString());
+        }
+        for (java.util.Map.Entry<String,String> e : values.entrySet()) {
+            cmd.add("--set");
+            cmd.add(e.getKey() + "=" + e.getValue());
+        }
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        Process p = pb.start();
+        int ec = p.waitFor();
+        String out = new String(p.getInputStream().readAllBytes());
+        String err = new String(p.getErrorStream().readAllBytes());
+        if (ec != 0) {
+            throw new RuntimeException("helm install failed (" + ec + "): " + err + "\n" + out);
+        }
+        log.info("helm install output: {}", out);
+    }
     
     /**
      * Helm 실행 파일 경로를 반환합니다.
      * 관리자 권한 없이 사용할 수 있도록 여러 경로를 확인합니다.
      */
-    private String getHelmPath() {
+    String getHelmPath() {
         // 1. 프로젝트 루트의 helm 폴더에서 확인
         String projectRoot = System.getProperty("user.dir");
         String localHelmPath = projectRoot + File.separator + "helm" + File.separator + "helm.exe";
@@ -1009,6 +1407,25 @@ public class HelmChartService {
         java.util.List<String> cmd = new java.util.ArrayList<>();
         cmd.add(getHelmPath()); cmd.add("list");
         cmd.add("--namespace"); cmd.add("default");
+        if (kubeconfig != null) {
+            cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
+        }
+        cmd.add("--output"); cmd.add("json");
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        Process p = pb.start();
+        int ec = p.waitFor();
+        String out = new String(p.getInputStream().readAllBytes());
+        String err = new String(p.getErrorStream().readAllBytes());
+        if (ec != 0) {
+            throw new RuntimeException("helm list failed (" + ec + "): " + err + "\n" + out);
+        }
+        return out;
+    }
+
+    private String runHelmListCliInNamespace(String helmNamespace, Path kubeconfig) throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add(getHelmPath()); cmd.add("list");
+        cmd.add("--namespace"); cmd.add(helmNamespace);
         if (kubeconfig != null) {
             cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
         }

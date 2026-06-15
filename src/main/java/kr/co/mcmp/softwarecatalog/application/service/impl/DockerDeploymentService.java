@@ -610,7 +610,7 @@ public class DockerDeploymentService implements DeploymentService {
                     .vmMemoryGb(vmMemoryGb)
                     .catalogMinCpu(catalog.getMinCpu() != null ? catalog.getMinCpu().doubleValue() : null)
                     .catalogRecCpu(catalog.getRecommendedCpu() != null ? catalog.getRecommendedCpu().doubleValue() : null)
-                    .catalogMinMemoryMb(catalog.getMinMemory() != null ? catalog.getMinMemory().intValue() : null)
+                    .catalogMinMemoryMb(toMemoryMb(catalog.getMinMemory()))
                     .build();
 
             infraSpecSnapshotRepository.save(snapshot);
@@ -681,6 +681,13 @@ public class DockerDeploymentService implements DeploymentService {
             log.debug("Failed to parse VM memory size MiB: {}", vmSpecInfo.getMemSizeMib(), e);
             return null;
         }
+    }
+
+    private Integer toMemoryMb(Double memoryGb) {
+        if (memoryGb == null || memoryGb <= 0) {
+            return null;
+        }
+        return (int) Math.ceil(memoryGb * 1024.0);
     }
 
     private String firstNonBlank(String... values) {

@@ -1,6 +1,7 @@
 package kr.co.mcmp.softwarecatalog.application.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,6 +119,10 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
                 return applications.stream()
                     .map(this::toStatusDto);
             })
+            .sorted(Comparator
+                .comparing(ApplicationStatusDto::getCheckedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(ApplicationStatusDto::getDeploymentHistoryId, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(ApplicationStatusDto::getId, Comparator.nullsLast(Comparator.reverseOrder())))
             .collect(Collectors.toList());
     }
 

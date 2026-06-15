@@ -1,0 +1,39 @@
+# =====================================================================
+# Local profile for AM archiving verification
+# Activate with:  --spring.profiles.active=local
+#
+# Purpose:
+#   - Boot the application against the dev PostgreSQL/Tumblebug servers
+#   - Auto-create the new archiving tables (ddl-auto: update)
+#   - Keep local deployment tests from running background schedulers
+#   - Surface Hibernate DDL and our package logs for visual verification
+#
+# Notes:
+#   - All connection endpoints inherit defaults from application.yaml
+#     (PostgreSQL/Tumblebug/Spider on 210.217.178.130)
+#   - Override only what is useful for local boot-time verification
+#   - Set APP_SCHEDULING_ENABLED=true only when intentionally testing schedulers locally
+# =====================================================================
+
+app:
+  scheduling:
+    enabled: false
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+        use_sql_comments: true
+
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    kr.co.mcmp.softwarecatalog.application.service.impl.DailyAggregationScheduler: DEBUG
+    kr.co.mcmp.softwarecatalog.docker.service.DockerMonitoringService: DEBUG
+    kr.co.mcmp.softwarecatalog.kubernetes.service.KubernetesMonitoringService: DEBUG

@@ -197,7 +197,11 @@ const setColumns = () => {
           deploymentType: deploymentType as string,
           applicationName: applicationName as string
         }
-        if (btnFlag === 'restart-btn') {
+        if (btnFlag === 'start-btn') {
+          params.operation = 'START'
+          await _applicationAction(params)
+        }
+        else if (btnFlag === 'restart-btn') {
           params.operation = 'RESTART'
           await _applicationAction(params)
         }
@@ -238,7 +242,12 @@ const _applicationAction = async (params: {
 
 const openDetailModal = (cell: any) => {
   const rowData = cell.getRow().getData()
-  selectedDeploymentId.value = rowData.deploymentHistoryId || rowData.deploymentId || rowData.id
+  const deploymentId = rowData.deploymentHistoryId || rowData.deploymentId
+  if (!deploymentId) {
+    return
+  }
+
+  selectedDeploymentId.value = deploymentId
   
   // Bootstrap 모달 열기
   const modal = document.getElementById(applicationStatusDetailModalId)
@@ -313,13 +322,22 @@ const statusFormatter = (cell: any) => {
 const actionButtonFormatter = (cell: any) => {
   const status = cell.getRow().getData().status
   const disabledAttr = isActionDisabledStatus(status) ? 'disabled' : ''
-
-  return `
-  <div class='d-flex align-items-center gap-3 flex-nowrap'>
+  const normalizedStatus = String(status || '').trim().toUpperCase()
+  const isStopped = normalizedStatus === 'STOP' || normalizedStatus === 'STOPPED'
+  const lifecycleButtons = isStopped ? `
+    <button
+      class='btn btn-link text-primary px-2 py-1'
+      id='start-btn'
+      data-bs-toggle='modal'
+      data-bs-target='#action-confirm'
+      ${disabledAttr}>
+      Start
+    </button>
+  ` : `
     <button
       class='btn btn-link text-primary px-2 py-1'
       id='restart-btn'
-      data-bs-toggle='modal' 
+      data-bs-toggle='modal'
       data-bs-target='#action-confirm'
       ${disabledAttr}>
       Restart
@@ -327,11 +345,16 @@ const actionButtonFormatter = (cell: any) => {
     <button
       class='btn btn-link text-warning px-2 py-1'
       id='stop-btn'
-      data-bs-toggle='modal' 
+      data-bs-toggle='modal'
       data-bs-target='#action-confirm'
       ${disabledAttr}>
       Stop
     </button>
+  `
+
+  return `
+  <div class='d-flex align-items-center gap-3 flex-nowrap'>
+    ${lifecycleButtons}
     <button
       class='btn btn-link text-danger px-2 py-1'
       id='uninstall-btn'

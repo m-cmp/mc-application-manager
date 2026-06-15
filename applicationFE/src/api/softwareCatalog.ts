@@ -84,6 +84,13 @@ export const objectStorageSmokeCheck = (params: {
   return request.post(`/applications/k8s/object-storage/smoke-check`, params)
 }
 
+export const getK8sStorageClasses = (params: {
+  namespace: string,
+  clusterName: string
+}) => {
+  return request.get(`/applications/k8s/storage-classes?namespace=${params.namespace}&clusterName=${params.clusterName}`)
+}
+
 export const vmSpecCheck = (params: {
   namespace: string,
   mciName: string,

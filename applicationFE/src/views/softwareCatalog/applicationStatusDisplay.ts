@@ -1,10 +1,15 @@
 const STATUS_LABELS: Record<string, string> = {
-  PREPARING_RUNTIME: 'Preparing Runtime',
+  PREPARING_RUNTIME: 'Initializing',
+  PREPARING_METRICS_SERVER: 'Initializing',
+  PREPARING_INGRESS_NGINX: 'Initializing',
   DEPLOYING: 'Deploying',
-  INSTALL: 'Deployment Submitted',
+  INSTALL: 'Installing',
   IN_PROGRESS: 'In Progress',
   PENDING: 'Pending',
+  START: 'Starting',
+  STARTING: 'Starting',
   RESTART: 'Restarting',
+  RESTARTING: 'Restarting',
   RUN: 'Running',
   RUNNING: 'Running',
   SUCCESS: 'Running',
@@ -15,16 +20,42 @@ const STATUS_LABELS: Record<string, string> = {
   UNINSTALLED: 'Uninstalled',
   NOT_FOUND: 'Not Found',
   UNKNOWN: 'Unknown',
+  IMAGE_PULL_ERROR: 'Image Pull Error',
   FAILED: 'Failed',
   ERROR: 'Error'
 }
 
-const PROGRESS_STATUSES = new Set(['PREPARING_RUNTIME', 'DEPLOYING', 'IN_PROGRESS', 'INSTALL', 'RESTART'])
+const PROGRESS_STATUSES = new Set([
+  'PREPARING_RUNTIME',
+  'PREPARING_METRICS_SERVER',
+  'PREPARING_INGRESS_NGINX',
+  'DEPLOYING',
+  'IN_PROGRESS',
+  'INSTALL',
+  'START',
+  'STARTING',
+  'RESTART',
+  'RESTARTING'
+])
 const SUCCESS_STATUSES = new Set(['RUN', 'RUNNING', 'SUCCESS', 'COMPLETED'])
 const WARNING_STATUSES = new Set(['NOT_FOUND', 'PENDING', 'UNKNOWN'])
 const TERMINAL_STATUSES = new Set(['STOP', 'STOPPED', 'UNINSTALL', 'UNINSTALLED'])
-const DANGER_STATUSES = new Set(['FAILED', 'ERROR'])
-const ACTION_DISABLED_STATUSES = new Set(['PREPARING_RUNTIME', 'DEPLOYING', 'IN_PROGRESS', 'UNINSTALL', 'UNINSTALLED'])
+const DANGER_STATUSES = new Set(['FAILED', 'ERROR', 'IMAGE_PULL_ERROR'])
+const ACTION_DISABLED_STATUSES = new Set([
+  'PREPARING_RUNTIME',
+  'PREPARING_METRICS_SERVER',
+  'PREPARING_INGRESS_NGINX',
+  'DEPLOYING',
+  'IN_PROGRESS',
+  'INSTALL',
+  'START',
+  'STARTING',
+  'RESTART',
+  'RESTARTING',
+  'UNINSTALL',
+  'UNINSTALLED',
+  'FAILED'
+])
 
 const normalizeStatus = (status: string | null | undefined) => String(status || '').trim().toUpperCase()
 

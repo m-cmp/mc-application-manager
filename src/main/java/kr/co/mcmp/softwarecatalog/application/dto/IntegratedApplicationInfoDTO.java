@@ -56,6 +56,7 @@ public class IntegratedApplicationInfoDTO {
     private Integer maxReplicas;
     private Double cpuThreshold;
     private Double memoryThreshold;
+    private Boolean workloadRebalancingEnabled;
 
     private String applicationStatus;
     private Double cpuUsage;

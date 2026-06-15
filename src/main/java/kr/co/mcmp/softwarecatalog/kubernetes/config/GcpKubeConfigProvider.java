@@ -2,28 +2,14 @@ package kr.co.mcmp.softwarecatalog.kubernetes.config;
 
 import io.fabric8.kubernetes.client.Config;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 @Component
 public class GcpKubeConfigProvider implements KubeConfigProvider {
 
-    @Value("${spider.url}")
-    private String spiderUrl;
-
-    @Value("${spider.port}")
-    private String spiderPort;
-
-    @Value("${spider.checkhost}")
-    private List<String> spiderChekdHosts;
-
-
     @Override
     public Config buildConfig(K8sClusterDto dto) {
-        String yaml = dto.getAccessInfo().getKubeconfig();
-        Config cfg = Config.fromKubeconfig(KubeConfigProviderFactory.replaceUrlHostByPort(yaml, spiderPort, spiderChekdHosts, spiderUrl));
+        Config cfg = Config.fromKubeconfig(getOriginalKubeconfigYaml(dto));
         cfg.setTrustCerts(true);
         cfg.setConnectionTimeout(30_000);
         cfg.setRequestTimeout(30_000);
@@ -42,15 +28,15 @@ public class GcpKubeConfigProvider implements KubeConfigProvider {
         }
 
         if (dto.getAccessInfo() == null) {
-            throw new IllegalStateException("AccessInfo is null for Azure cluster: " + dto.getName());
+            throw new IllegalStateException("AccessInfo is null for GCP cluster: " + dto.getName());
         }
 
         String kubeconfig = dto.getAccessInfo().getKubeconfig();
         if (kubeconfig == null || kubeconfig.trim().isEmpty()) {
-            throw new IllegalStateException("Kubeconfig is null or empty for Azure cluster: " + dto.getName());
+            throw new IllegalStateException("Kubeconfig is null or empty for GCP cluster: " + dto.getName());
         }
 
-        return KubeConfigProviderFactory.replaceUrlHostByPort(kubeconfig, spiderPort, spiderChekdHosts, spiderUrl);
+        return kubeconfig;
     }
 
 }

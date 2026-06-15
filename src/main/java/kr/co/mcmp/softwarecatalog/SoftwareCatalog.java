@@ -100,10 +100,10 @@ public class SoftwareCatalog {
     private Double recommendedCpu; // 권장 CPU 사양
 
     @Column(name = "min_memory")
-    private Long minMemory; // 최소 메모리 요구사항
+    private Double minMemory; // 최소 메모리 요구사항
 
     @Column(name = "recommended_memory")
-    private Long recommendedMemory; // 권장 메모리 사양
+    private Double recommendedMemory; // 권장 메모리 사양
 
     @Column(name = "min_disk")
     private Long minDisk; // 최소 디스크 요구사항

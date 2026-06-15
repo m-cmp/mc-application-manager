@@ -39,6 +39,9 @@ public class SelectBoxController {
 			case UNINSTALL:
 				options = mapEnumToOptions(ReasonType.values());
 				break;
+			case START:
+				options = mapEnumToOptions(ReasonType.values());
+				break;
 			case RESTART:
 				options = mapEnumToOptions(RestartReasonType.values());
 				break;

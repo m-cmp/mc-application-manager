@@ -141,14 +141,14 @@
                   <div class="col-6">
                     <label class="form-label text-muted small">Minimum</label>
                     <div class="input-group">
-                      <input type="number" min="0" class="form-control" v-model.number="catalogDto.minMemory" placeholder="4" />
+                      <input type="number" min="0" step="0.1" class="form-control" v-model.number="catalogDto.minMemory" placeholder="4" />
                       <span class="input-group-text">GB</span>
                     </div>
                   </div>
                   <div class="col-6">
                     <label class="form-label text-muted small">Recommended</label>
                     <div class="input-group">
-                      <input type="number" min="0" class="form-control" v-model.number="catalogDto.recommendedMemory" placeholder="8" />
+                      <input type="number" min="0" step="0.1" class="form-control" v-model.number="catalogDto.recommendedMemory" placeholder="8" />
                       <span class="input-group-text">GB</span>
                     </div>
                   </div>

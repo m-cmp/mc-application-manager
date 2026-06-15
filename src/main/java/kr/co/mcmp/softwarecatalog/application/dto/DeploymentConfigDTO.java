@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Locale;
+
 /**
  * 배포 설정을 관리하는 DTO
  * Request 파라미터와 카탈로그 기본값을 조합하여 최종 설정값을 제공
@@ -48,7 +50,7 @@ public class DeploymentConfigDTO {
                 
                 // Ingress 설정 (Request 우선)
                 .ingressEnabled(getValue(request.getIngressEnabled(), catalog.getIngressEnabled(), false))
-                .ingressHost(getValue(request.getIngressHost(), catalog.getIngressHost(), "localhost"))
+                .ingressHost(normalizeIngressHost(getValue(request.getIngressHost(), catalog.getIngressHost(), "localhost")))
                 .ingressPath(getValue(request.getIngressPath(), catalog.getIngressPath(), "/"))
                 .ingressClass(getValue(request.getIngressClass(), catalog.getIngressClass(), "nginx"))
                 .ingressTlsEnabled(getValue(request.getIngressTlsEnabled(), catalog.getIngressTlsEnabled(), false))
@@ -70,6 +72,38 @@ public class DeploymentConfigDTO {
             return catalogValue;
         }
         return defaultValue;
+    }
+
+    private static String normalizeIngressHost(String host) {
+        if (host == null) {
+            return null;
+        }
+
+        String normalized = host.trim();
+        if (normalized.isEmpty()) {
+            return normalized;
+        }
+
+        normalized = normalized.replaceFirst("^[a-zA-Z][a-zA-Z0-9+.-]*://", "");
+
+        int atIndex = normalized.lastIndexOf('@');
+        if (atIndex >= 0) {
+            normalized = normalized.substring(atIndex + 1);
+        }
+
+        for (char delimiter : new char[] {'/', '?', '#'}) {
+            int index = normalized.indexOf(delimiter);
+            if (index >= 0) {
+                normalized = normalized.substring(0, index);
+            }
+        }
+
+        int colonIndex = normalized.indexOf(':');
+        if (colonIndex >= 0 && normalized.indexOf(':', colonIndex + 1) < 0) {
+            normalized = normalized.substring(0, colonIndex);
+        }
+
+        return normalized.trim().toLowerCase(Locale.ROOT);
     }
     
     /**

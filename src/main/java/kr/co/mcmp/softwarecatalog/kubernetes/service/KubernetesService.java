@@ -1,6 +1,7 @@
 package kr.co.mcmp.softwarecatalog.kubernetes.service;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -48,7 +49,7 @@ public class KubernetesService {
         SoftwareCatalog catalog = null;
         try {
             catalog = findCatalogById(request.getCatalogId());
-            updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ApplicationStatusValues.DEPLOYING);
+            updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ApplicationStatusValues.PREPARING_METRICS_SERVER);
             // DTO를 포함하여 호출
             history = deploymentService.deployApplication(
                 request.getNamespace(), 
@@ -57,17 +58,16 @@ public class KubernetesService {
                 request.getUsername(), 
                 request
             );
-            addDeploymentLog(history, LogType.INFO, "Deployment initiated successfully with DTO configuration.");
-            updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ActionType.INSTALL.name());
             applyDeploymentRequestConfig(history, request, catalog);
             DeploymentHistory saved = historyRepository.save(history);
+            addDeploymentLog(saved, LogType.INFO, "Deployment initiated successfully with DTO configuration.");
+            updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, ActionType.INSTALL.name(), saved.getId());
             saveInfraSpecSnapshot(saved, request, catalog);
             return saved;
         } catch (Exception e) {
-            log.error("애플리케이션 배포 중 오류 발생", e);
-            
+            log.error("Application deployment failed", e);
+
             if (history == null) {
-                // 배포 시작 전에 오류가 발생한 경우 - 기본 실패 이력 생성
                 history = DeploymentHistory.builder()
                         .namespace(request.getNamespace())
                         .clusterName(request.getClusterName())
@@ -77,30 +77,40 @@ public class KubernetesService {
                         .status("FAILED")
                         .actionType(ActionType.INSTALL)
                         .executedAt(LocalDateTime.now())
+                        .workloadRebalancingEnabled(Boolean.TRUE.equals(request.getWorkloadRebalancingEnabled()))
                         .build();
-                addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
-                historyRepository.save(history);
             } else {
-                // 배포 중에 오류가 발생한 경우 (이미 생성된 history가 있음)
                 history.setStatus("FAILED");
-                addDeploymentLog(history, LogType.ERROR, "Deployment failed: " + e.getMessage());
-                historyRepository.save(history);
             }
-            
+
+            try {
+                DeploymentHistory savedHistory = historyRepository.save(history);
+                addDeploymentLog(savedHistory, LogType.ERROR, "Deployment failed: " + e.getMessage());
+            } catch (Exception failureSaveException) {
+                log.warn("Failed to persist deployment failure history. originalReason={}",
+                        e.getMessage(), failureSaveException);
+            }
+
             if (catalog != null) {
-                updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, "FAILED");
+                try {
+                    updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, "FAILED");
+                } catch (Exception statusException) {
+                    log.warn("Failed to mark application status as FAILED. namespace={}, clusterName={}, catalogId={}",
+                            request.getNamespace(), request.getClusterName(), catalog.getId(), statusException);
+                }
             }
-            
-            throw new RuntimeException("애플리케이션 배포 실패", e);
+
+            throw new RuntimeException("Application deployment failed", e);
         }
     }
 
 
-    public void stopApplication(String namespace, String clusterName, Long catalogId, String username) {
+    public Map<String, Integer> stopApplication(String namespace, String clusterName, Long catalogId, String username) {
         try {
             SoftwareCatalog catalog = findCatalogById(catalogId);
-            operationService.stopApplication(namespace, clusterName, catalog, username);
+            Map<String, Integer> stoppedReplicas = operationService.stopApplication(namespace, clusterName, catalog, username);
             updateApplicationStatus(namespace, clusterName, catalog, ActionType.STOP.name() );
+            return stoppedReplicas;
         } catch (Exception e) {
             log.error("애플리케이션 중지 중 오류 발생", e);
             throw new RuntimeException("애플리케이션 중지 실패", e);
@@ -115,6 +125,17 @@ public class KubernetesService {
         } catch (Exception e) {
             log.error("애플리케이션 재시작 중 오류 발생", e);
             throw new RuntimeException("애플리케이션 재시작 실패", e);
+        }
+    }
+
+    public void startApplication(String namespace, String clusterName, Long catalogId, Map<String, Integer> previousReplicas, String username) {
+        try {
+            SoftwareCatalog catalog = findCatalogById(catalogId);
+            operationService.startApplication(namespace, clusterName, catalog, previousReplicas, username);
+            updateApplicationStatus(namespace, clusterName, catalog, ActionType.START.name());
+        } catch (Exception e) {
+            log.error("Application start failed", e);
+            throw new RuntimeException("Application start failed", e);
         }
     }
 
@@ -136,28 +157,49 @@ public class KubernetesService {
     }
 
     private void addDeploymentLog(DeploymentHistory history, LogType logType, String message) {
-        DeploymentLog log = DeploymentLog.builder()
-                .deployment(history)
-                .logType(logType)
-                .logMessage(message)
-                .loggedAt(LocalDateTime.now())
-                .build();
-        deploymentLogRepository.save(log);
+        if (history == null) {
+            log.warn("Skipping deployment log because deployment history is null. type={}, message={}", logType, message);
+            return;
+        }
+
+        try {
+            DeploymentHistory savedHistory = history.getId() != null ? history : historyRepository.save(history);
+            DeploymentLog log = DeploymentLog.builder()
+                    .deployment(savedHistory)
+                    .logType(logType)
+                    .logMessage(message)
+                    .loggedAt(LocalDateTime.now())
+                    .build();
+            deploymentLogRepository.save(log);
+        } catch (Exception e) {
+            log.warn("Failed to save deployment log. type={}, message={}, reason={}", logType, message, e.getMessage(), e);
+        }
     }
 
     private void updateApplicationStatus(String namespace, String clusterName, SoftwareCatalog catalog, String status) {
+        updateApplicationStatus(namespace, clusterName, catalog, status, null);
+    }
+
+    private void updateApplicationStatus(String namespace, String clusterName, SoftwareCatalog catalog, String status, Long deploymentHistoryId) {
 
         // ApplicationStatus status = createApplicationStatus(namespace, clusterName, catalog);
         // statusRepository.save(status);
         Optional<ApplicationStatus> optApplicationStatus = statusRepository.findLatestByNamespaceAndClusterNameAndCatalogId(namespace, clusterName, catalog.getId());
 
         if(optApplicationStatus.isPresent()){
-            optApplicationStatus.get().setStatus(status);
-            optApplicationStatus.get().setCheckedAt(LocalDateTime.now());
-            statusRepository.save(optApplicationStatus.get());
+            ApplicationStatus applicationStatus = optApplicationStatus.get();
+            applicationStatus.setStatus(status);
+            if (deploymentHistoryId != null) {
+                applicationStatus.setDeploymentHistoryId(deploymentHistoryId);
+            }
+            applicationStatus.setCheckedAt(LocalDateTime.now());
+            statusRepository.save(applicationStatus);
         }else{
             ApplicationStatus applicationStatus = createApplicationStatus(namespace, clusterName, catalog);
             applicationStatus.setStatus(status);
+            if (deploymentHistoryId != null) {
+                applicationStatus.setDeploymentHistoryId(deploymentHistoryId);
+            }
             statusRepository.save(applicationStatus);
         }
 
@@ -173,6 +215,7 @@ public class KubernetesService {
         history.setMaxReplicas(config.getMaxReplicas());
         history.setCpuThreshold(config.getCpuThreshold());
         history.setMemoryThreshold(config.getMemoryThreshold());
+        history.setWorkloadRebalancingEnabled(Boolean.TRUE.equals(request.getWorkloadRebalancingEnabled()));
         history.setIngressEnabled(config.getIngressEnabled());
         history.setIngressHost(config.getIngressHost());
         history.setIngressPath(config.getIngressPath());
@@ -209,7 +252,7 @@ public class KubernetesService {
                     .podMemoryLimit(formatMemoryMi(catalog.getRecommendedMemory()))
                     .catalogMinCpu(catalog.getMinCpu() != null ? catalog.getMinCpu().doubleValue() : null)
                     .catalogRecCpu(catalog.getRecommendedCpu() != null ? catalog.getRecommendedCpu().doubleValue() : null)
-                    .catalogMinMemoryMb(catalog.getMinMemory() != null ? catalog.getMinMemory().intValue() : null)
+                    .catalogMinMemoryMb(formatMemoryMb(catalog.getMinMemory()))
                     .build();
 
             infraSpecSnapshotRepository.save(snapshot);
@@ -223,7 +266,15 @@ public class KubernetesService {
         return cpuValue != null ? cpuValue.toString() : null;
     }
 
-    private String formatMemoryMi(Long memoryGi) {
-        return memoryGi != null ? (memoryGi * 1024) + "Mi" : null;
+    private String formatMemoryMi(Double memoryGi) {
+        Integer memoryMb = formatMemoryMb(memoryGi);
+        return memoryMb != null ? memoryMb + "Mi" : null;
+    }
+
+    private Integer formatMemoryMb(Double memoryGi) {
+        if (memoryGi == null || memoryGi <= 0) {
+            return null;
+        }
+        return (int) Math.ceil(memoryGi * 1024.0);
     }
 }

@@ -40,6 +40,7 @@ public class DeploymentHistoryDTO {
     private Integer maxReplicas;
     private Double cpuThreshold;
     private Double memoryThreshold;
+    private Boolean workloadRebalancingEnabled;
     private Boolean ingressEnabled;
     private String ingressHost;
     private String ingressPath;
@@ -75,6 +76,7 @@ public class DeploymentHistoryDTO {
         this.maxReplicas = entity.getMaxReplicas();
         this.cpuThreshold = entity.getCpuThreshold();
         this.memoryThreshold = entity.getMemoryThreshold();
+        this.workloadRebalancingEnabled = entity.getWorkloadRebalancingEnabled();
         this.ingressEnabled = entity.getIngressEnabled();
         this.ingressHost = entity.getIngressHost();
         this.ingressPath = entity.getIngressPath();
