@@ -254,7 +254,7 @@
                 @change="onChangeCluster">
                 <option 
                   v-for="cluster in clusterList" 
-                  :value=cluster.id 
+                  :value="cluster.name"
                   :key="cluster.name">
                   {{ cluster.name }}
                 </option>
@@ -1150,6 +1150,7 @@ const isLokiCatalog = computed(() => selectedCatalogChartName.value === 'loki')
 const supportsStorageClassConfig = computed(() => {
   if (selectInfra.value !== 'K8S') return false
   if (!selectedCatalogInfo.value?.helmChart) return false
+  if (!isLokiCatalog.value) return false
   return hasCatalogCapability(selectedCatalogInfo.value, STORAGE_CLASS_CAPABILITY)
 })
 
@@ -1265,7 +1266,7 @@ function buildObjectStorageConfig() {
 
 function buildK8sAdditionalConfig() {
   const config = {} as Record<string, any>
-  if (supportsStorageClassConfig.value && !_.isEmpty(selectedStorageClass.value)) {
+  if (storageClassRequired.value && !_.isEmpty(selectedStorageClass.value)) {
     config.storageClass = selectedStorageClass.value
   }
   if (showObjectStorageConfig.value && objectStorageData.value.enabled) {

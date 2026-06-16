@@ -230,6 +230,9 @@ public class HelmChartService {
             if (isRcloneChart(helmChart)) {
                 applyRcloneGuiDefaults(values, catalog.getDefaultPort());
             }
+            if (isPrometheusChart(helmChart)) {
+                applyPrometheusPersistenceDefaults(values);
+            }
 
             runHelmInstallCli(releaseName, chartRef, namespace, helmChart.getChartVersion(), tempKubeconfigPath, values);
             
@@ -381,6 +384,9 @@ public class HelmChartService {
 
             if (isRcloneChart(helmChart)) {
                 applyRcloneGuiDefaults(values, config.getServicePort());
+            }
+            if (isPrometheusChart(helmChart)) {
+                applyPrometheusPersistenceDefaults(values);
             }
 
             applyObjectStorageValues(catalog, request, providerName, helmChart.getChartName(), objectStorageValues);
@@ -950,6 +956,16 @@ public class HelmChartService {
 
     private boolean isRcloneChart(HelmChart helmChart) {
         return helmChart != null && StringUtils.equalsIgnoreCase(helmChart.getChartName(), "rclone");
+    }
+
+    private boolean isPrometheusChart(HelmChart helmChart) {
+        return helmChart != null && StringUtils.equalsIgnoreCase(helmChart.getChartName(), "prometheus");
+    }
+
+    private void applyPrometheusPersistenceDefaults(Map<String, String> values) {
+        values.put("server.persistentVolume.enabled", "false");
+        values.put("alertmanager.persistence.enabled", "false");
+        log.info("Prometheus persistence disabled for stateless deployment defaults.");
     }
 
     private void applyRcloneGuiDefaults(Map<String, String> values, Integer servicePort) {

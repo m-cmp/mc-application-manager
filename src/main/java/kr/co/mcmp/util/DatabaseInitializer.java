@@ -65,7 +65,6 @@ public class DatabaseInitializer implements CommandLineRunner{
 
     private void ensureBuiltInCatalogCapabilities() {
         try {
-            ensureStorageClassCapability("rclone");
             ensureStorageClassCapability("loki");
         } catch (Exception e) {
             System.out.println("Built-in catalog capability synchronization skipped: " + e.getMessage());
