@@ -708,10 +708,19 @@ public class HelmChartService {
 
     private boolean isMetricsServerReady(KubernetesClient client) {
         try {
+            boolean metricsApiAvailable = isMetricsApiAvailable(client);
             var deployment = client.apps().deployments()
                     .inNamespace(METRICS_SERVER_NAMESPACE)
                     .withName(METRICS_SERVER_RELEASE)
                     .get();
+            if (deployment == null) {
+                if (metricsApiAvailable) {
+                    log.info("metrics.k8s.io API is already available without Helm-managed metrics-server deployment.");
+                    return true;
+                }
+                return false;
+            }
+
             Integer readyReplicas = deployment != null && deployment.getStatus() != null
                     ? deployment.getStatus().getReadyReplicas()
                     : null;
@@ -722,7 +731,7 @@ public class HelmChartService {
                     && readyReplicas > 0
                     && (desiredReplicas == null || readyReplicas >= desiredReplicas);
 
-            return deploymentReady && isMetricsApiAvailable(client);
+            return deploymentReady && metricsApiAvailable;
         } catch (Exception e) {
             log.debug("metrics-server readiness check failed: {}", e.getMessage());
             return false;

@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
+import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
@@ -510,17 +511,13 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .orElseThrow(() -> new RuntimeException("Deployment not found with ID: " + deploymentId));
         
         // 해당 배포의 카탈로그 ID로 애플리케이션 상태 조회
-        Long catalogId = deploymentHistory.getCatalog().getId();
-        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId);
+        List<ApplicationStatus> applicationStatuses = findApplicationStatusesForDeployment(deploymentHistory);
         
         // 해당 배포의 로그 조회
         List<DeploymentLog> logs = deploymentLogRepository.findByDeploymentIdOrderByLoggedAtDesc(deploymentId);
         
         // 운영 이력 조회
-        List<OperationHistory> operations = new ArrayList<>();
-        for (ApplicationStatus status : applicationStatuses) {
-            operations.addAll(operationHistoryRepository.findByApplicationStatusId(status.getId()));
-        }
+        List<OperationHistory> operations = findOperationHistoriesForDeployment(deploymentHistory);
         
         // 통합 로그에서 에러 로그와 파드 로그 조회
         List<UnifiedLogDTO> errorLogs = unifiedLogService.getLogsByDeploymentIdAndSeverity(deploymentId, "ERROR");
@@ -686,17 +683,13 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .orElseThrow(() -> new RuntimeException("Deployment not found with ID: " + deploymentId));
         
         // 해당 배포의 카탈로그 ID로 애플리케이션 상태 조회
-        Long catalogId = deploymentHistory.getCatalog().getId();
-        List<ApplicationStatus> applicationStatuses = applicationStatusRepository.findByCatalogId(catalogId);
+        List<ApplicationStatus> applicationStatuses = findApplicationStatusesForDeployment(deploymentHistory);
         
         // 해당 배포의 로그 조회
         List<DeploymentLog> logs = deploymentLogRepository.findByDeploymentIdOrderByLoggedAtDesc(deploymentId);
         
         // 운영 이력 조회
-        List<OperationHistory> operations = new ArrayList<>();
-        for (ApplicationStatus status : applicationStatuses) {
-            operations.addAll(operationHistoryRepository.findByApplicationStatusId(status.getId()));
-        }
+        List<OperationHistory> operations = findOperationHistoriesForDeployment(deploymentHistory);
         
         // 통합 로그에서 에러 로그와 파드 로그 조회
         List<UnifiedLogDTO> errorLogs = unifiedLogService.getLogsByDeploymentIdAndSeverity(deploymentId, "ERROR");
@@ -704,6 +697,51 @@ public class ApplicationServiceImpl implements ApplicationService {
         
         // DTO로 변환
         return convertToIntegratedDTOWithUnifiedLogs(deploymentHistory, applicationStatuses, logs, operations, errorLogs, podLogs);
+    }
+
+    private List<ApplicationStatus> findApplicationStatusesForDeployment(DeploymentHistory deploymentHistory) {
+        if (deploymentHistory == null) {
+            return List.of();
+        }
+
+        if (deploymentHistory.getId() != null) {
+            Optional<ApplicationStatus> byDeploymentHistory = applicationStatusRepository
+                    .findByDeploymentHistoryId(deploymentHistory.getId());
+            if (byDeploymentHistory.isPresent()) {
+                return List.of(byDeploymentHistory.get());
+            }
+        }
+
+        if (deploymentHistory.getCatalog() == null || deploymentHistory.getCatalog().getId() == null) {
+            return List.of();
+        }
+
+        Long catalogId = deploymentHistory.getCatalog().getId();
+        if (deploymentHistory.getDeploymentType() == DeploymentType.VM) {
+            return applicationStatusRepository.findByCatalogIdAndNamespaceAndMciIdAndVmId(
+                            catalogId,
+                            deploymentHistory.getNamespace(),
+                            deploymentHistory.getMciId(),
+                            deploymentHistory.getVmId())
+                    .map(List::of)
+                    .orElseGet(List::of);
+        }
+        if (deploymentHistory.getDeploymentType() == DeploymentType.K8S) {
+            return applicationStatusRepository.findLatestByNamespaceAndClusterNameAndCatalogId(
+                            deploymentHistory.getNamespace(),
+                            deploymentHistory.getClusterName(),
+                            catalogId)
+                    .map(List::of)
+                    .orElseGet(List::of);
+        }
+        return List.of();
+    }
+
+    private List<OperationHistory> findOperationHistoriesForDeployment(DeploymentHistory deploymentHistory) {
+        if (deploymentHistory == null || deploymentHistory.getId() == null) {
+            return List.of();
+        }
+        return operationHistoryRepository.findByDeploymentHistoryIdOrderByCreatedAtAsc(deploymentHistory.getId());
     }
     
     /**
@@ -866,20 +904,15 @@ public class ApplicationServiceImpl implements ApplicationService {
         if (status.getId() == null) {
             return false;
         }
-        Optional<OperationHistory> latestOperation = operationHistoryRepository
-                .findTopByApplicationStatusIdOrderByCreatedAtDesc(status.getId());
-        if (latestOperation.isEmpty() || !ActionType.UNINSTALL.name().equalsIgnoreCase(latestOperation.get().getOperationType())) {
+        if (status.getDeploymentHistoryId() == null) {
             return false;
         }
 
-        if (status.getDeploymentHistoryId() == null) {
-            return true;
-        }
-        Optional<DeploymentHistory> deploymentHistory = deploymentHistoryRepository.findById(status.getDeploymentHistoryId());
-        return deploymentHistory
-                .map(history -> history.getExecutedAt() == null
-                        || !latestOperation.get().getCreatedAt().isBefore(history.getExecutedAt()))
-                .orElse(true);
+        Optional<OperationHistory> latestOperation = operationHistoryRepository
+                .findTopByDeploymentHistoryIdOrderByCreatedAtDesc(status.getDeploymentHistoryId());
+        return latestOperation
+                .map(operation -> ActionType.UNINSTALL.name().equalsIgnoreCase(operation.getOperationType()))
+                .orElse(false);
     }
     
     /**

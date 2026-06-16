@@ -28,8 +28,12 @@ public interface ApplicationStatusRepository extends JpaRepository<ApplicationSt
     List<ApplicationStatus> findByNamespaceAndMciIdAndVmId(String namespace, String mciId, String vmId);
     Optional<ApplicationStatus> findTopByCatalogIdOrderByCheckedAtDesc(Long catalogId);
     
-    // VM별 ApplicationStatus 검색 (catalogId + vmId 조합)
-    Optional<ApplicationStatus> findByCatalogIdAndVmId(Long catalogId, String vmId);
+    // VM별 ApplicationStatus 검색 (catalogId + namespace + mciId + vmId 조합)
+    Optional<ApplicationStatus> findByCatalogIdAndNamespaceAndMciIdAndVmId(
+        Long catalogId,
+        String namespace,
+        String mciId,
+        String vmId);
     List<ApplicationStatus> findByCatalogIdAndNamespaceAndMciId(Long catalogId, String namespace, String mciId);
 
     @Query("SELECT a FROM ApplicationStatus a " +

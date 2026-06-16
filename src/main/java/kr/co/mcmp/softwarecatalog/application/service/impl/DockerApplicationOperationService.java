@@ -152,10 +152,16 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
             deploymentHistory = deploymentHistoryRepository.findById(applicationStatus.getDeploymentHistoryId()).orElse(null);
         }
 
-        if (deploymentHistory == null && applicationStatus.getCatalog() != null && applicationStatus.getVmId() != null) {
+        if (deploymentHistory == null
+                && applicationStatus.getCatalog() != null
+                && applicationStatus.getNamespace() != null
+                && applicationStatus.getMciId() != null
+                && applicationStatus.getVmId() != null) {
             deploymentHistory = deploymentHistoryRepository
-                    .findTopByCatalogIdAndVmIdAndActionTypeInAndStatusInOrderByExecutedAtDesc(
+                    .findTopByCatalogIdAndNamespaceAndMciIdAndVmIdAndActionTypeInAndStatusInOrderByExecutedAtDesc(
                             applicationStatus.getCatalog().getId(),
+                            applicationStatus.getNamespace(),
+                            applicationStatus.getMciId(),
                             applicationStatus.getVmId(),
                             ACTIVE_DEPLOYMENT_ACTIONS,
                             ACTIVE_DEPLOYMENT_STATUSES)

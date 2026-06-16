@@ -282,10 +282,9 @@ const openDetailModal = (cell: any) => {
 
 
 const infraFormatter = (cell: any) => {
-  const infraType = cell.getRow().getData().deploymentType
-  const infraName =
-    cell.getRow().getData().vmId ? cell.getRow().getData().vmId :
-    cell.getRow().getData().clusterName ? cell.getRow().getData().clusterName : '-'
+  const rowData = cell.getRow().getData()
+  const infraType = rowData.deploymentType
+  const infraName = getInfraDisplayName(rowData)
   return `
     <div style="cursor: pointer;">
       <p style="margin: 0;">
@@ -293,6 +292,16 @@ const infraFormatter = (cell: any) => {
       </p>
     </div>
   ` 
+}
+
+const getInfraDisplayName = (rowData: any) => {
+  if (rowData.deploymentType === 'VM') {
+    return [rowData.namespace, rowData.mciId, rowData.vmId].filter(Boolean).join(' / ') || '-'
+  }
+  if (rowData.deploymentType === 'K8S') {
+    return [rowData.namespace, rowData.clusterName].filter(Boolean).join(' / ') || '-'
+  }
+  return rowData.vmId || rowData.clusterName || '-'
 }
 
 const isActionDisabledStatus = (status: string) =>

@@ -34,6 +34,9 @@ public class OperationHistory {
     @JoinColumn(name = "application_status_id")
     private ApplicationStatus applicationStatus; // ApplicationStatus와의 외래키 관계
 
+    @Column(name = "deployment_history_id")
+    private Long deploymentHistoryId;
+
     @ManyToOne
     @JoinColumn(name = "executed_by")
     private User executedBy;

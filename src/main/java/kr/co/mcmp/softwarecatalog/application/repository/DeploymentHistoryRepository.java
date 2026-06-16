@@ -50,8 +50,8 @@ public interface DeploymentHistoryRepository extends JpaRepository<DeploymentHis
     DeploymentHistory findTopByCatalogIdAndClusterNameAndNamespaceAndActionTypeOrderByExecutedAtDesc(
         Long catalogId, String clusterName, String namespace, ActionType actionType);
 
-    Optional<DeploymentHistory> findTopByCatalogIdAndVmIdAndActionTypeInAndStatusInOrderByExecutedAtDesc(
-        Long catalogId, String vmId, List<ActionType> actionTypes, List<String> statuses);
+    Optional<DeploymentHistory> findTopByCatalogIdAndNamespaceAndMciIdAndVmIdAndActionTypeInAndStatusInOrderByExecutedAtDesc(
+        Long catalogId, String namespace, String mciId, String vmId, List<ActionType> actionTypes, List<String> statuses);
 
     Optional<DeploymentHistory> findTopByCatalogIdAndClusterNameAndNamespaceAndActionTypeInAndStatusInOrderByExecutedAtDesc(
         Long catalogId, String clusterName, String namespace, List<ActionType> actionTypes, List<String> statuses);

@@ -14,4 +14,8 @@ public interface OperationHistoryRepository extends JpaRepository<OperationHisto
     List<OperationHistory> findByApplicationStatusId(Long applicationStatusId);
 
     Optional<OperationHistory> findTopByApplicationStatusIdOrderByCreatedAtDesc(Long applicationStatusId);
+
+    List<OperationHistory> findByDeploymentHistoryIdOrderByCreatedAtAsc(Long deploymentHistoryId);
+
+    Optional<OperationHistory> findTopByDeploymentHistoryIdOrderByCreatedAtDesc(Long deploymentHistoryId);
 }
