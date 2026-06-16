@@ -179,8 +179,9 @@ INSERT INTO SOFTWARE_CATALOG_REF(CATALOG_ID, REF_IDX, REF_VALUE, REF_DESC, REF_T
 (10, 2, 's3-compatible', '', 'TAG'),
 (10, 3, 'file-transfer', '', 'TAG'),
 (10, 4, 'artifacthub-community', '', 'TAG'),
-(10, 5, 'helm_application_install', '', 'workflow'),
-(10, 6, 'helm_application_uninstall', '', 'workflow');
+(10, 5, 'storage-class', '', 'CAPABILITY'),
+(10, 6, 'helm_application_install', '', 'workflow'),
+(10, 7, 'helm_application_uninstall', '', 'workflow');
 
 
 -- 6. OSS_TYPE 테이블 데이터 삽입

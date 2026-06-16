@@ -144,20 +144,15 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
         if (status.getId() == null) {
             return false;
         }
-        Optional<OperationHistory> latestOperation = operationHistoryRepository
-                .findTopByApplicationStatusIdOrderByCreatedAtDesc(status.getId());
-        if (latestOperation.isEmpty() || !ActionType.UNINSTALL.name().equalsIgnoreCase(latestOperation.get().getOperationType())) {
+        if (status.getDeploymentHistoryId() == null) {
             return false;
         }
 
-        if (status.getDeploymentHistoryId() == null) {
-            return true;
-        }
-        Optional<DeploymentHistory> deploymentHistory = deploymentHistoryRepository.findById(status.getDeploymentHistoryId());
-        return deploymentHistory
-                .map(history -> history.getExecutedAt() == null
-                        || !latestOperation.get().getCreatedAt().isBefore(history.getExecutedAt()))
-                .orElse(true);
+        Optional<OperationHistory> latestOperation = operationHistoryRepository
+                .findTopByDeploymentHistoryIdOrderByCreatedAtDesc(status.getDeploymentHistoryId());
+        return latestOperation
+                .map(operation -> ActionType.UNINSTALL.name().equalsIgnoreCase(operation.getOperationType()))
+                .orElse(false);
     }
     
     @Override

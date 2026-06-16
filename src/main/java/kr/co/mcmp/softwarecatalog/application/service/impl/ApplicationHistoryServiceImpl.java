@@ -89,25 +89,50 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
     
     @Override
     public void updateApplicationStatus(DeploymentHistory history, String status, User user) {
-        List<ApplicationStatus> appStatusList = applicationStatusRepository.findByCatalogId(history.getCatalog().getId());
-        ApplicationStatus appStatus = appStatusList.isEmpty() ? new ApplicationStatus() : appStatusList.get(0);
+        ApplicationStatus appStatus = findApplicationStatusForHistory(history)
+                .orElse(new ApplicationStatus());
         
         appStatus.setCatalog(history.getCatalog());
         appStatus.setStatus(status);
         appStatus.setDeploymentType(history.getDeploymentType());
         appStatus.setCheckedAt(LocalDateTime.now());
+        appStatus.setDeploymentHistoryId(history.getId());
+        appStatus.setExecutedBy(user);
         
         if (history.getDeploymentType() == DeploymentType.VM) {
             appStatus.setNamespace(history.getNamespace());
             appStatus.setMciId(history.getMciId());
             appStatus.setVmId(history.getVmId());
             appStatus.setPublicIp(history.getPublicIp());
+            appStatus.setServicePort(history.getServicePort());
         } else if (history.getDeploymentType() == DeploymentType.K8S) {
             appStatus.setNamespace(history.getNamespace());
             appStatus.setClusterName(history.getClusterName());
         }
 
         applicationStatusRepository.save(appStatus);
+    }
+
+    private Optional<ApplicationStatus> findApplicationStatusForHistory(DeploymentHistory history) {
+        if (history == null || history.getCatalog() == null || history.getCatalog().getId() == null) {
+            return Optional.empty();
+        }
+
+        Long catalogId = history.getCatalog().getId();
+        if (history.getDeploymentType() == DeploymentType.VM) {
+            return applicationStatusRepository.findByCatalogIdAndNamespaceAndMciIdAndVmId(
+                    catalogId,
+                    history.getNamespace(),
+                    history.getMciId(),
+                    history.getVmId());
+        }
+        if (history.getDeploymentType() == DeploymentType.K8S) {
+            return applicationStatusRepository.findLatestByNamespaceAndClusterNameAndCatalogId(
+                    history.getNamespace(),
+                    history.getClusterName(),
+                    catalogId);
+        }
+        return Optional.empty();
     }
     
     /**
@@ -116,7 +141,11 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
     public void createApplicationStatusForVm(DeploymentHistory history, String vmId, String publicIp, 
                                            Integer servicePort, String status, User user) {
         ApplicationStatus appStatus = applicationStatusRepository
-                .findByCatalogIdAndVmId(history.getCatalog().getId(), vmId)
+                .findByCatalogIdAndNamespaceAndMciIdAndVmId(
+                        history.getCatalog().getId(),
+                        history.getNamespace(),
+                        history.getMciId(),
+                        vmId)
                 .orElse(new ApplicationStatus());
         
         appStatus.setCatalog(history.getCatalog());
@@ -188,7 +217,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
         try {
             // 해당 VM에 같은 카탈로그로 설치된 ApplicationStatus가 있는지 확인
             Optional<ApplicationStatus> existingStatus = applicationStatusRepository
-                .findByCatalogIdAndVmId(catalogId, vmId);
+                .findByCatalogIdAndNamespaceAndMciIdAndVmId(catalogId, namespace, mciId, vmId);
             
             if (existingStatus.isPresent()) {
                 ApplicationStatus status = existingStatus.get();
@@ -241,6 +270,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
         
         OperationHistory operationHistory = OperationHistory.builder()
                     .applicationStatus(applicationStatus)
+                    .deploymentHistoryId(applicationStatus.getDeploymentHistoryId())
                     .reason(finalReason)
                     .detailReason(finalDetailReason)
                     .operationType(actionType.name())

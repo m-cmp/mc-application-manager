@@ -74,24 +74,40 @@ public class DockerMonitoringService {
     private List<DeploymentHistory> getActiveDeployments() {
         return deploymentHistoryRepository.findAll().stream()
                 .filter(d -> DeploymentType.VM.equals(d.getDeploymentType()))
-                .collect(Collectors.groupingBy(d -> d.getVmId() != null ? d.getVmId() : d.getMciId()))
+                .collect(Collectors.groupingBy(this::vmDeploymentKey))
                 .values().stream()
-                .flatMap(deployments -> deployments.stream()
-                        .collect(Collectors.groupingBy(DeploymentHistory::getCatalog))
-                        .values().stream()
-                        .map(catalogDeployments -> catalogDeployments.stream()
-                                .max(Comparator.comparing(DeploymentHistory::getExecutedAt))
-                                .orElse(null)))
+                .map(deployments -> deployments.stream()
+                        .max(Comparator.comparing(DeploymentHistory::getExecutedAt))
+                        .orElse(null))
                 .filter(Objects::nonNull)
                 .filter(d -> ("RUN".equalsIgnoreCase(d.getActionType().name()) || "INSTALL".equalsIgnoreCase(d.getActionType().name())) && "SUCCESS".equalsIgnoreCase(d.getStatus()))
                 .collect(Collectors.toList());
     }
 
+    private String vmDeploymentKey(DeploymentHistory deployment) {
+        Long catalogId = deployment.getCatalog() != null ? deployment.getCatalog().getId() : null;
+        return String.join("|",
+                String.valueOf(catalogId),
+                keyPart(deployment.getNamespace()),
+                keyPart(deployment.getMciId()),
+                keyPart(deployment.getVmId()));
+    }
+
+    private String keyPart(String value) {
+        return value == null ? "" : value;
+    }
+
     private void updateContainerHealth(DeploymentHistory deployment) {
         log.info("Updating container health for deployment: {} (VM: {})", deployment.getId(), deployment.getVmId());
 
-        ApplicationStatus status = applicationStatusRepository.findByCatalogIdAndVmId(
-                deployment.getCatalog().getId(), deployment.getVmId()).orElse(new ApplicationStatus());
+        ApplicationStatus status = applicationStatusRepository
+                .findByCatalogIdAndNamespaceAndMciIdAndVmId(
+                        deployment.getCatalog().getId(),
+                        deployment.getNamespace(),
+                        deployment.getMciId(),
+                        deployment.getVmId())
+                .orElse(new ApplicationStatus());
+        applyDeploymentIdentity(status, deployment);
 
         if (isEffectivelyUninstalled(status, deployment)) {
             markUninstalled(status, deployment);
@@ -239,22 +255,27 @@ public class DockerMonitoringService {
     }
 
     private void updateApplicationStatus(ApplicationStatus status, DeploymentHistory deployment, ContainerHealthInfo healthInfo) {
-        status.setCatalog(deployment.getCatalog());
+        applyDeploymentIdentity(status, deployment);
         status.setStatus(healthInfo.getStatus());
-        status.setDeploymentType(deployment.getDeploymentType());
-        status.setNamespace(deployment.getNamespace());
-        status.setMciId(deployment.getMciId());
         status.setIsPortAccessible(healthInfo.getIsPortAccess());
         status.setIsHealthCheck(healthInfo.getIsHealthCheck());
-        status.setVmId(deployment.getVmId());
-        status.setClusterName(deployment.getClusterName());
         status.setCheckedAt(LocalDateTime.now());
         status.setServicePort(healthInfo.getServicePorts());
-        status.setPublicIp(deployment.getPublicIp());
         status.setCpuUsage(healthInfo.getCpuUsage());
         status.setMemoryUsage(healthInfo.getMemoryUsage());
         status.setNetworkIn(healthInfo.getNetworkIn());
         status.setNetworkOut(healthInfo.getNetworkOut());
+    }
+
+    private void applyDeploymentIdentity(ApplicationStatus status, DeploymentHistory deployment) {
+        status.setCatalog(deployment.getCatalog());
+        status.setDeploymentType(deployment.getDeploymentType());
+        status.setNamespace(deployment.getNamespace());
+        status.setMciId(deployment.getMciId());
+        status.setVmId(deployment.getVmId());
+        status.setClusterName(deployment.getClusterName());
+        status.setDeploymentHistoryId(deployment.getId());
+        status.setPublicIp(deployment.getPublicIp());
         status.setExecutedBy(deployment.getExecutedBy() != null ? deployment.getExecutedBy() : null);
     }
 
@@ -268,14 +289,15 @@ public class DockerMonitoringService {
         if (status.getId() == null) {
             return false;
         }
-        Optional<OperationHistory> latestOperation = operationHistoryRepository
-                .findTopByApplicationStatusIdOrderByCreatedAtDesc(status.getId());
-        if (latestOperation.isEmpty() || !ActionType.UNINSTALL.name().equalsIgnoreCase(latestOperation.get().getOperationType())) {
+        if (deployment == null || deployment.getId() == null) {
             return false;
         }
 
-        LocalDateTime deployedAt = deployment != null ? deployment.getExecutedAt() : null;
-        return deployedAt == null || !latestOperation.get().getCreatedAt().isBefore(deployedAt);
+        Optional<OperationHistory> latestOperation = operationHistoryRepository
+                .findTopByDeploymentHistoryIdOrderByCreatedAtDesc(deployment.getId());
+        return latestOperation
+                .map(operation -> ActionType.UNINSTALL.name().equalsIgnoreCase(operation.getOperationType()))
+                .orElse(false);
     }
 
     private void markUninstalled(ApplicationStatus status, DeploymentHistory deployment) {

@@ -870,7 +870,12 @@ const fetchStorageClasses = async () => {
   selectedStorageClass.value = ""
   storageClassLoadError.value = false
 
-  if (selectInfra.value !== 'K8S' || _.isEmpty(selectNsId.value) || _.isEmpty(selectCluster.value)) {
+  if (
+    selectInfra.value !== 'K8S'
+    || !supportsStorageClassConfig.value
+    || _.isEmpty(selectNsId.value)
+    || _.isEmpty(selectCluster.value)
+  ) {
     return
   }
 
@@ -1136,14 +1141,24 @@ const selectedCatalogChartName = computed(() => {
   return String(selectedCatalogInfo.value?.helmChart?.chartName || '').toLowerCase()
 })
 
+const OBJECT_STORAGE_CAPABILITY = 'object-storage'
+const STORAGE_CLASS_CAPABILITY = 'storage-class'
+const CONFIG_CAPABILITY_REF_TYPES = ['CAPABILITY', 'TAG']
+
 const isLokiCatalog = computed(() => selectedCatalogChartName.value === 'loki')
 
+const supportsStorageClassConfig = computed(() => {
+  if (selectInfra.value !== 'K8S') return false
+  if (!selectedCatalogInfo.value?.helmChart) return false
+  return hasCatalogCapability(selectedCatalogInfo.value, STORAGE_CLASS_CAPABILITY)
+})
+
 const storageClassRequired = computed(() => {
-  return selectInfra.value === 'K8S' && isLokiCatalog.value
+  return supportsStorageClassConfig.value && isLokiCatalog.value
 })
 
 const showStorageClassConfig = computed(() => {
-  return selectInfra.value === 'K8S'
+  return supportsStorageClassConfig.value
     && modalTitle.value === 'Application Installation'
     && (storageClassRequired.value || storageClassList.value.length > 0 || storageClassLoadError.value)
 })
@@ -1222,11 +1237,15 @@ const objectStorageRequired = computed(() => {
 })
 
 function hasObjectStorageCapability(catalog: SoftwareCatalog) {
+  return hasCatalogCapability(catalog, OBJECT_STORAGE_CAPABILITY)
+}
+
+function hasCatalogCapability(catalog: SoftwareCatalog, capability: string) {
   const refs = catalog.catalogRefs || []
   return refs.some((ref: any) => {
     const refType = String(ref.refType || '').toUpperCase()
     const refValue = String(ref.refValue || '').toLowerCase()
-    return refValue === 'object-storage' && (refType === 'CAPABILITY' || refType === 'TAG')
+    return refValue === capability && CONFIG_CAPABILITY_REF_TYPES.includes(refType)
   })
 }
 
@@ -1246,7 +1265,7 @@ function buildObjectStorageConfig() {
 
 function buildK8sAdditionalConfig() {
   const config = {} as Record<string, any>
-  if (!_.isEmpty(selectedStorageClass.value)) {
+  if (supportsStorageClassConfig.value && !_.isEmpty(selectedStorageClass.value)) {
     config.storageClass = selectedStorageClass.value
   }
   if (showObjectStorageConfig.value && objectStorageData.value.enabled) {
@@ -1312,33 +1331,33 @@ const filteredCatalogList = computed(() => {
   return catalogList.value
 })
 
-const onChangeCatalog = () => {
+const onChangeCatalog = async () => {
   if(modalTitle.value === 'Application Installation') specCheckFlag.value = true
 
-  catalogList.value.forEach((catalogInfo) => {
-    if (inputApplications.value === catalogInfo.name) {
-      selectedCatalogIdx.value = catalogInfo.id
-      inputServicePort.value = catalogInfo.defaultPort ? String(catalogInfo.defaultPort) : ""
-      hpaData.value = {
-        hpaEnabled: Boolean(catalogInfo.hpaEnabled),
-        hpaMinReplicas: catalogInfo.minReplicas || 1,
-        hpaMaxReplicas: catalogInfo.maxReplicas || 10,
-        hpaCpuUtilization: catalogInfo.cpuThreshold || 60,
-        hpaMemoryUtilization: catalogInfo.memoryThreshold || 80
-      }
-      ingressData.value = {
-        ingressEnabled: Boolean(catalogInfo.ingressEnabled),
-        ingressHost: catalogInfo.ingressHost || '',
-        ingressPath: catalogInfo.ingressPath || '/',
-        ingressClass: catalogInfo.ingressClass || 'nginx',
-        ingressTlsEnabled: Boolean(catalogInfo.ingressTlsEnabled),
-        ingressTlsSecret: catalogInfo.ingressTlsSecret || ''
-      }
-      objectStorageData.value = getDefaultObjectStorageData()
-      objectStorageCheckResult.value = null
-      return;
+  const catalogInfo = catalogList.value.find((catalog) => inputApplications.value === catalog.name)
+  if (catalogInfo) {
+    selectedCatalogIdx.value = catalogInfo.id
+    inputServicePort.value = catalogInfo.defaultPort ? String(catalogInfo.defaultPort) : ""
+    hpaData.value = {
+      hpaEnabled: Boolean(catalogInfo.hpaEnabled),
+      hpaMinReplicas: catalogInfo.minReplicas || 1,
+      hpaMaxReplicas: catalogInfo.maxReplicas || 10,
+      hpaCpuUtilization: catalogInfo.cpuThreshold || 60,
+      hpaMemoryUtilization: catalogInfo.memoryThreshold || 80
     }
-  })
+    ingressData.value = {
+      ingressEnabled: Boolean(catalogInfo.ingressEnabled),
+      ingressHost: catalogInfo.ingressHost || '',
+      ingressPath: catalogInfo.ingressPath || '/',
+      ingressClass: catalogInfo.ingressClass || 'nginx',
+      ingressTlsEnabled: Boolean(catalogInfo.ingressTlsEnabled),
+      ingressTlsSecret: catalogInfo.ingressTlsSecret || ''
+    }
+    objectStorageData.value = getDefaultObjectStorageData()
+    objectStorageCheckResult.value = null
+  }
+
+  await fetchStorageClasses()
 }
 
 const onChangeCluster = async () => {
