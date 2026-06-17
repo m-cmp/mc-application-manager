@@ -68,7 +68,7 @@ public class K8sClusterDto {
 
     @JsonProperty("systemMessage")
     @Schema(description = "시스템 메시지", example = "")
-    private String systemMessage;
+    private Object systemMessage;
 
     @JsonProperty("label")
     @Schema(description = "레이블")

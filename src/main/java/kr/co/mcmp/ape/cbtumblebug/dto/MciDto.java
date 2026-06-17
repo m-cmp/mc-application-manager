@@ -51,7 +51,7 @@ public class MciDto {
     private String systemLabel;
 
     @Schema(description = "System message")
-    private String systemMessage;
+    private Object systemMessage;
 
     @Schema(description = "Description", example = "Made in CB-TB")
     private String description;
