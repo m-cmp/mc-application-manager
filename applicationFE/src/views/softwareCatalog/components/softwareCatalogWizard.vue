@@ -780,7 +780,8 @@ const _getCategoryList = async () => {
 
   if(catalogDto.value.target) {
     const param = {
-      target: catalogDto.value.target === 'VM' ? 'DOCKER' : 'HELM'
+      target: catalogDto.value.target === 'VM' ? 'DOCKER' : 'HELM',
+      availableOnly: props.mode === 'new'
     }
     const { data } = await getCategoryList(param)
     categoryList.value = data
@@ -812,7 +813,8 @@ const _getPackageList = async () => {
 
   const param = {
     target: catalogDto.value.target === 'VM' ? 'DOCKER' : 'HELM',
-    category: catalogDto.value.category || ''
+    category: catalogDto.value.category || '',
+    availableOnly: props.mode === 'new'
   }
   const { data } = await getPackageList(param)
   packageList.value = data
@@ -838,7 +840,8 @@ const _getVersionList = async () => {
 
   const param = {
     target: catalogDto.value.target === 'VM' ? 'DOCKER' : 'HELM',
-    packageName: catalogDto.value.packageName || ''
+    packageName: catalogDto.value.packageName || '',
+    availableOnly: props.mode === 'new'
   }
   const { data } = await getVersionList(param)
 

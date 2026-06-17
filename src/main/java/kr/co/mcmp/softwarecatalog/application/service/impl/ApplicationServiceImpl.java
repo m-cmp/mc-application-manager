@@ -126,14 +126,19 @@ public class ApplicationServiceImpl implements ApplicationService {
     public List<KeyValueDTO> getCategoriesFromDB(SoftwareCatalogRequestDTO.SearchCatalogListDTO dto) {
         log.info("Getting categories from DB: {}", dto.getTarget());
         List<String> result = new ArrayList<>();
+        boolean availableOnly = Boolean.TRUE.equals(dto.getAvailableOnly());
 
         // VM
         if(PackageType.valueOf("DOCKER").equals(dto.getTarget()))
-            result = packageInfoRepository.findDistinctCategories();
+            result = availableOnly
+                    ? packageInfoRepository.findDistinctAvailableCategories()
+                    : packageInfoRepository.findDistinctCategories();
 
         // K8S
         else if(PackageType.valueOf("HELM").equals(dto.getTarget()))
-            result = helmChartRepository.findDistinctCategories();
+            result = availableOnly
+                    ? helmChartRepository.findDistinctAvailableCategories()
+                    : helmChartRepository.findDistinctCategories();
 
         log.info("Raw categories from DB: {}", result);
 
@@ -179,10 +184,13 @@ public class ApplicationServiceImpl implements ApplicationService {
     @Override
     public List<KeyValueDTO> getPackageInfoFromDB(SoftwareCatalogRequestDTO.SearchPackageListDTO dto) {
         List<KeyValueDTO> result = new ArrayList<>();
+        boolean availableOnly = Boolean.TRUE.equals(dto.getAvailableOnly());
 
         // VM
         if(PackageType.valueOf("DOCKER").equals(dto.getTarget())) {
-            List<PackageInfo> packageInfoList = packageInfoRepository.findByCategoriesIgnoreCase(dto.getCategory());
+            List<PackageInfo> packageInfoList = availableOnly
+                    ? packageInfoRepository.findByCategoriesIgnoreCaseAndCatalogIsNull(dto.getCategory())
+                    : packageInfoRepository.findByCategoriesIgnoreCase(dto.getCategory());
             
             result = packageInfoList.stream()
                     .filter(Objects::nonNull)
@@ -200,7 +208,9 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         // K8S
         else if(PackageType.valueOf("HELM").equals(dto.getTarget())) {
-            List<HelmChart> helmChartList = helmChartRepository.findByCategoryIgnoreCase(dto.getCategory());
+            List<HelmChart> helmChartList = availableOnly
+                    ? helmChartRepository.findByCategoryIgnoreCaseAndCatalogIsNull(dto.getCategory())
+                    : helmChartRepository.findByCategoryIgnoreCase(dto.getCategory());
             result = helmChartList.stream()
                     .map(helmChart -> {
                         // 차트명 정규화 (공백 정규화)
@@ -252,10 +262,22 @@ public class ApplicationServiceImpl implements ApplicationService {
     public List<KeyValueDTO> getPackageVersionFromDB(SoftwareCatalogRequestDTO.SearchPackageVersionListDTO dto) {
         log.info("Getting package versions from DB: {}", dto.getApplicationName());
         List<KeyValueDTO> result = new ArrayList<>();
+        boolean availableOnly = Boolean.TRUE.equals(dto.getAvailableOnly());
         
         if(PackageType.valueOf("DOCKER").equals(dto.getTarget())) {
-            List<Object[]> packageInfoList = packageInfoRepository.findDistinctPackageVersionByPackageName(dto.getApplicationName());
-            result = packageInfoList.stream()
+            if(availableOnly) {
+                List<String> packageVersionList = packageInfoRepository.findDistinctAvailablePackageVersionByPackageName(dto.getApplicationName());
+                result = packageVersionList.stream()
+                        .filter(Objects::nonNull)
+                        .map(version -> KeyValueDTO.builder()
+                                .key(version)
+                                .value(version)
+                                .isUsed(false)
+                                .build())
+                        .collect(Collectors.toList());
+            } else {
+                List<Object[]> packageInfoList = packageInfoRepository.findDistinctPackageVersionByPackageName(dto.getApplicationName());
+                result = packageInfoList.stream()
                     .filter(Objects::nonNull)
                     .map(row -> KeyValueDTO.builder()
                             .key((String) row[0]) // packageVersion
@@ -263,10 +285,22 @@ public class ApplicationServiceImpl implements ApplicationService {
                             .isUsed(row[1] != null) // catalog.id가 null이 아니면 사용중
                             .build())
                     .collect(Collectors.toList());
+            }
         }
         else if(PackageType.valueOf("HELM").equals(dto.getTarget())) {
-            List<Object[]> helmChartList = helmChartRepository.findDistinctPackageVersionByChartName(dto.getApplicationName());
-            result = helmChartList.stream()
+            if(availableOnly) {
+                List<String> chartVersionList = helmChartRepository.findDistinctAvailablePackageVersionByChartName(dto.getApplicationName());
+                result = chartVersionList.stream()
+                        .filter(Objects::nonNull)
+                        .map(version -> KeyValueDTO.builder()
+                                .key(version)
+                                .value(version)
+                                .isUsed(false)
+                                .build())
+                        .collect(Collectors.toList());
+            } else {
+                List<Object[]> helmChartList = helmChartRepository.findDistinctPackageVersionByChartName(dto.getApplicationName());
+                result = helmChartList.stream()
                     .filter(Objects::nonNull)
                     .map(row -> KeyValueDTO.builder()
                             .key((String) row[0]) // chartVersion
@@ -274,6 +308,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                             .isUsed(row[1] != null) // catalog.id가 null이 아니면 사용중
                             .build())
                     .collect(Collectors.toList());
+            }
         }
         
         return result;
