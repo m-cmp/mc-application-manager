@@ -16,6 +16,7 @@ public class SoftwareCatalogRequestDTO {
     @Builder
     public static class SearchCatalogListDTO {
         private PackageType target;
+        private Boolean availableOnly;
     }
 
     @Getter
@@ -26,6 +27,7 @@ public class SoftwareCatalogRequestDTO {
     public static class SearchPackageListDTO {
         private PackageType target;
         private String category;
+        private Boolean availableOnly;
     }
 
     @Getter
@@ -36,5 +38,6 @@ public class SoftwareCatalogRequestDTO {
     public static class SearchPackageVersionListDTO {
         private PackageType target;
         private String applicationName;
+        private Boolean availableOnly;
     }
 }

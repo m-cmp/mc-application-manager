@@ -474,8 +474,6 @@ onMounted(async () => {
 })
 
 const onClickRegist = () => {
-  _getSoftwareCatalogList()
-
   wizardMode.value = 'new'
   selectCatalogId.value = null
   selectCatalogInfo.value = {}
@@ -532,6 +530,9 @@ const groupedData = (catalogRefs: any) => {
 const searchCatalog = async (e: { keyCode: number; }) => {
   // trigger :: press enter key
   if(e.keyCode == 13){
+    const keyword = searchKeyword.value.trim()
+    if (!keyword) return
+    searchKeyword.value = keyword
     await setDockerHubSearchList();
     await setArtifactHubSearchList();
   }

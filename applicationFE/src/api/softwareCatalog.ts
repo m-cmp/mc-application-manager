@@ -142,18 +142,19 @@ export function applicationAction(
 
 
 // wizard
-export function getCategoryList(params: { target: string }) {
+export function getCategoryList(params: { target: string, availableOnly?: boolean }) {
   return request.post(`/catalog/application/category`, params)
 }
 
-export function getPackageList(params: { target: string, category: string }) {
+export function getPackageList(params: { target: string, category: string, availableOnly?: boolean }) {
   return request.post(`/catalog/application/package`, params)
 }
 
-export function getVersionList(params: { target: string, packageName: string }) {
+export function getVersionList(params: { target: string, packageName: string, availableOnly?: boolean }) {
   const _params = {
     target: params.target,
-    applicationName: params.packageName
+    applicationName: params.packageName,
+    availableOnly: params.availableOnly
   }
   return request.post(`/catalog/application/package/version`, _params)
 }

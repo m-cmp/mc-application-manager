@@ -22,6 +22,9 @@ public interface PackageInfoRepository extends JpaRepository<PackageInfo, Long> 
     @Query("SELECT DISTINCT p.categories FROM PackageInfo p")
     List<String> findDistinctCategories();
 
+    @Query("SELECT DISTINCT p.categories FROM PackageInfo p WHERE p.catalog IS NULL")
+    List<String> findDistinctAvailableCategories();
+
     List<PackageInfo> findByCategories(String categories);
     List<PackageInfo> findByCategoriesAndCatalogIsNull(String categories);
     
@@ -34,6 +37,9 @@ public interface PackageInfoRepository extends JpaRepository<PackageInfo, Long> 
 
     @Query("SELECT DISTINCT p.packageVersion, p.catalog.id FROM PackageInfo p WHERE p.packageName = :packageName")
     List<Object[]> findDistinctPackageVersionByPackageName(@Param("packageName") String packageName);
+
+    @Query("SELECT DISTINCT p.packageVersion FROM PackageInfo p WHERE p.packageName = :packageName AND p.catalog IS NULL")
+    List<String> findDistinctAvailablePackageVersionByPackageName(@Param("packageName") String packageName);
 
     /**
      * packageName, packageVersion, sourceType으로 PackageInfo 조회

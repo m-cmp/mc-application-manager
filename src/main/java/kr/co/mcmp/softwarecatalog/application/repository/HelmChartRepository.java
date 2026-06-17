@@ -24,6 +24,9 @@ public interface HelmChartRepository extends JpaRepository<HelmChart, Long> {
     @Query("SELECT DISTINCT hc.category FROM HelmChart hc")
     List<String> findDistinctCategories();
 
+    @Query("SELECT DISTINCT hc.category FROM HelmChart hc WHERE hc.catalog IS NULL")
+    List<String> findDistinctAvailableCategories();
+
 
     List<HelmChart> findByCategory(String category);
     List<HelmChart> findByCategoryAndCatalogIsNull(String category);
@@ -38,6 +41,9 @@ public interface HelmChartRepository extends JpaRepository<HelmChart, Long> {
 
     @Query("SELECT DISTINCT hc.chartVersion, hc.catalog.id FROM HelmChart hc WHERE hc.chartName = :chartName")
     List<Object[]> findDistinctPackageVersionByChartName(@Param("chartName") String chartName);
+
+    @Query("SELECT DISTINCT hc.chartVersion FROM HelmChart hc WHERE hc.chartName = :chartName AND hc.catalog IS NULL")
+    List<String> findDistinctAvailablePackageVersionByChartName(@Param("chartName") String chartName);
 
     @Modifying
     @Query("UPDATE HelmChart h SET h.catalog = null WHERE h.catalog.id = :catalogId")
