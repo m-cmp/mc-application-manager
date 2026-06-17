@@ -56,7 +56,7 @@ public class VmAccessInfo {
     private String networkAgentStatus;
 
     @Schema(description = "System message")
-    private String systemMessage;
+    private Object systemMessage;
 
     @Schema(description = "Created time")
     private String createdTime;
