@@ -468,6 +468,7 @@ public class DockerDeploymentService implements DeploymentService {
                 .name(containerConfig.name)
                 .image(imageUrl)
                 .portBindings(containerConfig.portBindings)
+                .debugKeepAlive(Boolean.TRUE.equals(request.getDebugKeepAlive()))
                 .build();
     }
     
@@ -850,6 +851,7 @@ public class DockerDeploymentService implements DeploymentService {
         map.put("name", params.getName());
         map.put("image", params.getImage());
         map.put("portBindings", params.getPortBindings());
+        map.put("debugKeepAlive", String.valueOf(Boolean.TRUE.equals(params.getDebugKeepAlive())));
         return map;
     }
 }

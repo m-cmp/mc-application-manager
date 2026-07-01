@@ -29,6 +29,8 @@ public interface CatalogRepository extends JpaRepository<SoftwareCatalog, Long> 
     @Query("SELECT sc FROM SoftwareCatalog sc LEFT JOIN FETCH sc.catalogRefs WHERE LOWER(sc.name) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<SoftwareCatalog> findByNameContainingIgnoreCaseWithCatalogRefs(@Param("keyword") String keyword);
 
+    List<SoftwareCatalog> findByNameIgnoreCase(String name);
+
     @Modifying
     @Query("DELETE FROM SoftwareCatalog sc WHERE sc.id = :catalogId")
     void deleteByIdBulk(@Param("catalogId") Long catalogId);

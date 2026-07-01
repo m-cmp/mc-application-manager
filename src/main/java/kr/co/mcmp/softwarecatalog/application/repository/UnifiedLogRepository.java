@@ -100,7 +100,7 @@ public interface UnifiedLogRepository extends JpaRepository<UnifiedLog, Long> {
      * 카탈로그 ID로 로그 삭제
      */
     @Modifying
-    @Query("DELETE FROM UnifiedLog u WHERE u.deployment.catalog.id = :catalogId")
+    @Query("DELETE FROM UnifiedLog u WHERE u.deployment.catalog.id = :catalogId OR u.applicationStatus.catalog.id = :catalogId")
     void deleteByCatalogId(@Param("catalogId") Long catalogId);
     
     /**

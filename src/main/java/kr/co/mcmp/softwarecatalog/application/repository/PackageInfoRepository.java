@@ -46,6 +46,9 @@ public interface PackageInfoRepository extends JpaRepository<PackageInfo, Long> 
      */
     List<PackageInfo> findByPackageNameAndPackageVersion(String packageName, String packageVersion);
 
+    @Query("SELECT p FROM PackageInfo p WHERE LOWER(p.packageName) = LOWER(:packageName) OR LOWER(p.packageName) LIKE LOWER(CONCAT('%/', :packageName)) ORDER BY p.id DESC")
+    List<PackageInfo> findCategoryCandidatesByPackageName(@Param("packageName") String packageName);
+
     /**
      * catalog_id를 null로 설정 (카탈로그 삭제 시 외래키 제약조건 해결)
      */
