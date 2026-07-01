@@ -41,6 +41,7 @@ public class DeploymentRequestDTO {
     // 자원 유형 선택값
     private String resourceType;
     private Map<String, Object> additionalConfig;
+    private Boolean debugKeepAlive;
     
     // Ingress 설정
     private Boolean ingressEnabled;
@@ -73,6 +74,7 @@ public class DeploymentRequestDTO {
                 .workloadRebalancingEnabled(this.workloadRebalancingEnabled)
                 .resourceType(this.resourceType)
                 .additionalConfig(this.additionalConfig)
+                .debugKeepAlive(this.debugKeepAlive)
                 .ingressEnabled(this.ingressEnabled)
                 .ingressHost(this.ingressHost)
                 .ingressPath(this.ingressPath)

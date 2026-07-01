@@ -50,6 +50,7 @@ public class DeploymentParameters {
      * 추가 설정
      */
     private Map<String, Object> additionalConfig;
+    private Boolean debugKeepAlive;
     
     /**
      * 리소스 제한 정보

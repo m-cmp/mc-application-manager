@@ -2,15 +2,21 @@ package kr.co.mcmp.softwarecatalog.application.service.impl;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import kr.co.mcmp.externalrepo.model.ArtifactHubPackage;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import kr.co.mcmp.softwarecatalog.CatalogRepository;
+import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.dto.HelmChartRegistrationRequest;
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
+import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
 import kr.co.mcmp.softwarecatalog.application.service.ArtifactHubIntegrationService;
 import kr.co.mcmp.softwarecatalog.application.service.HelmChartIntegrationService;
 import kr.co.mcmp.softwarecatalog.application.service.NexusIntegrationService;
@@ -33,6 +39,8 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
     private final ArtifactHubIntegrationService artifactHubIntegrationService;
     private final NexusIntegrationService nexusIntegrationService;
     private final HelmChartRepository helmChartRepository;
+    private final PackageInfoRepository packageInfoRepository;
+    private final CatalogRepository catalogRepository;
     private final UserRepository userRepository;
     private final NexusConfig nexusConfig;
 
@@ -55,11 +63,14 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
                 request.getPackageId(), request.getName());
 
         Map<String, Object> result = new HashMap<>();
+        request.setVersion(firstNonBlank(request.getVersion(), request.getTag()));
 
         try {
             // 1. Helm Chart 에서 존재 여부 확인
             ArtifactHubPackage.Package detailInfo = artifactHubIntegrationService.getPackageDetailInfo("helm", request.getRepository().getName(), request.getName(), request.getTag());
             if(detailInfo != null) {
+                request.setCategory(resolveCategory(request.getCategory(), detailInfo, request.getName()));
+
                 // 2. Docker 이미지를 Nexus로 푸시 (이미지가 있는 경우)
                 String nexusImageRepository = null;
                 if (request.getImageRepository() != null && !request.getImageRepository().trim().isEmpty()) {
@@ -84,9 +95,11 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
                 }
                 if (request.getRepository().getUrl() == null || request.getRepository().getUrl().trim().isEmpty()) {
                     // Nexus Helm repository URL 사용
-                    String repositoryUrl = getNexusRepositoryUrl();
+                    String repositoryUrl = resolveChartRepositoryUrl(request);
                     request.getRepository().setUrl(repositoryUrl);
-                    request.getRepository().setName("nexus-helm");
+                    if (request.getRepository().getName() == null || request.getRepository().getName().trim().isEmpty()) {
+                        request.getRepository().setName("nexus-helm");
+                    }
                     request.getRepository().setOfficial(false);
                     log.info("Set Nexus repository URL: {}", repositoryUrl);
                 }
@@ -256,7 +269,25 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             }
 
             // HelmChart 엔티티 생성
-            HelmChart helmChart = createBaseHelmChart(request, user);
+            Optional<HelmChart> existingHelmChart = findExistingHelmChart(request);
+            HelmChart helmChart = existingHelmChart.orElse(null);
+            if (helmChart == null) {
+                helmChart = createBaseHelmChart(request, user);
+            }
+            if (existingHelmChart.isPresent()) {
+                log.info("Updating existing Helm Chart: id={}, packageId={}, chartName={}, chartVersion={}",
+                        helmChart.getId(), request.getPackageId(), request.getName(), request.getVersion());
+            }
+
+            helmChart.setPackageId(request.getPackageId());
+            helmChart.setChartName(request.getName());
+            helmChart.setChartVersion(request.getVersion());
+            helmChart.setTag(request.getTag());
+            helmChart.setAppVersion(request.getAppVersion());
+            helmChart.setCategory(resolveCategory(request.getCategory(), null, request.getName()));
+            if (user != null) {
+                helmChart.setUser(user);
+            }
 
             // ArtifactHub 데이터 추출 및 설정
             extractAndSetArtifactHubData(helmChart, chartData);
@@ -264,7 +295,8 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             // HELM_CHART 테이블에 저장
             HelmChart savedHelmChart = helmChartRepository.save(helmChart);
 
-            log.info("Helm Chart details saved to HELM_CHART table: packageId={} (helmChartId: {})",
+            log.info("Helm Chart details {} in HELM_CHART table: packageId={} (helmChartId: {})",
+                    existingHelmChart.isPresent() ? "updated" : "saved",
                     request.getPackageId(), savedHelmChart.getId());
 
             return savedHelmChart;
@@ -367,7 +399,25 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             }
 
             // HelmChart 엔티티 생성 (요청 데이터 직접 사용)
-            HelmChart helmChart = createBaseHelmChart(request, user);
+            Optional<HelmChart> existingHelmChart = findExistingHelmChart(request);
+            HelmChart helmChart = existingHelmChart.orElse(null);
+            if (helmChart == null) {
+                helmChart = createBaseHelmChart(request, user);
+            }
+            if (existingHelmChart.isPresent()) {
+                log.info("Updating existing Helm Chart: id={}, packageId={}, chartName={}, chartVersion={}",
+                        helmChart.getId(), request.getPackageId(), request.getName(), request.getVersion());
+            }
+
+            helmChart.setPackageId(request.getPackageId());
+            helmChart.setChartName(request.getName());
+            helmChart.setChartVersion(request.getVersion());
+            helmChart.setTag(request.getTag());
+            helmChart.setAppVersion(request.getAppVersion());
+            helmChart.setCategory(resolveCategory(request.getCategory(), null, request.getName()));
+            if (user != null) {
+                helmChart.setUser(user);
+            }
 
             // 요청 데이터에서 추가 정보 설정
             helmChart.setDescription(request.getDescription());
@@ -411,15 +461,17 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             }
             
             // Repository URL은 항상 Nexus URL로 설정
-            helmChart.setChartRepositoryUrl(getNexusRepositoryUrl());
-            log.info("Set Nexus repository URL: {}", getNexusRepositoryUrl());
+            String chartRepositoryUrl = resolveChartRepositoryUrl(request);
+            helmChart.setChartRepositoryUrl(chartRepositoryUrl);
+            log.info("Set Helm chart repository URL: {}", chartRepositoryUrl);
             helmChart.setValuesFile(request.getDocumentationUrl());
             // helmChart.setLicense(request.getLicense());
 
             // HELM_CHART 테이블에 저장
             HelmChart savedHelmChart = helmChartRepository.save(helmChart);
 
-            log.info("Helm Chart details saved to HELM_CHART table: packageId={} (helmChartId: {})",
+            log.info("Helm Chart details {} in HELM_CHART table: packageId={} (helmChartId: {})",
+                    existingHelmChart.isPresent() ? "updated" : "saved",
                     request.getPackageId(), savedHelmChart.getId());
 
             return savedHelmChart;
@@ -436,7 +488,7 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
      */
     private HelmChart createBaseHelmChart(HelmChartRegistrationRequest request, User user) {
         // Repository URL 설정 - 항상 Nexus Helm Repository URL 사용
-        String repositoryUrl = getNexusRepositoryUrl();
+        String repositoryUrl = resolveChartRepositoryUrl(request);
         log.info("Using Nexus repository URL: {}", repositoryUrl);
 
         // imageRepository 설정 - 외부 경로를 내부 Nexus 경로로 변환
@@ -466,6 +518,157 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
     /**
      * Nexus Repository URL을 가져옵니다.
      */
+    private Optional<HelmChart> findExistingHelmChart(HelmChartRegistrationRequest request) {
+        String chartName = request.getName();
+        String chartVersion = firstNonBlank(request.getVersion(), request.getTag());
+        if (isBlank(chartName) || isBlank(chartVersion)) {
+            return Optional.empty();
+        }
+
+        List<HelmChart> candidates = helmChartRepository.findByChartNameAndChartVersion(chartName, chartVersion);
+        if (candidates == null || candidates.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (!isBlank(request.getPackageId())) {
+            Optional<HelmChart> packageMatched = candidates.stream()
+                    .filter(candidate -> request.getPackageId().equals(candidate.getPackageId()))
+                    .findFirst();
+            if (packageMatched.isPresent()) {
+                return packageMatched;
+            }
+        }
+
+        return Optional.of(candidates.get(0));
+    }
+
+    private String resolveCategory(String requestedCategory, ArtifactHubPackage.Package detailInfo, String chartName) {
+        String category = normalizeCategory(requestedCategory);
+        if (!isBlank(category)) {
+            return category;
+        }
+
+        if (detailInfo != null && detailInfo.getCategory() != null) {
+            category = normalizeCategory(detailInfo.getCategory().name());
+            if (!isBlank(category)) {
+                return category;
+            }
+        }
+
+        category = findCatalogCategoryByName(chartName);
+        if (!isBlank(category)) {
+            return category;
+        }
+
+        category = findPackageCategoryByName(chartName);
+        if (!isBlank(category)) {
+            return category;
+        }
+
+        return null;
+    }
+
+    private String findCatalogCategoryByName(String chartName) {
+        if (isBlank(chartName)) {
+            return null;
+        }
+
+        List<SoftwareCatalog> catalogs = catalogRepository.findByNameIgnoreCase(chartName);
+        if (catalogs == null) {
+            return null;
+        }
+
+        return catalogs.stream()
+                .map(SoftwareCatalog::getCategory)
+                .map(this::normalizeCategory)
+                .filter(category -> !isBlank(category))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String findPackageCategoryByName(String chartName) {
+        if (isBlank(chartName)) {
+            return null;
+        }
+
+        List<PackageInfo> packageInfos = packageInfoRepository.findCategoryCandidatesByPackageName(chartName);
+        if (packageInfos == null) {
+            return null;
+        }
+
+        return packageInfos.stream()
+                .map(PackageInfo::getCategories)
+                .map(this::firstCategory)
+                .map(this::normalizeCategory)
+                .filter(category -> !isBlank(category))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String firstCategory(String categories) {
+        if (isBlank(categories)) {
+            return null;
+        }
+        return categories.split(",")[0];
+    }
+
+    private String normalizeCategory(String category) {
+        if (isBlank(category)) {
+            return null;
+        }
+
+        String normalized = category.trim()
+                .replace("&", "AND")
+                .replaceAll("[^a-zA-Z0-9]+", "_")
+                .replaceAll("^_+|_+$", "")
+                .replaceAll("_+", "_")
+                .toUpperCase(Locale.ROOT);
+
+        if ("AI_ML".equals(normalized)) {
+            return "AI_MACHINE_LEARNING";
+        }
+        if ("MONITORING_LOGGING".equals(normalized)) {
+            return "MONITORING_AND_LOGGING";
+        }
+
+        return normalized;
+    }
+
+    private String resolveChartRepositoryUrl(HelmChartRegistrationRequest request) {
+        try {
+            String nexusRepositoryUrl = getNexusRepositoryUrl();
+            if (!isBlank(nexusRepositoryUrl)) {
+                return nexusRepositoryUrl;
+            }
+        } catch (Exception e) {
+            log.warn("Nexus Helm repository is not available. Falling back to requested repository URL: {}", e.getMessage());
+        }
+
+        if (request.getRepository() != null && !isBlank(request.getRepository().getUrl())) {
+            return request.getRepository().getUrl();
+        }
+
+        return "";
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+
+        for (String value : values) {
+            if (!isBlank(value)) {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
     private String getNexusRepositoryUrl() {
         try {
             OssDto nexusInfo = nexusIntegrationService.getNexusInfoFromDB();
@@ -528,7 +731,13 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         setStringValue(helmChart::setChartName, chartData.get("name"));
         setStringValue(helmChart::setChartVersion, chartData.get("version"));
         setStringValue(helmChart::setPackageId, chartData.get("package_id"));
-        setStringValue(helmChart::setCategory, chartData.get("category"));
+        String resolvedCategory = resolveCategory(
+                chartData.get("category") != null ? chartData.get("category").toString() : helmChart.getCategory(),
+                null,
+                helmChart.getChartName());
+        if (!isBlank(resolvedCategory)) {
+            helmChart.setCategory(resolvedCategory);
+        }
         setStringValue(helmChart::setImageRepository, chartData.get("image_repository"));
         setStringValue(helmChart::setDescription, chartData.get("description"));
         setStringValue(helmChart::setNormalizedName, chartData.get("normalized_name"));
@@ -540,11 +749,18 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         Map<String, Object> repository = (Map<String, Object>) chartData.get("repository");
         if (repository != null) {
             // Repository URL은 항상 Nexus URL로 설정
-            helmChart.setChartRepositoryUrl(getNexusRepositoryUrl());
+            try {
+                String nexusRepositoryUrl = getNexusRepositoryUrl();
+                if (!isBlank(nexusRepositoryUrl)) {
+                    helmChart.setChartRepositoryUrl(nexusRepositoryUrl);
+                    log.info("Set Nexus repository URL: {}", nexusRepositoryUrl);
+                }
+            } catch (Exception e) {
+                log.warn("Nexus Helm repository is not available. Keeping current repository URL: {}", e.getMessage());
+            }
             setStringValue(helmChart::setRepositoryName, repository.get("name"));
             setStringValue(helmChart::setRepositoryDisplayName, repository.get("display_name"));
             helmChart.setRepositoryOfficial(false); // Nexus는 공식 저장소가 아님
-            log.info("Set Nexus repository URL: {}", getNexusRepositoryUrl());
         }
 
         // 불린 값 설정

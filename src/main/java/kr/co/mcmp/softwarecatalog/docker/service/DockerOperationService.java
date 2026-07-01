@@ -82,7 +82,7 @@ public class DockerOperationService {
             HostConfig hostConfig = HostConfig.newHostConfig().withPortBindings(portBindings);
 
             // 이미지 타입에 따른 적절한 명령어 설정
-            String[] cmd = getCommandForImage(imageName);
+            String[] cmd = getCommandForDebugKeepAlive(isDebugKeepAliveEnabled(deployParams));
             
             // 노출할 포트들 추출
             ExposedPort[] exposedPorts = portBindings.getBindings().keySet().toArray(new ExposedPort[0]);
@@ -250,39 +250,18 @@ public class DockerOperationService {
     }
     
     /**
-     * 이미지 타입에 따른 적절한 명령어를 반환합니다.
+     * 디버그 keep-alive 모드일 때만 Docker CMD를 override합니다.
      */
-    private String[] getCommandForImage(String imageName) {
-        String lowerImageName = imageName.toLowerCase();
-        
-        if (lowerImageName.contains("elasticsearch")) {
-            // Elasticsearch는 기본 명령어 사용 (환경변수는 컨테이너 생성시 설정)
-            return null; // 기본 명령어 사용
-        } else if (lowerImageName.contains("redis")) {
-            // Redis 클러스터링 명령어 설정
-            return new String[]{"redis-server", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf", "--cluster-node-timeout", "5000", "--appendonly", "yes", "--bind", "0.0.0.0", "--port", "6379"};
-        } else if (lowerImageName.contains("mariadb") || lowerImageName.contains("mysql")) {
-            // MariaDB/MySQL은 기본 명령어 사용
-            return null;
-        } else if (lowerImageName.contains("ruby")) {
-            // Ruby 컨테이너는 대화형 모드로 실행
-            return new String[]{"ruby", "-e", "loop { sleep 1 }"};
-        } else if (lowerImageName.contains("python")) {
-            // Python 컨테이너는 대화형 모드로 실행
-            return new String[]{"python", "-c", "import time; [time.sleep(1) for _ in iter(int, 1)]"};
-        } else if (lowerImageName.contains("node")) {
-            // Node.js 컨테이너는 대화형 모드로 실행
-            return new String[]{"node", "-e", "setInterval(() => {}, 1000)"};
-        } else if (lowerImageName.contains("nginx")) {
-            // Nginx는 기본 명령어 사용
-            return new String[]{"nginx", "-g", "daemon off;"};
-        } else if (lowerImageName.contains("apache")) {
-            // Apache는 기본 명령어 사용
-            return new String[]{"httpd", "-D", "FOREGROUND"};
-        } else {
-            // 기본적으로 컨테이너가 계속 실행되도록 함
+    private boolean isDebugKeepAliveEnabled(Map<String, String> deployParams) {
+        return deployParams != null && Boolean.parseBoolean(deployParams.getOrDefault("debugKeepAlive", "false"));
+    }
+
+    private String[] getCommandForDebugKeepAlive(boolean debugKeepAlive) {
+        if (debugKeepAlive) {
             return new String[]{"tail", "-f", "/dev/null"};
         }
+
+        return null;
     }
     
     /**

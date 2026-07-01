@@ -67,6 +67,7 @@ public class DeploymentRequest {
      * 추가 설정 정보
      */
     private java.util.Map<String, Object> additionalConfig;
+    private Boolean debugKeepAlive;
     
     // HPA 설정
     private Boolean hpaEnabled;
