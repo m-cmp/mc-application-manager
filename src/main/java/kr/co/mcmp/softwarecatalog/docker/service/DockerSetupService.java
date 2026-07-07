@@ -22,12 +22,18 @@ public class DockerSetupService {
             String result = cbtumblebugRestApi.executeMciCommand(namespace, mciId, checkDockerCommand, null, vmId);
             log.info("Docker check result: '{}'", result);
             
+            boolean dockerInstalled = result != null && result.contains("Docker version");
+            boolean remoteApiEnabled = result != null && result.contains("Remote API enabled");
+
             if (result == null || result.trim().isEmpty()) {
                 log.warn("Docker check command returned empty result. Assuming Docker needs to be installed...");
                 installAndConfigureDockerOnVM(namespace, mciId, vmId);
-            } else if (!result.contains("Docker version") || !result.contains("Remote API enabled")) {
+            } else if (!dockerInstalled) {
                 log.warn("Docker is not installed or remote API is not enabled. Installing/configuring Docker...");
                 installAndConfigureDockerOnVM(namespace, mciId, vmId);
+            } else if (!remoteApiEnabled) {
+                log.warn("Docker is installed but remote API is not enabled. Configuring Docker remote access...");
+                configureInstalledDockerOnVM(namespace, mciId, vmId);
             } else {
                 log.info("Docker is already installed and configured for remote access on VM: {}", vmId);
             }
@@ -44,12 +50,7 @@ public class DockerSetupService {
             if (hasSudoAccess(namespace, mciId, vmId)) {
                 log.info("Sudo access available, proceeding with full installation");
                 installDocker(namespace, mciId, vmId);
-                configureDockerForRemoteAccess(namespace, mciId, vmId);
-                setDockerPermissions(namespace, mciId, vmId);
-                enableBridgeNfCallIptables(namespace, mciId, vmId);
-                configureVmMaxMapCount(namespace, mciId, vmId);
-                configureSSHForDockerAccess(namespace, mciId, vmId);
-                restartDocker(namespace, mciId, vmId);
+                configureDockerWithSystemd(namespace, mciId, vmId);
             } else {
                 log.warn("Sudo access not available (Azure VM), trying limited installation");
                 installDockerLimited(namespace, mciId, vmId);
@@ -59,6 +60,33 @@ public class DockerSetupService {
             log.error("Error installing or configuring Docker", e);
             throw new ApplicationException("Failed to install or configure Docker: " + e.getMessage());
         }
+    }
+
+    private void configureInstalledDockerOnVM(String namespace, String mciId, String vmId) throws ApplicationException {
+        log.info("Starting Docker remote API configuration for namespace: {}, mciId: {}, vmId: {}", namespace, mciId, vmId);
+        try {
+            if (hasSudoAccess(namespace, mciId, vmId)) {
+                log.info("Sudo access available, configuring installed Docker through systemd");
+                configureDockerWithSystemd(namespace, mciId, vmId);
+            } else {
+                log.warn("Sudo access not available (Azure VM), trying limited Docker remote API configuration");
+                installDockerLimited(namespace, mciId, vmId);
+            }
+            verifyDockerConfiguration(namespace, mciId, vmId);
+        } catch (Exception e) {
+            log.error("Error configuring Docker remote access", e);
+            throw new ApplicationException("Failed to configure Docker remote access: " + e.getMessage());
+        }
+    }
+
+    private void configureDockerWithSystemd(String namespace, String mciId, String vmId) throws Exception {
+        ensureDockerSystemdServiceAvailable(namespace, mciId, vmId);
+        configureDockerForRemoteAccess(namespace, mciId, vmId);
+        setDockerPermissions(namespace, mciId, vmId);
+        enableBridgeNfCallIptables(namespace, mciId, vmId);
+        configureVmMaxMapCount(namespace, mciId, vmId);
+        configureSSHForDockerAccess(namespace, mciId, vmId);
+        restartDocker(namespace, mciId, vmId);
     }
     
     /**
@@ -138,16 +166,34 @@ public class DockerSetupService {
         log.info("Docker installation result: {}", result);
     }
 
+    private void ensureDockerSystemdServiceAvailable(String namespace, String mciId, String vmId) throws Exception {
+        String serviceCheckCommand =
+            "(systemctl cat docker.service >/dev/null 2>&1) && echo 'DOCKER_SERVICE_FOUND' || echo 'DOCKER_SERVICE_NOT_FOUND'";
+
+        String result = cbtumblebugRestApi.executeMciCommand(namespace, mciId, serviceCheckCommand, null, vmId);
+        log.info("Docker systemd service check result: {}", result);
+
+        requireCommandSuccess(
+            result,
+            "DOCKER_SERVICE_FOUND",
+            "DOCKER_SERVICE_NOT_FOUND",
+            "Docker systemd service is not available. Docker remote API configuration requires docker.service");
+    }
+
     private void configureDockerForRemoteAccess(String namespace, String mciId, String vmId) throws Exception {
         String configureDockerCommand = 
-            "sudo mkdir -p /etc/systemd/system/docker.service.d && " +
-            "echo '[Service]' | sudo tee /etc/systemd/system/docker.service.d/override.conf && " +
-            "echo 'ExecStart=' | sudo tee -a /etc/systemd/system/docker.service.d/override.conf && " +
-            "echo 'ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock' | sudo tee -a /etc/systemd/system/docker.service.d/override.conf && " +
-            "sudo systemctl daemon-reload";
+            "(sudo mkdir -p /etc/systemd/system/docker.service.d && " +
+            "printf '%s\\n' '[Service]' 'ExecStart=' 'ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock' | sudo tee /etc/systemd/system/docker.service.d/override.conf >/dev/null && " +
+            "sudo systemctl daemon-reload) 2>&1 && echo 'DOCKER_REMOTE_CONFIGURED' || echo 'DOCKER_REMOTE_CONFIG_FAILED'";
         
         String result = cbtumblebugRestApi.executeMciCommand(namespace, mciId, configureDockerCommand, null, vmId);
         log.info("Docker remote access configuration result: {}", result);
+
+        requireCommandSuccess(
+            result,
+            "DOCKER_REMOTE_CONFIGURED",
+            "DOCKER_REMOTE_CONFIG_FAILED",
+            "Failed to configure Docker remote API through systemd override");
     }
 
     private void configureSSHForDockerAccess(String namespace, String mciId, String vmId) throws Exception {
@@ -188,9 +234,15 @@ public class DockerSetupService {
     }
 
     private void restartDocker(String namespace, String mciId, String vmId) throws Exception {
-        String restartCommand = "sudo systemctl restart docker";
+        String restartCommand = "(sudo systemctl restart docker) 2>&1 && echo 'DOCKER_RESTARTED' || echo 'DOCKER_RESTART_FAILED'";
         String result = cbtumblebugRestApi.executeMciCommand(namespace, mciId, restartCommand, null, vmId);
         log.info("Docker restart result: {}", result);
+
+        requireCommandSuccess(
+            result,
+            "DOCKER_RESTARTED",
+            "DOCKER_RESTART_FAILED",
+            "Failed to restart Docker service after remote API configuration");
     }
 
     private void verifyDockerConfiguration(String namespace, String mciId, String vmId) throws Exception {
@@ -215,5 +267,14 @@ public class DockerSetupService {
         }
         
         log.info("Docker configuration verified successfully");
+    }
+
+    private void requireCommandSuccess(String result, String successMarker, String failureMarker, String message) {
+        String commandResult = result == null ? "" : result;
+        if (commandResult.contains(successMarker) && !commandResult.contains(failureMarker)) {
+            return;
+        }
+
+        throw new ApplicationException(message + ". Result: " + commandResult);
     }
 }
