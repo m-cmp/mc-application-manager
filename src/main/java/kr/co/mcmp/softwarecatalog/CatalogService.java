@@ -14,7 +14,9 @@ import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentLogRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.HelmChartRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.OperationHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.PackageInfoRepository;
+import kr.co.mcmp.softwarecatalog.application.repository.UnifiedLogRepository;
 import kr.co.mcmp.softwarecatalog.rating.repository.OverallRatingRepository;
 import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
@@ -56,6 +58,8 @@ public class CatalogService {
     private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final DeploymentLogRepository deploymentLogRepository;
     private final ApplicationStatusRepository applicationStatusRepository;
+    private final OperationHistoryRepository operationHistoryRepository;
+    private final UnifiedLogRepository unifiedLogRepository;
     private final EntityManager entityManager;
     private final SoftwareSourceService softwareSourceService;
 
@@ -339,6 +343,12 @@ public class CatalogService {
             }
 
             // 3. APPLICATION_STATUS 삭제 (외래키 제약조건 해결)
+            unifiedLogRepository.deleteByCatalogId(catalogId);
+            entityManager.flush();
+
+            operationHistoryRepository.deleteAllByCatalogId(catalogId);
+            entityManager.flush();
+
             applicationStatusRepository.deleteAllByCatalogId(catalogId);
             entityManager.flush();
 

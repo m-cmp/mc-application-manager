@@ -9,11 +9,38 @@
         </div>
         <div class="modal-body">
           <p>Are you sure you want to delete <strong>{{ targetCatalog.name }}</strong> ({{ targetCatalog.category }}) catalog?</p>
-          <p class="text-muted">This action cannot be undone.</p>
+          <div v-if="isCheckingDeployments" class="text-muted">
+            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Checking deployed applications...
+          </div>
+          <div v-else-if="deploymentCheckFailed" class="alert alert-warning mb-0">
+            Unable to verify deployed applications. Try again before deleting this catalog.
+          </div>
+          <div v-else-if="hasActiveDeployments" class="alert alert-warning mb-0">
+            <div class="fw-semibold">This catalog has deployed applications.</div>
+            <div>Please delete the deployed applications first.</div>
+            <ul class="mb-0 mt-2 ps-3">
+              <li v-for="deployment in activeDeploymentPreview" :key="deployment.key">
+                {{ deployment.label }}
+              </li>
+            </ul>
+            <div v-if="remainingDeploymentCount > 0" class="mt-1">
+              and {{ remainingDeploymentCount }} more...
+            </div>
+          </div>
+          <p v-else class="text-muted">This action cannot be undone.</p>
         </div>
         <div class="modal-footer">
+          <button
+            v-if="deploymentCheckFailed"
+            type="button"
+            class="btn btn-outline-secondary"
+            :disabled="isCheckingDeployments"
+            @click="checkDeployedApplications">
+            Retry
+          </button>
           <button type="button" class="btn btn-secondary" @click="hide">Cancel</button>
-          <button type="button" class="btn btn-danger" @click="confirmDelete" :disabled="isDeleting">
+          <button type="button" class="btn btn-danger" @click="confirmDelete" :disabled="deleteDisabled">
             <span v-if="isDeleting" class="spinner-border spinner-border-sm me-2" role="status"></span>
             {{ isDeleting ? 'Deleting...' : 'Delete' }}
           </button>
@@ -24,9 +51,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, nextTick, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useToast } from 'vue-toastification'
-import { deleteSoftwareCatalog } from '../../../api/softwareCatalog'
+import { deleteSoftwareCatalog, getCatalogDeploymentStatus } from '../../../api/softwareCatalog'
+import { getApplicationStatusLabel } from '../applicationStatusDisplay'
 
 interface Props {
   targetCatalog?: any
@@ -37,10 +65,31 @@ const emit = defineEmits(['deleted', 'close'])
 
 const toast = useToast()
 const isDeleting = ref(false)
+const isCheckingDeployments = ref(false)
+const deploymentCheckFailed = ref(false)
+const activeDeployments = ref([] as any[])
 const deleteModal = ref<HTMLElement | null>(null)
+const DELETE_COMPLETED_STATUSES = new Set([
+  'UNINSTALLED',
+  'DELETED',
+  'DELETE_COMPLETED'
+])
+
+const hasActiveDeployments = computed(() => activeDeployments.value.length > 0)
+const activeDeploymentPreview = computed(() => activeDeployments.value.slice(0, 3))
+const remainingDeploymentCount = computed(() => Math.max(activeDeployments.value.length - activeDeploymentPreview.value.length, 0))
+const deleteDisabled = computed(() =>
+  isDeleting.value ||
+  isCheckingDeployments.value ||
+  deploymentCheckFailed.value ||
+  hasActiveDeployments.value
+)
 
 // 모달 열기
-const show = () => {
+const show = async () => {
+  await nextTick()
+  checkDeployedApplications()
+
   if (deleteModal.value) {
     try {
       // Bootstrap이 있는지 확인
@@ -111,8 +160,60 @@ const fallbackHide = () => {
 }
 
 // 삭제 확인
+const checkDeployedApplications = async () => {
+  activeDeployments.value = []
+  deploymentCheckFailed.value = false
+
+  if (!props.targetCatalog?.id) {
+    return
+  }
+
+  isCheckingDeployments.value = true
+
+  try {
+    const { data } = await getCatalogDeploymentStatus(props.targetCatalog.id)
+    const statuses = Array.isArray(data?.applicationStatuses) ? data.applicationStatuses : []
+    activeDeployments.value = statuses
+      .filter(isNotDeletedDeployment)
+      .map(toDeploymentBlocker)
+  } catch (error) {
+    console.log(error)
+    deploymentCheckFailed.value = true
+  } finally {
+    isCheckingDeployments.value = false
+  }
+}
+
+const isNotDeletedDeployment = (deployment: any) => {
+  const status = normalizeStatus(deployment?.status || deployment?.podStatus)
+  return !DELETE_COMPLETED_STATUSES.has(status)
+}
+
+const toDeploymentBlocker = (deployment: any, index: number) => {
+  const target = [
+    deployment?.namespace,
+    deployment?.mciId,
+    deployment?.vmId || deployment?.clusterName
+  ].filter(Boolean).join(' / ')
+  const deploymentType = deployment?.deploymentType || 'Deployment'
+  const status = getApplicationStatusLabel(deployment?.status || deployment?.podStatus)
+
+  return {
+    key: deployment?.id || `${deploymentType}-${target}-${index}`,
+    label: `${deploymentType}${target ? ` - ${target}` : ''} (${status})`
+  }
+}
+
+const normalizeStatus = (status: string | null | undefined) => String(status || '').trim().toUpperCase()
+
 const confirmDelete = async () => {
   if (!props.targetCatalog?.id) return
+  if (deleteDisabled.value) {
+    if (hasActiveDeployments.value) {
+      toast.warning('This catalog has deployed applications. Please delete them first.')
+    }
+    return
+  }
   
   isDeleting.value = true
   

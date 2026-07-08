@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import kr.co.mcmp.softwarecatalog.application.model.OperationHistory;
@@ -18,4 +21,9 @@ public interface OperationHistoryRepository extends JpaRepository<OperationHisto
     List<OperationHistory> findByDeploymentHistoryIdOrderByCreatedAtAsc(Long deploymentHistoryId);
 
     Optional<OperationHistory> findTopByDeploymentHistoryIdOrderByCreatedAtDesc(Long deploymentHistoryId);
+
+    @Modifying
+    @Query("delete from OperationHistory o where o.applicationStatus.catalog.id = :catalogId " +
+            "or o.deploymentHistoryId in (select d.id from DeploymentHistory d where d.catalog.id = :catalogId)")
+    void deleteAllByCatalogId(@Param("catalogId") Long catalogId);
 }

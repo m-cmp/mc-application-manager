@@ -52,6 +52,32 @@
                 </div>
               </div>
             </div>
+
+            <div class="row" v-if="isArtifactHub">
+              <div class="col-lg-12">
+                <div class="mb-3">
+                  <label class="form-label">Category <span class="text-red">*</span></label>
+                  <select class="form-select" v-model="formData.category">
+                    <option value="">Select Category</option>
+                    <option v-for="category in categoryList" :value="category.value" :key="category.key">{{ category.value }}</option>
+                    <option :value="CUSTOM_CATEGORY_VALUE">Custom...</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="row" v-if="isArtifactHub && formData.category === CUSTOM_CATEGORY_VALUE">
+              <div class="col-lg-12">
+                <div class="mb-3">
+                  <label class="form-label">Custom Category <span class="text-red">*</span></label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    v-model="formData.customCategory"
+                    placeholder="Enter category">
+                </div>
+              </div>
+            </div>
           </form>
         </div>
         <div class="modal-footer">
@@ -69,10 +95,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { IconUpload } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
-import { getApplicationTagForDockerHub, getApplicationTagForArtifactHub } from '@/api/softwareCatalog'
+import { getApplicationTagForDockerHub, getApplicationTagForArtifactHub, getCategoryList } from '@/api/softwareCatalog'
 // @ts-ignore
 import _ from 'lodash';
 
@@ -93,11 +119,49 @@ const formData = ref<any>({
   path: '',
   sourceType: '',
   name: '',
-  tag: ''
+  tag: '',
+  category: '',
+  customCategory: ''
 })
 
+const CUSTOM_CATEGORY_VALUE = '__CUSTOM__'
+const DEFAULT_CATEGORY_OPTIONS = [
+  'AI_MACHINE_LEARNING',
+  'DATABASE',
+  'INTEGRATION_AND_DELIVERY',
+  'MONITORING_AND_LOGGING',
+  'NETWORKING',
+  'SECURITY',
+  'STORAGE',
+  'STREAMING_AND_MESSAGING'
+]
+
+const CATEGORY_ID_MAP: Record<string, string> = {
+  '1': 'AI_MACHINE_LEARNING',
+  '2': 'DATABASE',
+  '3': 'INTEGRATION_AND_DELIVERY',
+  '4': 'MONITORING_AND_LOGGING',
+  '5': 'NETWORKING',
+  '6': 'SECURITY',
+  '7': 'STORAGE',
+  '8': 'STREAMING_AND_MESSAGING'
+}
+
+const CATEGORY_NAME_MAP: Record<string, string> = {
+  'AI / MACHINE LEARNING': 'AI_MACHINE_LEARNING',
+  'AI MACHINE LEARNING': 'AI_MACHINE_LEARNING',
+  'DATABASE': 'DATABASE',
+  'INTEGRATION AND DELIVERY': 'INTEGRATION_AND_DELIVERY',
+  'MONITORING AND LOGGING': 'MONITORING_AND_LOGGING',
+  'MONITORING & LOGGING': 'MONITORING_AND_LOGGING',
+  'NETWORKING': 'NETWORKING',
+  'SECURITY': 'SECURITY',
+  'STORAGE': 'STORAGE',
+  'STREAMING AND MESSAGING': 'STREAMING_AND_MESSAGING'
+}
+
 // Props 변경 감지하여 폼 데이터 업데이트
-watch(() => [props.sourceData?.sourceType, props.sourceData?.name], () => {
+watch(() => [props.sourceData?.sourceType, props.sourceData?.name], async () => {
   if (props.sourceData?.sourceType) {
     formData.value.sourceType = props.sourceData?.sourceType
   }
@@ -108,11 +172,15 @@ watch(() => [props.sourceData?.sourceType, props.sourceData?.name], () => {
       _getApplicationTagForDockerHub(props.sourceData?.name)
     } else if(formData.value.sourceType.toUpperCase() == 'ARTIFACTHUB') {
       _getApplicationTagForArtifactHub(props.sourceData)
+      await _getCategoryListForArtifactHub()
+      applyRecommendedCategory(props.sourceData)
     }
   }
 }, { immediate: true })
 
 const tagList = ref([] as any)
+const categoryList = ref([] as { key: string, value: string }[])
+const isArtifactHub = computed(() => formData.value.sourceType?.toUpperCase() === 'ARTIFACTHUB')
 
 onUnmounted(() => {
   resetFormData()
@@ -124,9 +192,12 @@ const resetFormData = () => {
     path: '',
     sourceType: '',
     name: '',
-    tag: ''
+    tag: '',
+    category: '',
+    customCategory: ''
   }
   tagList.value = []
+  categoryList.value = []
 }
 
 const _getApplicationTagForDockerHub = async (sourceData: any) => {
@@ -166,9 +237,116 @@ const _getApplicationTagForArtifactHub = async (sourceData: any) => {
   }
 }
 
+const _getCategoryListForArtifactHub = async () => {
+  const categoryMap = new Map<string, { key: string, value: string }>()
+  const addCategory = (value: any) => {
+    const normalizedValue = normalizeCategoryValue(value)
+    if (!normalizedValue) return
+    categoryMap.set(normalizedValue, {
+      key: normalizedValue,
+      value: normalizedValue
+    })
+  }
+
+  DEFAULT_CATEGORY_OPTIONS.forEach(addCategory)
+
+  try {
+    const [{ data: helmCategories }, { data: dockerCategories }] = await Promise.all([
+      getCategoryList({ target: 'HELM', availableOnly: false }),
+      getCategoryList({ target: 'DOCKER', availableOnly: false })
+    ])
+
+    ;[...(helmCategories || []), ...(dockerCategories || [])].forEach((category: any) => {
+      addCategory(category?.value || category?.key || category)
+    })
+  } catch (error) {
+    console.log(error)
+  }
+
+  categoryList.value = Array.from(categoryMap.values()).sort((a, b) => a.value.localeCompare(b.value))
+}
+
+const applyRecommendedCategory = (sourceData: any) => {
+  const recommendedCategory = normalizeCategoryValue(
+    sourceData?.category ||
+    sourceData?.categories?.[0] ||
+    sourceData?.categoryName ||
+    sourceData?.category_name
+  )
+
+  if (!recommendedCategory) {
+    formData.value.category = ''
+    formData.value.customCategory = ''
+    return
+  }
+
+  const hasCategoryOption = categoryList.value.some((category) => category.value === recommendedCategory)
+  if (hasCategoryOption) {
+    formData.value.category = recommendedCategory
+    formData.value.customCategory = ''
+    return
+  }
+
+  formData.value.category = CUSTOM_CATEGORY_VALUE
+  formData.value.customCategory = recommendedCategory
+}
+
+const normalizeCategoryValue = (category: any): string => {
+  if (category === null || category === undefined) return ''
+
+  if (typeof category === 'object') {
+    return normalizeCategoryValue(
+      category.value ||
+      category.key ||
+      category.name ||
+      category.displayName ||
+      category.display_name ||
+      category.category
+    )
+  }
+
+  const rawValue = String(category).trim()
+  if (!rawValue) return ''
+
+  if (CATEGORY_ID_MAP[rawValue]) {
+    return CATEGORY_ID_MAP[rawValue]
+  }
+
+  const normalizedDisplayName = rawValue
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
+
+  if (CATEGORY_NAME_MAP[normalizedDisplayName]) {
+    return CATEGORY_NAME_MAP[normalizedDisplayName]
+  }
+
+  return rawValue
+    .replace(/&/g, 'AND')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_')
+    .toUpperCase()
+}
+
+const getSelectedCategory = () => {
+  if (!isArtifactHub.value) return ''
+  if (formData.value.category === CUSTOM_CATEGORY_VALUE) {
+    return normalizeCategoryValue(formData.value.customCategory)
+  }
+  return normalizeCategoryValue(formData.value.category)
+}
+
 const onSubmit = () => {
   if (!formData.value.tag.trim()) {
     toast.error('Tag is required.')
+    return
+  }
+
+  const selectedCategory = getSelectedCategory()
+  if (isArtifactHub.value && !selectedCategory) {
+    toast.error('Category is required.')
     return
   }
 
@@ -176,6 +354,10 @@ const onSubmit = () => {
   emitData.tag = formData.value.tag
   emitData.sourceType = formData.value.sourceType
   emitData.name = formData.value.name
+  if (isArtifactHub.value) {
+    emitData.version = formData.value.tag
+    emitData.category = selectedCategory
+  }
 
   // 업로드 데이터 emit
   emits('uploaded', emitData)

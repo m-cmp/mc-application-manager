@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AM VM Docker Remote API 설정 검증 수정 요약</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #5f6c80;
+      --line: #d9e0ea;
+      --blue: #2563eb;
+      --green: #15803d;
+      --red: #b42318;
+      --amber: #b45309;
+      --code: #101828;
+      --code-bg: #eef2f7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+      line-height: 1.6;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+    }
+
+    header {
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 34px 0 14px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin: 24px 0;
+    }
+
+    .box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+
+    .box strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .box .big {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .ok {
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .warn {
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    .fail {
+      color: var(--red);
+      font-weight: 700;
+    }
+
+    .blue {
+      color: var(--blue);
+      font-weight: 700;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .step {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .step:last-child {
+      border-bottom: 0;
+    }
+
+    .num {
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #e8eefc;
+      color: var(--blue);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef3fb;
+      color: #2b3548;
+      font-size: 14px;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: var(--code-bg);
+      color: var(--code);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92em;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      background: #f9fbff;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 13px;
+      color: #344054;
+    }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    ul {
+      margin: 8px 0 0 20px;
+      padding: 0;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    footer {
+      margin-top: 34px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 860px) {
+      main {
+        padding: 24px 14px 44px;
+      }
+
+      .summary,
+      .flow,
+      .checklist {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>AM VM Docker Remote API 설정 검증 수정 요약</h1>
+      <div class="meta">작성일: 2026-07-07 · 대상: <code>DockerSetupService</code> · 다음 릴리즈 배포 후 Azure VM 검증 필요</div>
+    </header>
+
+    <section class="summary" aria-label="핵심 요약">
+      <div class="box">
+        <strong>문제의 본질</strong>
+        <div class="big">Remote API 설정 실패를 기존 <code>dockerd</code> 상태로 성공 오판 가능</div>
+      </div>
+      <div class="box">
+        <strong>수정 방향</strong>
+        <div class="big">Docker 설치 여부와 Remote API 설정 여부를 분리</div>
+      </div>
+      <div class="box">
+        <strong>지원 범위</strong>
+        <div class="big">systemd <code>docker.service</code> 기반 Docker만 자동 설정</div>
+      </div>
+    </section>
+
+    <h2>한 줄 결론</h2>
+    <div class="box">
+      <p><span class="blue">Docker가 이미 있으면 재설치하지 않고</span>, Remote API만 systemd 방식으로 설정한다. 이때 <code>docker.service</code>가 없거나 <code>systemctl restart docker</code>가 실패하면 성공으로 넘기지 않고 실패 처리한다.</p>
+    </div>
+
+    <h2>배포 경로</h2>
+    <section class="flow">
+      <div class="box">
+        <h3>준비 단계</h3>
+        <div class="step">
+          <div class="num">1</div>
+          <div>AM이 Tumblebug <code>cmd/infra</code> API로 VM 명령 실행</div>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <div>VM에서 <code>docker --version</code>과 <code>dockerd -H tcp://0.0.0.0:2375</code> 확인</div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div>Remote API가 없으면 systemd <code>docker.service</code> 방식으로 설정 시도</div>
+        </div>
+      </div>
+
+      <div class="box">
+        <h3>실제 컨테이너 배포 단계</h3>
+        <div class="step">
+          <div class="num">1</div>
+          <div>AM이 VM Public IP 조회</div>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <div>Docker client가 <code>tcp://{VM_PUBLIC_IP}:2375</code>로 접속</div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div>Docker Remote API로 이미지 pull, 컨테이너 생성, 컨테이너 시작 수행</div>
+        </div>
+      </div>
+    </section>
+
+    <h2>상태별 처리 결과</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>VM 상태</th>
+          <th>AM 동작</th>
+          <th>판정</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Docker 없음</td>
+          <td><code>get-docker.sh</code> 설치 후 systemd 기반 Remote API 설정</td>
+          <td><span class="ok">기존 설치 흐름 유지</span></td>
+        </tr>
+        <tr>
+          <td>Docker 있음 + Remote API 있음</td>
+          <td>설치, 설정, restart 없이 skip</td>
+          <td><span class="ok">배포 가능 상태로 인정</span></td>
+        </tr>
+        <tr>
+          <td>Docker 있음 + Remote API 없음</td>
+          <td>Docker 재설치 없이 Remote API 설정만 시도</td>
+          <td><span class="ok">이번 수정의 핵심 분기</span></td>
+        </tr>
+        <tr>
+          <td>Remote API 설정 중 <code>docker.service</code> 없음</td>
+          <td><code>override.conf</code> 작성 전에 실패 처리</td>
+          <td><span class="fail">지원 불가 VM 상태</span></td>
+        </tr>
+        <tr>
+          <td><code>systemctl restart docker</code> 실패</td>
+          <td>최종 <code>dockerd</code> 검증으로 넘어가지 않고 실패 처리</td>
+          <td><span class="fail">설정 적용 실패</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>코드 변경 포인트</h2>
+    <section class="checklist">
+      <div class="box">
+        <h3>1. 설치 여부와 Remote API 여부 분리</h3>
+        <p><code>Docker version</code>과 <code>Remote API enabled</code>를 별도 boolean으로 판단한다.</p>
+        <div class="chips">
+          <span class="chip">dockerInstalled</span>
+          <span class="chip">remoteApiEnabled</span>
+        </div>
+      </div>
+      <div class="box">
+        <h3>2. 기존 Docker 재설치 방지</h3>
+        <p>Docker가 이미 있으면 <code>installDocker()</code>를 다시 호출하지 않고 <code>configureInstalledDockerOnVM()</code>으로 이동한다.</p>
+      </div>
+      <div class="box">
+        <h3>3. systemd 지원 범위 명확화</h3>
+        <p>Remote API 설정 전 <code>systemctl cat docker.service</code>로 systemd 관리 대상인지 확인한다.</p>
+      </div>
+      <div class="box">
+        <h3>4. 실패 마커 검사</h3>
+        <p>override 작성, daemon reload, Docker restart 결과를 마커로 검사해 실패를 숨기지 않는다.</p>
+      </div>
+    </section>
+
+    <h2>성공/실패 마커</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>단계</th>
+          <th>성공 마커</th>
+          <th>실패 마커</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>systemd docker.service 확인</td>
+          <td><code>DOCKER_SERVICE_FOUND</code></td>
+          <td><code>DOCKER_SERVICE_NOT_FOUND</code></td>
+        </tr>
+        <tr>
+          <td>Remote API override 작성</td>
+          <td><code>DOCKER_REMOTE_CONFIGURED</code></td>
+          <td><code>DOCKER_REMOTE_CONFIG_FAILED</code></td>
+        </tr>
+        <tr>
+          <td>Docker restart</td>
+          <td><code>DOCKER_RESTARTED</code></td>
+          <td><code>DOCKER_RESTART_FAILED</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>릴리즈 후 테스트 체크리스트</h2>
+    <section class="checklist">
+      <div class="box">
+        <h3>정상 Azure VM 신규 배포</h3>
+        <ul>
+          <li>VM spec: <code>Standard_D2als_v6</code></li>
+          <li>테스트 앱: nginx 등 단순 컨테이너</li>
+          <li>로그: <code>DOCKER_SERVICE_FOUND</code>, <code>DOCKER_REMOTE_CONFIGURED</code>, <code>DOCKER_RESTARTED</code></li>
+          <li>결과: AM 배포 상태 SUCCESS 또는 Running 계열</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>이미 Remote API가 켜진 VM</h3>
+        <ul>
+          <li>초기 체크에 <code>Docker version</code>과 <code>Remote API enabled</code> 포함</li>
+          <li>설치/restart 없이 skip</li>
+          <li>기존 배포 성공 동작 유지</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>docker.service 없는 VM</h3>
+        <ul>
+          <li><code>Docker systemd service is not available</code> 메시지 확인</li>
+          <li><code>override.conf</code> 작성 단계로 진행하지 않음</li>
+          <li>성공으로 오판하지 않음</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>restart 실패 VM</h3>
+        <ul>
+          <li><code>Failed to restart Docker service after remote API configuration</code> 메시지 확인</li>
+          <li>기존 <code>dockerd</code> 상태만 보고 성공 처리하지 않음</li>
+          <li>실패 원인을 AM 로그에서 식별 가능</li>
+        </ul>
+      </div>
+    </section>
+
+    <h2>주의 사항</h2>
+    <div class="box">
+      <p><span class="warn">Docker Remote API 2375는 TLS 없는 평문 API</span>다. 운영 환경에서는 AM 서버에서만 접근 가능하도록 CSP 보안그룹 또는 방화벽으로 제한해야 한다.</p>
+      <p>이번 수정은 <code>docker.service</code>가 없는 모든 Docker 실행 방식을 지원하는 변경이 아니다. AM이 지원하는 systemd Docker 전제를 명확히 하고, 그 전제 밖이면 성공으로 오판하지 않도록 하는 변경이다.</p>
+    </div>
+
+    <footer>
+      관련 소스: <code>DockerSetupService.java</code>, <code>DockerSetupServiceTest.java</code>
+    </footer>
+  </main>
+</body>
+</html>
