@@ -13,7 +13,7 @@ import java.util.Locale;
  * Request 파라미터와 카탈로그 기본값을 조합하여 최종 설정값을 제공
  */
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class DeploymentConfigDTO {

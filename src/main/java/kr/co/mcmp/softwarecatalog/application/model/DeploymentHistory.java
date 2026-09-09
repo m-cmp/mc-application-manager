@@ -61,7 +61,7 @@ public class DeploymentHistory {
     private String clusterName; // K8s 배포에 사용
     
     @Column(name = "node_group_name")
-    private String nodeGroupName; // K8s 노드 그룹 이름
+    private String nodeGroupName; // K8s node group or CB-Tumblebug VM subGroup name
 
     @Column(name = "public_ip")
     private String publicIp;   

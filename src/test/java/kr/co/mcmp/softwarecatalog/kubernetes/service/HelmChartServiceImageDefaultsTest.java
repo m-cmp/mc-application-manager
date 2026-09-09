@@ -1,6 +1,7 @@
 package kr.co.mcmp.softwarecatalog.kubernetes.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -57,5 +58,27 @@ class HelmChartServiceImageDefaultsTest {
     @Test
     void handlesAnEmptyValuesMapWithoutAddingImageArguments() {
         assertThat(HelmChartService.buildHelmSetArguments(Map.of())).isEmpty();
+    }
+
+    @ParameterizedTest
+    @MethodSource("validKubernetesNamespaces")
+    void preservesAnExplicitKubernetesNamespace(String namespace) {
+        assertThat(HelmChartService.requireHelmNamespace(namespace)).isEqualTo(namespace);
+    }
+
+    private static Stream<String> validKubernetesNamespaces() {
+        return Stream.of("default", "application-team-a", "ingress-system");
+    }
+
+    @ParameterizedTest
+    @MethodSource("blankKubernetesNamespaces")
+    void rejectsABlankKubernetesNamespace(String namespace) {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> HelmChartService.requireHelmNamespace(namespace))
+                .withMessageContaining("cannot be blank");
+    }
+
+    private static Stream<String> blankKubernetesNamespaces() {
+        return Stream.of((String) null, "", " ", "\t");
     }
 }

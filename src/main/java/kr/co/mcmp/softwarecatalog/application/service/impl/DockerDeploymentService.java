@@ -145,6 +145,9 @@ public class DockerDeploymentService implements DeploymentService {
         if (!alreadyInstalledVms.isEmpty()) {
             log.info("Found existing installations on VMs: {}", alreadyInstalledVms);
         }
+        if (alreadyInstalledVms.size() == vmIds.size()) {
+            throw new ApplicationException("Application is already installed on every selected VM");
+        }
         
         // 클러스터 설정 생성 (클러스터링 모드인 경우에만)
         final Map<String, String> clusterConfig = request.getVmDeploymentMode() == VmDeploymentMode.CLUSTERING ? buildClusterConfig(request, catalog, vmIds) : null;
@@ -200,10 +203,10 @@ public class DockerDeploymentService implements DeploymentService {
             List<String> successfulVms = new ArrayList<>();
             List<String> failedVms = new ArrayList<>();
             
-            for (int i = 0; i < deploymentFutures.size(); i++) {
+            for (CompletableFuture<DeploymentResult> deploymentFuture : deploymentFutures) {
                 try {
-                    DeploymentResult result = deploymentFutures.get(i).get();
-                    String vmId = vmIds.get(i);
+                    DeploymentResult result = deploymentFuture.get();
+                    String vmId = result.getVmId();
                     DeploymentHistory vmHistory = vmHistories.get(vmId);
                     
                     if (vmHistory == null) continue;
@@ -411,14 +414,21 @@ public class DockerDeploymentService implements DeploymentService {
                     ApplicationStatusValues.DEPLOYING,
                     user);
             
-            // VM 공인 IP 목록 생성 (클러스터링용)
+            // Peer IPs must be passed only for an explicitly requested cluster.
+            // DockerOperationService interprets a non-empty peer list as Redis /
+            // Elasticsearch clustering configuration, while NodeGroup deployment
+            // intentionally creates independent standalone instances.
             List<String> vmPublicIps = new ArrayList<>();
-            for (String id : vmIds) {
-                try {
-                    VmAccessInfo vmInfo = cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), id);
-                    vmPublicIps.add(vmInfo.getPublicIP());
-                } catch (Exception e) {
-                    log.warn("Failed to get VM info for {}: {}", id, e.getMessage());
+            int clusterNodeIndex = -1;
+            if (request.getVmDeploymentMode() == VmDeploymentMode.CLUSTERING) {
+                clusterNodeIndex = vmIndex;
+                for (String id : vmIds) {
+                    try {
+                        VmAccessInfo vmInfo = cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), id);
+                        vmPublicIps.add(vmInfo.getPublicIP());
+                    } catch (Exception e) {
+                        log.warn("Failed to get VM info for {}: {}", id, e.getMessage());
+                    }
                 }
             }
             
@@ -435,7 +445,7 @@ public class DockerDeploymentService implements DeploymentService {
                 deployParams.getVolumeMounts(),
                 deployParams.getCommandArguments(),
                 vmPublicIps,
-                vmIndex
+                clusterNodeIndex
             );
             
             String containerId = deployResult.getContainerId();
@@ -878,6 +888,9 @@ public class DockerDeploymentService implements DeploymentService {
      */
     private void processDeploymentResults(DeploymentHistory history, User user, List<String> successfulVms, 
                                         List<String> failedVms, DeploymentRequest request) {
+        if (history == null) {
+            throw new ApplicationException("No eligible VM deployment target was found");
+        }
         DeploymentStatusResult result = determineDeploymentResult(successfulVms, failedVms);
         
         history.setStatus(result.status);
@@ -1064,4 +1077,3 @@ public class DockerDeploymentService implements DeploymentService {
         return map;
     }
 }
-

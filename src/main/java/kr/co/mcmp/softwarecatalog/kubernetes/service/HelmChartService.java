@@ -22,8 +22,10 @@ import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.softwarecatalog.CatalogRepository;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubeconfigResolver;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesNamespaces;
 import kr.co.mcmp.softwarecatalog.kubernetes.util.ReleaseNameGenerator;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,7 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class HelmChartService {
 
-    private static final String DEFAULT_HELM_NAMESPACE = "default";
     private static final String METRICS_SERVER_NAMESPACE = "kube-system";
     private static final String METRICS_SERVER_RELEASE = "metrics-server";
     private static final String METRICS_SERVER_REPOSITORY = "metrics-server";
@@ -71,8 +72,10 @@ public class HelmChartService {
     
     public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog, 
                                  kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart, String clusterName) {
-        
+        DeploymentConfigDTO config = DeploymentConfigDTO.from(new DeploymentRequest(), catalog);
+        HelmIngressValues.validate(helmChart, config);
         Path tempKubeconfigPath = null;
+        Path tempValuesPath = null;
 
         try {
             // 1. 클러스터 정보 조회
@@ -87,6 +90,11 @@ public class HelmChartService {
             // 4. 릴리스 이름 생성
             String releaseName = releaseNameGenerator.generateReleaseName(helmChart.getChartName());
 
+            config = HelmIngressValues.resolveTlsConfig(config, releaseName);
+            Map<String, Object> ingressValues = HelmIngressValues.from(helmChart, config);
+            KubernetesIngressTlsWarnings.inspect(client, KubernetesNamespaces.APPLICATION_WORKLOAD, config)
+                    .forEach(warning -> log.warn("{}", warning));
+
             // 5. 기존 릴리스 확인 (현재 배포와 관련된 것만)
             try {
                 // 현재 카탈로그와 관련된 기존 릴리스만 확인
@@ -94,11 +102,17 @@ public class HelmChartService {
                 if (existingReleaseName != null) {
                     try {
                         // 기존 릴리스 상태 확인 및 삭제
-                        boolean found = runHelmListAndCheckRelease(existingReleaseName, namespace, tempKubeconfigPath);
+                        boolean found = runHelmListAndCheckRelease(
+                                existingReleaseName,
+                                KubernetesNamespaces.APPLICATION_WORKLOAD,
+                                tempKubeconfigPath);
                         
                         if (found) {
                             // 기존 릴리스 삭제
-                            runHelmUninstallCli(existingReleaseName, namespace, tempKubeconfigPath);
+                            runHelmUninstallCli(
+                                    existingReleaseName,
+                                    KubernetesNamespaces.APPLICATION_WORKLOAD,
+                                    tempKubeconfigPath);
                         }
                     } catch (Exception e) {
                         log.warn("기존 릴리스 삭제 중 오류 발생: {}", e.getMessage());
@@ -138,24 +152,6 @@ public class HelmChartService {
             values.put("securityContext.runAsNonRoot", "false");
             values.put("containerSecurityContext.allowPrivilegeEscalation", "false");
             // 컨테이너 이미지는 강제하지 않고 Chart values.yaml 기본값을 사용합니다.
-
-            // Ingress 설정 적용
-            if (catalog.getIngressEnabled() != null && catalog.getIngressEnabled()) {
-                log.info("Ingress 설정 적용 중...");
-                values.put("ingress.enabled", "true");
-                values.put("ingress.host", catalog.getIngressHost() != null ? catalog.getIngressHost() : "localhost");
-                values.put("ingress.path", catalog.getIngressPath() != null ? catalog.getIngressPath() : "/");
-                values.put("ingress.className", catalog.getIngressClass() != null ? catalog.getIngressClass() : "nginx");
-                
-                if (catalog.getIngressTlsEnabled() != null && catalog.getIngressTlsEnabled()) {
-                    values.put("ingress.tls.enabled", "true");
-                    values.put("ingress.tls.secretName", catalog.getIngressTlsSecret() != null ? 
-                        catalog.getIngressTlsSecret() : releaseName + "-tls");
-                }
-                
-                log.info("Ingress 설정 완료 - Host: {}, Path: {}, Class: {}", 
-                        catalog.getIngressHost(), catalog.getIngressPath(), catalog.getIngressClass());
-            }
 
             // CSP별 및 설정에 따른 동적 설정 적용
             log.info("CSP별 및 설정에 따른 동적 설정 적용 중...");
@@ -225,14 +221,25 @@ public class HelmChartService {
                 applyPrometheusPersistenceDefaults(values);
             }
 
-            runHelmInstallCli(releaseName, chartRef, namespace, helmChart.getChartVersion(), tempKubeconfigPath, values);
+            if (!ingressValues.isEmpty()) {
+                tempValuesPath = createTempValuesFile(ingressValues);
+            }
+            runHelmInstallCli(
+                    releaseName,
+                    chartRef,
+                    KubernetesNamespaces.APPLICATION_WORKLOAD,
+                    helmChart.getChartVersion(),
+                    tempKubeconfigPath,
+                    values,
+                    tempValuesPath);
             
             // 간단한 Release 스텁 반환 - null 반환으로 변경
             Release result = null;
             
             log.info("Helm Chart '{}' 설치 완료 (HPA: {})", releaseName, catalog.getHpaEnabled());
             log.info("=== Helm Chart 배포 성공 ===");
-            log.info("릴리스명: {}, 상태: {}, 네임스페이스: {}", releaseName, "deployed", namespace);
+            log.info("릴리스명: {}, 상태: {}, Tumblebug namespace: {}, Kubernetes namespace: {}",
+                    releaseName, "deployed", namespace, KubernetesNamespaces.APPLICATION_WORKLOAD);
 
             return result;
 
@@ -242,6 +249,13 @@ public class HelmChartService {
             throw new RuntimeException("Helm Chart 배포 실패", e);
         } finally {
             // 8. 임시 kubeconfig 파일 삭제
+            if (tempValuesPath != null) {
+                try {
+                    Files.deleteIfExists(tempValuesPath);
+                } catch (IOException e) {
+                    log.warn("Failed to delete temporary Helm values file: {}", e.getMessage());
+                }
+            }
             if (tempKubeconfigPath != null) {
                 try {
                     log.info("8. 임시 kubeconfig 파일 삭제 중...");
@@ -263,9 +277,10 @@ public class HelmChartService {
         log.info("=== Helm Chart 배포 시작 (Request 기반) ===");
         log.info("Chart: {}, Namespace: {}, Cluster: {}", 
                 helmChart.getChartName(), namespace, clusterName);
-        
+        DeploymentConfigDTO config = DeploymentConfigDTO.from(request, catalog);
+        HelmIngressValues.validate(helmChart, config);
         Path tempKubeconfigPath = null;
-        Path tempObjectStorageValuesPath = null;
+        Path tempValuesPath = null;
 
         try {
             // 1. 클러스터 정보 조회
@@ -286,11 +301,15 @@ public class HelmChartService {
             // 4. 릴리스 이름 생성
             String releaseName = releaseNameGenerator.generateReleaseName(helmChart.getChartName());
 
+            config = HelmIngressValues.resolveTlsConfig(config, releaseName);
+            Map<String, Object> chartValues = HelmIngressValues.from(helmChart, config);
+            KubernetesIngressTlsWarnings.inspect(client, KubernetesNamespaces.APPLICATION_WORKLOAD, config)
+                    .forEach(warning -> log.warn("{}", warning));
+
             // 5. 기존 릴리스 확인 및 제거
             handleExistingRelease(releaseName, namespace, tempKubeconfigPath, catalog.getId(), clusterName);
 
             // 6. 배포 설정 DTO 생성 (우선순위: Request > Catalog > Default)
-            DeploymentConfigDTO config = DeploymentConfigDTO.from(request, catalog);
             String ingressCidr = K8sIngressPolicy.validate(request, config);
             log.info("배포 설정 생성 완료 - {}", config);
 
@@ -299,7 +318,6 @@ public class HelmChartService {
             
             // Values 맵 구성
             java.util.Map<String, String> values = new java.util.HashMap<>();
-            java.util.Map<String, Object> objectStorageValues = new java.util.HashMap<>();
             values.put("replicaCount", String.valueOf(config.getMinReplicas()));
             values.put("service.port", String.valueOf(config.getServicePort()));
             values.put("service.type", "ClusterIP");
@@ -325,28 +343,8 @@ public class HelmChartService {
                 log.info("HPA 비활성화됨");
             }
 
-            // Ingress 설정 적용
-            if (config.isIngressEnabled()) {
-                log.info("Ingress 설정 적용 중...");
-                
-                // Ingress Controller 자동 설치 확인 및 설치
-                values.put("ingress.enabled", "true");
-                values.put("ingress.hosts[0]", config.getIngressHost());
-                values.put("ingress.path", config.getIngressPath());
-                values.put("ingress.ingressClassName", config.getIngressClass());
-                
-                // TLS 설정
-                if (config.isTlsEnabled()) {
-                    values.put("ingress.tls.enabled", "true");
-                    values.put("ingress.tls.secretName", config.getIngressTlsSecret() != null ? 
-                        config.getIngressTlsSecret() : releaseName + "-tls");
-                }
-                
-                log.info("Ingress 설정 완료 - {}", config.getIngressConfigSummary());
-            } else {
-                values.put("ingress.enabled", "false");
-                log.info("Ingress 비활성화됨");
-            }
+            // Ingress는 차트별 스키마에 맞는 typed YAML로 전달합니다.
+            log.info("Ingress 설정 - {}", config.getIngressConfigSummary());
 
             // 공통 보안 설정 적용
             log.info("공통 보안 설정 적용 중...");
@@ -362,14 +360,23 @@ public class HelmChartService {
                 applyPrometheusPersistenceDefaults(values);
             }
 
-            applyObjectStorageValues(catalog, request, providerName, helmChart.getChartName(), objectStorageValues);
-            K8sIngressPolicy.configureValues(helmChart.getChartName(), values, objectStorageValues, config, ingressCidr);
-            if (!objectStorageValues.isEmpty()) {
-                tempObjectStorageValuesPath = createTempValuesFile(objectStorageValues);
+            applyObjectStorageValues(catalog, request, providerName, helmChart.getChartName(), chartValues);
+            K8sIngressPolicy.configureValues(helmChart.getChartName(), values, chartValues, config, ingressCidr);
+            if (!chartValues.isEmpty()) {
+                tempValuesPath = createTempValuesFile(chartValues);
             }
 
             // Helm CLI로 설치 실행
-            runHelmInstallCli(releaseName, chartRef, namespace, helmChart.getChartVersion(), tempKubeconfigPath, values, tempObjectStorageValuesPath, ingressCidr, config.getIngressHost());
+            runHelmInstallCli(
+                    releaseName,
+                    chartRef,
+                    KubernetesNamespaces.APPLICATION_WORKLOAD,
+                    helmChart.getChartVersion(),
+                    tempKubeconfigPath,
+                    values,
+                    tempValuesPath,
+                    ingressCidr,
+                    config.getIngressHost());
             
             // 간단한 Release 스텁 반환 - null 반환으로 변경
             Release result = null;
@@ -377,7 +384,8 @@ public class HelmChartService {
             log.info("Helm Chart '{}' 설치 완료 (HPA: {}, Ingress: {})", 
                     releaseName, config.isHpaEnabled(), config.isIngressEnabled());
             log.info("=== Helm Chart 배포 성공 ===");
-            log.info("릴리스명: {}, 상태: {}, 네임스페이스: {}", releaseName, "deployed", namespace);
+            log.info("릴리스명: {}, 상태: {}, Tumblebug namespace: {}, Kubernetes namespace: {}",
+                    releaseName, "deployed", namespace, KubernetesNamespaces.APPLICATION_WORKLOAD);
 
             return result;
 
@@ -396,11 +404,11 @@ public class HelmChartService {
                     log.warn("임시 kubeconfig 파일 삭제 중 오류 발생: {}", e.getMessage());
                 }
             }
-            if (tempObjectStorageValuesPath != null) {
+            if (tempValuesPath != null) {
                 try {
-                    Files.deleteIfExists(tempObjectStorageValuesPath);
+                    Files.deleteIfExists(tempValuesPath);
                 } catch (IOException e) {
-                    log.warn("Failed to delete temporary Object Storage values file: {}", e.getMessage());
+                    log.warn("Failed to delete temporary Helm values file: {}", e.getMessage());
                 }
             }
         }
@@ -450,7 +458,7 @@ public class HelmChartService {
                 
                 log.info("1. 릴리스 '{}' 삭제 실행 중...", releaseName);
                 
-                runHelmUninstallCli(releaseName, namespace, tempKubeconfigPath);
+                runHelmUninstallCli(releaseName, KubernetesNamespaces.APPLICATION_WORKLOAD, tempKubeconfigPath);
 
                 log.info("2. 삭제 결과: 성공");
             } finally {
@@ -493,7 +501,7 @@ public class HelmChartService {
             
             log.info("1. 릴리스 '{}' 삭제 실행 중...", releaseName);
             
-            runHelmUninstallCli(releaseName, namespace, tempKubeconfigPath);
+            runHelmUninstallCli(releaseName, KubernetesNamespaces.APPLICATION_WORKLOAD, tempKubeconfigPath);
 
             log.info("2. 삭제 결과: 성공");
             log.info("=== Helm Chart 삭제 성공 ===");
@@ -570,7 +578,7 @@ public class HelmChartService {
         Path tempKubeconfigPath = null;
         try {
             tempKubeconfigPath = createTempKubeconfigFile(getKubeconfigForCluster(namespace, clusterName));
-            String releaseList = runHelmListCli(DEFAULT_HELM_NAMESPACE, tempKubeconfigPath);
+            String releaseList = runHelmListCli(KubernetesNamespaces.APPLICATION_WORKLOAD, tempKubeconfigPath);
             com.fasterxml.jackson.databind.JsonNode releases =
                     new com.fasterxml.jackson.databind.ObjectMapper().readTree(releaseList);
             if (!releases.isArray()) {
@@ -745,7 +753,10 @@ public class HelmChartService {
                 
                 // 기존 릴리스 제거
                 try {
-                    runHelmUninstallCli(existingReleaseName, namespace, tempKubeconfigPath);
+                    runHelmUninstallCli(
+                            existingReleaseName,
+                            KubernetesNamespaces.APPLICATION_WORKLOAD,
+                            tempKubeconfigPath);
                     log.info("기존 릴리스 제거 완료: {}", existingReleaseName);
                 } catch (Exception e) {
                     log.warn("기존 릴리스 제거 중 오류 발생 (무시하고 계속): {}", e.getMessage());
@@ -763,7 +774,8 @@ public class HelmChartService {
      */
     private void ensureIngressController(KubernetesClient client, String namespace, Path tempKubeconfigPath) {
         try {
-            log.info("네임스페이스 '" + namespace + "'에서 NGINX Ingress Controller 확인 중...");
+            log.info("NGINX Ingress Controller 확인 중 - Tumblebug namespace: {}, Kubernetes namespace: {}",
+                    namespace, KubernetesNamespaces.APPLICATION_WORKLOAD);
             
             if (isIngressControllerInstalled(namespace, tempKubeconfigPath)) {
                 log.info("NGINX Ingress Controller가 이미 설치되어 있습니다.");
@@ -790,7 +802,7 @@ public class HelmChartService {
     private boolean isIngressControllerInstalled(String namespace, Path tempKubeconfigPath) {
         try {
             // Helm 릴리스 목록에서 nginx-ingress 확인
-            String releaseList = runHelmListCli(namespace, tempKubeconfigPath);
+            String releaseList = runHelmListCli(KubernetesNamespaces.APPLICATION_WORKLOAD, tempKubeconfigPath);
             String releaseName = "nginx-ingress-" + namespace;
             
             if (releaseList != null && releaseList.contains("\"name\":\"" + releaseName + "\"")) {
@@ -828,7 +840,13 @@ public class HelmChartService {
             addHelmRepository(ingressHelmChart);
 
             // Helm CLI로 설치 실행
-            runHelmInstallCli(releaseName, INGRESS_NGINX_CHART, namespace, INGRESS_NGINX_CHART_VERSION, tempKubeconfigPath, values);
+            runHelmInstallCli(
+                    releaseName,
+                    INGRESS_NGINX_CHART,
+                    KubernetesNamespaces.APPLICATION_WORKLOAD,
+                    INGRESS_NGINX_CHART_VERSION,
+                    tempKubeconfigPath,
+                    values);
             
             // 간단한 Release 스텁 반환 - null 반환으로 변경
             Release result = null;
@@ -880,7 +898,7 @@ public class HelmChartService {
             String releaseName = "nginx-ingress-" + namespace;
             String controllerName = releaseName + "-ingress-nginx-controller";
             String admissionServiceName = controllerName + "-admission";
-            String helmNamespace = "default";
+            String helmNamespace = KubernetesNamespaces.APPLICATION_WORKLOAD;
 
             var deployment = client.apps().deployments()
                     .inNamespace(helmNamespace)
@@ -939,13 +957,6 @@ public class HelmChartService {
 
     private void applyRcloneGuiDefaults(Map<String, String> values, Integer servicePort) {
         String port = String.valueOf(servicePort != null ? servicePort : 5572);
-        boolean ingressEnabled = Boolean.parseBoolean(values.getOrDefault("ingress.enabled", "false"));
-        String ingressHost = values.get("ingress.hosts[0]");
-        String ingressPath = values.getOrDefault("ingress.path", "/");
-        String ingressClassName = values.getOrDefault("ingress.ingressClassName",
-                values.getOrDefault("ingress.className", "nginx"));
-        boolean ingressTlsEnabled = Boolean.parseBoolean(values.getOrDefault("ingress.tls.enabled", "false"));
-        String ingressTlsSecretName = values.get("ingress.tls.secretName");
 
         values.remove("persistence.enabled");
         values.remove("persistence.storageClass");
@@ -953,14 +964,6 @@ public class HelmChartService {
         values.remove("persistence.accessMode");
         values.remove("service.type");
         values.remove("service.port");
-        values.remove("ingress.enabled");
-        values.remove("ingress.host");
-        values.remove("ingress.hosts[0]");
-        values.remove("ingress.path");
-        values.remove("ingress.ingressClassName");
-        values.remove("ingress.className");
-        values.remove("ingress.tls.enabled");
-        values.remove("ingress.tls.secretName");
 
         values.put("persistence.config.enabled", "false");
         values.put("service.main.enabled", "true");
@@ -972,20 +975,6 @@ public class HelmChartService {
         values.put("probes.readiness.enabled", "false");
         values.put("probes.startup.enabled", "false");
 
-        if (ingressEnabled && StringUtils.isNotBlank(ingressHost)) {
-            values.put("ingress.main.enabled", "true");
-            values.put("ingress.main.ingressClassName", ingressClassName);
-            values.put("ingress.main.hosts[0].host", ingressHost);
-            values.put("ingress.main.hosts[0].paths[0].path", StringUtils.defaultIfBlank(ingressPath, "/"));
-            values.put("ingress.main.hosts[0].paths[0].pathType", "Prefix");
-
-            if (ingressTlsEnabled && StringUtils.isNotBlank(ingressTlsSecretName)) {
-                values.put("ingress.main.tls[0].secretName", ingressTlsSecretName);
-                values.put("ingress.main.tls[0].hosts[0]", ingressHost);
-            }
-        } else {
-            values.put("ingress.main.enabled", "false");
-        }
     }
 
     private void applyObjectStorageValues(SoftwareCatalog catalog,
@@ -1196,7 +1185,7 @@ public class HelmChartService {
     }
 
     private Path createTempValuesFile(Map<String, Object> values) throws IOException {
-        Path valuesFile = Files.createTempFile("helm-object-storage-", ".yaml");
+        Path valuesFile = Files.createTempFile("helm-values-", ".yaml");
         String yaml = new Yaml().dump(values);
         Files.writeString(valuesFile, yaml, StandardCharsets.UTF_8);
         return valuesFile;
@@ -1241,7 +1230,7 @@ public class HelmChartService {
         String helmPath = getHelmPath();
         cmd.add(helmPath); cmd.add("install");
         cmd.add(releaseName); cmd.add(chartRef);
-        cmd.add("--namespace"); cmd.add("default");
+        cmd.add("--namespace"); cmd.add(requireHelmNamespace(namespace));
         cmd.add("--version"); cmd.add(version);
         cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
         if (valuesFile != null) {
@@ -1295,7 +1284,7 @@ public class HelmChartService {
         String helmPath = getHelmPath();
         cmd.add(helmPath); cmd.add("install");
         cmd.add(releaseName); cmd.add(chartRef);
-        cmd.add("--namespace"); cmd.add(helmNamespace);
+        cmd.add("--namespace"); cmd.add(requireHelmNamespace(helmNamespace));
         cmd.add("--version"); cmd.add(version);
         cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
         if (waitForReady) {
@@ -1404,7 +1393,7 @@ public class HelmChartService {
         String helmPath = getHelmPath();
         cmd.add(helmPath); cmd.add("uninstall");
         cmd.add(releaseName);
-        cmd.add("--namespace"); cmd.add(namespace);
+        cmd.add("--namespace"); cmd.add(requireHelmNamespace(namespace));
         if (kubeconfig != null) {
             cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
         }
@@ -1422,7 +1411,7 @@ public class HelmChartService {
     private String runHelmListCli(String namespace, Path kubeconfig) throws Exception {
         java.util.List<String> cmd = new java.util.ArrayList<>();
         cmd.add(getHelmPath()); cmd.add("list");
-        cmd.add("--namespace"); cmd.add("default");
+        cmd.add("--namespace"); cmd.add(requireHelmNamespace(namespace));
         if (kubeconfig != null) {
             cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
         }
@@ -1441,7 +1430,7 @@ public class HelmChartService {
     private String runHelmListCliInNamespace(String helmNamespace, Path kubeconfig) throws Exception {
         java.util.List<String> cmd = new java.util.ArrayList<>();
         cmd.add(getHelmPath()); cmd.add("list");
-        cmd.add("--namespace"); cmd.add(helmNamespace);
+        cmd.add("--namespace"); cmd.add(requireHelmNamespace(helmNamespace));
         if (kubeconfig != null) {
             cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
         }
@@ -1460,6 +1449,13 @@ public class HelmChartService {
     private boolean runHelmListAndCheckRelease(String releaseName, String namespace, Path kubeconfig) throws Exception {
         String releaseList = runHelmListCli(namespace, kubeconfig);
         return releaseList != null && releaseList.contains("\"name\":\"" + releaseName + "\"");
+    }
+
+    static String requireHelmNamespace(String namespace) {
+        if (StringUtils.isBlank(namespace)) {
+            throw new IllegalArgumentException("Kubernetes Helm namespace cannot be blank");
+        }
+        return namespace;
     }
 
     /**

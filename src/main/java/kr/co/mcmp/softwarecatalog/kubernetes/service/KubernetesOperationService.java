@@ -23,6 +23,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.utils.Serialization;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesNamespaces;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,7 +32,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class KubernetesOperationService {
 
-    private static final String DEFAULT_HELM_NAMESPACE = "default";
     private static final Set<String> RESTARTABLE_WORKLOAD_KINDS = Set.of("Deployment", "StatefulSet", "DaemonSet");
     private static final Set<String> SCALABLE_WORKLOAD_KINDS = Set.of("Deployment", "StatefulSet");
     private static final String RESTARTED_AT_ANNOTATION = "kubectl.kubernetes.io/restartedAt";
@@ -125,7 +125,8 @@ public class KubernetesOperationService {
         try {
             String kubeconfigYaml = getKubeconfigForCluster(namespace, clusterName);
             tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
-            String releaseName = findInstalledReleaseName(DEFAULT_HELM_NAMESPACE, tempKubeconfigPath, catalog);
+            String releaseName = findInstalledReleaseName(
+                    KubernetesNamespaces.APPLICATION_WORKLOAD, tempKubeconfigPath, catalog);
             if (releaseName == null) {
                 releaseName = histories.findByCatalogIdAndClusterNameAndNamespaceAndActionTypeOrderByExecutedAtDesc(
                         catalog.getId(), clusterName, namespace, kr.co.mcmp.softwarecatalog.application.constants.ActionType.INSTALL)
@@ -135,7 +136,7 @@ public class KubernetesOperationService {
                 log.warn("Installed release was not found. Trying chart name as release name: {}", releaseName);
             }
 
-            runHelmUninstallCli(releaseName, DEFAULT_HELM_NAMESPACE, tempKubeconfigPath);
+            runHelmUninstallCli(releaseName, KubernetesNamespaces.APPLICATION_WORKLOAD, tempKubeconfigPath);
             releaseIngressRules(namespace, clusterName, catalog.getId(), releaseName);
             log.info("Application uninstall completed: {}", releaseName);
         } catch (Exception e) {
@@ -151,11 +152,13 @@ public class KubernetesOperationService {
         try {
             String kubeconfigYaml = getKubeconfigForCluster(namespace, clusterName);
             tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
-            String releaseName = findInstalledReleaseName(DEFAULT_HELM_NAMESPACE, tempKubeconfigPath, catalog);
+            String releaseName = findInstalledReleaseName(
+                    KubernetesNamespaces.APPLICATION_WORKLOAD, tempKubeconfigPath, catalog);
             if (releaseName == null) {
                 throw new RuntimeException("Installed Helm release was not found");
             }
-            return runHelmGetManifestCli(releaseName, DEFAULT_HELM_NAMESPACE, tempKubeconfigPath);
+            return runHelmGetManifestCli(
+                    releaseName, KubernetesNamespaces.APPLICATION_WORKLOAD, tempKubeconfigPath);
         } finally {
             deleteTempKubeconfig(tempKubeconfigPath);
         }
@@ -309,7 +312,11 @@ public class KubernetesOperationService {
             }
             String namespace = stringAt(doc.content(), "metadata", "namespace");
             Integer replicas = integerAt(doc.content(), "spec", "replicas");
-            workloads.add(new WorkloadRef(doc.kind(), name, namespace != null ? namespace : DEFAULT_HELM_NAMESPACE, replicas));
+            workloads.add(new WorkloadRef(
+                    doc.kind(),
+                    name,
+                    namespace != null ? namespace : KubernetesNamespaces.APPLICATION_WORKLOAD,
+                    replicas));
         }
         return workloads;
     }
@@ -327,7 +334,12 @@ public class KubernetesOperationService {
             String namespace = stringAt(doc.content(), "metadata", "namespace");
             String targetKind = stringAt(doc.content(), "spec", "scaleTargetRef", "kind");
             String targetName = stringAt(doc.content(), "spec", "scaleTargetRef", "name");
-            HpaRef hpa = new HpaRef(name, namespace != null ? namespace : DEFAULT_HELM_NAMESPACE, targetKind, targetName, doc.yaml());
+            HpaRef hpa = new HpaRef(
+                    name,
+                    namespace != null ? namespace : KubernetesNamespaces.APPLICATION_WORKLOAD,
+                    targetKind,
+                    targetName,
+                    doc.yaml());
             if (workloads.stream().anyMatch(hpa::targets)) {
                 hpas.add(hpa);
             }

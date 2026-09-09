@@ -56,6 +56,7 @@ import kr.co.mcmp.softwarecatalog.application.service.K8sAutoscaleService;
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesNamespaces;
 import kr.co.mcmp.softwarecatalog.common.service.RabbitMqAlertService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,7 +67,7 @@ import lombok.extern.slf4j.Slf4j;
 public class KubernetesMonitoringService {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final String DEFAULT_WORKLOAD_NAMESPACE = "default";
+    private static final String DEFAULT_WORKLOAD_NAMESPACE = KubernetesNamespaces.APPLICATION_WORKLOAD;
     private static final String HELM_INSTANCE_LABEL = "app.kubernetes.io/instance";
 
     private final KubernetesClientFactory clientFactory;
@@ -1718,7 +1719,7 @@ public class KubernetesMonitoringService {
      */
     private void removeNodeSelectorFromDeployment(DeploymentHistory deployment, KubernetesClient client) {
         try {
-            String namespace = "default";
+            String namespace = DEFAULT_WORKLOAD_NAMESPACE;
             String appName = deployment.getCatalog().getName().toLowerCase();
             
             log.info("Looking for Deployment in namespace: {}, appName: {}", namespace, appName);
@@ -1786,7 +1787,7 @@ public class KubernetesMonitoringService {
      */
     private boolean isAlreadyScaledOut(DeploymentHistory deployment, KubernetesClient client) {
         try {
-            String namespace = "default";
+            String namespace = DEFAULT_WORKLOAD_NAMESPACE;
             String appName = deployment.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");
             
             // Deployment 찾기
@@ -1917,8 +1918,8 @@ public class KubernetesMonitoringService {
             log.info("Redeploying application to new nodes: deploymentId={}, newNodeCount={}", 
                     deployment.getId(), newNodeCount);
             
-            // K8s 배포는 항상 default namespace에 배포됨
-            String namespace = "default";
+            // K8s 워크로드는 요청의 Tumblebug namespace와 별개인 전용 namespace에 배포됨
+            String namespace = DEFAULT_WORKLOAD_NAMESPACE;
             String appName = deployment.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");
             String nodeGroupName = deployment.getNodeGroupName();
             

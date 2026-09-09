@@ -14,9 +14,11 @@ import kr.co.mcmp.softwarecatalog.application.constants.ActionType;
 import kr.co.mcmp.softwarecatalog.application.constants.ApplicationStatusValues;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.model.ApplicationStatus;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesNamespaces;
 import kr.co.mcmp.softwarecatalog.kubernetes.util.KubernetesUtils;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import kr.co.mcmp.softwarecatalog.application.repository.ApplicationStatusRepository;
@@ -88,17 +90,21 @@ public class KubernetesDeployService {
         validateInputParameters(namespace, clusterName, catalog);
         if (request == null) request = kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest.builder()
                 .namespace(namespace).clusterName(clusterName).build();
-        String ingressCidr = K8sIngressPolicy.validate(request, DeploymentConfigDTO.from(request, catalog));
         DeploymentHistory history = null;
         // 소스 선택 로직 추가
         HelmChart helmChart = softwareSourceService.getArtifactHubSource(catalog.getId())
                 .orElseThrow(() -> new IllegalStateException("No ArtifactHub source found for catalog: " + catalog.getId()));
-        
+        // Validate ingress settings (including generic fallback) before installing cluster components.
+        HelmIngressValues.validate(helmChart, DeploymentConfigDTO.from(
+                request != null ? request : new DeploymentRequest(), catalog));
+        String ingressCidr = K8sIngressPolicy.validate(request, DeploymentConfigDTO.from(request, catalog));
         
         try (KubernetesClient client = clientFactory.getClient(namespace, clusterName)) {
             // namespaceService.ensureNamespaceExists(client, namespace); // 불필요한 코드 제거
 
             boolean ingressEnabled = isIngressEnabled(request, catalog);
+
+            KubernetesIngressRouteValidator.assertAvailable(client, DeploymentConfigDTO.from(request, catalog));
 
             updateApplicationStatus(namespace, clusterName, catalog, ApplicationStatusValues.PREPARING_METRICS_SERVER);
             helmChartService.ensureMetricsServer(client, namespace, clusterName);
@@ -118,8 +124,10 @@ public class KubernetesDeployService {
                 result = helmChartService.deployHelmChart(client, namespace, catalog, helmChart, clusterName);
             }
 
-            String podStatus = KubernetesUtils.getPodStatus(client, namespace, helmChart.getChartName());
-            Integer servicePort = KubernetesUtils.getServicePort(client, namespace, helmChart.getChartName());
+            String podStatus = KubernetesUtils.getPodStatus(
+                    client, KubernetesNamespaces.APPLICATION_WORKLOAD, helmChart.getChartName());
+            Integer servicePort = KubernetesUtils.getServicePort(
+                    client, KubernetesNamespaces.APPLICATION_WORKLOAD, helmChart.getChartName());
             if (servicePort == null && request != null) {
                 servicePort = request.getServicePort();
             }
@@ -158,6 +166,11 @@ public class KubernetesDeployService {
                 history.setStatus(clean ? "FAILED" : "DELETE_PENDING");
                 deploymentHistoryRepository.saveAndFlush(history);
                 throw new DeploymentFailure(history, e);
+            }
+            if (e instanceof KubernetesIngressRouteValidator.ConflictException
+                    || e instanceof KubernetesIngressRouteValidator.LookupException) {
+                // KubernetesService persists this message in the user-visible deployment failure log.
+                throw new RuntimeException("애플리케이션 배포 실패: " + e.getMessage(), e);
             }
             throw new RuntimeException("애플리케이션 배포 실패", e);
         }
@@ -210,10 +223,11 @@ public class KubernetesDeployService {
 
             // Pod 개수를 0으로 설정 (Scale Down)
             log.info("애플리케이션 중지 중 - Pod 개수를 0으로 설정: {}", releaseName);
-            KubernetesUtils.scaleDeployment(client, namespace, releaseName, 0);
+            KubernetesUtils.scaleDeployment(client, KubernetesNamespaces.APPLICATION_WORKLOAD, releaseName, 0);
 
             String podStatus = "STOPPED";
-            Integer servicePort = KubernetesUtils.getServicePort(client, namespace, catalog.getHelmChart().getChartName());
+            Integer servicePort = KubernetesUtils.getServicePort(
+                    client, KubernetesNamespaces.APPLICATION_WORKLOAD, catalog.getHelmChart().getChartName());
 
             return createDeploymentHistory(
                     namespace,
@@ -301,10 +315,13 @@ public class KubernetesDeployService {
 
             // Pod 개수를 원래 개수로 복원 (Scale Up)
             log.info("애플리케이션 재시작 중 - Pod 개수를 원래 개수로 복원: {}", releaseName);
-            KubernetesUtils.scaleDeployment(client, namespace, releaseName, catalog.getMinReplicas());
+            KubernetesUtils.scaleDeployment(
+                    client, KubernetesNamespaces.APPLICATION_WORKLOAD, releaseName, catalog.getMinReplicas());
 
-            String podStatus = KubernetesUtils.getPodStatus(client, namespace, catalog.getHelmChart().getChartName());
-            Integer servicePort = KubernetesUtils.getServicePort(client, namespace, catalog.getHelmChart().getChartName());
+            String podStatus = KubernetesUtils.getPodStatus(
+                    client, KubernetesNamespaces.APPLICATION_WORKLOAD, catalog.getHelmChart().getChartName());
+            Integer servicePort = KubernetesUtils.getServicePort(
+                    client, KubernetesNamespaces.APPLICATION_WORKLOAD, catalog.getHelmChart().getChartName());
 
             return createDeploymentHistory(
                     namespace,

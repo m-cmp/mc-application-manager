@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AM Network Access Scope UI Test</title>
+  <link rel="stylesheet" href="../src/main/resources/static/tabler/dist/css/tabler.min.css">
+  <style>
+    :root {
+      color-scheme: light;
+      --mcmp-blue: #206bc4;
+      --mcmp-blue-soft: #edf6ff;
+      --mcmp-border: #dce3eb;
+      --mcmp-ink: #182433;
+      --mcmp-muted: #667382;
+    }
+
+    body {
+      background: #f3f6f9;
+      color: var(--mcmp-ink);
+    }
+
+    .page-shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 34px 20px 60px;
+    }
+
+    .prototype-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 20px;
+      padding: 16px 18px;
+      border: 1px solid #bfd9f4;
+      border-radius: 10px;
+      background: var(--mcmp-blue-soft);
+    }
+
+    .prototype-badge {
+      flex: 0 0 auto;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: var(--mcmp-blue);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+
+    .prototype-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(320px, .9fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .card {
+      border-color: var(--mcmp-border);
+      box-shadow: 0 6px 18px rgba(24, 36, 51, .05);
+    }
+
+    .form-section {
+      padding: 22px 24px;
+      border-bottom: 1px solid #edf0f3;
+    }
+
+    .form-section:last-child {
+      border-bottom: 0;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .section-heading h3 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .target-summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .summary-item {
+      padding: 11px 12px;
+      border: 1px solid #e3e8ee;
+      border-radius: 8px;
+      background: #fbfcfd;
+    }
+
+    .summary-label {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--mcmp-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .summary-value {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .scope-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .scope-card {
+      position: relative;
+      display: block;
+      min-height: 146px;
+      margin: 0;
+      padding: 16px;
+      border: 1.5px solid #d7dee6;
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+
+    .scope-card:hover {
+      border-color: #8db8e6;
+    }
+
+    .scope-card.is-selected {
+      border-color: var(--mcmp-blue);
+      background: #f7fbff;
+      box-shadow: 0 0 0 3px rgba(32, 107, 196, .10);
+    }
+
+    .scope-card.is-disabled {
+      cursor: not-allowed;
+      opacity: .52;
+      background: #f4f6f8;
+    }
+
+    .scope-card input {
+      position: absolute;
+      top: 17px;
+      right: 17px;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--mcmp-blue);
+    }
+
+    .scope-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding-right: 26px;
+      font-weight: 700;
+    }
+
+    .scope-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: #eaf2fb;
+      font-size: 16px;
+    }
+
+    .scope-card[data-scope="public"] .scope-icon {
+      background: #fff1e6;
+    }
+
+    .scope-description {
+      margin: 0 0 10px;
+      color: var(--mcmp-muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .scope-cidr {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #edf1f5;
+      color: #344050;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .recommended {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 5px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #dff1e4;
+      color: #24733b;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .policy-result {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      margin-top: 14px;
+      padding: 14px 16px;
+      border: 1px solid #dce6f1;
+      border-radius: 9px;
+      background: #f8fbfe;
+    }
+
+    .policy-result strong {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 13px;
+    }
+
+    .policy-result p {
+      margin: 0;
+      color: var(--mcmp-muted);
+      font-size: 12px;
+    }
+
+    .cidr-value {
+      color: var(--mcmp-blue);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .public-warning {
+      display: none;
+      margin-top: 12px;
+    }
+
+    .public-warning.is-visible {
+      display: block;
+    }
+
+    .confirmation-row {
+      display: none;
+      margin-top: 12px;
+      padding: 11px 12px;
+      border: 1px solid #f2c7a5;
+      border-radius: 8px;
+      background: #fff8f2;
+    }
+
+    .confirmation-row.is-visible {
+      display: block;
+    }
+
+    .footer-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 18px 24px;
+      background: #fafbfc;
+    }
+
+    .side-card + .side-card {
+      margin-top: 16px;
+    }
+
+    .flow-line {
+      display: grid;
+      grid-template-columns: 80px 20px 1fr;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    .flow-source {
+      padding: 6px 7px;
+      border-radius: 6px;
+      background: #edf1f5;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .flow-arrow {
+      color: #8a97a6;
+      text-align: center;
+    }
+
+    .flow-target {
+      padding: 6px 8px;
+      border-left: 3px solid var(--mcmp-blue);
+      background: #f5f9fd;
+    }
+
+    pre {
+      max-height: 285px;
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #17212b;
+      color: #dfe8f2;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .test-result {
+      display: none;
+      margin-top: 14px;
+    }
+
+    .test-result.is-visible {
+      display: block;
+    }
+
+    .vnet-explainer {
+      margin-top: 20px;
+    }
+
+    .vnet-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .vnet-step {
+      position: relative;
+      padding: 15px;
+      border: 1px solid #dfe5ec;
+      border-radius: 9px;
+      background: #fff;
+    }
+
+    .vnet-step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      top: 50%;
+      right: -21px;
+      z-index: 1;
+      width: 28px;
+      color: #7f8b99;
+      text-align: center;
+      transform: translateY(-50%);
+    }
+
+    .vnet-step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      margin-bottom: 8px;
+      border-radius: 50%;
+      background: var(--mcmp-blue);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 900px) {
+      .prototype-layout,
+      .vnet-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .vnet-step:not(:last-child)::after {
+        display: none;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .scope-grid,
+      .target-summary {
+        grid-template-columns: 1fr;
+      }
+
+      .policy-result {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <div class="prototype-banner" role="note">
+      <span class="prototype-badge">UI TEST</span>
+      <div>
+        <strong>VM 애플리케이션 네트워크 공개 범위 시안</strong>
+        <div class="text-muted mt-1">실제 배포나 SG 변경은 하지 않습니다. 선택값에 따른 AM 요청과 방화벽 규칙을 화면에서 검증하는 프로토타입입니다.</div>
+      </div>
+    </div>
+
+    <div class="prototype-layout">
+      <section class="card" aria-labelledby="form-title">
+        <header class="card-header">
+          <div>
+            <h2 class="card-title" id="form-title">Application Installation</h2>
+            <div class="text-muted small mt-1">VM에 Grafana를 배포하는 예시</div>
+          </div>
+        </header>
+
+        <div class="form-section">
+          <div class="section-heading">
+            <h3>1. Deployment Target</h3>
+            <span class="badge bg-azure-lt">VM</span>
+          </div>
+          <label class="form-label" for="target-vm">테스트 대상 VM</label>
+          <select class="form-select" id="target-vm">
+            <option value="aws-public">AWS VM — 공인 IP 있음</option>
+            <option value="aws-private">AWS VM — 사설 IP만 있음</option>
+            <option value="gcp-public">GCP VM — 공인 IP 있음</option>
+          </select>
+
+          <div class="target-summary" aria-live="polite">
+            <div class="summary-item">
+              <span class="summary-label">VNet ID</span>
+              <span class="summary-value" id="vnet-id"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">VNet CIDR</span>
+              <span class="summary-value" id="vnet-cidr"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Private IP</span>
+              <span class="summary-value" id="private-ip"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Public IP</span>
+              <span class="summary-value" id="public-ip"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-heading">
+            <h3>2. Application</h3>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-7">
+              <label class="form-label" for="application">Application</label>
+              <select class="form-select" id="application">
+                <option value="Grafana" data-container-port="3000">Grafana</option>
+                <option value="Nginx" data-container-port="80">Nginx</option>
+                <option value="Redis" data-container-port="6379">Redis</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label" for="service-port">Service Port</label>
+              <input class="form-control" id="service-port" type="number" min="1" max="65535" value="3000">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-heading">
+            <div>
+              <h3>3. Access Scope</h3>
+              <div class="text-muted small mt-1">CIDR을 직접 입력하지 않고 공개 범위만 선택합니다.</div>
+            </div>
+          </div>
+
+          <div class="scope-grid" role="radiogroup" aria-label="네트워크 공개 범위">
+            <label class="scope-card is-selected" data-scope="internal" id="scope-internal-card">
+              <input type="radio" name="access-scope" value="INTERNAL" checked>
+              <span class="scope-title">
+                <span class="scope-icon" aria-hidden="true">⌂</span>
+                Internal <span class="recommended">Default</span>
+              </span>
+              <p class="scope-description">같은 VNet 내부에서만 접근합니다. 공인 IP가 있어도 인터넷에서는 차단됩니다.</p>
+              <span class="scope-cidr">VNet CIDR 자동 조회</span>
+            </label>
+
+            <label class="scope-card" data-scope="public" id="scope-public-card">
+              <input type="radio" name="access-scope" value="PUBLIC">
+              <span class="scope-title">
+                <span class="scope-icon" aria-hidden="true">◎</span>
+                Public
+              </span>
+              <p class="scope-description">인터넷 전체에서 서비스 포트에 접근할 수 있습니다. 공개 서비스에만 사용합니다.</p>
+              <span class="scope-cidr">0.0.0.0/0</span>
+            </label>
+          </div>
+
+          <div class="policy-result" aria-live="polite">
+            <div>
+              <strong id="policy-title">AM이 VNet CIDR을 조회합니다</strong>
+              <p id="policy-description">vNetId로 VNet 정보를 조회하고 실제 cidrBlock을 SG 규칙에 사용합니다.</p>
+            </div>
+            <div class="cidr-value" id="derived-cidr">10.0.0.0/16</div>
+          </div>
+
+          <div class="alert alert-warning public-warning" id="public-warning" role="alert">
+            <strong>인터넷 공개 주의</strong><br>
+            이 설정은 서비스 포트를 모든 인터넷 주소에 공개합니다. 애플리케이션 인증과 최신 이미지 사용을 확인하세요.
+          </div>
+
+          <div class="confirmation-row" id="public-confirmation">
+            <label class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" id="public-confirm">
+              <span class="form-check-label">인터넷 전체 공개 위험을 확인했습니다.</span>
+            </label>
+          </div>
+
+          <div class="alert alert-danger mt-3 d-none" id="public-ip-error" role="alert">
+            이 VM에는 공인 IP가 없어 Public을 선택할 수 없습니다.
+          </div>
+        </div>
+
+        <div class="footer-actions">
+          <button type="button" class="btn btn-link link-secondary" id="reset-button">Reset</button>
+          <button type="button" class="btn btn-primary" id="simulate-button">Validate &amp; Simulate</button>
+        </div>
+      </section>
+
+      <aside>
+        <section class="card side-card">
+          <div class="card-header">
+            <h3 class="card-title">AM → Tumblebug 요청 미리보기</h3>
+          </div>
+          <div class="card-body">
+            <pre id="request-preview" aria-live="polite"></pre>
+            <div class="alert alert-success test-result" id="test-result" role="status"></div>
+          </div>
+        </section>
+
+        <section class="card side-card">
+          <div class="card-header">
+            <h3 class="card-title">접근 흐름</h3>
+          </div>
+          <div class="card-body">
+            <div class="flow-line">
+              <div class="flow-source">AM 관리</div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-target">SSH 22 — Docker 제어</div>
+            </div>
+            <div class="flow-line">
+              <div class="flow-source">VNet 내부</div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-target" id="internal-flow">10.0.0.0/16 → VM:3000</div>
+            </div>
+            <div class="flow-line">
+              <div class="flow-source">인터넷</div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-target" id="internet-flow">차단</div>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <section class="card vnet-explainer" aria-labelledby="vnet-title">
+      <div class="card-body">
+        <h2 class="card-title" id="vnet-title">VNet이란?</h2>
+        <p class="text-muted mb-0">클라우드에서 VM들이 들어가는 사설 네트워크입니다. AWS는 VPC, Azure는 VNet, GCP는 VPC라고 부르며 CB-Tumblebug에서는 이를 VNet으로 통일해 표현합니다.</p>
+
+        <div class="vnet-grid">
+          <div class="vnet-step">
+            <span class="vnet-step-number">1</span>
+            <strong class="d-block mb-1">VM에서 vNetId 확인</strong>
+            <span class="text-muted small">예: aws-us-west-vnet</span>
+          </div>
+          <div class="vnet-step">
+            <span class="vnet-step-number">2</span>
+            <strong class="d-block mb-1">VNet 정보 조회</strong>
+            <span class="text-muted small">cidrBlock: 10.0.0.0/16</span>
+          </div>
+          <div class="vnet-step">
+            <span class="vnet-step-number">3</span>
+            <strong class="d-block mb-1">SG 규칙에 적용</strong>
+            <span class="text-muted small">10.0.0.0/16만 포트 접근 허용</span>
+          </div>
+        </div>
+
+        <div class="alert alert-info mt-3 mb-0" role="note">
+          <strong>CSP별 차이:</strong> AWS·Azure·NCP처럼 VNet/VPC CIDR이 있는 경우 그 값을 사용하고, GCP처럼 VPC 자체 CIDR이 없는 경우에는 VM이 속한 Subnet CIDR을 사용해야 합니다.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const targets = {
+      "aws-public": {
+        namespace: "default",
+        mciId: "mci-aws-demo",
+        vmId: "aws-vm-01",
+        securityGroupId: "mci-aws-demo-aws-us-west-1",
+        vnetId: "aws-us-west-vnet",
+        vnetCidr: "10.0.0.0/16",
+        privateIp: "10.0.1.25",
+        publicIp: "203.0.113.10"
+      },
+      "aws-private": {
+        namespace: "default",
+        mciId: "mci-private-demo",
+        vmId: "aws-private-vm-01",
+        securityGroupId: "mci-private-demo-aws-ap-northeast-2",
+        vnetId: "aws-private-vnet",
+        vnetCidr: "10.20.0.0/16",
+        privateIp: "10.20.1.18",
+        publicIp: null
+      },
+      "gcp-public": {
+        namespace: "default",
+        mciId: "mci-gcp-demo",
+        vmId: "gcp-vm-01",
+        securityGroupId: "mci-gcp-demo-gcp-asia-northeast3",
+        vnetId: "gcp-seoul-vnet",
+        vnetCidr: "10.30.0.0/16",
+        privateIp: "10.30.2.12",
+        publicIp: "198.51.100.15"
+      }
+    };
+
+    const targetSelect = document.getElementById("target-vm");
+    const applicationSelect = document.getElementById("application");
+    const servicePortInput = document.getElementById("service-port");
+    const scopeInputs = Array.from(document.querySelectorAll('input[name="access-scope"]'));
+    const internalCard = document.getElementById("scope-internal-card");
+    const publicCard = document.getElementById("scope-public-card");
+    const publicInput = publicCard.querySelector("input");
+    const publicConfirm = document.getElementById("public-confirm");
+    const simulateButton = document.getElementById("simulate-button");
+    const resetButton = document.getElementById("reset-button");
+
+    function currentTarget() {
+      return targets[targetSelect.value];
+    }
+
+    function currentScope() {
+      return scopeInputs.find(input => input.checked)?.value || "INTERNAL";
+    }
+
+    function currentApplication() {
+      return applicationSelect.value;
+    }
+
+    function portNumber() {
+      return Number(servicePortInput.value);
+    }
+
+    function selectedCidr() {
+      return currentScope() === "PUBLIC" ? "0.0.0.0/0" : currentTarget().vnetCidr;
+    }
+
+    function setTargetSummary() {
+      const target = currentTarget();
+      document.getElementById("vnet-id").textContent = target.vnetId;
+      document.getElementById("vnet-cidr").textContent = target.vnetCidr;
+      document.getElementById("private-ip").textContent = target.privateIp;
+      document.getElementById("public-ip").textContent = target.publicIp || "없음";
+
+      publicInput.disabled = !target.publicIp;
+      publicCard.classList.toggle("is-disabled", !target.publicIp);
+      document.getElementById("public-ip-error").classList.add("d-none");
+
+      if (!target.publicIp && currentScope() === "PUBLIC") {
+        scopeInputs.find(input => input.value === "INTERNAL").checked = true;
+        document.getElementById("public-ip-error").classList.remove("d-none");
+      }
+    }
+
+    function setApplicationPort() {
+      const option = applicationSelect.selectedOptions[0];
+      servicePortInput.value = option.dataset.containerPort;
+    }
+
+    function renderScopeCards() {
+      const scope = currentScope();
+      internalCard.classList.toggle("is-selected", scope === "INTERNAL");
+      publicCard.classList.toggle("is-selected", scope === "PUBLIC");
+
+      const isPublic = scope === "PUBLIC";
+      document.getElementById("public-warning").classList.toggle("is-visible", isPublic);
+      document.getElementById("public-confirmation").classList.toggle("is-visible", isPublic);
+      if (!isPublic) publicConfirm.checked = false;
+
+      document.getElementById("policy-title").textContent = isPublic
+        ? "인터넷 전체 CIDR을 사용합니다"
+        : "AM이 VNet CIDR을 조회합니다";
+      document.getElementById("policy-description").textContent = isPublic
+        ? "공인 IP가 있는 VM의 서비스 포트를 모든 인터넷 주소에 공개합니다."
+        : "vNetId로 VNet 정보를 조회하고 실제 cidrBlock을 SG 규칙에 사용합니다.";
+      document.getElementById("derived-cidr").textContent = selectedCidr();
+    }
+
+    function buildRequest() {
+      const target = currentTarget();
+      const scope = currentScope();
+      const port = portNumber();
+      return {
+        deploymentRequest: {
+          namespace: target.namespace,
+          mciId: target.mciId,
+          vmIds: [target.vmId],
+          application: currentApplication(),
+          servicePort: Number.isInteger(port) ? port : null,
+          accessScope: scope
+        },
+        resolvedNetworkPolicy: {
+          vnetId: target.vnetId,
+          vnetCidr: target.vnetCidr,
+          securityGroupId: target.securityGroupId,
+          firewallRule: {
+            ports: String(Number.isInteger(port) ? port : ""),
+            protocol: "TCP",
+            direction: "inbound",
+            cidr: selectedCidr()
+          }
+        }
+      };
+    }
+
+    function renderPreview() {
+      const target = currentTarget();
+      const scope = currentScope();
+      const port = servicePortInput.value || "-";
+      document.getElementById("request-preview").textContent = JSON.stringify(buildRequest(), null, 2);
+      document.getElementById("internal-flow").textContent = `${target.vnetCidr} → ${target.privateIp}:${port}`;
+      document.getElementById("internet-flow").textContent = scope === "PUBLIC"
+        ? `허용 → ${target.publicIp || "공인 IP 없음"}:${port}`
+        : "차단";
+      simulateButton.disabled = scope === "PUBLIC" && !publicConfirm.checked;
+    }
+
+    function renderAll() {
+      setTargetSummary();
+      renderScopeCards();
+      renderPreview();
+      document.getElementById("test-result").classList.remove("is-visible");
+    }
+
+    targetSelect.addEventListener("change", renderAll);
+    applicationSelect.addEventListener("change", () => {
+      setApplicationPort();
+      renderAll();
+    });
+    servicePortInput.addEventListener("input", renderAll);
+    scopeInputs.forEach(input => input.addEventListener("change", renderAll));
+    publicConfirm.addEventListener("change", renderPreview);
+
+    simulateButton.addEventListener("click", () => {
+      const port = portNumber();
+      const result = document.getElementById("test-result");
+      result.classList.remove("alert-success", "alert-danger", "is-visible");
+
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        result.classList.add("alert-danger", "is-visible");
+        result.textContent = "실패: Service Port는 1~65535 범위의 정수여야 합니다.";
+        return;
+      }
+
+      if (currentScope() === "PUBLIC" && !currentTarget().publicIp) {
+        result.classList.add("alert-danger", "is-visible");
+        result.textContent = "실패: 공인 IP가 없는 VM은 Public으로 공개할 수 없습니다.";
+        return;
+      }
+
+      result.classList.add("alert-success", "is-visible");
+      result.textContent = currentScope() === "PUBLIC"
+        ? `검증 성공: TCP ${port}을(를) 0.0.0.0/0에 공개하는 SG 규칙을 생성합니다.`
+        : `검증 성공: TCP ${port}을(를) ${currentTarget().vnetCidr} 내부에만 허용하는 SG 규칙을 생성합니다.`;
+    });
+
+    resetButton.addEventListener("click", () => {
+      targetSelect.value = "aws-public";
+      applicationSelect.value = "Grafana";
+      servicePortInput.value = "3000";
+      scopeInputs.find(input => input.value === "INTERNAL").checked = true;
+      publicConfirm.checked = false;
+      renderAll();
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>

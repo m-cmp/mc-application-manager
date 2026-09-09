@@ -32,20 +32,40 @@ final class K8sIngressPolicy {
             case "loki" -> "gateway.ingress";
             default -> "ingress";
         };
+        // Preserve the repository-aware adapter's schema, including generic
+        // structured hosts and Bitnami's boolean tls plus extraTls. Loki keeps
+        // the gateway mapping already supported by the deployment policy.
+        if (!"loki".equalsIgnoreCase(chart)) {
+            for (String candidate : List.of("ingress.main", "server.ingress", "ingress")) {
+                Map<?, ?> mapped = file;
+                for (String key : candidate.split("\\.")) mapped = map(mapped.get(key));
+                if (mapped.containsKey("enabled")) {
+                    root = candidate;
+                    break;
+                }
+            }
+        }
         // Replace generic settings with the chart's native values shape.
-        values.keySet().removeIf(k -> k.startsWith("ingress.") || k.startsWith(root + "."));
+        String ingressRoot = root;
+        values.keySet().removeIf(k -> k.startsWith("ingress.") || k.startsWith(ingressRoot + "."));
         Map<String,Object> ingress = file;
-        for (String key : root.split("\\."))
-            ingress = (Map<String,Object>) ingress.computeIfAbsent(key, ignored -> new LinkedHashMap<>());
+        for (String key : root.split("\\.")) {
+            Map<String,Object> child = new LinkedHashMap<>((Map<String,Object>) map(ingress.get(key)));
+            ingress.put(key, child);
+            ingress = child;
+        }
+        boolean chartMapped = ingress.containsKey("enabled");
+        Map<String,Object> annotations = new LinkedHashMap<>((Map<String,Object>) map(ingress.get("annotations")));
+        annotations.put(K8sIngressAccessService.CIDR_ANNOTATION, cidr);
+        annotations.put("kubernetes.io/ingress.class", "nginx");
+        ingress.put("annotations", annotations);
+        if (chartMapped) return;
         ingress.put("enabled", true);
         ingress.put("ingressClassName", "nginx");
         ingress.put("className", "nginx");
         ingress.put("path", config.getIngressPath());
         ingress.put("pathType", "Prefix");
         ingress.put("hostname", config.getIngressHost());
-        Map<String,Object> annotations = (Map<String,Object>) ingress.computeIfAbsent("annotations", ignored -> new LinkedHashMap<>());
-        annotations.put(K8sIngressAccessService.CIDR_ANNOTATION, cidr);
-        annotations.put("kubernetes.io/ingress.class", "nginx");
         boolean structuredHosts = "rclone".equalsIgnoreCase(chart) || "loki".equalsIgnoreCase(chart);
         ingress.put("hosts", structuredHosts
                 ? List.of(Map.of("host", config.getIngressHost(), "paths", List.of(Map.of("path", config.getIngressPath(), "pathType", "Prefix"))))

@@ -23,6 +23,7 @@ public class DeploymentRequestDTO {
     private String namespace;
     private String mciId;           // VM 배포시
     private List<String> vmIds;     // VM 배포시 (단일/다중 VM 모두 지원)
+    private String vmNodeGroupId;   // CB-Tumblebug VM subGroup ID (Standalone only)
     private String clusterName;     // K8s 배포시
     private Long catalogId;
     private Integer servicePort;    // VM 배포시
@@ -62,6 +63,7 @@ public class DeploymentRequestDTO {
                 .namespace(this.namespace)
                 .mciId(this.mciId)
                 .vmIds(this.vmIds)
+                .vmNodeGroupId(this.vmNodeGroupId)
                 .clusterName(this.clusterName)
                 .catalogId(this.catalogId)
                 .servicePort(this.servicePort)

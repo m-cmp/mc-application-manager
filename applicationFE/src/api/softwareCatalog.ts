@@ -36,6 +36,7 @@ export const runVmInstall = (params: {
   namespace: string,
   mciId: string,
   vmIds: string[],
+  vmNodeGroupId?: string,
   clusterName: string,
   catalogId: number,
   servicePort?: number,
@@ -123,6 +124,18 @@ export const k8sSpecCheck = (params: {
 }) => {
   return request.get(`/applications/k8s/check?namespace=${params.namespace}&clusterName=${params.clusterName}&catalogId=${params.catalogId}`)
 }
+
+export const k8sIngressCheck = (params: {
+  namespace: string,
+  clusterName: string,
+  catalogId: number,
+  ingressEnabled?: boolean,
+  ingressHost?: string,
+  ingressPath?: string,
+  ingressClass?: string,
+  ingressTlsEnabled?: boolean,
+  ingressTlsSecret?: string | null
+}) => request.post('/applications/k8s/ingress/check', params)
 
 export const getBuildLogList = (jobName: string) => {
   return request.get(`/ape/log/${jobName}`)

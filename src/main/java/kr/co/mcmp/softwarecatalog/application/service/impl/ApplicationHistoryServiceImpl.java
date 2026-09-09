@@ -62,6 +62,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
                     .namespace(request.getNamespace())
                     .mciId(request.getMciId())
                     .vmId(request.getFirstVmId())
+                    .nodeGroupName(request.getVmNodeGroupId())
                     .publicIp(vmInfo.getPublicIP())
                     .actionType(ActionType.INSTALL)
                     .status("IN_PROGRESS")
@@ -103,6 +104,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
             appStatus.setNamespace(history.getNamespace());
             appStatus.setMciId(history.getMciId());
             appStatus.setVmId(history.getVmId());
+            appStatus.setNodeGroupName(history.getNodeGroupName());
             appStatus.setPublicIp(history.getPublicIp());
             appStatus.setServicePort(history.getServicePort());
         } else if (history.getDeploymentType() == DeploymentType.K8S) {
@@ -160,6 +162,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
             appStatus.setNamespace(history.getNamespace());
             appStatus.setMciId(history.getMciId());
             appStatus.setVmId(vmId);
+            appStatus.setNodeGroupName(history.getNodeGroupName());
             appStatus.setPublicIp(publicIp);
             appStatus.setServicePort(servicePort);
             if (containerId != null && !containerId.isBlank()) {
@@ -190,6 +193,7 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
                     .namespace(request.getNamespace())
                     .mciId(request.getMciId())
                     .vmId(vmId)
+                    .nodeGroupName(request.getVmNodeGroupId())
                     .clusterName(request.getClusterName())
                     .publicIp(vmInfo.getPublicIP())
                     .actionType(ActionType.INSTALL)
@@ -314,4 +318,3 @@ public class ApplicationHistoryServiceImpl implements ApplicationHistoryService 
         return StringUtils.isNotBlank(username) ? userService.findUserByUsername(username).orElse(null) : null;
     }
 }
-
