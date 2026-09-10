@@ -6,7 +6,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      redirect: '/web/softwareCatalog'
+      redirect: '/web/applications/swcatalog'
     },
     {
       path: '/web',
@@ -25,13 +25,20 @@ const router = createRouter({
     },
     {
       path: '/web/repository/list',
-      name: 'repositoryList',
-      component: () => import('@/views/repository/RepositoryList.vue' as any)
+      redirect: (to) => ({
+        name: 'repositoryList',
+        query: to.query,
+        hash: to.hash
+      })
     },
     {
       path: `/web/repository/detail/:repositoryName`,
-      name: 'repositoryDetail',
-      component: () => import('@/views/repository/RepositoryDetail.vue' as any)
+      redirect: (to) => ({
+        name: 'repositoryDetail',
+        params: { repositoryName: to.params.repositoryName },
+        query: to.query,
+        hash: to.hash
+      })
     },
     {
       path: `/web/softwareCatalog/install`,
@@ -40,8 +47,37 @@ const router = createRouter({
     },
     {
       path: `/web/softwareCatalog`,
+      redirect: (to) => ({
+        name: 'softwareCatalog',
+        query: to.query,
+        hash: to.hash
+      })
+    },
+    {
+      path: `/web/applications/swcatalog`,
       name: 'softwareCatalog',
       component: () => import('@/views/softwareCatalog/SoftwareCatalog.vue' as any)
+    },
+    {
+      path: `/web/applications/status`,
+      name: 'applicationStatus',
+      component: () => import('@/views/softwareCatalog/ApplicationStatus.vue' as any)
+    },
+    {
+      path: `/web/applications/repository`,
+      component: () => import('@/views/repository/ApplicationRepository.vue' as any),
+      children: [
+        {
+          path: '',
+          name: 'repositoryList',
+          component: () => import('@/views/repository/RepositoryList.vue' as any)
+        },
+        {
+          path: ':repositoryName',
+          name: 'repositoryDetail',
+          component: () => import('@/views/repository/RepositoryDetail.vue' as any)
+        }
+      ]
     },
     // {
     //   path: `/web/softwareCatalog/list`,

@@ -1,23 +1,9 @@
 <template>
-  <div class="card card-flush w-100">
-    <div class="page-header page-wrapper">
-      <div class="row align-items-center">
-        <div class="card-header d-flex" style="justify-content: space-between;">
-          <h3 class="card-title"><strong>Apps Status</strong></h3>
-          <div class="btn-list">
-            <span class="me-2">{{ refreshTime }}</span>
-            <a class="btn btn-outline-primary d-none d-sm-inline-block" @click="_getApplicationsStatusList">
-              <IconRefresh class="icon icon-tabler" :size="20" stroke-width="1" />
-              Refresh
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-      <Tabulator 
-        :columns="columns" 
-        :table-data="applicationsStatusList">
-      </Tabulator>
+  <div class="card w-100">
+    <Tabulator
+      :columns="columns"
+      :table-data="applicationsStatusList">
+    </Tabulator>
   </div>
   <ApplicationActionConfirm 
     ref="applicationActionConfirmModalRef"
@@ -45,7 +31,6 @@ import type { ApplicationStatus } from '@/views/type/type'
 import type { ColumnDefinition } from 'tabulator-tables';
 import { useToast } from 'vue-toastification';
 import { getApplicationsStatus } from '@/api/softwareCatalog';
-import { IconRefresh } from '@tabler/icons-vue'
 import ApplicationActionConfirm from './applicationActionConfirm.vue';
 import ApplicationRatingModal from './applicationRatingModal.vue';
 import ApplicationDetailModal from './applicationDetailModal.vue';
@@ -64,6 +49,9 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   nsId: ''
 })
+const emit = defineEmits<{
+  (e: 'refresh-time-updated', value: string): void
+}>()
 const isEmbedded = window.self !== window.top
 let mounted = false
 let statusLoadSequence = 0
@@ -158,6 +146,7 @@ const initData = () => {
   const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false } as any;
 
   refreshTime.value = now.toLocaleDateString('ko-KR', options)
+  emit('refresh-time-updated', refreshTime.value)
 }
 
 
@@ -411,7 +400,7 @@ const actionButtonFormatter = (cell: any) => {
     <button
       class='btn btn-link text-danger px-2 py-1'
       id='uninstall-btn'
-      data-bs-toggle='modal' 
+      data-bs-toggle='modal'
       data-bs-target='#action-confirm'
       ${disabledAttr}>
       Uninstall
@@ -419,7 +408,7 @@ const actionButtonFormatter = (cell: any) => {
     <button
       class='btn btn-link text-info px-2 py-1'
       id='rating-btn'
-      data-bs-toggle='modal' 
+      data-bs-toggle='modal'
       data-bs-target='#rating-modal'
       ${disabledAttr}>
       Rating

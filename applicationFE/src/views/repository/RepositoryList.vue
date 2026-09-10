@@ -1,12 +1,5 @@
 <template>
-  <div class="card card-flush w-100">
-    <TableHeander 
-      :header-title="'Repository'"
-      :new-btn-title="'New Repository'"
-      :popup-flag="true"
-      :popup-target="'#repositoryForm'"
-      @click-new-btn="onClickNewBtn"
-    />
+  <div class="card w-100">
     <Tabulator 
       :columns="columns"
       :table-data="repositoryList">
@@ -24,7 +17,6 @@
   </div>
 </template>
 <script setup lang="ts">
-import TableHeander from '@/components/Table/TableHeader.vue'
 import Tabulator from '@/components/Table/Tabulator.vue'
 import { getRepositoryList } from '@/api/repository'
 import { onMounted } from 'vue';
@@ -37,11 +29,24 @@ import RepositoryForm from './components/repositoryForm.vue';
 import DeleteRepository from './components/deleteRepository.vue';
 
 const toast = useToast()
-// Embedded 모드: SoftwareCatalog 탭 내에서 상세 전환을 위해 사용
+// Embedded mode remains available for host screens that manage detail navigation themselves.
 const props = defineProps<{ embedded?: boolean }>()
 const emit = defineEmits<{
   (e: 'open-detail', repositoryName: string): void
 }>()
+
+const openRepositoryDetail = (repositoryName: string) => {
+  selectRepositoryName.value = repositoryName
+  if (props.embedded) {
+    emit('open-detail', repositoryName)
+    return
+  }
+
+  router.push({
+    name: 'repositoryDetail',
+    params: { repositoryName }
+  })
+}
 /**
  * @Title repositoryList / columns
  * @Desc 
@@ -89,12 +94,7 @@ const setColumns = () => {
       width: '15%',
       cellClick: function (e, cell) {
         e.stopPropagation();
-        selectRepositoryName.value = cell.getRow().getData().name
-        if (props.embedded) {
-          emit('open-detail', selectRepositoryName.value)
-        } else {
-          router.push('/web/repository/detail/' + selectRepositoryName.value)
-        }
+        openRepositoryDetail(cell.getRow().getData().name)
       }
     },
     {
@@ -103,12 +103,7 @@ const setColumns = () => {
       width: '10%',
       cellClick: function (e, cell) {
         e.stopPropagation();
-        selectRepositoryName.value = cell.getRow().getData().name
-        if (props.embedded) {
-          emit('open-detail', selectRepositoryName.value)
-        } else {
-          router.push('/web/repository/detail/' + selectRepositoryName.value)
-        }
+        openRepositoryDetail(cell.getRow().getData().name)
       }
     },
     {
@@ -117,12 +112,7 @@ const setColumns = () => {
       width: '40%',
       cellClick: function (e, cell) {
         e.stopPropagation();
-        selectRepositoryName.value = cell.getRow().getData().name
-        if (props.embedded) {
-          emit('open-detail', selectRepositoryName.value)
-        } else {
-          router.push('/web/repository/detail/' + selectRepositoryName.value)
-        }
+        openRepositoryDetail(cell.getRow().getData().name)
       }
     },
     {
@@ -131,12 +121,7 @@ const setColumns = () => {
       width: '15%',
       cellClick: function (e, cell) {
         e.stopPropagation();
-        selectRepositoryName.value = cell.getRow().getData().name
-        if (props.embedded) {
-          emit('open-detail', selectRepositoryName.value)
-        } else {
-          router.push('/web/repository/detail/' + selectRepositoryName.value)
-        }
+        openRepositoryDetail(cell.getRow().getData().name)
       }
     },
     {
@@ -169,14 +154,14 @@ const editDeleteButtonFormatter = () => {
     <button
       class='btn btn-outline-primary d-none d-sm-inline-block me-1'
       id='edit-btn'
-      data-bs-toggle='modal' 
+      data-bs-toggle='modal'
       data-bs-target='#repositoryForm'>
       Update
     </button>
     <button
       class='btn btn-outline-danger d-none d-sm-inline-block'
       id='delete-btn'
-      data-bs-toggle='modal' 
+      data-bs-toggle='modal'
       data-bs-target='#deleteRepository'>
       Delete
     </button>
@@ -198,5 +183,8 @@ const onClickNewBtn = () => {
   formMode.value = 'new';
 }
 
+defineExpose({
+  startCreate: onClickNewBtn
+})
 
 </script>

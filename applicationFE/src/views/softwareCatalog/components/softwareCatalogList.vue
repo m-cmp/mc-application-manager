@@ -1,6 +1,5 @@
 <template>
   <div ref="sofwareCatalog">
-    <h2 class="mb-3">Catalog</h2>
     <!-- Navbar -->
     <div class="row">
       <div class="col-lg-12">

@@ -15,13 +15,13 @@
               <div class="btn-list">
                 <button
                   type="button"
-                  class="btn btn-outline-primary"
+                  class="btn btn-outline-primary page-header-action-btn"
                   @click="onClickRegister">
                   Register
                 </button>
                 <button
                   type="button"
-                  class="btn btn-primary"
+                  class="btn btn-primary page-header-action-btn"
                   @click="onClickDeploy('Application Installation')">
                   Deploy
                 </button>
@@ -57,77 +57,7 @@
         <div class="container-xxl">
           <div class="row">
             <div class="col-lg-12">
-              <!-- INSTALL button moved to header; body space gained -->
-
-              <div class="card">
-
-                <!-- Tab Title -->
-                <div class="card-header">
-                  <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs">
-
-                    <!-- Catalog -->
-                    <li class="nav-item">
-                      <a href="#tabs-catalog" class="nav-link active" data-bs-toggle="tab">
-                      <IconApps class="icon me-2" width="24" height="24" stroke-width="2" /> 
-                      Catalog
-                    </a>
-                    </li>
-
-                    <!-- Status -->
-                    <li class="nav-item">
-                      <a href="#tabs-status" class="nav-link" data-bs-toggle="tab" @click="onClickStatusTab">
-                        <IconActivityHeartbeat class="icon me-2" width="24" height="24" stroke-width="2" /> 
-                        Apps Status
-                      </a>
-                    </li>
-
-                    <!-- Repository -->
-                    <li class="nav-item">
-                      <a href="#tabs-repository" class="nav-link" data-bs-toggle="tab">
-                        <IconFolder class="icon me-2" width="24" height="24" stroke-width="2" /> 
-                        Repository
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-
-                <!-- Tab Body -->
-                <div class="card-body">
-                  <div class="tab-content">
-
-                    <!-- Catalog -->
-                    <div class="tab-pane active show" id="tabs-catalog">
-                      <div>
-                        <SoftwareCatalogList ref="softwareCatalogListRef" :nsId="nsId"/>
-                      </div>
-                    </div>
-
-                    <!-- Status -->
-                    <div class="tab-pane" id="tabs-status">
-                      <div>
-                        <ApplicationStatusList ref="applicationStatusListRef" :ns-id="nsId" />
-                      </div>
-                    </div>
-
-                    <!-- Repository -->
-                    <div class="tab-pane" id="tabs-repository">
-                      <div>
-                        <template v-if="!showRepositoryDetail">
-                          <RepositoryList 
-                            :embedded="true"
-                            @open-detail="onOpenRepositoryDetail"/>
-                        </template>
-                        <template v-else>
-                          <RepositoryDetail 
-                            :embedded="true"
-                            :repository-name="selectedRepositoryName"
-                            @back-to-list="onBackToRepositoryList"/>
-                        </template>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <SoftwareCatalogList ref="softwareCatalogListRef" />
             </div>
           </div>
         </div>
@@ -141,12 +71,8 @@
 </template>
 <script setup lang="ts">
 // Components
-import { IconActivityHeartbeat, IconApps, IconFolder } from '@tabler/icons-vue'
 import ApplicationInstallationForm from '@/views/softwareCatalog/components/applicationInstallationForm.vue';
-import ApplicationStatusList from '@/views/softwareCatalog/components/applicationStatusList.vue';
 import SoftwareCatalogList from '@/views/softwareCatalog/components/softwareCatalogList.vue';
-import RepositoryList from '@/views/repository/RepositoryList.vue';
-import RepositoryDetail from '@/views/repository/RepositoryDetail.vue';
 import { Modal } from 'bootstrap';
 
 // ETC
@@ -156,9 +82,6 @@ import { useUserStore } from '@/stores/user'
 const userinfo = useUserStore();
 const nsId = computed(() => userinfo.getNsId() || '')
 const modalTite = ref("" as string)
-const showRepositoryDetail = ref(false)
-const selectedRepositoryName = ref("")
-const applicationStatusListRef = ref<InstanceType<typeof ApplicationStatusList> | null>(null)
 const softwareCatalogListRef = ref<InstanceType<typeof SoftwareCatalogList> | null>(null)
 
 const openModal = (modalId: string) => {
@@ -183,23 +106,6 @@ const onClickRegister = async () => {
   await nextTick()
   openModal('modal-wizard')
 }
-
-const onClickStatusTab = async () => {
-  await nextTick()
-  applicationStatusListRef.value?.refresh()
-}
-
-const onOpenRepositoryDetail = (name: string) => {
-  selectedRepositoryName.value = name
-  showRepositoryDetail.value = true
-}
-
-const onBackToRepositoryList = () => {
-  showRepositoryDetail.value = false
-  selectedRepositoryName.value = ""
-}
-
-
 </script>
 <style>
 @import url('https://rsms.me/inter/inter.css');

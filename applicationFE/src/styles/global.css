@@ -22,6 +22,21 @@ html, body {
   min-height: 36px;
 }
 
+/* Keep top-right page actions visually consistent across application menus. */
+.page-header-action-btn {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  white-space: nowrap;
+  width: 10rem;
+}
+
+@media (max-width: 575.98px) {
+  .page-header-action-btn {
+    width: auto;
+  }
+}
+
 /* Softer colors */
 .btn-primary {
   background-color: #007bff;
