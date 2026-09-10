@@ -211,7 +211,7 @@
               <select
                 class="form-select"
                 id="vm-node-group"
-                :disabled="selectMci == ''"
+                :disabled="selectMci == '' || isTargetLocked"
                 v-model="selectVmNodeGroupId"
                 @change="onSelectVmNodeGroup">
                 <option value="">Select NodeGroup</option>
@@ -894,6 +894,7 @@ import { getK8sStorageClasses, getRegisteredObjectStorages, getSoftwareCatalogLi
 import { type SoftwareCatalog } from '@/views/type/type'
 import { useUserStore } from '@/stores/user'
 import { isVmClusteringCatalog } from '@/utils/vmClustering'
+import { resolveInstallVmTarget } from '@/integration/installTarget'
 
 interface Props {
   nsId?: string
@@ -903,6 +904,7 @@ interface Props {
   targetType?: '' | 'VM' | 'K8S'
   targetMciId?: string
   targetVmId?: string
+  targetNodeGroupId?: string
   targetClusterId?: string
 }
 
@@ -923,6 +925,7 @@ const props = withDefaults(defineProps<Props>(), {
   targetType: '',
   targetMciId: '',
   targetVmId: '',
+  targetNodeGroupId: '',
   targetClusterId: ''
 })
 const emit = defineEmits<{
@@ -933,9 +936,22 @@ const emit = defineEmits<{
 const modalTitle = computed(() => props.title);
 const normalizedTargetType = computed(() => String(props.targetType || '').toUpperCase())
 const isTargetLocked = computed(() => props.embedded && ['VM', 'K8S'].includes(normalizedTargetType.value))
-const lockedTargetLabel = computed(() => normalizedTargetType.value === 'VM'
-  ? `VM ${props.targetVmId} in ${props.targetMciId}`
-  : `Kubernetes cluster ${props.targetClusterId}`)
+const isLockedVmNodeGroupTarget = computed(() => isTargetLocked.value
+  && normalizedTargetType.value === 'VM'
+  && Boolean(String(props.targetNodeGroupId || '').trim())
+  && !String(props.targetVmId || '').trim())
+const lockedTargetLabel = computed(() => {
+  if (normalizedTargetType.value !== 'VM') {
+    return `Kubernetes cluster ${props.targetClusterId}`
+  }
+  if (isLockedVmNodeGroupTarget.value) {
+    return `NodeGroup ${props.targetNodeGroupId} in ${props.targetMciId}`
+  }
+  const nodeGroup = String(props.targetNodeGroupId || '').trim()
+  return nodeGroup
+    ? `VM ${props.targetVmId} in NodeGroup ${nodeGroup} / ${props.targetMciId}`
+    : `VM ${props.targetVmId} in ${props.targetMciId}`
+})
 
 const normalizeScopeValues = (value: unknown): string[] => {
   const values = Array.isArray(value) ? value : [value]
@@ -1182,7 +1198,9 @@ watch(selectDeploymentType, () => {
 watch(vmTargetMode, (targetMode) => {
   selectVm.value = ''
   selectedVmList.value = []
-  selectVmNodeGroupId.value = ''
+  selectVmNodeGroupId.value = targetMode === 'NODE_GROUP' && isLockedVmNodeGroupTarget.value
+    ? String(props.targetNodeGroupId || '').trim()
+    : ''
   vmList.value = [...originalVmList.value]
 
   if (targetMode === 'NODE_GROUP') {
@@ -1416,21 +1434,36 @@ const _getVmName = async (loadSequence = resourceLoadSequence) => {
 
     const availableVms = Array.isArray(data?.node) ? data.node : []
     if (isTargetLocked.value && normalizedTargetType.value === 'VM') {
-      const targetVm = availableVms.find((vm: any) => matchesScope(vm, [props.targetVmId]))
-      if (!targetVm) {
+      const resolvedTarget = resolveInstallVmTarget(availableVms, {
+        vmId: props.targetVmId,
+        nodeGroupId: props.targetNodeGroupId
+      })
+      if (!resolvedTarget.ok) {
         originalVmList.value = []
         vmList.value = []
         selectVm.value = ''
         selectedVmList.value = []
-        projectScopeError.value = `VM "${props.targetVmId}" was not found in infra "${props.targetMciId}".`
+        selectVmNodeGroupId.value = ''
+        projectScopeError.value = `${resolvedTarget.error} Infra: "${props.targetMciId}".`
         return
       }
 
-      const targetVmId = getVmValue(targetVm)
-      originalVmList.value = [targetVm]
-      vmList.value = [targetVm]
-      selectVm.value = targetVmId
-      selectedVmList.value = [targetVmId]
+      if (resolvedTarget.mode === 'NODE_GROUP') {
+        originalVmList.value = resolvedTarget.members
+        vmList.value = [...resolvedTarget.members]
+        vmTargetMode.value = 'NODE_GROUP'
+        selectVmNodeGroupId.value = resolvedTarget.nodeGroupId
+        selectDeploymentType.value = 'Standalone'
+        selectVm.value = ''
+        selectedVmList.value = []
+        return
+      }
+
+      originalVmList.value = [resolvedTarget.vm]
+      vmList.value = [resolvedTarget.vm]
+      vmTargetMode.value = 'VM'
+      selectVm.value = resolvedTarget.vmId
+      selectedVmList.value = [resolvedTarget.vmId]
       return
     }
 
@@ -1659,7 +1692,10 @@ const getDeploymentTarget = () => selectInfra.value === 'VM'
         targetType: 'VM',
         namespace: selectNsId.value,
         mciId: selectMci.value,
-        vmId: selectedVmList.value[0] || ''
+        vmId: selectedVmList.value[0] || '',
+        ...(isTargetLocked.value && props.targetNodeGroupId
+          ? { nodeGroupId: props.targetNodeGroupId }
+          : {})
       }
   : {
       targetType: 'K8S',
@@ -1759,7 +1795,11 @@ const runInstall = async () => {
           namespace: selectNsId.value,
           mciId: selectMci.value,
           vmIds: isNodeGroupDeployment ? [] : selectedVmList.value,
-          vmNodeGroupId: isNodeGroupDeployment ? selectVmNodeGroupId.value : undefined,
+          vmNodeGroupId: isNodeGroupDeployment
+            ? selectVmNodeGroupId.value
+            : (isTargetLocked.value && props.targetNodeGroupId
+              ? props.targetNodeGroupId
+              : undefined),
           clusterName: clusterName,
           catalogId: selectedCatalogIdx.value,
           servicePort,

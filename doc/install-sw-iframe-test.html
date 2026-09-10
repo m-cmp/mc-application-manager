@@ -51,7 +51,9 @@
     <label for="mciId">MCI ID (VM)</label>
     <input id="mciId" placeholder="mci-01">
     <label for="vmId">VM ID (VM)</label>
-    <input id="vmId" placeholder="vm-01">
+    <input id="vmId" placeholder="vm-01 (NodeGroup 전체이면 비움)">
+    <label for="nodeGroupId">NodeGroup ID (VM, 선택)</label>
+    <input id="nodeGroupId" placeholder="group-01">
     <label for="clusterId">Cluster ID (K8S)</label>
     <input id="clusterId" placeholder="cluster-01">
 
@@ -103,7 +105,8 @@
     url.searchParams.set('requestId', field('requestId'))
     if (type === 'VM') {
       url.searchParams.set('mciId', field('mciId'))
-      url.searchParams.set('vmId', field('vmId'))
+      if (field('vmId')) url.searchParams.set('vmId', field('vmId'))
+      if (field('nodeGroupId')) url.searchParams.set('nodeGroupId', field('nodeGroupId'))
     } else {
       url.searchParams.set('clusterId', field('clusterId'))
     }

@@ -21,9 +21,10 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Resolves a CB-Tumblebug VM subGroup into an authoritative VM target list.
  *
- * <p>NodeGroup deployment intentionally supports standalone mode only. The
- * caller-provided VM list is replaced with the currently running members from
- * CB-Tumblebug so a request cannot add VMs from another group.</p>
+ * <p>NodeGroup deployment intentionally supports standalone mode only. If the
+ * request also names VMs, their membership and running state are verified and
+ * the selected VM list is preserved. If no VM is named, the target expands to
+ * every running member returned by CB-Tumblebug.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -55,14 +56,14 @@ public class VmNodeGroupTargetResolver {
             throw new ApplicationException("VM NodeGroup information is unavailable: " + nodeGroupId);
         }
 
-        boolean groupExists = false;
+        List<VmAccessInfo> groupMembers = new ArrayList<>();
         Set<String> runningVmIds = new LinkedHashSet<>();
         for (VmAccessInfo vm : mci.getNode()) {
             if (vm == null || !nodeGroupId.equals(StringUtils.trimToEmpty(vm.getSubGroupId()))) {
                 continue;
             }
 
-            groupExists = true;
+            groupMembers.add(vm);
             if (!isRunning(vm)) {
                 continue;
             }
@@ -73,23 +74,67 @@ public class VmNodeGroupTargetResolver {
             }
         }
 
-        if (!groupExists) {
+        if (groupMembers.isEmpty()) {
             throw new ApplicationException("VM NodeGroup was not found in the selected MCI: " + nodeGroupId);
         }
+
+        if (request.getVmIds() != null && !request.getVmIds().isEmpty()) {
+            Set<String> verifiedVmIds = new LinkedHashSet<>();
+            for (String requestedVmId : request.getVmIds()) {
+                if (StringUtils.isBlank(requestedVmId)) {
+                    throw new ApplicationException("VM ID is required when validating NodeGroup membership");
+                }
+
+                VmAccessInfo matchedVm = findVm(mci.getNode(), requestedVmId.trim());
+                if (matchedVm == null) {
+                    throw new ApplicationException("VM was not found in the selected MCI: " + requestedVmId.trim());
+                }
+                if (!nodeGroupId.equals(StringUtils.trimToEmpty(matchedVm.getSubGroupId()))) {
+                    throw new ApplicationException(
+                            "VM does not belong to the selected NodeGroup: " + requestedVmId.trim());
+                }
+                if (!isRunning(matchedVm)) {
+                    throw new ApplicationException("VM is not running: " + requestedVmId.trim());
+                }
+
+                String canonicalVmId = firstNonBlank(matchedVm.getId(), matchedVm.getName());
+                if (canonicalVmId == null) {
+                    throw new ApplicationException("VM identifier is unavailable: " + requestedVmId.trim());
+                }
+                verifiedVmIds.add(canonicalVmId);
+            }
+
+            request.setVmNodeGroupId(nodeGroupId);
+            request.setVmDeploymentMode(VmDeploymentMode.STANDALONE);
+            request.setVmIds(new ArrayList<>(verifiedVmIds));
+            log.info("Verified VM deployment targets against NodeGroup: namespace={}, mciId={}, nodeGroupId={}, vmCount={}",
+                    request.getNamespace(), request.getMciId(), nodeGroupId, verifiedVmIds.size());
+            return;
+        }
+
         if (runningVmIds.isEmpty()) {
             throw new ApplicationException("VM NodeGroup has no running VMs: " + nodeGroupId);
         }
 
-        if (request.getVmIds() != null && !request.getVmIds().isEmpty()) {
-            log.debug("Replacing caller-provided VM targets with authoritative NodeGroup members: nodeGroupId={}",
-                    nodeGroupId);
-        }
         request.setVmNodeGroupId(nodeGroupId);
         request.setVmDeploymentMode(VmDeploymentMode.STANDALONE);
         request.setVmIds(new ArrayList<>(runningVmIds));
 
         log.info("Resolved VM NodeGroup deployment targets: namespace={}, mciId={}, nodeGroupId={}, runningVmCount={}",
                 request.getNamespace(), request.getMciId(), nodeGroupId, runningVmIds.size());
+    }
+
+    private VmAccessInfo findVm(List<VmAccessInfo> vms, String requestedVmId) {
+        for (VmAccessInfo vm : vms) {
+            if (vm == null) {
+                continue;
+            }
+            if (requestedVmId.equals(StringUtils.trimToEmpty(vm.getId()))
+                    || requestedVmId.equals(StringUtils.trimToEmpty(vm.getName()))) {
+                return vm;
+            }
+        }
+        return null;
     }
 
     private boolean isRunning(VmAccessInfo vm) {

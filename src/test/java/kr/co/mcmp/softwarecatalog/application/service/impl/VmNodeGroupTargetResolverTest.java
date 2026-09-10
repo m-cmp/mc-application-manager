@@ -35,7 +35,7 @@ class VmNodeGroupTargetResolverTest {
     }
 
     @Test
-    void resolvesOnlyRunningMembersAndReplacesCallerProvidedVmIds() {
+    void resolvesOnlyRunningMembersWhenVmIdsAreOmitted() {
         MciDto mci = mci(
                 vm("vm-a", null, "group-a", "Running"),
                 vm("vm-b", null, "group-a", "RUNNING"),
@@ -46,7 +46,6 @@ class VmNodeGroupTargetResolverTest {
         when(cbtumblebugRestApi.getMciByMciId("project-a", "mci-a")).thenReturn(mci);
 
         DeploymentRequest request = nodeGroupRequest(" group-a ", VmDeploymentMode.STANDALONE);
-        request.setVmIds(List.of("vm-outside-group"));
 
         resolver.resolve(request);
 
@@ -54,6 +53,48 @@ class VmNodeGroupTargetResolverTest {
         assertThat(request.getVmDeploymentMode()).isEqualTo(VmDeploymentMode.STANDALONE);
         assertThat(request.getVmIds()).containsExactly("vm-a", "vm-b", "vm-by-name");
         verify(cbtumblebugRestApi).getMciByMciId("project-a", "mci-a");
+    }
+
+    @Test
+    void verifiesSelectedVmMembershipWithoutExpandingToTheWholeGroup() {
+        when(cbtumblebugRestApi.getMciByMciId("project-a", "mci-a"))
+                .thenReturn(mci(
+                        vm("vm-a", null, "group-a", "Running"),
+                        vm("vm-b", null, "group-a", "Running")));
+
+        DeploymentRequest request = nodeGroupRequest("group-a", VmDeploymentMode.STANDALONE);
+        request.setVmIds(List.of("vm-b"));
+
+        resolver.resolve(request);
+
+        assertThat(request.getVmIds()).containsExactly("vm-b");
+        assertThat(request.getVmNodeGroupId()).isEqualTo("group-a");
+    }
+
+    @Test
+    void rejectsSelectedVmFromAnotherNodeGroup() {
+        when(cbtumblebugRestApi.getMciByMciId("project-a", "mci-a"))
+                .thenReturn(mci(
+                        vm("vm-a", null, "group-a", "Running"),
+                        vm("vm-b", null, "group-b", "Running")));
+
+        DeploymentRequest request = nodeGroupRequest("group-a", VmDeploymentMode.STANDALONE);
+        request.setVmIds(List.of("vm-b"));
+
+        assertThatThrownBy(() -> resolver.resolve(request))
+                .hasMessageContaining("does not belong");
+    }
+
+    @Test
+    void rejectsSelectedVmThatIsNotRunning() {
+        when(cbtumblebugRestApi.getMciByMciId("project-a", "mci-a"))
+                .thenReturn(mci(vm("vm-a", null, "group-a", "Stopped")));
+
+        DeploymentRequest request = nodeGroupRequest("group-a", VmDeploymentMode.STANDALONE);
+        request.setVmIds(List.of("vm-a"));
+
+        assertThatThrownBy(() -> resolver.resolve(request))
+                .hasMessageContaining("not running");
     }
 
     @Test
