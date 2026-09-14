@@ -38,6 +38,7 @@ import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequestDTO;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.kubernetes.service.KubernetesStorageClassService;
 import kr.co.mcmp.softwarecatalog.kubernetes.service.KubernetesIngressPreflightService;
+import kr.co.mcmp.softwarecatalog.kubernetes.service.NhnStorageClassService;
 import kr.co.mcmp.security.project.ProjectScopeAuthorizationService;
 import org.springframework.web.bind.annotation.PathVariable;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +56,7 @@ public class ApplicationController {
     private final ObjectStorageSmokeTestService objectStorageSmokeTestService;
     private final ObjectStorageRegistryService objectStorageRegistryService;
     private final KubernetesStorageClassService kubernetesStorageClassService;
+    private final NhnStorageClassService nhnStorageClassService;
     private final ProjectScopeAuthorizationService projectScopeAuthorizationService;
     private final KubernetesIngressPreflightService kubernetesIngressPreflightService;
 
@@ -175,6 +177,19 @@ public class ApplicationController {
         projectScopeAuthorizationService.authorizeNamespace(httpRequest, namespace);
         List<K8sStorageClassDTO> result = kubernetesStorageClassService.getStorageClasses(namespace, clusterName);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+
+    @GetMapping("/k8s/storage-classes/nhn-capability")
+    public ResponseEntity<?> nhnStorageCapability(@RequestParam String namespace, @RequestParam String clusterName, HttpServletRequest httpRequest) {
+        projectScopeAuthorizationService.authorizeNamespace(httpRequest, namespace);
+        return ResponseEntity.ok(new ResponseWrapper<>(nhnStorageClassService.capability(namespace, clusterName)));
+    }
+
+    @PostMapping("/k8s/storage-classes/nhn")
+    public ResponseEntity<?> createNhnStorageClass(@RequestParam String namespace, @RequestParam String clusterName,
+            @RequestBody NhnStorageClassService.CreateRequest body, HttpServletRequest httpRequest) {
+        projectScopeAuthorizationService.authorizeNamespace(httpRequest, namespace);
+        return ResponseEntity.ok(new ResponseWrapper<>(nhnStorageClassService.create(namespace, clusterName, body)));
     }
 
     @Operation(summary = "Get deployment history", description = "Retrieve deployment history for a specific catalog ID.")

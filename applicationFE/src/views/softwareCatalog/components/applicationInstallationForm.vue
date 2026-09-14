@@ -516,6 +516,39 @@
               <p class="text-danger mt-1 mb-0" v-if="storageClassRequired && storageClassErrorMessage">
                 {{ storageClassErrorMessage }}
               </p>
+              <button type="button" class="btn btn-outline-secondary btn-sm mt-2" :disabled="storageClassLoading || storageCreating" @click="fetchStorageClasses(selectedStorageClass)">Refresh StorageClasses</button>
+              <p v-if="storageSetupError" class="text-danger mt-2" role="alert">{{ storageSetupError }}</p>
+              <div v-if="isNhnCluster && !storageClassLoadError && !storageClassList.length" class="border rounded p-2 mt-2">
+                <div class="fw-bold mb-2">NHN block storage setup</div>
+                <p role="status" class="mb-2">
+                  {{ storageCapability?.message || (storageSetupError ? 'NHN storage setup is unavailable.' : 'Checking Cinder CSI and AM permissions...') }}
+                </p>
+                <div class="mb-2">
+                  <span class="fw-semibold">1. Cinder CSI Plugin add-on</span>
+                  <span v-if="storageCapability" class="badge ms-2" :class="storageCapability.driverReady ? 'bg-success' : 'bg-warning text-dark'">
+                    {{ storageCapability.driverReady ? 'Ready' : 'Required' }}
+                  </span>
+                  <p v-if="storageCapability && !storageCapability.driverReady" class="text-muted mt-1 mb-0">
+                    Install cinder-csi-plugin from the selected cluster's NHN NKS Add-ons page, wait until it is active, and refresh StorageClasses here.
+                  </p>
+                </div>
+                <div v-if="storageCapability?.driverReady">
+                  <div class="fw-semibold mb-2">2. Create StorageClass</div>
+                  <label class="form-label">StorageClass name</label>
+                  <input class="form-control" v-model="newStorageClassName" :disabled="storageCreating || !storageCapability.canCreate" maxlength="63">
+                  <label class="form-label mt-2">Disk type</label>
+                  <select class="form-select" v-model="newStorageDiskType" :disabled="storageCreating || !storageCapability.canCreate">
+                    <option>General HDD</option><option>General SSD</option>
+                  </select>
+                  <p class="text-muted mt-2">Volumes are created when a Pod uses the claim. Retain policy keeps disks after claim deletion; remove unused disks separately.</p>
+                  <button type="button" class="btn btn-outline-primary" :disabled="storageCreating || !storageCapability.canCreate || !newStorageClassName" @click="createNotebookStorageClass">{{ storageCreating ? 'Creating...' : 'Create NHN StorageClass' }}</button>
+                </div>
+              </div>
+              <div v-if="isJupyterObjectStorageCatalog" class="mt-2">
+                <label class="form-label">Notebook volume capacity (GiB)</label>
+                <input type="number" class="form-control" v-model.number="notebookStorageGi" :min="selectedStorageMinimum" step="1">
+                <p class="text-muted">Minimum {{ selectedStorageMinimum }} GiB for the known disk limits. Access mode: ReadWriteOnce. Provider quotas and disk availability are checked during provisioning.</p>
+              </div>
             </div>
 
             <div class="mb-3" v-if="modalTitle == 'Application Installation' && ingressData.ingressEnabled">
@@ -881,7 +914,7 @@ import { Modal } from 'bootstrap';
 // @ts-ignore
 import _ from 'lodash';
 import { getNsInfo, getMciInfo, getVmInfo, getClusterInfo } from '@/api/tumblebug'
-import { getK8sStorageClasses, getRegisteredObjectStorages, getSoftwareCatalogList, k8sSpecCheck, k8sIngressCheck, objectStorageSmokeCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
+import { getNhnStorageCapability, createNhnStorageClass, getK8sStorageClasses, getRegisteredObjectStorages, getSoftwareCatalogList, k8sSpecCheck, k8sIngressCheck, objectStorageSmokeCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
 import { type SoftwareCatalog } from '@/views/type/type'
 import { useUserStore } from '@/stores/user'
 import { isVmClusteringCatalog } from '@/utils/vmClustering'
@@ -1038,6 +1071,18 @@ const storageClassList = ref([] as any[])
 const selectedStorageClass = ref("" as string)
 const storageClassLoading = ref(false as boolean)
 const storageClassLoadError = ref(false as boolean)
+const storageClassFailure = ref('')
+const storageCapability = ref<any>(null)
+const storageSetupError = ref('')
+const storageCreating = ref(false)
+const newStorageClassName = ref('mcmp-nhn-notebooks')
+const newStorageDiskType = ref('General HDD')
+const notebookStorageGi = ref(10)
+let storageRequestSequence = 0
+const storageErrorDetail = (error: any) => String(error?.response?.data?.detail || error?.message || 'Storage API request failed. Check cluster connectivity and permissions.')
+const selectedStorageMinimum = computed(() => Number(storageClassList.value.find(s => s.name === selectedStorageClass.value)?.minimumSizeGi || 1))
+watch(selectedStorageClass, () => { notebookStorageGi.value = Math.max(notebookStorageGi.value, selectedStorageMinimum.value) })
+watch(notebookStorageGi, () => { onChangeForm() })
 
 const clusterList = ref([] as any)
 const selectCluster = ref("" as string)
@@ -1251,6 +1296,7 @@ onMounted(async () => {
 const setInit = async () => {
   preparationEpoch++
   deploymentCompleted.value = false
+  storageRequestSequence++
   const loadSequence = ++resourceLoadSequence
   clearTargetResources()
   selectInfra.value = isTargetLocked.value ? normalizedTargetType.value : "VM"
@@ -1283,6 +1329,11 @@ const setInit = async () => {
   selectedStorageClass.value = ""
   storageClassLoading.value = false
   storageClassLoadError.value = false
+  storageClassFailure.value = ''
+  storageCapability.value = null
+  storageSetupError.value = ''
+  storageCreating.value = false
+  notebookStorageGi.value = 10
   selectedResourceType.value = "GENERAL_PURPOSE"
   inputServicePort.value = ""
   vmNetworkExposureMode.value = 'PRIVATE'
@@ -1565,34 +1616,52 @@ const fetchRegisteredObjectStorages = async () => {
   }
 }
 
-const fetchStorageClasses = async () => {
+const fetchStorageClasses = async (preferred = '') => {
+  const sequence = ++storageRequestSequence
   storageClassList.value = []
-  selectedStorageClass.value = ""
+  selectedStorageClass.value = ''
   storageClassLoadError.value = false
-
-  if (
-    selectInfra.value !== 'K8S'
-    || !supportsStorageClassConfig.value
-    || _.isEmpty(selectNsId.value)
-    || _.isEmpty(selectCluster.value)
-  ) {
-    return
-  }
-
+  storageClassFailure.value = ''
+  storageCapability.value = null
+  storageSetupError.value = ''
+  storageClassLoading.value = false
+  if (selectInfra.value !== 'K8S' || !supportsStorageClassConfig.value || !selectNsId.value || !selectCluster.value) return
+  const target = { namespace: selectNsId.value, clusterName: selectCluster.value }
   storageClassLoading.value = true
   try {
-    const { data } = await getK8sStorageClasses({
-      namespace: selectNsId.value,
-      clusterName: selectCluster.value
-    })
-    storageClassList.value = Array.isArray(data) ? data : []
-    selectedStorageClass.value = getInitialStorageClass(storageClassList.value)
+    const { data } = await getK8sStorageClasses(target)
+    if (sequence !== storageRequestSequence) return
+    if (!Array.isArray(data)) throw new Error('Invalid StorageClass API response. Retry the lookup.')
+    storageClassList.value = data
+    selectedStorageClass.value = data.some(s => s.name === preferred) ? preferred : getInitialStorageClass(data)
   } catch (error) {
+    if (sequence !== storageRequestSequence) return
     storageClassLoadError.value = true
-    selectedStorageClass.value = ""
+    storageClassFailure.value = storageErrorDetail(error)
   } finally {
-    storageClassLoading.value = false
+    if (sequence === storageRequestSequence) storageClassLoading.value = false
   }
+  if (sequence !== storageRequestSequence || storageClassLoadError.value || storageClassList.value.length || !isNhnCluster.value) return
+  try {
+    const { data } = await getNhnStorageCapability(target)
+    if (sequence === storageRequestSequence) storageCapability.value = data
+  } catch (error) {
+    if (sequence === storageRequestSequence) storageSetupError.value = storageErrorDetail(error)
+  }
+}
+
+const createNotebookStorageClass = async () => {
+  if (storageCreating.value || !storageCapability.value?.canCreate) return
+  const sequence = storageRequestSequence
+  const target = { namespace: selectNsId.value, clusterName: selectCluster.value }
+  storageCreating.value = true
+  storageSetupError.value = ''
+  try {
+    const { data } = await createNhnStorageClass(target, { name: newStorageClassName.value, diskType: newStorageDiskType.value })
+    if (sequence === storageRequestSequence) await fetchStorageClasses(data.name)
+  } catch (error) {
+    if (sequence === storageRequestSequence) storageSetupError.value = storageErrorDetail(error)
+  } finally { storageCreating.value = false }
 }
 
 const getInitialStorageClass = (items: any[]) => {
@@ -2057,10 +2126,11 @@ watch(canSelectClustering, (allowed) => {
 
 const selectedClusterProvider = computed(() => {
   const cluster = clusterList.value.find((item: any) => item.id === selectCluster.value || item.name === selectCluster.value)
-  return cluster?.connectionConfig?.providerName || cluster?.connectionName || ''
+  return String(cluster?.connectionConfig?.providerName || '').trim().toLowerCase()
 })
 
 const isIbmCluster = computed(() => /^(ibm|ibmcloud|ibm-cloud|ibm-vpc|ibmvpc)(-|$)/i.test(selectedClusterProvider.value))
+const isNhnCluster = computed(() => selectedClusterProvider.value === 'nhn')
 const effectiveIngressClass = computed(() => isIbmCluster.value ? 'public-iks-k8s-nginx' : 'nginx')
 
 const selectedVmProvider = computed(() => {
@@ -2119,9 +2189,11 @@ const storageClassPlaceholder = computed(() => {
 const storageClassErrorMessage = computed(() => {
   if (!storageClassRequired.value) return ''
   if (storageClassLoading.value) return 'StorageClass list is loading.'
-  if (storageClassLoadError.value) return 'StorageClass list could not be loaded.'
+  if (storageClassLoadError.value) return storageClassFailure.value || 'StorageClass list could not be loaded.'
   if (storageClassList.value.length === 0) return 'This application requires a StorageClass, but none was found.'
   if (_.isEmpty(selectedStorageClass.value)) return 'This application requires a StorageClass.'
+  if (isJupyterObjectStorageCatalog.value && (!Number.isInteger(notebookStorageGi.value) || notebookStorageGi.value < selectedStorageMinimum.value))
+    return 'Enter a whole-number notebook capacity of at least ' + selectedStorageMinimum.value + ' GiB.'
   return ''
 })
 
@@ -2248,6 +2320,10 @@ function buildK8sAdditionalConfig() {
   const config = {} as Record<string, any>
   if (storageClassRequired.value && !_.isEmpty(selectedStorageClass.value)) {
     config.storageClass = selectedStorageClass.value
+    if (isJupyterObjectStorageCatalog.value) {
+      config.storageSize = notebookStorageGi.value + 'Gi'
+      config.storageAccessMode = 'ReadWriteOnce'
+    }
   }
   if (showObjectStorageConfig.value && objectStorageData.value.enabled) {
     config.objectStorage = buildObjectStorageConfig()

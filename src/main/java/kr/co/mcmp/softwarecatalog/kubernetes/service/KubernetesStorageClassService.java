@@ -24,12 +24,12 @@ public class KubernetesStorageClassService {
     public List<K8sStorageClassDTO> getStorageClasses(String namespace, String clusterName) {
         try (KubernetesClient client = kubernetesClientFactory.getClient(namespace, clusterName)) {
             return client.storage().v1().storageClasses().list().getItems().stream()
-                    .map(this::toDto)
+                    .map(KubernetesStorageClassService::toDto)
                     .sorted(Comparator
                             .comparing(K8sStorageClassDTO::getDefaultClass, Comparator.nullsLast(Comparator.reverseOrder()))
                             .thenComparing(K8sStorageClassDTO::getName, Comparator.nullsLast(String::compareToIgnoreCase)))
                     .toList();
-        }
+        } catch (RuntimeException e) { throw StorageOperationException.translate(e); }
     }
 
     public boolean exists(String namespace, String clusterName, String storageClassName) {
@@ -40,17 +40,18 @@ public class KubernetesStorageClassService {
                 .anyMatch(storageClass -> storageClassName.equals(storageClass.getName()));
     }
 
-    private K8sStorageClassDTO toDto(StorageClass storageClass) {
+    static K8sStorageClassDTO toDto(StorageClass storageClass) {
         return K8sStorageClassDTO.builder()
                 .name(storageClass.getMetadata() != null ? storageClass.getMetadata().getName() : null)
                 .provisioner(storageClass.getProvisioner())
                 .defaultClass(isDefault(storageClass))
                 .reclaimPolicy(storageClass.getReclaimPolicy())
                 .volumeBindingMode(storageClass.getVolumeBindingMode())
+                .minimumSizeGi(JupyterStorageValidation.minimumSizeGi(storageClass))
                 .build();
     }
 
-    private boolean isDefault(StorageClass storageClass) {
+    private static boolean isDefault(StorageClass storageClass) {
         if (storageClass.getMetadata() == null) {
             return false;
         }

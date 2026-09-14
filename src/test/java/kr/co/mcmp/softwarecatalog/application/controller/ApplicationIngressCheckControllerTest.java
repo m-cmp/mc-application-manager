@@ -23,7 +23,7 @@ class ApplicationIngressCheckControllerTest {
     private final KubernetesIngressPreflightService ingress = mock(KubernetesIngressPreflightService.class);
     private final ApplicationOrchestrationService orchestration = mock(ApplicationOrchestrationService.class);
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new ApplicationController(
-            null, orchestration, null, null, null, scope, ingress)).build();
+            null, orchestration, null, null, null, null, scope, ingress)).build();
 
     @Test void checksProjectAuthorizationBeforePreflightAndReturnsBlockingErrorsSeparately() throws Exception {
         when(ingress.check(any())).thenReturn(new K8sIngressCheckResult(false, List.of("Host/Path conflict"), List.of()));

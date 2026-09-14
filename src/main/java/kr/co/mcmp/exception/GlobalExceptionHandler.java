@@ -16,6 +16,12 @@ import kr.co.mcmp.security.project.ProjectScopeException;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(kr.co.mcmp.softwarecatalog.kubernetes.service.StorageOperationException.class)
+    public ResponseEntity<ResponseWrapper<String>> handleStorageOperation(
+            kr.co.mcmp.softwarecatalog.kubernetes.service.StorageOperationException e) {
+        return ResponseEntity.status(e.getStatus()).body(new ResponseWrapper<>(e.getStatus(), e.getCode(), e.getMessage()));
+    }
+
 
     @ExceptionHandler(ProjectScopeException.class)
     public ResponseEntity<ResponseWrapper<String>> handleProjectScopeException(ProjectScopeException e) {

@@ -293,3 +293,8 @@ export function getPolicyRecommendation(deploymentId: number) {
 export function getReasonList(operation: string) {
   return request.get(`/catalog/selectbox/options?type=${operation}`)
 }
+
+export const getNhnStorageCapability = (params: { namespace: string, clusterName: string }) =>
+  request.get('/applications/k8s/storage-classes/nhn-capability', { params })
+export const createNhnStorageClass = (params: { namespace: string, clusterName: string }, body: { name: string, diskType: string }) =>
+  request.post('/applications/k8s/storage-classes/nhn', body, { params })
