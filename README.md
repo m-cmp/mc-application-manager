@@ -81,8 +81,11 @@ Once the services are up, you can access the following endpoints:
 - Repository UI : `http://<Public_IP>:8081`
 - Application Manager UI: `http://<Public_IP>:18084/web`
   - OSS Management: `http://<Public_IP>:18084/web/oss/list`
-  - Application Catalog Management: `http://<Public_IP>:18084/web/softwareCatalog`
-  - Repository Management: `http://<Public_IP>:18084/web/repository/list`
+  - Application Catalog Management: `http://<Public_IP>:18084/web/applications/swcatalog`
+  - Application Status: `http://<Public_IP>:18084/web/applications/status`
+  - Repository Management: `http://<Public_IP>:18084/web/applications/repository`
+
+The legacy `/web/softwareCatalog` and `/web/repository/*` UI routes redirect to the application routes above for backward compatibility.
   - Yaml Generator: `http://<Public_IP>:18084/web/generate/yaml`
 
 ### Step 4-1: Certainly! Here’s the translated list of settings:

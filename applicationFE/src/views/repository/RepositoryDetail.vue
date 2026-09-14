@@ -197,7 +197,7 @@ const downloadDeleteButtonFormatter = () => {
   <button
       class='btn btn-outline-danger d-none d-sm-inline-block'
       id='delete-btn'
-      data-bs-toggle='modal' 
+      data-bs-toggle='modal'
       data-bs-target='#deleteComponent'>
       Delete
     </button>
@@ -224,7 +224,7 @@ const onClickList = () => {
   if (props.embedded) {
     emit('back-to-list')
   } else {
-    router.push('/web/repository/list')
+    router.push({ name: 'repositoryList' })
   }
 }
 

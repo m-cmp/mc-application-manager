@@ -21,12 +21,24 @@ Workload → Install SW
 Web Console에서 다음 값을 확인할 수 있어야 합니다.
 
 - MCI/Infra ID
-- VM/Node ID
+- VM/Node ID 또는 NodeGroup ID
 
 AM URL:
 
 ```text
 {AM_BASE_URL}/web/softwareCatalog/install?targetType=VM&mciId={MCI_ID}&vmId={VM_ID}&requestId={REQUEST_ID}
+```
+
+NodeGroup 전체에 각각 독립 설치할 때:
+
+```text
+{AM_BASE_URL}/web/softwareCatalog/install?targetType=VM&mciId={MCI_ID}&nodeGroupId={NODE_GROUP_ID}&requestId={REQUEST_ID}
+```
+
+VM과 NodeGroup을 모두 알고 있으면 두 값을 함께 전달할 수 있습니다. 이 경우에는 VM 한 대가 배포 대상이며, AM이 해당 VM의 NodeGroup 소속을 검증합니다.
+
+```text
+{AM_BASE_URL}/web/softwareCatalog/install?targetType=VM&mciId={MCI_ID}&nodeGroupId={NODE_GROUP_ID}&vmId={VM_ID}&requestId={REQUEST_ID}
 ```
 
 ### K8s Workload
@@ -39,7 +51,7 @@ AM URL:
 {AM_BASE_URL}/web/softwareCatalog/install?targetType=K8S&clusterId={CLUSTER_ID}&requestId={REQUEST_ID}
 ```
 
-`nodeGroup`은 이번 연동 범위에서 제외합니다.
+K8s NodeGroup은 이번 연동 범위에서 제외합니다. K8s 애플리케이션 배포 대상은 Cluster입니다.
 
 ## 3. iframe에 Project 정보 전달
 
@@ -120,6 +132,7 @@ window.addEventListener('message', (event) => {
   target: {
     targetType: 'VM',
     mciId: 'mci-01',
+    nodeGroupId: 'group-01',
     vmId: 'vm-01'
   }
 }
@@ -142,7 +155,9 @@ window.addEventListener('message', (event) => {
 
 ## 6. 완료 확인 기준
 
-- Infra Workload에서 선택한 MCI/VM이 AM 화면에 고정됨
+- Infra Workload에서 선택한 MCI/VM 또는 MCI/NodeGroup이 AM 화면에 고정됨
+- VM과 NodeGroup을 함께 전달하면 VM 소속 관계가 검증됨
+- NodeGroup만 전달하면 실행 중인 모든 그룹 VM이 Spec Check 및 Standalone 배포 대상이 됨
 - K8s Workload에서 선택한 Cluster가 AM 화면에 고정됨
 - 다른 Target 또는 namespace로 화면에서 변경할 수 없음
 - Project 정보가 없거나 대상이 Project namespace에 없으면 오류 표시

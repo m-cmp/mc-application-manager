@@ -1,0 +1,23 @@
+# Container-side paths. Replace Project/connection/domain with operator-approved values.
+app:
+  project-scope:
+    enabled: true
+  ibm-ingress:
+    automation:
+      ready-timeout-seconds: 2400
+      poll-seconds: 10
+      cert-manager-version: v1.20.2
+      helm-executable: /usr/local/bin/helm
+      profiles:
+        - namespace: project-a
+          connection-name: ibm-jp-osa
+          region: jp-osa
+          api-key-file: /run/am-ingress/ibm-api-key
+          # Opt-in: this may interrupt existing applications while IBM replaces shared LBs.
+          allow-shared-lb-changes: true
+          install-cert-manager: true
+          allowed-domains:
+            - company.com
+          issuer-template-file: /run/am-ingress/cluster-issuer.yaml
+          dns-secret-files:
+            - /run/am-ingress/dns-secret.yaml

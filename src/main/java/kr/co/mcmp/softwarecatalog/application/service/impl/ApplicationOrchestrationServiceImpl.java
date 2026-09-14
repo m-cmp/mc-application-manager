@@ -65,10 +65,16 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
     private final ObjectStorageTunnelService objectStorageTunnelService;
     private final ObjectStorageAccessGrantService objectStorageAccessGrantService;
     private final DockerOperationService dockerOperationService;
+    private final VmNodeGroupTargetResolver vmNodeGroupTargetResolver;
     
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public DeploymentHistory deployApplication(DeploymentRequest request) {
+        // Resolve VM NodeGroup membership immediately before deployment so the
+        // backend, rather than a potentially stale or modified client list,
+        // determines the actual standalone targets.
+        vmNodeGroupTargetResolver.resolve(request);
+
         // 스펙 검증
         if (!validateSpec(request)) {
             log.warn("Spec validation failed for deployment request - catalogId: {}, type: {}", request.getCatalogId(), request.getDeploymentType());

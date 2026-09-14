@@ -1,0 +1,20 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: am-letsencrypt-company
+spec:
+  acme:
+    email: platform-ops@company.com
+    # For a separate staging test issuer/Host, use acme-staging-v02.api.letsencrypt.org.
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: am-letsencrypt-company-account
+    solvers:
+      - selector:
+          dnsZones:
+            - company.com
+        dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: am-cloudflare-dns
+              key: api-token

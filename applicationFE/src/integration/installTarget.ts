@@ -5,15 +5,40 @@ export interface InstallTarget {
   targetType: InstallTargetType
   mciId: string
   vmId: string
+  nodeGroupId: string
   clusterId: string
 }
+
+export interface InstallTargetVm {
+  id?: string
+  name?: string
+  subGroupId?: string
+  status?: string
+}
+
+export type InstallVmTargetResolution =
+  | {
+      ok: true
+      mode: 'VM'
+      vm: InstallTargetVm
+      vmId: string
+      nodeGroupId: string
+    }
+  | {
+      ok: true
+      mode: 'NODE_GROUP'
+      members: InstallTargetVm[]
+      runningVmIds: string[]
+      nodeGroupId: string
+    }
+  | { ok: false; error: string }
 
 export type InstallTargetParseResult =
   | { ok: true; target: InstallTarget }
   | { ok: false; error: string }
 
-const TARGET_KEYS = ['targetType', 'requestId', 'mciId', 'vmId', 'clusterId'] as const
-const FORBIDDEN_KEYS = ['namespace', 'namespaceId', 'nodeGroupId', 'nodegroupId'] as const
+const TARGET_KEYS = ['targetType', 'requestId', 'mciId', 'vmId', 'nodeGroupId', 'clusterId'] as const
+const FORBIDDEN_KEYS = ['namespace', 'namespaceId'] as const
 const MAX_IDENTIFIER_LENGTH = 200
 const PATH_IDENTIFIER_CHARACTERS = /[/?#]/
 
@@ -56,12 +81,9 @@ export const parseInstallTarget = (
 
   for (const key of FORBIDDEN_KEYS) {
     if (params.has(key)) {
-      const error = key === 'namespace' || key === 'namespaceId'
-        ? `${key} must not be supplied in the URL. Namespace comes from the selected Project context.`
-        : `${key} must not be supplied in the URL. nodeGroup is not supported by this integration.`
       return {
         ok: false,
-        error
+        error: `${key} must not be supplied in the URL. Namespace comes from the selected Project context.`
       }
     }
   }
@@ -89,6 +111,7 @@ export const parseInstallTarget = (
     validateIdentifier('requestId', requestId, true),
     validateIdentifier('mciId', values.mciId),
     validateIdentifier('vmId', values.vmId),
+    validateIdentifier('nodeGroupId', values.nodeGroupId),
     validateIdentifier('clusterId', values.clusterId)
   ].filter(Boolean)
   if (commonErrors.length > 0) {
@@ -97,10 +120,12 @@ export const parseInstallTarget = (
 
   if (targetType === 'VM') {
     const vmErrors = [
-      validateIdentifier('mciId', values.mciId, true),
-      validateIdentifier('vmId', values.vmId, true)
+      validateIdentifier('mciId', values.mciId, true)
     ].filter(Boolean)
     if (vmErrors.length > 0) return { ok: false, error: vmErrors[0] }
+    if (!values.vmId && !values.nodeGroupId) {
+      return { ok: false, error: 'vmId or nodeGroupId is required.' }
+    }
     if (values.clusterId) {
       return { ok: false, error: 'clusterId cannot be used with a VM target.' }
     }
@@ -112,6 +137,9 @@ export const parseInstallTarget = (
     if (values.mciId || values.vmId) {
       return { ok: false, error: 'mciId and vmId cannot be used with a K8S target.' }
     }
+    if (values.nodeGroupId) {
+      return { ok: false, error: 'nodeGroupId cannot be used with a K8S target.' }
+    }
   }
 
   return {
@@ -121,7 +149,77 @@ export const parseInstallTarget = (
       targetType,
       mciId: values.mciId,
       vmId: values.vmId,
+      nodeGroupId: values.nodeGroupId,
       clusterId: values.clusterId
     }
+  }
+}
+
+const getVmIdentifier = (vm: InstallTargetVm) => String(vm?.id || vm?.name || '').trim()
+
+const matchesVmIdentifier = (vm: InstallTargetVm, targetVmId: string) => {
+  const expected = String(targetVmId || '').trim().toLowerCase()
+  return [vm?.id, vm?.name]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean)
+    .includes(expected)
+}
+
+/**
+ * Resolve a fixed VM iframe target against the authoritative MCI response.
+ *
+ * A caller may keep using the legacy MCI + VM contract. When nodeGroupId is
+ * also present it is used to verify the selected VM's membership. Omitting
+ * vmId switches the target to all currently running VMs in the NodeGroup.
+ */
+export const resolveInstallVmTarget = (
+  vms: InstallTargetVm[],
+  target: Pick<InstallTarget, 'vmId' | 'nodeGroupId'>
+): InstallVmTargetResolution => {
+  const availableVms = Array.isArray(vms) ? vms : []
+  const vmId = String(target?.vmId || '').trim()
+  const nodeGroupId = String(target?.nodeGroupId || '').trim()
+
+  if (vmId) {
+    const vm = availableVms.find((candidate) => matchesVmIdentifier(candidate, vmId))
+    if (!vm) {
+      return { ok: false, error: `VM "${vmId}" was not found.` }
+    }
+    if (nodeGroupId && String(vm.subGroupId || '').trim() !== nodeGroupId) {
+      return {
+        ok: false,
+        error: `VM "${vmId}" does not belong to NodeGroup "${nodeGroupId}".`
+      }
+    }
+    return {
+      ok: true,
+      mode: 'VM',
+      vm,
+      vmId: getVmIdentifier(vm),
+      nodeGroupId
+    }
+  }
+
+  const members = availableVms.filter(
+    (vm) => String(vm?.subGroupId || '').trim() === nodeGroupId
+  )
+  if (members.length === 0) {
+    return { ok: false, error: `NodeGroup "${nodeGroupId}" was not found.` }
+  }
+
+  const runningVmIds = Array.from(new Set(members
+    .filter((vm) => String(vm?.status || '').trim().toUpperCase() === 'RUNNING')
+    .map(getVmIdentifier)
+    .filter(Boolean)))
+  if (runningVmIds.length === 0) {
+    return { ok: false, error: `NodeGroup "${nodeGroupId}" has no running VMs.` }
+  }
+
+  return {
+    ok: true,
+    mode: 'NODE_GROUP',
+    members,
+    runningVmIds,
+    nodeGroupId
   }
 }

@@ -23,16 +23,30 @@ VM:
 https://{AM_HOST}/web/softwareCatalog/install?targetType=VM&mciId={MCI_ID}&vmId={VM_ID}&requestId={REQUEST_ID}
 ```
 
+VM NodeGroup 전체:
+
+```text
+https://{AM_HOST}/web/softwareCatalog/install?targetType=VM&mciId={MCI_ID}&nodeGroupId={NODE_GROUP_ID}&requestId={REQUEST_ID}
+```
+
+특정 VM과 소속 NodeGroup을 함께 전달:
+
+```text
+https://{AM_HOST}/web/softwareCatalog/install?targetType=VM&mciId={MCI_ID}&nodeGroupId={NODE_GROUP_ID}&vmId={VM_ID}&requestId={REQUEST_ID}
+```
+
+`nodeGroupId` 없이 기존 `mciId + vmId`만 전달하는 방식도 그대로 지원한다.
+
 K8s:
 
 ```text
 https://{AM_HOST}/web/softwareCatalog/install?targetType=K8S&clusterId={CLUSTER_ID}&requestId={REQUEST_ID}
 ```
 
-- VM은 `mciId`, `vmId`가 필수다.
+- VM은 `mciId`와 `vmId` 또는 `nodeGroupId`가 필요하다.
 - K8s는 `clusterId`가 필수다.
 - `requestId`는 선택 사항이지만 요청과 결과를 연결하기 위해 사용하는 것을 권장한다.
-- `nodeGroup`은 이번 연동 범위에서 제외한다.
+- K8s 요청에는 `nodeGroupId`를 사용하지 않는다.
 - namespace와 access token은 URL에 넣지 않는다.
 
 ## 3. Project 정보 전달
@@ -55,7 +69,7 @@ iframe.contentWindow.postMessage({
 }, amOrigin)
 ```
 
-AM은 `projectInfo.ns_id`에 해당하는 CB-Tumblebug namespace의 자원만 조회하고, URL로 전달받은 VM 또는 Cluster를 변경할 수 없도록 고정한다.
+AM은 `projectInfo.ns_id`에 해당하는 CB-Tumblebug namespace의 자원만 조회하고, URL로 전달받은 VM, VM NodeGroup 또는 Cluster를 변경할 수 없도록 고정한다.
 
 ## 4. AM 결과 수신
 

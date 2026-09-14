@@ -24,14 +24,16 @@ class KubernetesDeployRollbackTest {
 
     private void check(boolean rollbackFails) {
         var factory = mock(KubernetesClientFactory.class);
-        var client = mock(KubernetesClient.class);
+        var client = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
+        var routes = KubernetesIngressRouteValidatorTest.stubIngressList(client);
+        when(routes.list()).thenReturn(new io.fabric8.kubernetes.api.model.networking.v1.IngressListBuilder().build());
         var helm = mock(HelmChartService.class);
         var histories = mock(DeploymentHistoryRepository.class);
         var access = mock(K8sIngressAccessService.class);
         var sources = mock(SoftwareSourceService.class);
         var service = new KubernetesDeployService(factory, mock(KubernetesNamespaceService.class), helm,
                 mock(UserRepository.class), mock(ApplicationStatusRepository.class), histories,
-                sources, mock(KubeconfigResolver.class), access);
+                sources, mock(KubeconfigResolver.class), access, IbmIngressAutomationTestSupport.legacy());
         var catalog = new SoftwareCatalog(); catalog.setId(10L); catalog.setDefaultPort(5572);
         var chart = new HelmChart(); chart.setChartName("rclone");
         var request = DeploymentRequest.builder().namespace("default").clusterName("azure")

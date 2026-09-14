@@ -15,13 +15,13 @@ MC-WEB-CONSOLE의 Infra/K8s Workload 화면에서 `Install SW`를 누르면 Cons
 
 이번 범위에서 제외한 항목은 다음과 같다.
 
-- `nodeGroup` 선택과 전달
+- Kubernetes `nodeGroup`을 대상으로 하는 스케줄링
 - Kubernetes 내부 namespace 선택 기능
 - MC-WEB-CONSOLE의 팝업 및 `Install SW` 버튼 구현
 - AM 수신 `postMessage`의 출처(origin/source) 제한
 - 자원 ID를 서명하는 별도 연동 토큰
 
-`nodeGroup`은 URL, 메시지, AM 배포 요청 어디에도 사용하지 않는다. 설치 대상은 VM이면 `MCI + VM`, K8s이면 `Cluster`까지만 고정한다.
+VM 설치 대상은 `MCI + VM` 또는 `MCI + NodeGroup`으로 고정할 수 있다. `MCI + VM + NodeGroup`을 전달하면 VM 한 대를 대상으로 하되 NodeGroup 소속을 검증한다. K8s 설치 대상은 `Cluster`로 고정한다.
 
 ## 2. 역할 분담
 
@@ -93,6 +93,18 @@ https://{AM_HOST}/web/softwareCatalog/install
 https://am.example.com/web/softwareCatalog/install?targetType=VM&mciId=mci-01&vmId=vm-01&requestId=req-20260831-001
 ```
 
+NodeGroup 전체에 Standalone으로 설치:
+
+```text
+https://am.example.com/web/softwareCatalog/install?targetType=VM&mciId=mci-01&nodeGroupId=group-01&requestId=req-20260831-002
+```
+
+특정 VM의 NodeGroup 소속도 검증:
+
+```text
+https://am.example.com/web/softwareCatalog/install?targetType=VM&mciId=mci-01&nodeGroupId=group-01&vmId=vm-01&requestId=req-20260831-003
+```
+
 ### K8s 대상
 
 ```text
@@ -114,14 +126,15 @@ https://am.example.com/web/softwareCatalog/install?targetType=K8S&clusterId=clus
 | --- | --- | --- | --- |
 | `targetType` | 필수, `VM` | 필수, `K8S` | 대소문자는 정규화됨 |
 | `mciId` | 필수 | 금지 | CB-Tumblebug MCI ID 또는 name |
-| `vmId` | 필수 | 금지 | 대상 VM ID 또는 name |
+| `vmId` | 조건부 필수 | 금지 | 대상 VM ID 또는 name. VM 대상에서는 `vmId` 또는 `nodeGroupId` 중 하나 이상 필요 |
+| `nodeGroupId` | 조건부 필수 | 금지 | CB-Tumblebug VM subGroup ID. `vmId`가 없으면 그룹 전체 Standalone 배포 |
 | `clusterId` | 금지 | 필수 | 대상 Cluster ID 또는 name |
 | `requestId` | 선택 | 선택 | Console과 AM 이벤트 연결용. 생략 시 AM 생성 |
 
 다음 값은 URL로 전달하면 AM이 오류로 거부한다.
 
 - `namespace`, `namespaceId`: namespace는 반드시 현재 Project 컨텍스트에서 가져온다.
-- `nodeGroupId`, `nodegroupId`: 이번 범위에서 nodeGroup은 지원하지 않는다.
+- K8s 요청의 `nodeGroupId`: K8s 애플리케이션은 Cluster를 대상으로 하므로 금지한다.
 - 동일한 대상 파라미터의 중복 입력
 - 계약에 정의되지 않은 임의의 URL 파라미터
 - `/`, `?`, `#`, 제어 문자가 들어간 ID
@@ -183,6 +196,7 @@ AM은 부모 창에 아래 형식으로 이벤트를 보낸다.
   target: {
     targetType: 'VM',
     mciId: 'mci-01',
+    nodeGroupId: 'group-01',
     vmId: 'vm-01'
   }
 }
@@ -234,7 +248,7 @@ AM이 부모에게 보내는 상태 이벤트에는 access token, 비밀번호, 
 
 ## 7. Project 범위와 보안 경계
 
-iframe URL의 `mciId`, `vmId`, `clusterId`는 화면 진입 대상 정보이며 인증 정보가 아니다. 사용자가 URL을 수정하더라도 AM은 IAM에서 검증한 Project namespace의 자원 목록 안에서만 대상을 다시 찾는다. 다른 Project namespace로 바꾼 배포 요청은 백엔드에서 거부된다.
+iframe URL의 `mciId`, `vmId`, `nodeGroupId`, `clusterId`는 화면 진입 대상 정보이며 인증 정보가 아니다. 사용자가 URL을 수정하더라도 AM은 IAM에서 검증한 Project namespace의 자원 목록 안에서만 대상을 다시 찾는다. 다른 Project namespace로 바꾼 배포 요청은 백엔드에서 거부된다.
 
 현재 권한 경계는 Project namespace 단위다. 따라서 같은 Project namespace 안의 자원별로 서로 다른 권한을 부여해야 한다면 추가 정책 또는 서명된 단기 연동 토큰 설계가 필요하다. 이는 이번 범위에 포함하지 않는다.
 
@@ -257,7 +271,7 @@ cd ..
 ./gradlew bootJar
 ```
 
-설치 대상 파서는 VM/K8s 정상 입력뿐 아니라 필수값 누락, 혼합 대상, 중복 파라미터, namespace/nodeGroup 주입, 경로 문자 입력을 검증한다.
+설치 대상 파서는 기존 VM, VM+NodeGroup 검증, NodeGroup 전체, K8s 정상 입력뿐 아니라 필수값 누락, 혼합 대상, 중복 파라미터, namespace 주입, K8s NodeGroup 오용, 경로 문자 입력을 검증한다.
 
 ### 8.2 로컬 iframe 연동 테스트
 
@@ -280,14 +294,15 @@ http://localhost:19090/install-sw-iframe-test.html
 - 실제 Project ID
 - 그 Project에 매핑된 CB-Tumblebug namespace
 - 만료되지 않은 Keycloak access token
-- VM 테스트: 해당 namespace의 MCI ID와 VM ID
+- VM 테스트: 해당 namespace의 MCI ID와 VM ID 및 선택적인 NodeGroup ID
+- VM NodeGroup 테스트: 해당 namespace의 MCI ID와 실행 중인 VM이 있는 NodeGroup ID
 - K8s 테스트: 해당 namespace의 Cluster ID
 
 확인 순서:
 
 1. `iframe 열기`를 눌러 고정 대상 요약이 맞는지 확인한다.
 2. Project 컨텍스트를 보내 `IFRAME_READY → CONTEXT_READY → FORM_READY`가 기록되는지 확인한다.
-3. Target Infra, MCI/VM 또는 Cluster 선택값이 잠겨 있는지 확인한다.
+3. Target Infra, MCI/VM, MCI/NodeGroup 또는 Cluster 선택값이 잠겨 있는지 확인한다.
 4. Catalog와 배포 옵션을 선택하고 Spec Check를 실행한다.
 5. Deploy 후 `DEPLOY_STARTED`와 성공/실패 이벤트가 오는지 확인한다.
 6. Apps Status에서 같은 Project namespace의 결과만 보이는지 확인한다.
@@ -303,11 +318,13 @@ AM 단독으로 설치 전용 화면과 API까지 검증할 수 있지만, 실�
 - [ ] AM과 Web Console이 접근 가능한 URL로 iframe이 로드되는가
 - [ ] Web Console이 `IFRAME_READY` 수신 후 Project 컨텍스트를 보내는가
 - [ ] Project의 `ns_id`가 실제 CB-Tumblebug namespace와 일치하는가
-- [ ] VM URL에는 `mciId`, `vmId`만 있고 `clusterId`가 없는가
+- [ ] VM URL에는 `mciId`와 `vmId` 또는 `nodeGroupId`가 있고 `clusterId`가 없는가
+- [ ] `vmId`와 `nodeGroupId`를 함께 전달한 경우 VM 소속 관계가 검증되는가
+- [ ] `nodeGroupId`만 전달한 경우 실행 중인 그룹 VM 전체가 Spec Check 대상이 되는가
 - [ ] K8s URL에는 `clusterId`만 있고 `mciId`, `vmId`가 없는가
 - [ ] URL과 로그에 access token 또는 비밀값이 없는가
 - [ ] 다른 Project namespace 요청이 403 또는 접근 불가로 처리되는가
-- [ ] `nodeGroup`을 전달하거나 기대하는 Console 코드가 없는가
+- [ ] K8s 요청에 `nodeGroupId`를 전달하지 않는가
 - [ ] 기존 AM Catalog의 Deploy modal도 동일하게 동작하는가
 
 ## 10. 관련 파일

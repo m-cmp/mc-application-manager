@@ -43,6 +43,8 @@ class ApplicationOrchestrationServiceProjectScopeTest {
     private OperationHistoryRepository operationHistoryRepository;
     @Mock
     private VmSecurityGroupExposureService vmSecurityGroupExposureService;
+    @Mock
+    private VmNodeGroupTargetResolver vmNodeGroupTargetResolver;
 
     private ApplicationOrchestrationServiceImpl service;
 
@@ -60,7 +62,8 @@ class ApplicationOrchestrationServiceProjectScopeTest {
                 vmSecurityGroupExposureService,
                 org.mockito.Mockito.mock(kr.co.mcmp.softwarecatalog.application.service.tunnel.ObjectStorageTunnelService.class),
                 org.mockito.Mockito.mock(kr.co.mcmp.softwarecatalog.application.service.ObjectStorageAccessGrantService.class),
-                org.mockito.Mockito.mock(kr.co.mcmp.softwarecatalog.docker.service.DockerOperationService.class));
+                org.mockito.Mockito.mock(kr.co.mcmp.softwarecatalog.docker.service.DockerOperationService.class),
+                vmNodeGroupTargetResolver);
     }
 
     @Test

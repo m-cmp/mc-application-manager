@@ -20,8 +20,8 @@
           <strong>{{ targetResult.target.targetType }}</strong>
         </div>
         <div v-if="targetResult.target.targetType === 'VM'">
-          <span class="target-label">Infra / VM</span>
-          <strong>{{ targetResult.target.mciId }} / {{ targetResult.target.vmId }}</strong>
+          <span class="target-label">{{ vmTargetLabelTitle }}</span>
+          <strong>{{ vmTargetLabel }}</strong>
         </div>
         <div v-else>
           <span class="target-label">Cluster</span>
@@ -42,6 +42,7 @@
         :target-type="targetResult.target.targetType"
         :target-mci-id="targetResult.target.mciId"
         :target-vm-id="targetResult.target.vmId"
+        :target-node-group-id="targetResult.target.nodeGroupId"
         :target-cluster-id="targetResult.target.clusterId"
         @ready="handleFormReady"
         @deployment-event="handleDeploymentEvent"
@@ -73,11 +74,31 @@ const contextReady = computed(() => Boolean(
   && projectNamespace.value
 ))
 
+const vmTargetLabel = computed(() => {
+  if (!targetResult.ok || targetResult.target.targetType !== 'VM') return ''
+  return [
+    targetResult.target.mciId,
+    targetResult.target.nodeGroupId,
+    targetResult.target.vmId
+  ].filter(Boolean).join(' / ')
+})
+
+const vmTargetLabelTitle = computed(() => {
+  if (!targetResult.ok || targetResult.target.targetType !== 'VM') return ''
+  if (!targetResult.target.vmId) return 'Infra / NodeGroup'
+  return targetResult.target.nodeGroupId ? 'Infra / NodeGroup / VM' : 'Infra / VM'
+})
+
 const targetSummary = () => {
   if (!targetResult.ok) return undefined
   const target = targetResult.target
   return target.targetType === 'VM'
-    ? { targetType: target.targetType, mciId: target.mciId, vmId: target.vmId }
+    ? {
+        targetType: target.targetType,
+        mciId: target.mciId,
+        ...(target.nodeGroupId ? { nodeGroupId: target.nodeGroupId } : {}),
+        ...(target.vmId ? { vmId: target.vmId } : {})
+      }
     : { targetType: target.targetType, clusterId: target.clusterId }
 }
 

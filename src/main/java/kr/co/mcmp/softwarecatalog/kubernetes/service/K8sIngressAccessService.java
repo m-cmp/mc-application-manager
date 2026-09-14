@@ -24,10 +24,19 @@ public class K8sIngressAccessService {
         return VmSecurityGroupExposureService.validateRestrictedIpv4Cidr(cidr);
     }
 
+    public void resolveTarget(DeploymentRequest request, kr.co.mcmp.softwarecatalog.SoftwareCatalog catalog) {
+        var config = kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO.from(request, catalog);
+        if (!config.isIngressEnabled()) return;
+        var cluster = tumblebug.getK8sClusterByName(request.getNamespace(), request.getClusterName());
+        if (cluster == null) throw new IllegalArgumentException("Kubernetes cluster was not found.");
+        request.setIngressClass(IbmIngressSupport.resolve(cluster, config).getIngressClass());
+    }
+
     public void open(DeploymentRequest request, DeploymentHistory history) {
         if (!Boolean.TRUE.equals(request.getOpenServicePort())) return;
         var cluster = tumblebug.getK8sClusterByName(request.getNamespace(), request.getClusterName());
         validateCidr(request.getServicePortCidr());
+        if (IbmIngressSupport.isIbm(cluster)) return; // IBM owns shared LB/worker firewall rules.
         String id = workerGroups.resolve(request.getNamespace(), cluster);
         // The existing exposure service refuses ambiguous SGs and preserves shared/operator rules.
         VmAccessInfo target = new VmAccessInfo();

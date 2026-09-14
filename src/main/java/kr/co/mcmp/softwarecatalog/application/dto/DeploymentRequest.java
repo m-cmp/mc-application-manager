@@ -32,6 +32,12 @@ public class DeploymentRequest {
      * VM IDs (VM 배포시 - 단일/다중 VM 모두 지원)
      */
     private List<String> vmIds;
+
+    /**
+     * CB-Tumblebug VM subGroup ID. When present, the backend resolves all
+     * currently running VMs in the group and deploys them in standalone mode.
+     */
+    private String vmNodeGroupId;
     
     /**
      * 클러스터명 (Kubernetes 배포시)
@@ -197,5 +203,4 @@ public class DeploymentRequest {
         return vmIds != null ? vmIds.size() : 0;
     }
 }
-
 

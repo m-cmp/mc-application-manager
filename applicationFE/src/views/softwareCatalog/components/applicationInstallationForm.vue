@@ -18,13 +18,18 @@
             class="btn-close"
             data-bs-dismiss="modal"
             aria-label="Close"
-            @click="setInit"></button>
+            @click="handleCancel"></button>
         </div>
         <div
           class="modal-body"
           :class="{ 'install-embedded-body': embedded }"
           :style="embedded ? undefined : 'max-height: calc(100vh - 200px);overflow-y: auto;'">
 
+          <div v-if="deploymentCompleted" class="alert alert-success mb-0" role="status">
+            <strong>Deployment completed.</strong>
+            <p class="mb-0">Check the application's running status in Apps Status.</p>
+          </div>
+          <fieldset v-show="!deploymentCompleted" :disabled="deploying || deploymentCompleted" class="border-0 p-0 m-0">
           <div v-if="hasProjectContext" class="alert alert-info py-2" role="status">
             Deployment targets are scoped to
             <strong>{{ projectContextLabel }}</strong>.
@@ -41,31 +46,31 @@
 
           <div class="mb-3">
             <label class="form-label">Target Infra</label>
-            <p 
-              v-if="modalTitle == 'Application Installation'" 
+            <p
+              v-if="modalTitle == 'Application Installation'"
               class="text-muted">
                 Select the Infra what is the Infra will be installed
             </p>
-            <p 
-              v-else-if="modalTitle == 'Application Uninstallation'" 
+            <p
+              v-else-if="modalTitle == 'Application Uninstallation'"
               class="text-muted">
                 Select the Infra what is the Infra will be uninstalled
             </p>
-            <select 
-              class="form-select" 
-              id="infra" 
+            <select
+              class="form-select"
+              id="infra"
               v-model="selectInfra"
               :disabled="isTargetLocked">
-              <option 
-                v-for="infra in infraList" 
-                :value=infra.value 
+              <option
+                v-for="infra in infraList"
+                :value=infra.value
                 :key="infra.value">
                   {{ infra.value }}
                 </option>
             </select>
           </div>
 
-          <!-- 
+          <!--
             ==============================================================================================
             ============================================= VM =============================================
             ==============================================================================================
@@ -75,34 +80,34 @@
 
               <!-- VM :: Namespace -->
               <label class="form-label">Namespace</label>
-              <p 
-                v-if="modalTitle == 'Application Installation'" 
+              <p
+                v-if="modalTitle == 'Application Installation'"
                 class="text-muted">
                 Select the namespace where the application will be installed</p>
-              <p 
-                v-else-if="modalTitle == 'Application Uninstallation'" 
+              <p
+                v-else-if="modalTitle == 'Application Uninstallation'"
                 class="text-muted">
                 Select the namespace where the application will be uninstalled</p>
-              
+
               <template v-if="nsIdList.length > 0">
-                <select 
-                  class="form-select" 
+                <select
+                  class="form-select"
                   id="vm-namespace"
                   v-model="selectNsId"
                   :disabled="isNamespaceLocked"
                   @change="onChangeNsId">
-                  <option 
-                    v-for="ns in nsIdList" 
+                  <option
+                    v-for="ns in nsIdList"
                     :value="getNamespaceValue(ns)"
                     :key="getNamespaceValue(ns)">
                     {{ ns.name || ns.id }}
                   </option>
                 </select>
               </template>
-              
+
               <template v-else>
-                <select 
-                  class="form-select" 
+                <select
+                  class="form-select"
                   id="vm-namespace-empty"
                   disabled>
                   <option value="">
@@ -115,23 +120,23 @@
             <!-- VM :: Infra ID -->
             <div class="mb-3">
               <label class="form-label">Infra ID</label>
-              <p 
-                v-if="modalTitle == 'Application Installation'" 
+              <p
+                v-if="modalTitle == 'Application Installation'"
                 class="text-muted">
                 Select the infra ID where the application will be deployed</p>
-              <p 
-                v-else-if="modalTitle == 'Application Uninstallation'" 
+              <p
+                v-else-if="modalTitle == 'Application Uninstallation'"
                 class="text-muted">
                 Remove the application and associated resources from the infra</p>
-              <select 
-                class="form-select" 
+              <select
+                class="form-select"
                 id="vm-mci"
                 :disabled="selectNsId == '' || isTargetLocked"
                 v-model="selectMci"
                 @change="onChangeMci">
                 <option v-if="mciList.length === 0" value="">No infra available</option>
-                <option 
-                  v-for="mci in mciList" 
+                <option
+                  v-for="mci in mciList"
                   :value="mci.id || mci.name"
                   :key="mci.id || mci.name"
                   :title="mci.id || mci.name">
@@ -140,21 +145,47 @@
               </select>
             </div>
 
+            <!-- VM :: Deployment Target -->
+            <div class="mb-3" v-if="modalTitle == 'Application Installation' && !isTargetLocked">
+              <label class="form-label">Deployment Target</label>
+              <p class="text-muted">Choose one VM or one CB-Tumblebug NodeGroup.</p>
+              <div class="d-flex gap-3">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    id="vm-target-single"
+                    v-model="vmTargetMode"
+                    value="VM">
+                  <label class="form-check-label" for="vm-target-single">VM</label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    id="vm-target-node-group"
+                    v-model="vmTargetMode"
+                    value="NODE_GROUP">
+                  <label class="form-check-label" for="vm-target-node-group">NodeGroup (Standalone)</label>
+                </div>
+              </div>
+            </div>
+
             <!-- VM :: VM Name -->
-            <div class="mb-3">
+            <div class="mb-3" v-if="vmTargetMode === 'VM'">
               <label class="form-label">VM Name</label>
-              <p 
+              <p
                 class="text-muted">
                 Select the virtual machine (VM) within the chosen multi-cloud infrastructure where the application will be deployed</p>
-              <select 
-                class="form-select" 
+              <select
+                class="form-select"
                 id="vm-name"
                 :disabled="selectMci == '' || isTargetLocked"
                 v-model="selectVm"
                 @change="onSelectVm">
                 <option value="">Select VM</option>
-                <option 
-                  v-for="vm in vmList" 
+                <option
+                  v-for="vm in vmList"
                   :value="getVmValue(vm)"
                   :key="getVmValue(vm)">
                   {{ vm.name || vm.id }}
@@ -162,12 +193,12 @@
               </select>
 
               <div class="mt-2" style="display: flex; gap: 10px; flex-wrap: wrap;" v-if="selectedVmList.length > 0">
-                <label 
-                  v-for="(vmId, index) in selectedVmList" 
+                <label
+                  v-for="(vmId, index) in selectedVmList"
                   :key="index"
-                  class="form-check-label" 
+                  class="form-check-label"
                   style="border: 1px solid #000; padding: 5px; border-radius: 5px; cursor: pointer;">
-                  {{ vmId }} 
+                  {{ vmId }}
                   <span
                     v-if="!isTargetLocked"
                     @click="removeVm(index)"
@@ -176,9 +207,44 @@
               </div>
             </div>
 
+            <!-- VM :: NodeGroup -->
+            <div class="mb-3" v-else>
+              <label class="form-label">NodeGroup</label>
+              <p class="text-muted">
+                Deploy one independent application instance to every currently running VM in the selected NodeGroup.
+              </p>
+              <select
+                class="form-select"
+                id="vm-node-group"
+                :disabled="selectMci == '' || isTargetLocked"
+                v-model="selectVmNodeGroupId"
+                @change="onSelectVmNodeGroup">
+                <option value="">Select NodeGroup</option>
+                <option
+                  v-for="nodeGroup in vmNodeGroupOptions"
+                  :key="nodeGroup.id"
+                  :value="nodeGroup.id"
+                  :disabled="nodeGroup.runningVmIds.length === 0">
+                  {{ nodeGroup.id }} ({{ nodeGroup.runningVmIds.length }}/{{ nodeGroup.totalVmCount }} running)
+                </option>
+              </select>
+
+              <div v-if="selectVmNodeGroupId && selectedNodeGroupVmIds.length > 0" class="mt-2">
+                <div class="text-muted small mb-1">Deployment targets</div>
+                <div class="d-flex gap-2 flex-wrap">
+                  <span v-for="vmId in selectedNodeGroupVmIds" :key="vmId" class="badge bg-light text-dark">
+                    {{ vmId }}
+                  </span>
+                </div>
+              </div>
+              <div v-else-if="selectVmNodeGroupId" class="text-warning mt-2">
+                The selected NodeGroup has no running VMs.
+              </div>
+            </div>
+
 
             <!-- VM :: Deployment Type -->
-            <div class="mb-3">
+            <div class="mb-3" v-if="vmTargetMode === 'VM'">
               <label class="form-label">Deployment Type</label>
               <p class="text-muted">Select the deployment type</p>
               <div style="display: flex; gap: 10px;">
@@ -186,20 +252,26 @@
                   <input class="form-check-input" type="radio" id="Standalone" v-model="selectDeploymentType" value="Standalone" :disabled="isTargetLocked">
                   <label class="form-check-label" for="Standalone">Standalone</label>
                 </div>
-                <div class="form-check">
+                <div class="form-check" v-if="canSelectClustering">
                   <input class="form-check-input" type="radio" id="Clustering" v-model="selectDeploymentType" value="Clustering" :disabled="isTargetLocked">
                   <label class="form-check-label" for="Clustering">Clustering</label>
                 </div>
               </div>
+              <div class="form-text" v-if="!isTargetLocked">Clustering is available only for Redis and Elasticsearch server catalogs.</div>
+            </div>
+            <div class="mb-3" v-else>
+              <label class="form-label">Deployment Type</label>
+              <input type="text" class="form-control" value="Standalone" disabled>
+              <div class="form-text">NodeGroup deployment does not use application clustering.</div>
             </div>
 
             <!-- VM :: Application -->
             <div class="mb-3">
               <label class="form-label">Application</label>
               <p class="text-muted">Select the application</p>
-              <select 
-                class="form-select" 
-                v-model="inputApplications" 
+              <select
+                class="form-select"
+                v-model="inputApplications"
                 @change="onChangeCatalog">
                 <option v-for="(catalog, idx) in filteredCatalogList" :key="idx" :value="catalog.name">
                   [{{ catalog.name }}] {{ catalog.packageInfo?.packageVersion || "latest" }}
@@ -328,32 +400,32 @@
             </div>
           </template>
 
-          <!-- 
+          <!--
             ==============================================================================================
             ============================================ K8S =============================================
             ==============================================================================================
           -->
           <template v-else-if="selectInfra == 'K8S'">
-            
+
             <!-- K8S :: Namespace -->
             <div class="mb-3">
               <label class="form-label">Namespace</label>
-              <p 
-                v-if="modalTitle == 'Application Installation'" 
+              <p
+                v-if="modalTitle == 'Application Installation'"
                 class="text-muted">Select the namespace where the application will be installed</p>
-              <p 
-                v-else-if="modalTitle == 'Application Uninstallation'" 
+              <p
+                v-else-if="modalTitle == 'Application Uninstallation'"
                 class="text-muted">Select the namespace where the application will be uninstalled</p>
-                
+
               <template v-if="nsIdList.length > 0">
-                <select 
-                  class="form-select" 
+                <select
+                  class="form-select"
                   id="k8s-namespace"
-                  v-model="selectNsId" 
+                  v-model="selectNsId"
                   :disabled="isNamespaceLocked"
                   @change="onSelectNamespace">
-                  <option 
-                    v-for="ns in nsIdList" 
+                  <option
+                    v-for="ns in nsIdList"
                     :value="getNamespaceValue(ns)"
                     :key="getNamespaceValue(ns)">
                     {{ ns.name || ns.id }}
@@ -362,8 +434,8 @@
               </template>
 
               <template v-else>
-                <select 
-                  class="form-select" 
+                <select
+                  class="form-select"
                   id="k8s-namespace-empty"
                   disabled>
                   <option value="">
@@ -376,22 +448,22 @@
             <!-- K8S :: ClusterName -->
             <div class="mb-3">
               <label class="form-label">ClusterName</label>
-              <p 
-                v-if="modalTitle == 'Application Installation'" 
+              <p
+                v-if="modalTitle == 'Application Installation'"
                 class="text-muted">Select the name of the cluster where the application will be deployed</p>
-              <p 
-                v-else-if="modalTitle == 'Application Uninstallation'" 
+              <p
+                v-else-if="modalTitle == 'Application Uninstallation'"
                 class="text-muted">Remove the application and associated resources from the multi-cloud infrastructure</p>
 
-              <select 
-                class="form-select" 
+              <select
+                class="form-select"
                 id="k8s-cluster"
                 :disabled="selectNsId == '' || isTargetLocked"
                 v-model="selectCluster"
                 @change="onChangeCluster">
                 <option v-if="clusterList.length === 0" value="">No cluster available</option>
-                <option 
-                  v-for="cluster in clusterList" 
+                <option
+                  v-for="cluster in clusterList"
                   :value="getClusterValue(cluster)"
                   :key="getClusterValue(cluster)">
                   {{ cluster.name || cluster.id }}
@@ -449,23 +521,24 @@
             <div class="mb-3" v-if="modalTitle == 'Application Installation' && ingressData.ingressEnabled">
               <label class="form-label required">Allowed IPv4 CIDR</label>
               <input class="form-control" placeholder="203.0.113.10/32" v-model.trim="servicePortCidr">
-              <div class="form-check mt-2">
+              <div class="form-check mt-2" v-if="!isIbmCluster">
                 <input class="form-check-input" type="checkbox" id="k8sOpenIngress" v-model="k8sOpenIngress">
                 <label class="form-check-label" for="k8sOpenIngress">Allow this CIDR on the worker Security Group (TCP 30880)</label>
               </div>
-              <p class="text-muted mt-1">Access: http://{{ ingressData.ingressHost || 'your-ingress-host' }}:30880. For testing, map this hostname to an accessible Kubernetes node public IP in your PC hosts file. With source-IP preservation, use a node running the Ingress Controller.</p>
+              <p v-if="isIbmCluster" class="text-muted mt-1">HTTP via the IBM-managed load balancer. Only the allowed client IP range can access this application.</p>
+              <p v-else class="text-muted mt-1">Access: http://{{ ingressData.ingressHost || 'your-ingress-host' }}:30880. For testing, map this hostname to an accessible Kubernetes node public IP in your PC hosts file. With source-IP preservation, use a node running the Ingress Controller.</p>
             </div>
             <!-- K8S :: HPA -->
             <div class="mb-3" v-if="modalTitle == 'Application Installation'" >
               <label class="form-label">HPA Configuration</label>
-              
+
               <!-- HPA Enabled -->
               <div class="mb-2">
                 <div class="form-check">
-                  <input 
-                    class="form-check-input" 
-                    type="checkbox" 
-                    id="hpaEnabled" 
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="hpaEnabled"
                     v-model="hpaData.hpaEnabled">
                   <label class="form-check-label" for="hpaEnabled">
                     Enable HPA (Horizontal Pod Autoscaler)
@@ -480,10 +553,10 @@
                   <label class="form-label required">
                     minReplicas
                   </label>
-                  <input 
-                    type="number" 
-                    class="form-control w-90-per" 
-                    placeholder="1" 
+                  <input
+                    type="number"
+                    class="form-control w-90-per"
+                    placeholder="1"
                     v-model="hpaData.hpaMinReplicas" />
                 </div>
 
@@ -492,10 +565,10 @@
                   <label class="form-label required">
                     maxReplicas
                   </label>
-                  <input 
-                    type="number" 
-                    class="form-control w-90-per" 
-                    placeholder="10" 
+                  <input
+                    type="number"
+                    class="form-control w-90-per"
+                    placeholder="10"
                     v-model="hpaData.hpaMaxReplicas" />
                 </div>
 
@@ -504,10 +577,10 @@
                   <label class="form-check-label mb-2">
                     CPU (%)
                   </label>
-                  <input 
-                    type="number" 
-                    class="form-control w-80-per d-inline" 
-                    placeholder="60" 
+                  <input
+                    type="number"
+                    class="form-control w-80-per d-inline"
+                    placeholder="60"
                     v-model="hpaData.hpaCpuUtilization" /> %
                 </div>
 
@@ -516,10 +589,10 @@
                   <label class="form-check-label mb-2">
                     MEMORY (%)
                   </label>
-                  <input 
-                    type="number" 
-                    class="form-control w-80-per d-inline" 
-                    placeholder="80" 
+                  <input
+                    type="number"
+                    class="form-control w-80-per d-inline"
+                    placeholder="80"
                     v-model="hpaData.hpaMemoryUtilization" /> %
                 </div>
               </div>
@@ -544,13 +617,13 @@
 
             <div class="mb-3" v-if="modalTitle == 'Application Installation'">
               <label class="form-label">Ingress Configuration</label>
-              
+
               <div class="mb-2">
                 <div class="form-check">
-                  <input 
-                    class="form-check-input" 
-                    type="checkbox" 
-                    id="ingressEnabled" 
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="ingressEnabled"
                     v-model="ingressData.ingressEnabled">
                   <label class="form-check-label" for="ingressEnabled">
                     Enable Ingress
@@ -561,53 +634,33 @@
               <div v-if="ingressData.ingressEnabled">
                 <div class="mb-2">
                   <label class="form-label">Host</label>
-                  <input 
-                    type="text" 
-                    class="form-control" 
-                    placeholder="example.com" 
+                  <input
+                    type="text"
+                    class="form-control"
+                    placeholder="example.com"
                     v-model="ingressData.ingressHost">
+                  <p v-if="isIbmCluster" class="text-muted mb-1">For local testing, map this hostname to the IBM load balancer IP in your hosts file. HTTP does not require a certificate and is not encrypted.</p>
                 </div>
 
                 <div class="mb-2">
                   <label class="form-label">Path</label>
-                  <input 
-                    type="text" 
-                    class="form-control" 
-                    placeholder="/" 
+                  <input
+                    type="text"
+                    class="form-control"
+                    placeholder="/"
                     v-model="ingressData.ingressPath">
                 </div>
 
                 <div class="mb-2">
                   <label class="form-label">Ingress Class</label>
-                  <input 
-                    type="text" 
-                    class="form-control" 
-                    placeholder="nginx" 
-                    v-model="ingressData.ingressClass"
+                  <input
+                    type="text"
+                    class="form-control"
+                    placeholder="nginx"
+                    :value="effectiveIngressClass"
                     disabled>
                 </div>
 
-                <!-- <div class="mb-2">
-                  <div class="form-check">
-                    <input 
-                      class="form-check-input" 
-                      type="checkbox" 
-                      id="ingressTlsEnabled" 
-                      v-model="ingressData.ingressTlsEnabled">
-                    <label class="form-check-label" for="ingressTlsEnabled">
-                      Enable TLS
-                    </label>
-                  </div>
-                </div>
-
-                <div v-if="ingressData.ingressTlsEnabled" class="mb-2">
-                  <label class="form-label">TLS Secret Name</label>
-                  <input 
-                    type="text" 
-                    class="form-control" 
-                    placeholder="tls-secret" 
-                    v-model="ingressData.ingressTlsSecret">
-                </div> -->
               </div>
             </div>
 
@@ -770,38 +823,45 @@
               </div>
             </div>
           </template>
+          </fieldset>
         </div>
 
         <!-- Footer -->
-        <div 
+        <div v-if="!deploymentCompleted && (specCheckErrors.length || specCheckWarnings.length)" class="px-3" aria-live="polite">
+          <div v-for="message in specCheckErrors" :key="message" class="alert alert-danger" role="alert">{{ message }}</div>
+          <div v-for="message in specCheckWarnings" :key="message" class="alert alert-warning">{{ message }}</div>
+        </div>
+        <div
           class="modal-footer d-flex justify-content-between">
-          <a 
-            class="btn btn-link link-secondary" 
+          <a
+            class="btn btn-link link-secondary"
             :data-bs-dismiss="embedded ? undefined : 'modal'"
             @click="handleCancel">
-            Cancel
+            {{ deploymentCompleted ? 'Close' : 'Cancel' }}
           </a>
 
-          <div>
+          <button v-if="deploymentCompleted" type="button" class="btn btn-primary" @click="viewAppsStatus">
+            View Apps Status
+          </button>
+          <div v-else>
             <button
               v-if="modalTitle == 'Application Installation' && shouldRunObjectStorageCheck"
               class="btn btn-outline-danger ms-auto me-1"
               @click="runObjectStorageCheck()"
-              :disabled="objectStorageChecking || objectStorageCheckPassed"
+              :disabled="deploying || objectStorageChecking || objectStorageCheckPassed"
               title="Writes, reads, and deletes a temporary object in the selected bucket.">
               {{ objectStorageChecking ? 'Checking...' : 'Storage Check' }}
             </button>
-            <button 
-              v-if="modalTitle == 'Application Installation'" 
-              class="btn btn-danger ms-auto me-1" 
-              @click="specCheck" 
-              :disabled="!specCheckFlag || Boolean(projectScopeError)">
-              Spec Check
+            <button
+              v-if="modalTitle == 'Application Installation'"
+              class="btn btn-danger ms-auto me-1"
+              @click="specCheck"
+              :disabled="deploying || specChecking || !specCheckFlag || Boolean(projectScopeError)">
+              {{ specChecking ? 'Checking...' : 'Spec Check' }}
             </button>
-            <button 
-              class="btn btn-primary ms-auto" 
-              :data-bs-dismiss="embedded ? undefined : 'modal'"
-              @click="runInstall" 
+            <button
+              class="btn btn-primary ms-auto"
+              @click="runInstall"
               :disabled="deployDisabled">
               {{ deploying ? 'Deploying…' : 'Deploy' }}
             </button>
@@ -815,13 +875,19 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
-import { onMounted, watch, computed } from 'vue';
+import { onMounted, onBeforeUnmount, watch, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { Modal } from 'bootstrap';
 // @ts-ignore
 import _ from 'lodash';
 import { getNsInfo, getMciInfo, getVmInfo, getClusterInfo } from '@/api/tumblebug'
-import { getK8sStorageClasses, getRegisteredObjectStorages, getSoftwareCatalogList, k8sSpecCheck, objectStorageSmokeCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
+import { getK8sStorageClasses, getRegisteredObjectStorages, getSoftwareCatalogList, k8sSpecCheck, k8sIngressCheck, objectStorageSmokeCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
 import { type SoftwareCatalog } from '@/views/type/type'
 import { useUserStore } from '@/stores/user'
+import { isVmClusteringCatalog } from '@/utils/vmClustering'
+import { resolveInstallVmTarget } from '@/integration/installTarget'
+import { startIngressPreparation, getIngressPreparation } from '@/api/softwareCatalog'
+import { waitForIngressPreparation } from '@/utils/ingressPreparation'
 
 interface Props {
   nsId?: string
@@ -831,10 +897,19 @@ interface Props {
   targetType?: '' | 'VM' | 'K8S'
   targetMciId?: string
   targetVmId?: string
+  targetNodeGroupId?: string
   targetClusterId?: string
 }
+
+interface VmNodeGroupOption {
+  id: string
+  totalVmCount: number
+  runningVmIds: string[]
+}
+
 const toast = useToast()
 const userStore = useUserStore()
+const router = useRouter()
 
 const props = withDefaults(defineProps<Props>(), {
   nsId: '',
@@ -844,6 +919,7 @@ const props = withDefaults(defineProps<Props>(), {
   targetType: '',
   targetMciId: '',
   targetVmId: '',
+  targetNodeGroupId: '',
   targetClusterId: ''
 })
 const emit = defineEmits<{
@@ -854,9 +930,22 @@ const emit = defineEmits<{
 const modalTitle = computed(() => props.title);
 const normalizedTargetType = computed(() => String(props.targetType || '').toUpperCase())
 const isTargetLocked = computed(() => props.embedded && ['VM', 'K8S'].includes(normalizedTargetType.value))
-const lockedTargetLabel = computed(() => normalizedTargetType.value === 'VM'
-  ? `VM ${props.targetVmId} in ${props.targetMciId}`
-  : `Kubernetes cluster ${props.targetClusterId}`)
+const isLockedVmNodeGroupTarget = computed(() => isTargetLocked.value
+  && normalizedTargetType.value === 'VM'
+  && Boolean(String(props.targetNodeGroupId || '').trim())
+  && !String(props.targetVmId || '').trim())
+const lockedTargetLabel = computed(() => {
+  if (normalizedTargetType.value !== 'VM') {
+    return `Kubernetes cluster ${props.targetClusterId}`
+  }
+  if (isLockedVmNodeGroupTarget.value) {
+    return `NodeGroup ${props.targetNodeGroupId} in ${props.targetMciId}`
+  }
+  const nodeGroup = String(props.targetNodeGroupId || '').trim()
+  return nodeGroup
+    ? `VM ${props.targetVmId} in NodeGroup ${nodeGroup} / ${props.targetMciId}`
+    : `VM ${props.targetVmId} in ${props.targetMciId}`
+})
 
 const normalizeScopeValues = (value: unknown): string[] => {
   const values = Array.isArray(value) ? value : [value]
@@ -922,6 +1011,8 @@ const selectNsId = ref("" as string)
 const selectMci = ref("" as string)
 const selectVm = ref("" as string)
 const selectedVmList = ref([] as Array<string>)
+const vmTargetMode = ref<'VM' | 'NODE_GROUP'>('VM')
+const selectVmNodeGroupId = ref('')
 const selectDeploymentType = ref("Standalone" as string)
 const hpaData = ref({} as any)
 const workloadRebalancingEnabled = ref(false)
@@ -933,6 +1024,15 @@ const registeredObjectStorageList = ref([] as any[])
 const registeredObjectStorageLoading = ref(false as boolean)
 const registeredObjectStorageLoadError = ref(false as boolean)
 const deploying = ref(false)
+const deploymentCompleted = ref(false)
+let preparationEpoch = 0
+let installationFormMounted = true
+// Bootstrap backdrop/Escape closes can bypass the Cancel button.
+const onInstallationModalHide = () => { preparationEpoch++ }
+onBeforeUnmount(() => {
+  installationFormMounted = false
+  document.getElementById(props.formId)?.removeEventListener('hide.bs.modal', onInstallationModalHide)
+})
 const selectedResourceType = ref("GENERAL_PURPOSE" as string)
 const storageClassList = ref([] as any[])
 const selectedStorageClass = ref("" as string)
@@ -947,6 +1047,10 @@ const vmNetworkExposureMode = ref<'PRIVATE' | 'RESTRICTED'>('PRIVATE')
 const servicePortCidr = ref("" as string)
 const k8sOpenIngress = ref(true)
 const specCheckFlag = ref(true as boolean)
+const specChecking = ref(false)
+const specCheckErrors = ref<string[]>([])
+const specCheckWarnings = ref<string[]>([])
+let specCheckVersion = 0
 const selectedCatalogIdx = ref(0 as number)
 const projectScopeError = ref('')
 let resourceLoadSequence = 0
@@ -955,6 +1059,36 @@ const getNamespaceValue = (namespace: any) => namespace?.id || namespace?.name |
 const getMciValue = (mci: any) => mci?.id || mci?.name || ''
 const getVmValue = (vm: any) => vm?.id || vm?.name || ''
 const getClusterValue = (cluster: any) => cluster?.name || cluster?.id || ''
+const isRunningVm = (vm: any) => String(vm?.status || '').trim().toUpperCase() === 'RUNNING'
+
+const vmNodeGroupOptions = computed<VmNodeGroupOption[]>(() => {
+  const groups = new Map<string, VmNodeGroupOption>()
+
+  for (const vm of originalVmList.value) {
+    const nodeGroupId = String(vm?.subGroupId || '').trim()
+    if (!nodeGroupId) continue
+
+    const group = groups.get(nodeGroupId) || {
+      id: nodeGroupId,
+      totalVmCount: 0,
+      runningVmIds: []
+    }
+    group.totalVmCount += 1
+
+    const vmId = getVmValue(vm)
+    if (isRunningVm(vm) && vmId && !group.runningVmIds.includes(vmId)) {
+      group.runningVmIds.push(vmId)
+    }
+    groups.set(nodeGroupId, group)
+  }
+
+  return Array.from(groups.values()).sort((left, right) => left.id.localeCompare(right.id))
+})
+
+const selectedNodeGroupVmIds = computed(() =>
+  vmNodeGroupOptions.value.find((nodeGroup) => nodeGroup.id === selectVmNodeGroupId.value)?.runningVmIds || []
+)
+
 const matchesScope = (resource: any, allowedIds: string[]) => {
   if (allowedIds.length === 0) return true
 
@@ -977,6 +1111,7 @@ const clearTargetResources = () => {
   selectMci.value = ''
   selectVm.value = ''
   selectedVmList.value = []
+  selectVmNodeGroupId.value = ''
   selectCluster.value = ''
   projectScopeError.value = ''
 }
@@ -986,27 +1121,35 @@ const clearTargetResources = () => {
 // });
 
 // Handle target infrastructure changes
+// Synchronous invalidation also prevents a late response from validating changed form values.
+watch([selectInfra, selectNsId, selectCluster, selectMci, selectedVmList, vmTargetMode,
+  selectVmNodeGroupId, selectedCatalogIdx, selectedStorageClass, ingressData, servicePortCidr, projectContextKey, modalTitle], () => {
+  onChangeForm()
+}, { deep: true, flush: 'sync' })
+
 watch(selectInfra, async (newValue) => {
   if (_.isEmpty(selectNsId.value)) return;
-  
+
   if (newValue === 'VM') {
     // Reset VM related data
+    vmTargetMode.value = 'VM'
     selectMci.value = "";
     selectVm.value = "";
     selectedVmList.value = [];
+    selectVmNodeGroupId.value = '';
     vmList.value = [];
     originalVmList.value = [];
-    
+
     // Fetch MCI list
     await _getMciName();
   } else if (newValue === 'K8S') {
     // Reset K8S related data
     selectCluster.value = "";
-    
+
     // Fetch Cluster list
     await _getClusterName();
   }
-  
+
   // Reset application selection
   inputApplications.value = "";
   onChangeForm();
@@ -1037,6 +1180,11 @@ watch(projectContextKey, async (newContext, previousContext) => {
 
 // Handle deployment type changes
 watch(selectDeploymentType, () => {
+  if (vmTargetMode.value === 'NODE_GROUP') {
+    selectDeploymentType.value = 'Standalone'
+    return
+  }
+
   if (selectDeploymentType.value === "Standalone") {
     // Reset selected VMs when changing to Standalone mode
     selectedVmList.value = [];
@@ -1050,7 +1198,22 @@ watch(selectDeploymentType, () => {
   }
 });
 
+watch(vmTargetMode, (targetMode) => {
+  selectVm.value = ''
+  selectedVmList.value = []
+  selectVmNodeGroupId.value = targetMode === 'NODE_GROUP' && isLockedVmNodeGroupTarget.value
+    ? String(props.targetNodeGroupId || '').trim()
+    : ''
+  vmList.value = [...originalVmList.value]
+
+  if (targetMode === 'NODE_GROUP') {
+    selectDeploymentType.value = 'Standalone'
+  }
+  onChangeForm()
+})
+
 onMounted(async () => {
+  document.getElementById(props.formId)?.addEventListener('hide.bs.modal', onInstallationModalHide)
   if (props.embedded) {
     try {
       await setInit()
@@ -1078,7 +1241,7 @@ onMounted(async () => {
 
   const modalElement: any = document.getElementById(props.formId);
   if (!modalElement) return
-  // Open Modal Action 
+  // Open Modal Action
   modalElement.addEventListener('show.bs.modal', async() => {
     await setInit()
     await _getSoftwareCatalogList()
@@ -1086,9 +1249,13 @@ onMounted(async () => {
 })
 
 const setInit = async () => {
+  preparationEpoch++
+  deploymentCompleted.value = false
   const loadSequence = ++resourceLoadSequence
   clearTargetResources()
   selectInfra.value = isTargetLocked.value ? normalizedTargetType.value : "VM"
+  vmTargetMode.value = 'VM'
+  selectVmNodeGroupId.value = ''
   selectDeploymentType.value = "Standalone"
   hpaData.value = {
     hpaEnabled: false,
@@ -1273,30 +1440,48 @@ const _getVmName = async (loadSequence = resourceLoadSequence) => {
 
     const availableVms = Array.isArray(data?.node) ? data.node : []
     if (isTargetLocked.value && normalizedTargetType.value === 'VM') {
-      const targetVm = availableVms.find((vm: any) => matchesScope(vm, [props.targetVmId]))
-      if (!targetVm) {
+      const resolvedTarget = resolveInstallVmTarget(availableVms, {
+        vmId: props.targetVmId,
+        nodeGroupId: props.targetNodeGroupId
+      })
+      if (!resolvedTarget.ok) {
         originalVmList.value = []
         vmList.value = []
         selectVm.value = ''
         selectedVmList.value = []
-        projectScopeError.value = `VM "${props.targetVmId}" was not found in infra "${props.targetMciId}".`
+        selectVmNodeGroupId.value = ''
+        projectScopeError.value = `${resolvedTarget.error} Infra: "${props.targetMciId}".`
         return
       }
 
-      const targetVmId = getVmValue(targetVm)
-      originalVmList.value = [targetVm]
-      vmList.value = [targetVm]
-      selectVm.value = targetVmId
-      selectedVmList.value = [targetVmId]
+      if (resolvedTarget.mode === 'NODE_GROUP') {
+        originalVmList.value = resolvedTarget.members
+        vmList.value = [...resolvedTarget.members]
+        vmTargetMode.value = 'NODE_GROUP'
+        selectVmNodeGroupId.value = resolvedTarget.nodeGroupId
+        selectDeploymentType.value = 'Standalone'
+        selectVm.value = ''
+        selectedVmList.value = []
+        return
+      }
+
+      originalVmList.value = [resolvedTarget.vm]
+      vmList.value = [resolvedTarget.vm]
+      vmTargetMode.value = 'VM'
+      selectVm.value = resolvedTarget.vmId
+      selectedVmList.value = [resolvedTarget.vmId]
       return
     }
 
     originalVmList.value = availableVms
     // Set vmList excluding VMs that are already in selectedVmList
-    vmList.value = originalVmList.value.filter((vm: any) => 
+    vmList.value = originalVmList.value.filter((vm: any) =>
       !selectedVmList.value.includes(vm.id)
     )
     selectVm.value = ''
+    if (!vmNodeGroupOptions.value.some((nodeGroup) => nodeGroup.id === selectVmNodeGroupId.value)) {
+      selectVmNodeGroupId.value = ''
+    }
     if (vmList.value.length === 0) {
       projectScopeError.value = 'No VM is available in the infrastructure assigned to this project.'
     }
@@ -1424,6 +1609,7 @@ const onChangeNsId = async () => {
 
 const onChangeMci = async () => {
   selectedVmList.value = [];
+  selectVmNodeGroupId.value = '';
   projectScopeError.value = ''
   await _getVmName(resourceLoadSequence);
   onChangeForm();
@@ -1435,25 +1621,28 @@ const onSelectNamespace = async () =>{
 }
 
 const onChangeForm = () => {
+  specCheckVersion += 1
+  specCheckErrors.value = []
+  specCheckWarnings.value = []
   if(modalTitle.value === 'Application Installation')
     specCheckFlag.value = true
-  
+
   else if(modalTitle.value === 'Application Uninstallation')
     specCheckFlag.value = false
 }
 
 const onSelectVm = () => {
   if (selectVm.value === "") return;
-  
+
   // In Standalone mode, only one VM can be selected
   if (selectDeploymentType.value === "Standalone") {
     selectedVmList.value = [selectVm.value];
-  } 
+  }
   // In Clustering mode, add after checking for duplicates
   else if (selectDeploymentType.value === "Clustering") {
     if (!selectedVmList.value.includes(selectVm.value)) {
       selectedVmList.value.push(selectVm.value);
-      
+
       // Remove the selected VM from vmList
       const vmIndex = vmList.value.findIndex((vm: any) => vm.id === selectVm.value);
       if (vmIndex !== -1) {
@@ -1461,10 +1650,16 @@ const onSelectVm = () => {
       }
     }
   }
-  
+
   // Reset selection
   selectVm.value = "";
   onChangeForm();
+}
+
+const onSelectVmNodeGroup = () => {
+  selectedVmList.value = []
+  selectDeploymentType.value = 'Standalone'
+  onChangeForm()
 }
 
 const removeVm = (index: number) => {
@@ -1472,7 +1667,7 @@ const removeVm = (index: number) => {
 
   const removedVmId = selectedVmList.value[index];
   selectedVmList.value.splice(index, 1);
-  
+
   // Add back to vmList only in Clustering mode
   if (selectDeploymentType.value === "Clustering") {
     // Find the removed VM from originalVmList and add it to vmList
@@ -1481,23 +1676,47 @@ const removeVm = (index: number) => {
       vmList.value.push(removedVm);
     }
   }
-  
+
   onChangeForm();
 }
 
 const handleCancel = async () => {
-  if (deploying.value) return
+  preparationEpoch++
   emit('cancel')
+  if (deploying.value) return // Shared preparation may finish, but must not trigger an app deployment.
+  if (deploymentCompleted.value) return // Keep the completed state until a new form is opened.
   await setInit()
 }
 
+const viewAppsStatus = async () => {
+  const element = document.getElementById(props.formId)
+  const modal = element && !props.embedded ? Modal.getInstance(element) : null
+  if (modal && element?.classList.contains('show')) {
+    await new Promise<void>(resolve => {
+      element.addEventListener('hidden.bs.modal', () => resolve(), { once: true })
+      modal.hide()
+    })
+  }
+  await router.push({ name: 'applicationStatus' })
+}
+
 const getDeploymentTarget = () => selectInfra.value === 'VM'
-  ? {
-      targetType: 'VM',
-      namespace: selectNsId.value,
-      mciId: selectMci.value,
-      vmId: selectedVmList.value[0] || ''
-    }
+  ? vmTargetMode.value === 'NODE_GROUP'
+    ? {
+        targetType: 'VM',
+        namespace: selectNsId.value,
+        mciId: selectMci.value,
+        nodeGroupId: selectVmNodeGroupId.value
+      }
+    : {
+        targetType: 'VM',
+        namespace: selectNsId.value,
+        mciId: selectMci.value,
+        vmId: selectedVmList.value[0] || '',
+        ...(isTargetLocked.value && props.targetNodeGroupId
+          ? { nodeGroupId: props.targetNodeGroupId }
+          : {})
+      }
   : {
       targetType: 'K8S',
       namespace: selectNsId.value,
@@ -1518,6 +1737,16 @@ const getDeploymentId = (responseData: any) => {
 }
 
 const runInstall = async () => {
+  if (deploying.value || deploymentCompleted.value) return
+  if (modalTitle.value === 'Application Installation' && selectInfra.value === 'VM'
+    && selectDeploymentType.value === 'Clustering' && !canSelectClustering.value) {
+    toast.error('Clustering is available only for Redis and Elasticsearch on individually selected VMs')
+    return
+  }
+  if (modalTitle.value === 'Application Installation' && (specCheckFlag.value || specChecking.value)) {
+    toast.error('Please complete Spec Check for the current settings before deploying')
+    return
+  }
   if (projectScopeError.value) {
     toast.error(projectScopeError.value)
     return
@@ -1536,8 +1765,8 @@ const runInstall = async () => {
     return
   }
   if (selectInfra.value === 'K8S' && modalTitle.value === 'Application Installation' && ingressData.value.ingressEnabled) {
-    if (!servicePortCidr.value || servicePortCidr.value === '0.0.0.0/0' || ingressData.value.ingressClass !== 'nginx') {
-      toast.error('Enter a restricted IPv4 CIDR and use ingress class nginx for external access')
+    if (!servicePortCidr.value || servicePortCidr.value === '0.0.0.0/0') {
+      toast.error('Enter a restricted IPv4 CIDR for external access')
       return
     }
   }
@@ -1546,8 +1775,10 @@ const runInstall = async () => {
       toast.error('Enter an Ingress hostname and a restricted IPv4 CIDR for Jupyter')
       return
     }
-    if (ingressData.value.ingressPath !== '/' || ingressData.value.ingressTlsEnabled || hpaData.value.hpaEnabled || workloadRebalancingEnabled.value) {
-      toast.error('Jupyter uses one replica, path / and HTTP NodePort 30880 without HPA or rebalancing')
+    if (ingressData.value.ingressPath !== '/' || (!isIbmCluster.value && ingressData.value.ingressTlsEnabled) || hpaData.value.hpaEnabled || workloadRebalancingEnabled.value) {
+      toast.error(isIbmCluster.value
+        ? 'Jupyter uses one replica and path / without HPA or rebalancing'
+        : 'Jupyter uses one replica, path / and HTTP NodePort 30880 without HPA or rebalancing')
       return
     }
   }
@@ -1568,6 +1799,11 @@ const runInstall = async () => {
   if (selectInfra.value === 'K8S' && !validateStorageClassSelection()) return
 
   deploying.value = true
+  const deploymentContext = projectContextKey.value
+  const deploymentSpecVersion = specCheckVersion
+  const deploymentEpoch = preparationEpoch
+  const isCurrentDeployment = () => installationFormMounted && preparationEpoch === deploymentEpoch
+    && projectContextKey.value === deploymentContext && specCheckVersion === deploymentSpecVersion
   emitDeploymentEvent('DEPLOY_STARTED')
 
   try {
@@ -1576,8 +1812,9 @@ const runInstall = async () => {
     if (selectInfra.value === 'VM') {
       let params = {} as any
       if (modalTitle.value == 'Application Installation') {
+        const isNodeGroupDeployment = vmTargetMode.value === 'NODE_GROUP'
         // Generate clusterName (only required in Clustering mode)
-        const clusterName = selectDeploymentType.value === "Clustering"
+        const clusterName = !isNodeGroupDeployment && selectDeploymentType.value === "Clustering"
           ? `${inputApplications.value}-cluster`
           : `${inputApplications.value}-standalone`;
         const servicePort = inputServicePort.value === "" ? undefined : Number(inputServicePort.value);
@@ -1585,7 +1822,12 @@ const runInstall = async () => {
         params = {
           namespace: selectNsId.value,
           mciId: selectMci.value,
-          vmIds: selectedVmList.value,
+          vmIds: isNodeGroupDeployment ? [] : selectedVmList.value,
+          vmNodeGroupId: isNodeGroupDeployment
+            ? selectVmNodeGroupId.value
+            : (isTargetLocked.value && props.targetNodeGroupId
+              ? props.targetNodeGroupId
+              : undefined),
           clusterName: clusterName,
           catalogId: selectedCatalogIdx.value,
           servicePort,
@@ -1593,7 +1835,7 @@ const runInstall = async () => {
           servicePortCidr: vmNetworkExposureMode.value === 'RESTRICTED' ? servicePortCidr.value : undefined,
           username: "admin",
           deploymentType: selectInfra.value,
-          vmDeploymentMode: selectDeploymentType.value.toUpperCase(),
+          vmDeploymentMode: isNodeGroupDeployment ? 'STANDALONE' : selectDeploymentType.value.toUpperCase(),
           resourceType: selectedResourceType.value,
           additionalConfig: buildVmAdditionalConfig(),
         }
@@ -1607,7 +1849,7 @@ const runInstall = async () => {
       const params = {
         namespace: selectNsId.value,
         clusterName: selectCluster.value,
-        openServicePort: ingressData.value.ingressEnabled && k8sOpenIngress.value,
+        openServicePort: ingressData.value.ingressEnabled && !isIbmCluster.value && k8sOpenIngress.value,
         servicePortCidr: ingressData.value.ingressEnabled ? servicePortCidr.value : undefined,
         catalogId: selectedCatalogIdx.value,
         servicePort,
@@ -1620,21 +1862,28 @@ const runInstall = async () => {
         memoryThreshold: hpaData.value.hpaMemoryUtilization,
         workloadRebalancingEnabled: workloadRebalancingEnabled.value,
         resourceType: selectedResourceType.value,
-        ingressEnabled: ingressData.value.ingressEnabled,
-        ingressHost: normalizeIngressHost(ingressData.value.ingressHost),
-        ingressPath: ingressData.value.ingressPath,
-        ingressClass: ingressData.value.ingressClass,
-        ingressTlsEnabled: ingressData.value.ingressTlsEnabled,
-        ingressTlsSecret: ingressData.value.ingressTlsSecret,
+        ...buildIngressPayload(),
         additionalConfig
       }
 
+      if (modalTitle.value === 'Application Installation' && isIbmCluster.value && params.ingressEnabled) {
+        const { data } = await startIngressPreparation({
+          namespace: params.namespace, clusterName: params.clusterName, catalogId: params.catalogId,
+          servicePortCidr: params.servicePortCidr, ...buildIngressPayload()
+        })
+        await waitForIngressPreparation(data, params,
+          async id => (await getIngressPreparation(params.namespace, id)).data,
+          () => {}, // Keep preparation internal; the form shows only the generic busy state.
+          isCurrentDeployment)
+      }
       res = modalTitle.value == 'Application Installation'
         ? await runK8SInstall(params)
         : await runAction(params)
     }
 
+    if (!isCurrentDeployment()) return
     if (res.data) {
+      deploymentCompleted.value = true
       toast.success('SUCCESS')
       emitDeploymentEvent('DEPLOY_SUCCEEDED', {
         deploymentId: getDeploymentId(res.data)
@@ -1646,16 +1895,30 @@ const runInstall = async () => {
       })
     }
   } catch (error) {
-    toast.error('FAIL')
+    if (!isCurrentDeployment()) return
+    const message = error instanceof Error ? error.message : 'The deployment request failed.'
+    toast.error(message)
     emitDeploymentEvent('DEPLOY_FAILED', {
-      message: 'The deployment request failed.'
+      message
     })
   } finally {
     deploying.value = false
   }
 }
 
+// Use identical effective form inputs for preflight and deployment. Empty UI input means omitted.
+const buildIngressPayload = () => ({
+  ingressEnabled: ingressData.value.ingressEnabled,
+  ingressHost: normalizeIngressHost(ingressData.value.ingressHost),
+  ingressPath: ingressData.value.ingressPath,
+  ingressClass: effectiveIngressClass.value,
+  // The IBM installation UI is HTTP-only, even when the catalog carries TLS defaults.
+  ingressTlsEnabled: isIbmCluster.value ? false : ingressData.value.ingressTlsEnabled,
+  ingressTlsSecret: isIbmCluster.value ? null : (ingressData.value.ingressTlsSecret === '' ? null : ingressData.value.ingressTlsSecret)
+})
+
 const specCheck = async () => {
+  if (specChecking.value) return
   if (projectScopeError.value) {
     toast.error(projectScopeError.value)
     return
@@ -1667,53 +1930,93 @@ const specCheck = async () => {
   }
   if (!validateStorageClassSelection()) return
 
-  const checkedValue = await specCheckCallback()
-  let data = true;
+  const version = specCheckVersion
+  specCheckFlag.value = true
+  specCheckErrors.value = []
+  specCheckWarnings.value = []
+  specChecking.value = true
+  try {
+    if (selectInfra.value === 'K8S') {
+      if (!selectNsId.value || !selectCluster.value || !selectedCatalogIdx.value) {
+        toast.error('Please select all items')
+        return
+      }
+      const { data } = await k8sIngressCheck({
+        namespace: selectNsId.value,
+        clusterName: selectCluster.value,
+        catalogId: selectedCatalogIdx.value,
+        servicePortCidr: servicePortCidr.value,
+        ...buildIngressPayload()
+      })
+      if (version !== specCheckVersion) return
+      specCheckWarnings.value = Array.isArray(data?.warnings) ? data.warnings : []
+      if (data?.valid !== true) {
+        specCheckErrors.value = Array.isArray(data?.errors) && data.errors.length
+          ? data.errors : ['Ingress check failed. Resolve the issue and retry Spec Check.']
+        return // A route conflict must never become the resource-spec "continue anyway" prompt.
+      }
+    }
 
-  if (checkedValue == null) {
-    toast.error('Please select all items')
-    return;
+    const checkedValue = await specCheckCallback()
+    if (version !== specCheckVersion) return
+    if (checkedValue == null) {
+      toast.error('Please select all items')
+      return
+    }
+    if (checkedValue === false) {
+      const infraName = selectInfra.value === 'VM' ? 'VM' : 'CLUSTER'
+      if (!confirm('Your selected ' + infraName + ' has lower specifications than recommended. Would you like to continue with the installation?')) return
+    }
+    if (version !== specCheckVersion) return
+    toast.success('Please click Deploy')
+    specCheckFlag.value = false
+  } catch {
+    if (version === specCheckVersion) {
+      specCheckErrors.value = ['Spec Check could not be completed. Check connectivity and permissions, then retry.']
+    }
+  } finally {
+    specChecking.value = false
   }
-
-  else if (checkedValue === false) {
-    let infraName = "";
-
-    if (selectInfra.value === 'VM') infraName = "VM"
-    else if (selectInfra.value === 'K8S') infraName = "CLUSTER"
-
-    const comment = 'Your selected ' + infraName + ' has lower specifications than recommended. Would you like to continue with the installation?'
-    data = confirm(comment)
-  }
-
-  if (!data) return
-
-  toast.success('Please click RUN')
-  specCheckFlag.value = false
 }
 
 const specCheckCallback = async () => {
   let result = false as boolean;
 
   if (selectInfra.value === 'VM') {
+    const targetVmIds = vmTargetMode.value === 'NODE_GROUP'
+      ? selectedNodeGroupVmIds.value
+      : selectedVmList.value
+
     if (
       selectNsId.value === "" ||
       selectMci.value === "" ||
-      selectedVmList.value.length === 0 ||
+      (vmTargetMode.value === 'NODE_GROUP' && selectVmNodeGroupId.value === '') ||
+      targetVmIds.length === 0 ||
       selectedCatalogIdx.value === 0) {
       return null;
     }
     else {
-      // Spec check with the first VM among selected VMs (or all VMs could be checked)
-      const params = {
-        namespace: selectNsId.value,
-        mciName: selectMci.value,
-        vmName: selectedVmList.value[0],
-        catalogId: selectedCatalogIdx.value 
-      }
+      // Every VM in a NodeGroup is checked because a partially undersized group
+      // would otherwise fail only after deployment had already started.
+      const vmIdsToCheck = vmTargetMode.value === 'NODE_GROUP'
+        ? targetVmIds
+        : [targetVmIds[0]]
 
-      await vmSpecCheck(params).then(({ data }) => {
-        result = data
-      })
+      result = true
+      for (const vmId of vmIdsToCheck) {
+        const params = {
+          namespace: selectNsId.value,
+          mciName: selectMci.value,
+          vmName: vmId,
+          catalogId: selectedCatalogIdx.value
+        }
+
+        const { data } = await vmSpecCheck(params)
+        if (!data) {
+          result = false
+          break
+        }
+      }
     }
   }
   else if (selectInfra.value === 'K8S') {
@@ -1740,10 +2043,25 @@ const selectedCatalogInfo = computed(() => {
   return catalogList.value.find((catalog) => catalog.id === selectedCatalogIdx.value)
 })
 
+const canSelectClustering = computed(() => selectInfra.value === 'VM'
+  && vmTargetMode.value === 'VM'
+  && !isTargetLocked.value
+  && isVmClusteringCatalog(selectedCatalogInfo.value))
+
+// Never retain a hidden Clustering selection after changing catalog or target.
+watch(canSelectClustering, (allowed) => {
+  if (!allowed && selectDeploymentType.value === 'Clustering') {
+    selectDeploymentType.value = 'Standalone'
+  }
+}, { flush: 'sync' })
+
 const selectedClusterProvider = computed(() => {
   const cluster = clusterList.value.find((item: any) => item.id === selectCluster.value || item.name === selectCluster.value)
   return cluster?.connectionConfig?.providerName || cluster?.connectionName || ''
 })
+
+const isIbmCluster = computed(() => /^(ibm|ibmcloud|ibm-cloud|ibm-vpc|ibmvpc)(-|$)/i.test(selectedClusterProvider.value))
+const effectiveIngressClass = computed(() => isIbmCluster.value ? 'public-iks-k8s-nginx' : 'nginx')
 
 const selectedVmProvider = computed(() => {
   const selectedVmId = selectedVmList.value[0]
@@ -1840,6 +2158,8 @@ const objectStorageCheckPassed = computed(() => {
 
 const deployDisabled = computed(() => {
   return deploying.value
+    || deploymentCompleted.value
+    || specChecking.value
     || Boolean(projectScopeError.value)
     || specCheckFlag.value
     || !objectStorageCheckPassed.value

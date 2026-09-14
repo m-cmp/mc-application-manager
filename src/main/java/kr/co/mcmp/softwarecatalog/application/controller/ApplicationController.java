@@ -23,6 +23,8 @@ import kr.co.mcmp.softwarecatalog.application.dto.DeploymentHistoryDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentLogDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.IntegratedApplicationInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.dto.K8sStorageClassDTO;
+import kr.co.mcmp.softwarecatalog.application.dto.K8sIngressCheckRequest;
+import kr.co.mcmp.softwarecatalog.application.dto.K8sIngressCheckResult;
 import kr.co.mcmp.softwarecatalog.application.dto.ObjectStorageSmokeTestRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.ObjectStorageSmokeTestResponse;
 import kr.co.mcmp.softwarecatalog.application.dto.RegisteredObjectStorageDTO;
@@ -35,6 +37,7 @@ import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequestDTO;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.kubernetes.service.KubernetesStorageClassService;
+import kr.co.mcmp.softwarecatalog.kubernetes.service.KubernetesIngressPreflightService;
 import kr.co.mcmp.security.project.ProjectScopeAuthorizationService;
 import org.springframework.web.bind.annotation.PathVariable;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +56,7 @@ public class ApplicationController {
     private final ObjectStorageRegistryService objectStorageRegistryService;
     private final KubernetesStorageClassService kubernetesStorageClassService;
     private final ProjectScopeAuthorizationService projectScopeAuthorizationService;
+    private final KubernetesIngressPreflightService kubernetesIngressPreflightService;
 
     @Operation(summary = "Deploy application to VM", description = "Deploy an application to a specific VM.")
     @PostMapping("/vm/deploy")
@@ -109,6 +113,22 @@ public class ApplicationController {
         projectScopeAuthorizationService.authorizeNamespace(httpRequest, namespace);
         boolean result = applicationOrchestrationService.checkSpecForK8s(namespace, clusterName, catalogId);
         return ResponseEntity.ok(new ResponseWrapper<>(result));
+    }
+
+    @Operation(summary = "Check K8s Ingress before deployment", description = "Validate current form values and Host/Path conflicts. TLS readiness issues are warnings, not resource-spec overrides.")
+    @PostMapping("/k8s/ingress/check")
+    public ResponseEntity<ResponseWrapper<K8sIngressCheckResult>> checkK8sIngress(
+            @Valid @RequestBody K8sIngressCheckRequest request, HttpServletRequest httpRequest) {
+        projectScopeAuthorizationService.authorizeNamespace(httpRequest, request.getNamespace());
+        return ResponseEntity.ok(new ResponseWrapper<>(kubernetesIngressPreflightService.check(request)));
+    }
+
+    @GetMapping("/k8s/ingress/tls-settings")
+    @Operation(summary = "Discover IBM managed HTTPS domains", description = "Read-only domain hints. No certificate data or private keys are returned.")
+    public ResponseEntity<ResponseWrapper<kr.co.mcmp.softwarecatalog.application.dto.K8sIngressTlsSettings>> ingressTlsSettings(
+            @RequestParam String namespace, @RequestParam String clusterName, HttpServletRequest httpRequest) {
+        projectScopeAuthorizationService.authorizeNamespace(httpRequest, namespace);
+        return ResponseEntity.ok(new ResponseWrapper<>(kubernetesIngressPreflightService.tlsSettings(namespace, clusterName)));
     }
 
     @Operation(summary = "Check S3-compatible Object Storage", description = "Smoke check Object Storage settings for applications that declare object-storage capability.")

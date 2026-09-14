@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+  <title>AM · Ingress UI 변경 시안</title>
+  <style>
+    :root { color-scheme: light; --navy:#192736; --blue:#2069d6; --ink:#263445; --muted:#697889; --line:#dce3eb; --bg:#f5f7fb; --light:#edf4ff; --green:#258352; --shadow:0 18px 65px #172b4d24; }
+    * { box-sizing:border-box; }
+    [hidden] { display:none !important; }
+    body { margin:0; font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif; color:var(--ink); background:var(--bg); }
+    button,input,select { font:inherit; }
+    button { cursor:pointer; }
+    button:disabled { cursor:not-allowed; opacity:.6; }
+    button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid #8ab6ff; outline-offset:3px; }
+    button,input,select { -webkit-tap-highlight-color:transparent; }
+    h1,h2,h3,p { margin:0; }
+    h1 { font-size:25px; letter-spacing:-.6px; }
+    h2 { font-size:20px; letter-spacing:-.3px; }
+    h3 { font-size:15px; }
+    svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7; flex-shrink:0; }
+    code { font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; overflow-wrap:anywhere; }
+    .preview-bar { position:relative; z-index:2; background:#fff; border-bottom:1px solid var(--line); padding:17px 28px; display:flex; justify-content:space-between; gap:20px; align-items:center; }
+    .preview-heading { display:flex; align-items:center; gap:12px; }
+    .preview-heading strong { display:block; font-size:17px; }
+    .preview-heading small { display:block; color:var(--muted); font-size:12px; }
+    .preview-badge { background:var(--light); color:var(--blue); border:1px solid #c9dcfb; border-radius:7px; padding:5px 8px; font-size:11px; font-weight:750; letter-spacing:.7px; }
+    .view-switch { display:flex; padding:4px; border:1px solid var(--line); background:var(--bg); border-radius:10px; gap:4px; }
+    .view-switch button { padding:8px 16px; border:0; border-radius:7px; color:var(--muted); background:transparent; white-space:nowrap; font-weight:650; }
+    .view-switch button[aria-pressed="true"] { background:var(--navy); color:white; box-shadow:0 2px 5px #19273618; }
+    .shell { min-height:calc(100vh - 90px); display:grid; grid-template-columns:224px minmax(0,1fr); }
+    .sidebar { background:var(--navy); color:#b5c0cb; padding:28px 18px; }
+    .brand { display:flex; align-items:center; gap:11px; padding:0 12px 32px; font-size:27px; color:#fff; font-weight:750; letter-spacing:2px; }
+    .brand-symbol { display:grid; place-items:center; background:#fff; border-radius:13px; color:var(--navy); width:40px; height:40px; }
+    .brand-symbol svg { width:29px; height:29px; }
+    .nav-section { font-size:11px; letter-spacing:2px; font-weight:650; color:#8d9bab; margin:22px 12px 17px; }
+    .nav-label { font-size:12px; margin:0 12px 11px; color:#8d9bab; }
+    .nav-item { display:flex; align-items:center; gap:12px; padding:11px 12px; color:inherit; }
+    .nav-parent { color:#fff; }
+    .nav-child { display:block; border:0; color:#b5c0cb; background:transparent; width:100%; text-align:left; padding:10px 14px 10px 44px; border-radius:7px; }
+    .nav-child.active { color:#fff; background:#2c4056; box-shadow:inset 3px 0 #6ba5ff; }
+    .nav-note { margin:32px 12px 0; padding-top:18px; border-top:1px solid #ffffff14; font-size:11px; line-height:1.8; color:#8d9bab; }
+    .workspace { min-width:0; }
+    .context-bar { display:flex; align-items:center; justify-content:space-between; gap:15px; padding:17px 32px; background:#fff; border-bottom:1px solid var(--line); }
+    .context-selects { display:flex; gap:14px; }
+    .context-value { display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; align-items:center; font-size:13px; }
+    .context-value span { background:#f7f9fc; padding:7px 11px; color:var(--muted); border-right:1px solid var(--line); }
+    .context-value strong { padding:7px 14px; min-width:100px; font-weight:500; }
+    .avatar { border:1px solid var(--line); border-radius:6px; padding:7px; display:flex; color:#6a7d94; }
+    main { padding:27px 32px 40px; max-width:1550px; margin:auto; }
+    .proposal-note { display:flex; align-items:flex-start; gap:11px; padding:13px 16px; background:#edf4ff; border:1px solid #d6e5fc; border-radius:8px; margin-bottom:25px; color:#365c8a; font-size:13px; }
+    .proposal-note svg { margin-top:2px; width:18px; }
+    .page-heading { display:flex; justify-content:space-between; gap:20px; align-items:center; margin-bottom:21px; }
+    .eyebrow { font-size:10px; font-weight:700; letter-spacing:1.7px; color:var(--muted); margin-bottom:3px; }
+    .muted { color:var(--muted); }
+    .small { font-size:12px; }
+    .button { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:9px 14px; border:1px solid var(--line); border-radius:6px; background:white; color:var(--ink); font-weight:550; white-space:nowrap; }
+    .button svg { width:16px; height:16px; }
+    .button:hover { background:#f3f6fb; }
+    .button.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .button.primary:hover { background:#1957b5; }
+    .button.outline { color:var(--blue); border-color:#8db4ee; }
+    .button.compact { padding:6px 10px; font-size:12px; }
+    .icon-button { display:grid; place-items:center; width:33px; height:33px; border:1px solid var(--line); border-radius:5px; color:#64778e; background:white; flex-shrink:0; }
+    .icon-button:hover { background:var(--light); color:var(--blue); }
+    .icon-button svg { width:16px; height:16px; }
+    .card { border:1px solid var(--line); border-radius:9px; background:#fff; box-shadow:0 2px 6px #21385104; overflow:hidden; }
+    .card-toolbar { display:flex; justify-content:space-between; align-items:center; gap:15px; padding:17px 20px; border-bottom:1px solid var(--line); }
+    .card-toolbar h2 { font-size:16px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; font-size:11px; border-radius:20px; padding:3px 9px; background:var(--light); color:var(--blue); white-space:nowrap; font-weight:650; }
+    .pill.green { background:#e9f6ee; color:var(--green); }
+    .pill.neutral { background:#f0f3f7; color:#647387; }
+    .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:currentColor; }
+    .table-scroll { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:750px; }
+    th { text-align:left; font-size:10px; letter-spacing:.75px; color:#6c7b8c; background:#f8fafc; padding:12px 18px; font-weight:650; }
+    td { padding:22px 18px; border-top:1px solid #e8edf3; vertical-align:middle; font-size:13px; }
+    th.new-col { color:var(--blue); background:#edf4ff; }
+    td.new-col { background:#f9fbff; }
+    td strong { font-size:13px; font-weight:600; }
+    .infra-info { margin-top:3px; display:block; font-size:11px; color:var(--muted); }
+    .app-cell { display:flex; align-items:center; gap:10px; }
+    .app-icon { width:33px; height:37px; clip-path:polygon(50% 0,95% 24%,95% 76%,50% 100%,5% 76%,5% 24%); background:#15964b; color:white; display:grid; place-items:center; font-weight:800; font-size:23px; }
+    .url-cell { display:flex; align-items:center; gap:10px; justify-content:space-between; }
+    .url-cell code { font-size:12px; color:#245d9f; }
+    .table-footer { border-top:1px solid var(--line); color:var(--muted); padding:11px 18px; font-size:11px; }
+    .explain-grid { display:grid; grid-template-columns:1fr 1fr; gap:17px; margin-top:22px; }
+    .explain { padding:19px 21px; border:1px solid var(--line); border-radius:8px; background:#ffffffa6; }
+    .explain-title { font-weight:650; display:flex; align-items:center; gap:9px; margin-bottom:7px; }
+    .step-no { width:22px; height:22px; border-radius:6px; display:grid; place-items:center; font-size:11px; background:var(--light); color:var(--blue); flex-shrink:0; }
+    .explain p { font-size:12px; color:var(--muted); line-height:1.85; }
+    .footnote { font-size:11px; color:#7e8a9a; margin-top:22px; }
+    .provider-bar { display:flex; align-items:center; gap:13px; }
+    .provider-buttons { display:flex; gap:4px; padding:3px; border-radius:7px; background:#e9edf4; }
+    .provider-buttons button { padding:6px 14px; border:0; background:transparent; color:#647387; border-radius:5px; font-size:12px; font-weight:600; }
+    .provider-buttons button[aria-pressed="true"] { color:var(--blue); background:white; box-shadow:0 1px 4px #21385113; }
+    .install-layout { display:grid; grid-template-columns:minmax(0,760px) minmax(220px,1fr); gap:24px; align-items:start; }
+    .modal-header { padding:19px 24px; display:flex; align-items:center; gap:12px; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .form-body { padding:23px 24px; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:15px 18px; }
+    .field { display:block; min-width:0; }
+    .field > label { display:block; font-size:12px; font-weight:600; margin-bottom:6px; }
+    .field input,.field select { width:100%; border:1px solid #ced8e4; border-radius:5px; padding:9px 11px; min-height:40px; color:var(--ink); background:#fff; font-size:13px; }
+    .field input[readonly],.field select:disabled { background:#f6f8fb; color:#65758a; opacity:1; }
+    .field .hint { font-size:11px; color:var(--muted); margin-top:5px; line-height:1.7; }
+    .required { color:#dc5656; margin-left:2px; }
+    .other-settings { margin-top:18px; border-top:1px solid #e9edf3; padding-top:13px; color:var(--muted); font-size:12px; }
+    .other-settings summary { cursor:pointer; }
+    .other-values { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .ingress-section { border:1px solid #bcd5f8; border-radius:8px; margin-top:21px; }
+    .ingress-title { padding:12px 16px; border-bottom:1px solid #d6e5fa; background:#f5f9ff; display:flex; justify-content:space-between; align-items:center; }
+    .ingress-inner { padding:16px; }
+    .check-label { display:flex; align-items:flex-start; gap:9px; cursor:pointer; font-size:13px; }
+    input[type="checkbox"] { width:16px; height:16px; margin:3px 0 0; accent-color:var(--blue); flex-shrink:0; }
+    .enable-check { font-weight:650; }
+    .cidr-block { margin-top:15px; padding:15px; background:#f3f7fd; border:1px solid #dae7f8; border-radius:6px; }
+    .cidr-label { display:flex !important; align-items:center; justify-content:space-between; gap:8px; }
+    .new-label { font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; background:#e1edff; color:#346da7; }
+    .cidr-block .check-label { font-size:11px; margin-top:11px; line-height:1.7; }
+    .routing-fields { margin-top:16px; display:grid; gap:15px; }
+    .field-row { display:grid; grid-template-columns:1fr 1.5fr; gap:16px; }
+    .inline-preview { margin-top:17px; padding:12px 14px; background:#f7f9fc; border-radius:6px; border:1px solid #e5ebf2; }
+    .inline-preview .label { display:block; font-size:10px; font-weight:650; color:#748296; margin-bottom:3px; }
+    .inline-preview code { color:#315e96; }
+    .http-note { margin-top:8px; color:#7b6848; font-size:11px; }
+    .disabled-hint { margin-top:12px; padding:12px; color:var(--muted); background:#f7f9fc; border-radius:6px; font-size:12px; }
+    .modal-footer { padding:15px 24px; border-top:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:12px; background:#fcfdff; }
+    .footer-actions { display:flex; gap:9px; }
+    .design-notes { display:grid; gap:16px; position:sticky; top:20px; }
+    .design-note { padding:20px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+    .design-note h3 { font-size:13px; margin-bottom:10px; }
+    .design-note p { font-size:12px; color:var(--muted); line-height:1.9; }
+    .order-list { list-style:none; padding:0; margin:0; display:grid; gap:8px; font-size:12px; color:var(--muted); counter-reset:order; }
+    .order-list li { counter-increment:order; display:flex; align-items:center; gap:9px; }
+    .order-list li:before { content:counter(order); display:grid; place-items:center; background:#f0f3f8; width:22px; height:22px; border-radius:50%; font-size:10px; }
+    .order-list .highlight { color:var(--blue); font-weight:650; }
+    .order-list .highlight:before { color:var(--blue); background:#e6f0ff; }
+    dialog { padding:0; width:min(780px,calc(100vw - 32px)); max-height:calc(100vh - 42px); border:1px solid #d3dce7; border-radius:12px; box-shadow:var(--shadow); color:var(--ink); background:#fff; }
+    dialog::backdrop { background:#16283e77; backdrop-filter:blur(3px); }
+    .dialog-head { display:flex; justify-content:space-between; align-items:center; padding:20px 25px; border-bottom:1px solid var(--line); }
+    .dialog-body { padding:20px 25px 24px; }
+    .dialog-subtitle { font-size:12px; color:var(--muted); margin-top:3px; }
+    .context-chips { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:18px; }
+    .detail-section-label { display:flex; justify-content:space-between; align-items:center; margin:19px 0 10px; gap:10px; }
+    .detail-section-label h3 { font-size:12px; color:#4f6073; }
+    .url-box { padding:16px 18px; border:1px solid #cbdffb; background:#f3f8ff; border-radius:7px; display:flex; gap:14px; align-items:center; justify-content:space-between; }
+    .url-box code { font-size:17px; color:#245d9f; font-weight:600; }
+    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; border:1px solid var(--line); border-radius:7px; padding:15px 17px; margin-top:14px; }
+    .detail-grid dt { font-size:10px; font-weight:650; color:var(--muted); letter-spacing:.3px; margin-bottom:4px; }
+    .detail-grid dd { margin:0; font-size:12px; }
+    .detail-grid .full { grid-column:1/-1; }
+    .endpoint-list { display:grid; gap:8px; }
+    .endpoint-choice { display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid var(--line); border-radius:6px; padding:11px 13px; background:#fff; cursor:pointer; }
+    .endpoint-choice:has(input:checked) { border-color:#78a8e9; background:#f7faff; }
+    .endpoint-left { display:flex; align-items:center; gap:10px; }
+    .endpoint-left input { accent-color:var(--blue); margin:0; }
+    .endpoint-choice small { color:var(--muted); font-size:11px; }
+    .hosts-block { display:flex; align-items:center; justify-content:space-between; gap:15px; padding:14px 16px; border-radius:7px; background:#192c43; color:#eff5ff; }
+    .hosts-block code { font-size:14px; }
+    .hosts-block .button { color:white; background:#ffffff10; border-color:#ffffff30; }
+    .hosts-block .button:hover { background:#ffffff25; }
+    .hosts-help { margin-top:7px; font-size:11px; color:var(--muted); }
+    .detail-warning { margin-top:15px; font-size:11px; color:#826d4b; background:#fcf8f0; padding:10px 13px; border-radius:6px; }
+    .dialog-foot { display:flex; justify-content:space-between; align-items:center; padding:14px 25px; border-top:1px solid var(--line); background:#fcfdff; gap:12px; }
+    .dialog-foot small { color:var(--muted); font-size:10px; }
+    .inline-message { padding:12px; margin-top:14px; border:1px solid #cce5d5; border-radius:6px; background:#f0f9f4; color:#34684c; font-size:12px; }
+    .inline-message.error { background:#fff4f2; border-color:#f1d0ca; color:#a44436; }
+    .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(15px); padding:12px 20px; max-width:calc(100vw - 32px); color:#fff; background:#172a42; border-radius:8px; box-shadow:0 7px 30px #14243a30; opacity:0; pointer-events:none; transition:opacity .15s,transform .15s; z-index:30; font-size:13px; }
+    .toast.visible { opacity:1; transform:translateX(-50%) translateY(0); }
+    .empty-address { padding:15px; border:1px dashed #cdd6e3; border-radius:6px; font-size:12px; color:var(--muted); background:#f8fafc; }
+    @media (min-width:1600px) { main { padding-top:36px; } }
+    @media (max-width:1150px) { .shell { grid-template-columns:190px minmax(0,1fr); } main { padding:23px; } .context-bar { padding:15px 23px; } .install-layout { grid-template-columns:minmax(0,1fr); } .design-notes { grid-template-columns:1fr 1fr; position:static; } .preview-bar { padding:14px 20px; } .preview-heading small { max-width:250px; } }
+    @media (max-width:800px) { .sidebar { display:none; } .shell { grid-template-columns:minmax(0,1fr); } .preview-bar { flex-direction:column; align-items:stretch; gap:12px; } .view-switch button { flex:1; padding:9px; font-size:12px; } .preview-heading small { max-width:none; } .context-selects { gap:8px; } .context-value strong { min-width:70px; padding:6px 9px; } .context-value span { padding:6px 8px; } .avatar { display:none; } .page-heading { align-items:flex-start; } .provider-bar { flex-direction:column; align-items:flex-end; gap:4px; } main { padding:20px 16px; } .context-bar { padding:12px 16px; } h1 { font-size:22px; } .explain-grid { grid-template-columns:1fr; } }
+    @media (max-width:520px) { .preview-bar { padding:14px 16px; } .preview-heading strong { font-size:15px; } .preview-heading small { font-size:10px; } .context-value { font-size:11px; } .context-value strong { min-width:50px; } .form-grid { grid-template-columns:1fr; } .field-row { grid-template-columns:1fr; } .form-body,.modal-header { padding:17px; } .ingress-inner { padding:13px; } .cidr-block { padding:12px; } .design-notes { grid-template-columns:1fr; } .modal-footer { padding:14px 17px; flex-wrap:wrap; } .modal-footer > .small { width:100%; } .footer-actions { margin-left:auto; } .dialog-body { padding:17px; } .dialog-head { padding:17px; } .dialog-foot { padding:13px 17px; } .detail-grid { grid-template-columns:1fr; } .url-box { align-items:flex-start; padding:13px; } .url-box code { font-size:14px; } .endpoint-choice { align-items:flex-start; } .endpoint-choice small { text-align:right; max-width:105px; } .hosts-block { flex-wrap:wrap; padding:13px; gap:10px; } .hosts-block code { font-size:12px; } .page-heading { flex-wrap:wrap; } .proposal-note { font-size:12px; } }
+    @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="grid" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="15" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="15" width="6" height="6" rx="1.5"/><rect x="15" y="15" width="6" height="6" rx="1.5"/></symbol>
+    <symbol id="copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4"/></symbol>
+    <symbol id="refresh" viewBox="0 0 24 24"><path d="M20 8a8.5 8.5 0 1 0 .5 7M20 3v5h-5"/></symbol>
+    <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v1"/></symbol>
+    <symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 22v-4a8 8 0 0 1 16 0v4"/></symbol>
+    <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="cloud" viewBox="0 0 24 24"><path d="M7 19h11a4 4 0 0 0 .5-8A6.5 6.5 0 0 0 6 9.5 4.8 4.8 0 0 0 7 19Z"/></symbol>
+  </svg>
+
+  <header class="preview-bar">
+    <div class="preview-heading"><span class="preview-badge">PREVIEW</span><div><strong>Ingress UI 변경 시안</strong><small>HTML 화면 예시 · 소스 미적용 · 실제 서버 요청/배포 없음</small></div></div>
+    <nav class="view-switch" aria-label="시안 화면 전환">
+      <button type="button" data-view="status" aria-pressed="true">01 &nbsp; Apps Status · 접속 정보</button>
+      <button type="button" data-view="deploy" aria-pressed="false">02 &nbsp; Deploy · CIDR 위치</button>
+    </nav>
+  </header>
+
+  <div class="shell">
+    <aside class="sidebar" aria-label="MCMP 메뉴 예시">
+      <div class="brand"><span class="brand-symbol"><svg><use href="#cloud"/></svg></span> MCMP</div>
+      <p class="nav-section">OPERATIONS</p><p class="nav-label">Manage</p>
+      <div class="nav-item"><svg><use href="#grid"/></svg> Workspaces</div>
+      <div class="nav-item"><svg><use href="#grid"/></svg> Workloads</div>
+      <div class="nav-item"><svg><use href="#grid"/></svg> Workflows</div>
+      <div class="nav-item nav-parent"><svg><use href="#grid"/></svg> Applications</div>
+      <button class="nav-child" type="button" data-nav="deploy">SW Catalogs</button>
+      <button class="nav-child active" type="button" data-nav="status">App Status</button>
+      <div class="nav-child">Repository</div>
+      <div class="nav-item"><svg><use href="#grid"/></svg> Data Migrations</div>
+      <p class="nav-section">SETTINGS</p><p class="nav-label">Account &amp; Access</p>
+      <div class="nav-item"><svg><use href="#grid"/></svg> Organizations</div>
+      <div class="nav-note">화면 구성 검토용입니다.<br>IP·도메인·클러스터는 모두 예시이며<br>실제 자원을 조회하지 않습니다.</div>
+    </aside>
+
+    <div class="workspace">
+      <div class="context-bar"><div class="context-selects"><div class="context-value"><span>Workspace</span><strong>ws01</strong></div><div class="context-value"><span>Project</span><strong>default</strong></div></div><span class="avatar" aria-label="사용자 아이콘"><svg><use href="#user"/></svg></span></div>
+      <main>
+        <section id="status-view" aria-labelledby="status-title">
+          <div class="proposal-note"><svg><use href="#info"/></svg><div><strong>변경 01</strong> &nbsp; 목록에는 접속 URL을 간결하게, IP와 hosts 설정은 <strong>접속 정보</strong>에서 확인합니다. 아래 AWS·IBM 버튼을 각각 눌러보세요.</div></div>
+          <div class="page-heading"><div><p class="eyebrow">APPLICATIONS</p><h1 id="status-title">App Status</h1></div><button type="button" class="button" id="refresh-status"><svg><use href="#refresh"/></svg> Refresh</button></div>
+          <div class="card">
+            <div class="card-toolbar"><h2>Applications <span class="pill neutral">2</span></h2><span class="muted small">동일한 Nginx의 CSP별 접속 예시</span></div>
+            <div class="table-scroll">
+              <table aria-label="앱 배포 상태 시안">
+                <thead><tr><th>INFRA</th><th>APPLICATION</th><th>STATUS</th><th class="new-col">CONNECTION URL <span class="new-label">추가</span></th><th>ACTION</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>aws-k8s-demo</strong><span class="infra-info">AWS · K8S · default</span></td><td><div class="app-cell"><span class="app-icon">N</span><div><strong>Nginx</strong><span class="infra-info">nginx-aws</span></div></div></td><td><span class="pill green"><span class="dot"></span>Running</span></td><td class="new-col"><div class="url-cell"><code>http://nginx.aws.test:30880/</code><button type="button" class="icon-button" data-copy-url="aws" title="AWS URL 복사" aria-label="AWS URL 복사"><svg><use href="#copy"/></svg></button></div><span class="infra-info">Ingress · NodePort 30880</span></td><td><button type="button" class="button outline compact" data-open="aws">접속 정보</button></td></tr>
+                  <tr><td><strong>ibm-k8s-demo</strong><span class="infra-info">IBM · K8S · default</span></td><td><div class="app-cell"><span class="app-icon">N</span><div><strong>Nginx</strong><span class="infra-info">nginx-ibm</span></div></div></td><td><span class="pill green"><span class="dot"></span>Running</span></td><td class="new-col"><div class="url-cell"><code>http://nginx.ibm.test/</code><button type="button" class="icon-button" data-copy-url="ibm" title="IBM URL 복사" aria-label="IBM URL 복사"><svg><use href="#copy"/></svg></button></div><span class="infra-info">Ingress · IBM Managed LB · HTTP 80</span></td><td><button type="button" class="button outline compact" data-open="ibm">접속 정보</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer" id="status-updated">예시 데이터 · Running은 샘플 상태이며 실제 접속 성공을 의미하지 않습니다.</div>
+          </div>
+          <div class="explain-grid">
+            <div class="explain"><div class="explain-title"><span class="step-no">1</span> 접속할 URL을 바로 확인</div><p>Host·Path·외부 포트를 합쳐 표시합니다. AWS 예시는 <code>:30880</code>을 포함하고, IBM은 기본 HTTP 포트 <code>80</code>이므로 생략합니다.</p></div>
+            <div class="explain"><div class="explain-title"><span class="step-no">2</span> hosts에 넣을 IP는 상세 팝업에서</div><p>노드 IP 또는 LB IP를 선택하면 <code>IP Host</code> 한 줄을 복사할 수 있습니다. 실제 구현 시 주소를 조회해야 하며, 조회되지 않으면 임의 IP를 표시하지 않는 구상입니다.</p></div>
+          </div>
+          <p class="footnote">목록의 기존 상태·관리 기능은 유지하는 전제입니다. 시안에서는 접속 정보 변경에 필요한 항목만 표시했습니다.</p>
+        </section>
+
+        <section id="deploy-view" aria-labelledby="deploy-title" hidden>
+          <div class="proposal-note"><svg><use href="#info"/></svg><div><strong>변경 02</strong> &nbsp; CIDR을 별도 위치에서 <strong>Enable Ingress 바로 아래</strong>로 이동합니다. 체크를 끄거나 CSP를 바꾸어 표시 차이를 확인해 보세요.</div></div>
+          <div class="page-heading"><div><p class="eyebrow">APPLICATIONS / SW CATALOGS</p><h1 id="deploy-title">Software Catalog</h1></div><div class="provider-bar"><span class="small muted">클러스터 예시</span><div class="provider-buttons" aria-label="배포 CSP 예시"><button type="button" data-provider="aws" aria-pressed="false">AWS</button><button type="button" data-provider="ibm" aria-pressed="true">IBM</button></div></div></div>
+          <div class="install-layout">
+            <div class="card">
+              <div class="modal-header"><h2>Application Installation</h2><span class="pill neutral" id="deploy-provider-pill">IBM · K8S</span></div>
+              <form id="install-form" novalidate>
+                <div class="form-body">
+                  <div class="form-grid">
+                    <div class="field"><label for="target">Target Infra</label><input id="target" value="K8S" readonly></div>
+                    <div class="field"><label for="namespace">Namespace</label><input id="namespace" value="default" readonly></div>
+                    <div class="field"><label for="cluster">Cluster Name</label><input id="cluster" value="ibm-k8s-demo" readonly></div>
+                    <div class="field"><label for="chart">Helm chart</label><input id="chart" value="Nginx" readonly></div>
+                    <div class="field"><label for="service-port">Port</label><input id="service-port" value="80" readonly><p class="hint">애플리케이션 Service 포트</p></div>
+                    <div class="field"><label for="resource-type">Resource Type</label><input id="resource-type" value="General Purpose" readonly></div>
+                  </div>
+                  <details class="other-settings"><summary>기타 기존 설정 · 시안에서는 요약 표시</summary><div class="other-values"><span class="pill neutral">HPA · Disabled</span><span class="pill neutral">Workload Rebalancing · Disabled</span></div></details>
+                  <section class="ingress-section" aria-labelledby="ingress-heading">
+                    <div class="ingress-title"><h3 id="ingress-heading">Ingress Configuration</h3><span class="pill">변경 영역</span></div>
+                    <div class="ingress-inner">
+                      <label class="check-label enable-check" for="enable-ingress"><input type="checkbox" id="enable-ingress" checked aria-controls="ingress-fields" aria-expanded="true">Enable Ingress</label>
+                      <div id="ingress-fields">
+                        <div class="cidr-block">
+                          <div class="field"><label class="cidr-label" for="cidr"><span>Allowed IPv4 CIDR <span class="required">*</span></span><span class="new-label">이 위치로 이동</span></label><input id="cidr" value="198.51.100.24/32" placeholder="예: 198.51.100.24/32" autocomplete="off" spellcheck="false" aria-describedby="cidr-help"><p class="hint" id="cidr-help">접속을 허용할 <strong>사용자의 공인 IP 대역</strong>입니다. 노드/LB의 목적지 IP가 아닙니다.</p></div>
+                          <label class="check-label" id="worker-sg-field" for="worker-sg" hidden><input type="checkbox" id="worker-sg" checked><span>Allow this CIDR on the worker Security Group (TCP 30880)</span></label>
+                        </div>
+                        <div class="routing-fields">
+                          <div class="field"><label for="host">Host <span class="required">*</span></label><input id="host" value="nginx.ibm.test" placeholder="nginx.ibm.test" spellcheck="false" autocomplete="off"><p class="hint" id="host-help">로컬 테스트 시 이 Host를 IBM LB IP에 매핑합니다.</p></div>
+                          <div class="field-row"><div class="field"><label for="path">Path</label><input id="path" value="/" spellcheck="false" autocomplete="off"></div><div class="field"><label for="ingress-class">Ingress Class</label><input id="ingress-class" value="public-iks-k8s-nginx" readonly></div></div>
+                        </div>
+                        <div class="inline-preview"><span class="label">EXPECTED CONNECTION URL · 예시</span><code id="expected-url">http://nginx.ibm.test/</code><p class="hint small muted" id="port-help">IBM Managed LB · 외부 HTTP 80 → Ingress → Service 80</p></div>
+                        <p class="http-note" id="http-note">HTTP 연결은 암호화되지 않습니다. 이 시안에는 Protocol/TLS 입력을 추가하지 않습니다.</p>
+                      </div>
+                      <p class="disabled-hint" id="ingress-off" hidden>Ingress 관련 입력을 숨깁니다. 이 설정으로는 Ingress 접속 URL을 만들지 않습니다.</p>
+                    </div>
+                  </section>
+                  <div class="inline-message" id="spec-message" role="status" hidden></div>
+                </div>
+                <div class="modal-footer"><span class="small muted">실제 검사·배포는 수행하지 않습니다.</span><div class="footer-actions"><button class="button" type="button" id="spec-check">Spec Check</button><button class="button primary" type="submit">Deploy</button></div></div>
+              </form>
+            </div>
+            <aside class="design-notes" aria-label="시안 변경 설명">
+              <div class="design-note"><h3>입력 순서만 자연스럽게</h3><ol class="order-list"><li>Enable Ingress</li><li class="highlight">Allowed IPv4 CIDR</li><li id="order-sg" hidden>Worker Security Group 허용</li><li>Host</li><li>Path</li><li>Ingress Class · 읽기 전용</li></ol></div>
+              <div class="design-note"><h3 id="provider-note-title">IBM도 Ingress를 사용합니다</h3><p id="provider-note">IBM LB가 받은 요청을 기존 IBM 관리형 Ingress Controller가 앱의 Service로 전달합니다. 이 화면에는 워커의 30880 포트 허용 항목을 표시하지 않습니다.</p><p style="margin-top:12px">CIDR 위치 변경 시안입니다. 기존 배포 정책·인증서 관리 기능을 새로 변경하는 제안은 아닙니다.</p></div>
+            </aside>
+          </div>
+          <p class="footnote">IP는 문서용 예약 주소, 도메인은 테스트용 이름입니다. 실제 접근 허용 범위와 배포 값으로 사용하지 마세요.</p>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="connection-dialog" aria-labelledby="connection-title" aria-describedby="connection-subtitle">
+    <header class="dialog-head"><div><p class="eyebrow">APPLICATION DETAIL / CONNECTION</p><h2 id="connection-title">접속 정보</h2><p class="dialog-subtitle" id="connection-subtitle">Nginx · IBM · ibm-k8s-demo</p></div><button type="button" class="icon-button" id="close-dialog" aria-label="접속 정보 닫기"><svg><use href="#close"/></svg></button></header>
+    <div class="dialog-body">
+      <div class="context-chips"><span class="pill green"><span class="dot"></span>Running · 예시</span><span class="pill neutral">Ingress enabled</span><span class="pill neutral" id="connection-mode">IBM Managed LB</span></div>
+      <div class="detail-section-label"><h3>1. 브라우저에서 사용할 URL</h3><span class="pill neutral">HTTP</span></div>
+      <div class="url-box"><code id="connection-url">http://nginx.ibm.test/</code><button type="button" class="button outline compact" id="copy-connection-url"><svg><use href="#copy"/></svg>URL 복사</button></div>
+      <dl class="detail-grid">
+        <div><dt>EXTERNAL PORT</dt><dd id="connection-port">80 · URL에 생략 가능</dd></div><div><dt>INGRESS CLASS</dt><dd><code id="connection-class">public-iks-k8s-nginx</code></dd></div>
+        <div><dt>ALLOWED CLIENT CIDR · 허용 사용자 IP</dt><dd><code>198.51.100.24/32</code></dd></div><div><dt>KUBERNETES NAMESPACE</dt><dd>default</dd></div>
+        <div class="full" id="lb-hostname-field"><dt>LOAD BALANCER HOSTNAME · 예시</dt><dd><code>preview-ibm-lb.example</code></dd></div>
+      </dl>
+      <div class="detail-section-label"><h3 id="destination-label">2. hosts에 매핑할 LB IP 선택</h3><button type="button" class="button compact" id="refresh-endpoint"><svg><use href="#refresh"/></svg>주소 새로고침</button></div>
+      <div class="endpoint-list" id="endpoint-list"></div>
+      <div class="empty-address" id="empty-address" hidden>접속 주소를 아직 확인할 수 없습니다. URL은 유지하되, IP 및 hosts 복사 기능은 주소 조회 성공 후 표시합니다.</div>
+      <div id="hosts-section"><div class="detail-section-label"><h3>3. 내 PC의 hosts 파일에 추가</h3><span class="small muted">포트는 넣지 않습니다</span></div><div class="hosts-block"><code id="hosts-entry">192.0.2.40 nginx.ibm.test</code><button type="button" class="button compact" id="copy-hosts"><svg><use href="#copy"/></svg>한 줄 복사</button></div><p class="hosts-help">macOS / Linux: <code>/etc/hosts</code> · Windows: <code>C:\Windows\System32\drivers\etc\hosts</code></p></div>
+      <p class="detail-warning" id="destination-warning">LB IP가 바뀌면 hosts도 수정해야 합니다. 실제 구현 시 LB의 최신 주소를 조회해 표시합니다.</p>
+      <details class="other-settings"><summary>주소 미조회 상태도 보기 · 시안 옵션</summary><label class="check-label" style="margin-top:10px"><input type="checkbox" id="simulate-no-ip">IP를 아직 조회하지 못한 상태</label></details>
+    </div>
+    <footer class="dialog-foot"><small id="endpoint-updated" role="status" aria-live="polite">예시 IP · 실제 주소 조회 없음</small><button type="button" class="button" id="close-dialog-footer">Close</button></footer>
+  </dialog>
+  <div class="toast" role="status" aria-live="polite" id="toast"></div>
+
+  <script>
+    'use strict';
+    // Standalone UI mockup. No imports, network calls, persistence or deployment APIs.
+    const $ = id => document.getElementById(id);
+    const examples = {
+      aws: { name:'AWS', cluster:'aws-k8s-demo', host:'nginx.aws.test', port:30880, ingressClass:'nginx', mode:'Ingress NodePort', addresses:[['203.0.113.10','worker-01 · Controller Ready'],['203.0.113.11','worker-02 · Controller Ready']], destination:'2. hosts에 매핑할 Controller 노드 IP 선택', warning:'Ingress Controller가 Ready 상태인 노드의 공인 IP 예시입니다. 임의 워커 IP가 아닙니다. 노드 재배치 시 주소를 다시 확인하고, 접속 경로의 TCP 30880 허용도 필요합니다.' },
+      ibm: { name:'IBM', cluster:'ibm-k8s-demo', host:'nginx.ibm.test', port:80, ingressClass:'public-iks-k8s-nginx', mode:'IBM Managed LB', addresses:[['192.0.2.40','LB 주소 후보 1'],['192.0.2.41','LB 주소 후보 2']], destination:'2. hosts에 매핑할 LB IP 선택', warning:'LB 호스트명의 현재 IP 후보를 보여주는 시안입니다. LB IP가 바뀌면 hosts도 수정해야 합니다. CIDR에 포함된 사용자 IP에서 접속해야 하며 HTTP는 암호화되지 않습니다.' }
+    };
+    let provider = 'ibm';
+    let connectionProvider = 'ibm';
+    let selectedIp = examples.ibm.addresses[0][0];
+    let toastTimer;
+    let refreshTimer;
+    const formDrafts = { aws:{host:examples.aws.host,path:'/',cidr:'198.51.100.24/32'}, ibm:{host:examples.ibm.host,path:'/',cidr:'198.51.100.24/32'} };
+    const connectionUrl = kind => 'http://' + examples[kind].host + (examples[kind].port === 80 ? '' : ':' + examples[kind].port) + '/';
+    const timeLabel = () => new Date().toLocaleTimeString('ko-KR',{hour12:false});
+
+    function toast(message) {
+      clearTimeout(toastTimer);
+      $('toast').textContent = message;
+      $('toast').classList.add('visible');
+      // Native dialogs are in the top layer: announce the copy result there as well.
+      if ($('connection-dialog').open) $('endpoint-updated').textContent = message;
+      toastTimer = setTimeout(() => $('toast').classList.remove('visible'), 3500);
+    }
+
+    async function copyText(value) {
+      try {
+        if (!navigator.clipboard || !window.isSecureContext) throw new Error('fallback');
+        await navigator.clipboard.writeText(value);
+      } catch (_) {
+        const input = document.createElement('textarea');
+        input.value = value;
+        input.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0';
+        ($('connection-dialog').open ? $('connection-dialog') : document.body).appendChild(input);
+        const previous = document.activeElement;
+        input.select();
+        let copied = false;
+        try { copied = document.execCommand('copy'); } catch (_) { /* manual copy remains available */ }
+        input.remove();
+        previous?.focus();
+        if (!copied) { toast('자동 복사가 제한되었습니다. 표시된 텍스트를 선택해 직접 복사하세요.'); return; }
+      }
+      toast('복사했습니다. 예시 주소이므로 실제 연결에는 사용하지 마세요.');
+    }
+
+    function setView(view) {
+      $('status-view').hidden = view !== 'status';
+      $('deploy-view').hidden = view !== 'deploy';
+      document.querySelectorAll('[data-view]').forEach(el => el.setAttribute('aria-pressed',String(el.dataset.view === view)));
+      document.querySelectorAll('[data-nav]').forEach(el => el.classList.toggle('active',el.dataset.nav === view));
+    }
+
+    function updateExpectedUrl() {
+      const host = $('host').value.trim();
+      const path = $('path').value.trim() || '/';
+      $('expected-url').textContent = host ? 'http://' + host + (provider === 'aws' ? ':30880' : '') + (path.startsWith('/') ? path : '/' + path) : 'Host를 입력하면 URL이 표시됩니다.';
+      $('spec-message').hidden = true;
+    }
+
+    function setProvider(next) {
+      formDrafts[provider] = {host:$('host').value,path:$('path').value,cidr:$('cidr').value};
+      provider = next;
+      const data = examples[next];
+      const isIbm = next === 'ibm';
+      document.querySelectorAll('[data-provider]').forEach(el => el.setAttribute('aria-pressed',String(el.dataset.provider === next)));
+      $('deploy-provider-pill').textContent = data.name + ' · K8S';
+      $('cluster').value = data.cluster;
+      $('host').value = formDrafts[next].host;
+      $('host').placeholder = data.host;
+      $('path').value = formDrafts[next].path;
+      $('cidr').value = formDrafts[next].cidr;
+      $('ingress-class').value = data.ingressClass;
+      $('worker-sg-field').hidden = isIbm;
+      $('order-sg').hidden = isIbm;
+      $('host-help').textContent = isIbm ? '로컬 테스트 시 이 Host를 IBM LB IP에 매핑합니다.' : '로컬 테스트 시 이 Host를 Ingress Controller가 실행 중인 노드의 공인 IP에 매핑합니다.';
+      $('port-help').textContent = isIbm ? 'IBM Managed LB · 외부 HTTP 80 → Ingress → Service 80' : 'Controller Node · 외부 HTTP 30880 → Ingress → Service 80';
+      $('provider-note-title').textContent = isIbm ? 'IBM도 Ingress를 사용합니다' : 'AWS NodePort 배포 예시';
+      $('provider-note').textContent = isIbm ? 'IBM LB가 받은 요청을 기존 IBM 관리형 Ingress Controller가 앱의 Service로 전달합니다. 이 화면에는 워커의 30880 포트 허용 항목을 표시하지 않습니다.' : 'Ingress Controller가 실행 중인 노드의 공인 IP와 30880 포트로 접근합니다. CIDR 입력 아래에 기존 워커 Security Group 허용 옵션을 함께 배치합니다.';
+      updateExpectedUrl();
+    }
+
+    function updateIngressVisibility() {
+      const enabled = $('enable-ingress').checked;
+      $('ingress-fields').hidden = !enabled;
+      $('ingress-off').hidden = enabled;
+      $('enable-ingress').setAttribute('aria-expanded',String(enabled));
+      $('spec-message').hidden = true;
+    }
+
+    function renderAddresses() {
+      const data = examples[connectionProvider];
+      const unavailable = $('simulate-no-ip').checked;
+      $('endpoint-list').replaceChildren();
+      $('endpoint-list').hidden = unavailable;
+      $('empty-address').hidden = !unavailable;
+      $('hosts-section').hidden = unavailable;
+      if (unavailable) return;
+      data.addresses.forEach(([ip,note],index) => {
+        const label = document.createElement('label'); label.className = 'endpoint-choice';
+        const left = document.createElement('span'); left.className = 'endpoint-left';
+        const radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'endpoint-ip'; radio.value = ip; radio.checked = ip === selectedIp;
+        radio.id = 'endpoint-' + index;
+        const code = document.createElement('code'); code.textContent = ip;
+        const small = document.createElement('small'); small.textContent = note;
+        left.append(radio,code); label.append(left,small); $('endpoint-list').append(label);
+        radio.addEventListener('change',() => { selectedIp = ip; updateHosts(); });
+      });
+      updateHosts();
+    }
+
+    function updateHosts() { $('hosts-entry').textContent = selectedIp + ' ' + examples[connectionProvider].host; }
+
+    function openConnection(kind) {
+      connectionProvider = kind;
+      const data = examples[kind];
+      selectedIp = data.addresses[0][0];
+      $('simulate-no-ip').checked = false;
+      $('connection-subtitle').textContent = 'Nginx · ' + data.name + ' · ' + data.cluster;
+      $('connection-mode').textContent = data.mode;
+      $('connection-url').textContent = connectionUrl(kind);
+      $('connection-port').textContent = data.port === 80 ? '80 · URL에서 생략 가능' : '30880 · URL에 포함';
+      $('connection-class').textContent = data.ingressClass;
+      $('lb-hostname-field').hidden = kind !== 'ibm';
+      $('destination-label').textContent = data.destination;
+      $('destination-warning').textContent = data.warning;
+      $('endpoint-updated').textContent = '예시 IP · 실제 주소 조회 없음';
+      renderAddresses();
+      $('connection-dialog').showModal();
+    }
+
+    function ipv4CidrValid(value) {
+      const match = value.match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/);
+      return !!match && match[1].split('.').every(part => Number(part) <= 255) && Number(match[2]) <= 32;
+    }
+    function hostnameValid(value) {
+      return value.length <= 253 && value.includes('.') && value.split('.').every(part => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(part));
+    }
+    function specCheck() {
+      const errors = [];
+      if ($('enable-ingress').checked) {
+        if (!ipv4CidrValid($('cidr').value.trim())) errors.push('CIDR은 198.51.100.24/32와 같은 IPv4 대역 형식으로 입력하세요.');
+        if (!hostnameValid($('host').value.trim())) errors.push('Host에는 http://, 포트, 경로 없이 도메인 이름만 입력하세요.');
+        if (!$('path').value.trim().startsWith('/')) errors.push('Path는 /로 시작해야 합니다.');
+      }
+      $('spec-message').hidden = false;
+      $('spec-message').classList.toggle('error',errors.length > 0);
+      $('spec-message').textContent = errors.length ? errors.join(' ') : '시안의 입력 형식만 확인했습니다. 클러스터 상태, Host/Path 중복, 네트워크 및 CIDR 적용 여부는 검사하지 않았습니다.';
+    }
+
+    document.querySelectorAll('[data-view]').forEach(el => el.addEventListener('click',() => setView(el.dataset.view)));
+    document.querySelectorAll('[data-nav]').forEach(el => el.addEventListener('click',() => setView(el.dataset.nav)));
+    document.querySelectorAll('[data-provider]').forEach(el => el.addEventListener('click',() => setProvider(el.dataset.provider)));
+    document.querySelectorAll('[data-open]').forEach(el => el.addEventListener('click',() => openConnection(el.dataset.open)));
+    document.querySelectorAll('[data-copy-url]').forEach(el => el.addEventListener('click',() => copyText(connectionUrl(el.dataset.copyUrl))));
+    $('close-dialog').addEventListener('click',() => $('connection-dialog').close());
+    $('close-dialog-footer').addEventListener('click',() => $('connection-dialog').close());
+    $('connection-dialog').addEventListener('close',() => { clearTimeout(refreshTimer); $('refresh-endpoint').disabled = false; });
+    $('copy-connection-url').addEventListener('click',() => copyText(connectionUrl(connectionProvider)));
+    $('copy-hosts').addEventListener('click',() => copyText($('hosts-entry').textContent));
+    $('simulate-no-ip').addEventListener('change',renderAddresses);
+    $('refresh-endpoint').addEventListener('click',() => {
+      $('refresh-endpoint').disabled = true;
+      $('endpoint-updated').textContent = '주소 갱신 동작 시연 중 · 네트워크 요청 없음';
+      refreshTimer = setTimeout(() => { renderAddresses(); $('refresh-endpoint').disabled = false; $('endpoint-updated').textContent = '예시 갱신 ' + timeLabel() + ' · 실제 주소 조회 없음'; },450);
+    });
+    $('refresh-status').addEventListener('click',() => { $('status-updated').textContent = '예시 갱신 ' + timeLabel() + ' · 실제 서버 요청 없이 샘플 화면만 갱신했습니다.'; });
+    $('enable-ingress').addEventListener('change',updateIngressVisibility);
+    ['host','path','cidr'].forEach(id => $(id).addEventListener('input',updateExpectedUrl));
+    $('worker-sg').addEventListener('change',() => { $('spec-message').hidden = true; });
+    $('spec-check').addEventListener('click',specCheck);
+    $('install-form').addEventListener('submit',event => { event.preventDefault(); toast('HTML 시안입니다. 실제 배포나 설정 변경은 수행하지 않습니다.'); });
+  </script>
+</body>
+</html>

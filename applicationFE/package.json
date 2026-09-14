@@ -10,6 +10,10 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --build --force",
     "test:install-integration": "node scripts/test-install-target.mjs",
+    "test:vm-clustering": "node scripts/test-vm-clustering.mjs",
+    "test:ingress-preflight": "node scripts/test-ingress-preflight.mjs",
+    "test:ibm-ingress-tls": "node scripts/test-ibm-ingress-tls.mjs",
+    "test:ingress-preparation": "node scripts/test-ingress-preparation.mjs",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
     "format": "prettier --write src/"
   },
