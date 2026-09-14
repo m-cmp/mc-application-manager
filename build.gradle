@@ -9,6 +9,16 @@ group = "kr.co.strato"
 version = '0.2.1'
 sourceCompatibility = '17'
 
+// JGit brings BC 1.64 under different artifact names. Mixing those classes with
+// the existing 1.78.1 PEM/X.509 library causes runtime NoSuchFieldError.
+configurations.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute module('org.bouncycastle:bcprov-jdk15on') using module('org.bouncycastle:bcprov-jdk18on:1.78.1')
+        substitute module('org.bouncycastle:bcpkix-jdk15on') using module('org.bouncycastle:bcpkix-jdk18on:1.78.1')
+        substitute module('org.bouncycastle:bcpg-jdk15on') using module('org.bouncycastle:bcpg-jdk18on:1.78.1')
+    }
+}
+
 repositories {
     mavenCentral()
 }
@@ -46,6 +56,7 @@ dependencies {
     implementation 'com.google.code.findbugs:jsr305:3.0.2'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.fabric8:kubernetes-server-mock:6.10.0'
     testRuntimeOnly 'com.h2database:h2'
 
     implementation group: 'org.slf4j', name: 'slf4j-api'
@@ -116,4 +127,23 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+// Opt in after `cd applicationFE && npm run build` to package that frontend,
+// without overwriting the checked-in static resources or other local edits.
+if (project.hasProperty('includeFrontend')) {
+    tasks.named('processResources') {
+        inputs.dir('applicationFE/dist')
+        doFirst {
+            if (!file('applicationFE/dist/index.html').isFile()) {
+                throw new GradleException('Build applicationFE before using -PincludeFrontend')
+            }
+        }
+        doLast {
+            copy {
+                from 'applicationFE/dist'
+                into new File(destinationDir, 'static')
+            }
+        }
+    }
 }

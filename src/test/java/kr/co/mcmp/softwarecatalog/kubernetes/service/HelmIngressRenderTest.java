@@ -32,15 +32,16 @@ class HelmIngressRenderTest {
                 Arguments.of("am-generic", "https://unverified.example/charts", "0.1.0")))
                 .flatMap(chart -> Stream.of("default", "team-monitoring")
                 .flatMap(namespace -> Stream.of("disabled", "http", "subpath", "tls", "tls-default")
-                        .flatMap(mode -> Stream.of(false, true).map(withCidr -> Arguments.of(
-                                chart.get()[0], chart.get()[1], chart.get()[2], namespace, mode, withCidr)))));
+                        .flatMap(mode -> Stream.of("none", "nginx", IbmIngressSupport.PUBLIC_CLASS, IbmIngressSupport.PRIVATE_CLASS)
+                                .map(ingressClass -> Arguments.of(chart.get()[0], chart.get()[1], chart.get()[2], namespace, mode, ingressClass)))));
     }
 
     @ParameterizedTest(name = "{0} {2}, namespace={3}, mode={4}, cidr={5}")
     @MethodSource("renderCases")
     @SuppressWarnings("unchecked")
     void rendersTheSelectedRouteAndARealBackendService(String name, String url, String version,
-                                                     String namespace, String mode, boolean withCidr) throws Exception {
+                                                     String namespace, String mode, String ingressClass) throws Exception {
+        boolean withCidr = !"none".equals(ingressClass);
         Path chartPath = name.equals("nginx") ? Path.of("nginx")
                 : Path.of(System.getenv("AM_HELM_TEST_CHARTS_DIR"), name);
         if (name.equals("am-generic")) {
@@ -67,7 +68,7 @@ class HelmIngressRenderTest {
             config.setIngressPath("/app");
             config.setIngressClass("custom-ingress");
         }
-        if (withCidr) config.setIngressClass("nginx");
+        if (withCidr) config.setIngressClass(ingressClass);
         Map<String, Object> values = HelmIngressValues.from(HelmIngressValuesTest.chart(name, url, version), config);
         HelmChartService service = new HelmChartService(null, null, null, null, null, null);
         // Use the production YAML writer and chart-specific service defaults as the deployment does.
@@ -98,7 +99,7 @@ class HelmIngressRenderTest {
             if (!completed) process.destroyForcibly();
             assertThat(completed).as("Helm rendering timeout").isTrue();
             assertThat(process.exitValue()).as(Files.readString(errors)).isZero();
-            if (withCidr) K8sIngressPolicy.verifyManifest(Files.readString(output), cidr, config.getIngressHost());
+            if (withCidr) K8sIngressPolicy.verifyManifest(Files.readString(output), cidr, config.getIngressHost(), ingressClass);
         } finally {
             Files.deleteIfExists(valuesFile);
         }

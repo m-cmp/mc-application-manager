@@ -17,10 +17,12 @@ public class K8sIngressCheckRequest {
     private String ingressClass;
     private Boolean ingressTlsEnabled;
     private String ingressTlsSecret;
+    private String servicePortCidr;
 
     public DeploymentRequest toDeploymentRequest() {
         return DeploymentRequest.builder().namespace(namespace).clusterName(clusterName).catalogId(catalogId)
                 .ingressEnabled(ingressEnabled).ingressHost(ingressHost).ingressPath(ingressPath)
-                .ingressClass(ingressClass).ingressTlsEnabled(ingressTlsEnabled).ingressTlsSecret(ingressTlsSecret).build();
+                .ingressClass(ingressClass).ingressTlsEnabled(ingressTlsEnabled).ingressTlsSecret(ingressTlsSecret)
+                .servicePortCidr(servicePortCidr).build();
     }
 }

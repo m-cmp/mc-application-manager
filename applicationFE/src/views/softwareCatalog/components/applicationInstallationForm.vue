@@ -18,13 +18,18 @@
             class="btn-close"
             data-bs-dismiss="modal"
             aria-label="Close"
-            @click="setInit"></button>
+            @click="handleCancel"></button>
         </div>
         <div
           class="modal-body"
           :class="{ 'install-embedded-body': embedded }"
           :style="embedded ? undefined : 'max-height: calc(100vh - 200px);overflow-y: auto;'">
 
+          <div v-if="deploymentCompleted" class="alert alert-success mb-0" role="status">
+            <strong>Deployment completed.</strong>
+            <p class="mb-0">Check the application's running status in Apps Status.</p>
+          </div>
+          <fieldset v-show="!deploymentCompleted" :disabled="deploying || deploymentCompleted" class="border-0 p-0 m-0">
           <div v-if="hasProjectContext" class="alert alert-info py-2" role="status">
             Deployment targets are scoped to
             <strong>{{ projectContextLabel }}</strong>.
@@ -516,11 +521,12 @@
             <div class="mb-3" v-if="modalTitle == 'Application Installation' && ingressData.ingressEnabled">
               <label class="form-label required">Allowed IPv4 CIDR</label>
               <input class="form-control" placeholder="203.0.113.10/32" v-model.trim="servicePortCidr">
-              <div class="form-check mt-2">
+              <div class="form-check mt-2" v-if="!isIbmCluster">
                 <input class="form-check-input" type="checkbox" id="k8sOpenIngress" v-model="k8sOpenIngress">
                 <label class="form-check-label" for="k8sOpenIngress">Allow this CIDR on the worker Security Group (TCP 30880)</label>
               </div>
-              <p class="text-muted mt-1">Access: http://{{ ingressData.ingressHost || 'your-ingress-host' }}:30880. For testing, map this hostname to an accessible Kubernetes node public IP in your PC hosts file. With source-IP preservation, use a node running the Ingress Controller.</p>
+              <p v-if="isIbmCluster" class="text-muted mt-1">HTTP via the IBM-managed load balancer. Only the allowed client IP range can access this application.</p>
+              <p v-else class="text-muted mt-1">Access: http://{{ ingressData.ingressHost || 'your-ingress-host' }}:30880. For testing, map this hostname to an accessible Kubernetes node public IP in your PC hosts file. With source-IP preservation, use a node running the Ingress Controller.</p>
             </div>
             <!-- K8S :: HPA -->
             <div class="mb-3" v-if="modalTitle == 'Application Installation'" >
@@ -633,6 +639,7 @@
                     class="form-control"
                     placeholder="example.com"
                     v-model="ingressData.ingressHost">
+                  <p v-if="isIbmCluster" class="text-muted mb-1">For local testing, map this hostname to the IBM load balancer IP in your hosts file. HTTP does not require a certificate and is not encrypted.</p>
                 </div>
 
                 <div class="mb-2">
@@ -650,31 +657,10 @@
                     type="text"
                     class="form-control"
                     placeholder="nginx"
-                    v-model="ingressData.ingressClass"
+                    :value="effectiveIngressClass"
                     disabled>
                 </div>
 
-                <!-- <div class="mb-2">
-                  <div class="form-check">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      id="ingressTlsEnabled"
-                      v-model="ingressData.ingressTlsEnabled">
-                    <label class="form-check-label" for="ingressTlsEnabled">
-                      Enable TLS
-                    </label>
-                  </div>
-                </div>
-
-                <div v-if="ingressData.ingressTlsEnabled" class="mb-2">
-                  <label class="form-label">TLS Secret Name</label>
-                  <input
-                    type="text"
-                    class="form-control"
-                    placeholder="tls-secret"
-                    v-model="ingressData.ingressTlsSecret">
-                </div> -->
               </div>
             </div>
 
@@ -837,10 +823,11 @@
               </div>
             </div>
           </template>
+          </fieldset>
         </div>
 
         <!-- Footer -->
-        <div v-if="specCheckErrors.length || specCheckWarnings.length" class="px-3" aria-live="polite">
+        <div v-if="!deploymentCompleted && (specCheckErrors.length || specCheckWarnings.length)" class="px-3" aria-live="polite">
           <div v-for="message in specCheckErrors" :key="message" class="alert alert-danger" role="alert">{{ message }}</div>
           <div v-for="message in specCheckWarnings" :key="message" class="alert alert-warning">{{ message }}</div>
         </div>
@@ -850,15 +837,18 @@
             class="btn btn-link link-secondary"
             :data-bs-dismiss="embedded ? undefined : 'modal'"
             @click="handleCancel">
-            Cancel
+            {{ deploymentCompleted ? 'Close' : 'Cancel' }}
           </a>
 
-          <div>
+          <button v-if="deploymentCompleted" type="button" class="btn btn-primary" @click="viewAppsStatus">
+            View Apps Status
+          </button>
+          <div v-else>
             <button
               v-if="modalTitle == 'Application Installation' && shouldRunObjectStorageCheck"
               class="btn btn-outline-danger ms-auto me-1"
               @click="runObjectStorageCheck()"
-              :disabled="objectStorageChecking || objectStorageCheckPassed"
+              :disabled="deploying || objectStorageChecking || objectStorageCheckPassed"
               title="Writes, reads, and deletes a temporary object in the selected bucket.">
               {{ objectStorageChecking ? 'Checking...' : 'Storage Check' }}
             </button>
@@ -866,12 +856,11 @@
               v-if="modalTitle == 'Application Installation'"
               class="btn btn-danger ms-auto me-1"
               @click="specCheck"
-              :disabled="specChecking || !specCheckFlag || Boolean(projectScopeError)">
+              :disabled="deploying || specChecking || !specCheckFlag || Boolean(projectScopeError)">
               {{ specChecking ? 'Checking...' : 'Spec Check' }}
             </button>
             <button
               class="btn btn-primary ms-auto"
-              :data-bs-dismiss="embedded ? undefined : 'modal'"
               @click="runInstall"
               :disabled="deployDisabled">
               {{ deploying ? 'Deploying…' : 'Deploy' }}
@@ -886,7 +875,9 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
-import { onMounted, watch, computed } from 'vue';
+import { onMounted, onBeforeUnmount, watch, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { Modal } from 'bootstrap';
 // @ts-ignore
 import _ from 'lodash';
 import { getNsInfo, getMciInfo, getVmInfo, getClusterInfo } from '@/api/tumblebug'
@@ -895,6 +886,8 @@ import { type SoftwareCatalog } from '@/views/type/type'
 import { useUserStore } from '@/stores/user'
 import { isVmClusteringCatalog } from '@/utils/vmClustering'
 import { resolveInstallVmTarget } from '@/integration/installTarget'
+import { startIngressPreparation, getIngressPreparation } from '@/api/softwareCatalog'
+import { waitForIngressPreparation } from '@/utils/ingressPreparation'
 
 interface Props {
   nsId?: string
@@ -916,6 +909,7 @@ interface VmNodeGroupOption {
 
 const toast = useToast()
 const userStore = useUserStore()
+const router = useRouter()
 
 const props = withDefaults(defineProps<Props>(), {
   nsId: '',
@@ -1030,6 +1024,15 @@ const registeredObjectStorageList = ref([] as any[])
 const registeredObjectStorageLoading = ref(false as boolean)
 const registeredObjectStorageLoadError = ref(false as boolean)
 const deploying = ref(false)
+const deploymentCompleted = ref(false)
+let preparationEpoch = 0
+let installationFormMounted = true
+// Bootstrap backdrop/Escape closes can bypass the Cancel button.
+const onInstallationModalHide = () => { preparationEpoch++ }
+onBeforeUnmount(() => {
+  installationFormMounted = false
+  document.getElementById(props.formId)?.removeEventListener('hide.bs.modal', onInstallationModalHide)
+})
 const selectedResourceType = ref("GENERAL_PURPOSE" as string)
 const storageClassList = ref([] as any[])
 const selectedStorageClass = ref("" as string)
@@ -1120,7 +1123,7 @@ const clearTargetResources = () => {
 // Handle target infrastructure changes
 // Synchronous invalidation also prevents a late response from validating changed form values.
 watch([selectInfra, selectNsId, selectCluster, selectMci, selectedVmList, vmTargetMode,
-  selectVmNodeGroupId, selectedCatalogIdx, selectedStorageClass, ingressData, projectContextKey, modalTitle], () => {
+  selectVmNodeGroupId, selectedCatalogIdx, selectedStorageClass, ingressData, servicePortCidr, projectContextKey, modalTitle], () => {
   onChangeForm()
 }, { deep: true, flush: 'sync' })
 
@@ -1210,6 +1213,7 @@ watch(vmTargetMode, (targetMode) => {
 })
 
 onMounted(async () => {
+  document.getElementById(props.formId)?.addEventListener('hide.bs.modal', onInstallationModalHide)
   if (props.embedded) {
     try {
       await setInit()
@@ -1245,6 +1249,8 @@ onMounted(async () => {
 })
 
 const setInit = async () => {
+  preparationEpoch++
+  deploymentCompleted.value = false
   const loadSequence = ++resourceLoadSequence
   clearTargetResources()
   selectInfra.value = isTargetLocked.value ? normalizedTargetType.value : "VM"
@@ -1675,9 +1681,23 @@ const removeVm = (index: number) => {
 }
 
 const handleCancel = async () => {
-  if (deploying.value) return
+  preparationEpoch++
   emit('cancel')
+  if (deploying.value) return // Shared preparation may finish, but must not trigger an app deployment.
+  if (deploymentCompleted.value) return // Keep the completed state until a new form is opened.
   await setInit()
+}
+
+const viewAppsStatus = async () => {
+  const element = document.getElementById(props.formId)
+  const modal = element && !props.embedded ? Modal.getInstance(element) : null
+  if (modal && element?.classList.contains('show')) {
+    await new Promise<void>(resolve => {
+      element.addEventListener('hidden.bs.modal', () => resolve(), { once: true })
+      modal.hide()
+    })
+  }
+  await router.push({ name: 'applicationStatus' })
 }
 
 const getDeploymentTarget = () => selectInfra.value === 'VM'
@@ -1717,6 +1737,7 @@ const getDeploymentId = (responseData: any) => {
 }
 
 const runInstall = async () => {
+  if (deploying.value || deploymentCompleted.value) return
   if (modalTitle.value === 'Application Installation' && selectInfra.value === 'VM'
     && selectDeploymentType.value === 'Clustering' && !canSelectClustering.value) {
     toast.error('Clustering is available only for Redis and Elasticsearch on individually selected VMs')
@@ -1744,8 +1765,8 @@ const runInstall = async () => {
     return
   }
   if (selectInfra.value === 'K8S' && modalTitle.value === 'Application Installation' && ingressData.value.ingressEnabled) {
-    if (!servicePortCidr.value || servicePortCidr.value === '0.0.0.0/0' || ingressData.value.ingressClass !== 'nginx') {
-      toast.error('Enter a restricted IPv4 CIDR and use ingress class nginx for external access')
+    if (!servicePortCidr.value || servicePortCidr.value === '0.0.0.0/0') {
+      toast.error('Enter a restricted IPv4 CIDR for external access')
       return
     }
   }
@@ -1754,8 +1775,10 @@ const runInstall = async () => {
       toast.error('Enter an Ingress hostname and a restricted IPv4 CIDR for Jupyter')
       return
     }
-    if (ingressData.value.ingressPath !== '/' || ingressData.value.ingressTlsEnabled || hpaData.value.hpaEnabled || workloadRebalancingEnabled.value) {
-      toast.error('Jupyter uses one replica, path / and HTTP NodePort 30880 without HPA or rebalancing')
+    if (ingressData.value.ingressPath !== '/' || (!isIbmCluster.value && ingressData.value.ingressTlsEnabled) || hpaData.value.hpaEnabled || workloadRebalancingEnabled.value) {
+      toast.error(isIbmCluster.value
+        ? 'Jupyter uses one replica and path / without HPA or rebalancing'
+        : 'Jupyter uses one replica, path / and HTTP NodePort 30880 without HPA or rebalancing')
       return
     }
   }
@@ -1776,6 +1799,11 @@ const runInstall = async () => {
   if (selectInfra.value === 'K8S' && !validateStorageClassSelection()) return
 
   deploying.value = true
+  const deploymentContext = projectContextKey.value
+  const deploymentSpecVersion = specCheckVersion
+  const deploymentEpoch = preparationEpoch
+  const isCurrentDeployment = () => installationFormMounted && preparationEpoch === deploymentEpoch
+    && projectContextKey.value === deploymentContext && specCheckVersion === deploymentSpecVersion
   emitDeploymentEvent('DEPLOY_STARTED')
 
   try {
@@ -1821,7 +1849,7 @@ const runInstall = async () => {
       const params = {
         namespace: selectNsId.value,
         clusterName: selectCluster.value,
-        openServicePort: ingressData.value.ingressEnabled && k8sOpenIngress.value,
+        openServicePort: ingressData.value.ingressEnabled && !isIbmCluster.value && k8sOpenIngress.value,
         servicePortCidr: ingressData.value.ingressEnabled ? servicePortCidr.value : undefined,
         catalogId: selectedCatalogIdx.value,
         servicePort,
@@ -1838,12 +1866,24 @@ const runInstall = async () => {
         additionalConfig
       }
 
+      if (modalTitle.value === 'Application Installation' && isIbmCluster.value && params.ingressEnabled) {
+        const { data } = await startIngressPreparation({
+          namespace: params.namespace, clusterName: params.clusterName, catalogId: params.catalogId,
+          servicePortCidr: params.servicePortCidr, ...buildIngressPayload()
+        })
+        await waitForIngressPreparation(data, params,
+          async id => (await getIngressPreparation(params.namespace, id)).data,
+          () => {}, // Keep preparation internal; the form shows only the generic busy state.
+          isCurrentDeployment)
+      }
       res = modalTitle.value == 'Application Installation'
         ? await runK8SInstall(params)
         : await runAction(params)
     }
 
+    if (!isCurrentDeployment()) return
     if (res.data) {
+      deploymentCompleted.value = true
       toast.success('SUCCESS')
       emitDeploymentEvent('DEPLOY_SUCCEEDED', {
         deploymentId: getDeploymentId(res.data)
@@ -1855,9 +1895,11 @@ const runInstall = async () => {
       })
     }
   } catch (error) {
-    toast.error('FAIL')
+    if (!isCurrentDeployment()) return
+    const message = error instanceof Error ? error.message : 'The deployment request failed.'
+    toast.error(message)
     emitDeploymentEvent('DEPLOY_FAILED', {
-      message: 'The deployment request failed.'
+      message
     })
   } finally {
     deploying.value = false
@@ -1869,9 +1911,10 @@ const buildIngressPayload = () => ({
   ingressEnabled: ingressData.value.ingressEnabled,
   ingressHost: normalizeIngressHost(ingressData.value.ingressHost),
   ingressPath: ingressData.value.ingressPath,
-  ingressClass: ingressData.value.ingressClass,
-  ingressTlsEnabled: ingressData.value.ingressTlsEnabled,
-  ingressTlsSecret: ingressData.value.ingressTlsSecret === '' ? null : ingressData.value.ingressTlsSecret
+  ingressClass: effectiveIngressClass.value,
+  // The IBM installation UI is HTTP-only, even when the catalog carries TLS defaults.
+  ingressTlsEnabled: isIbmCluster.value ? false : ingressData.value.ingressTlsEnabled,
+  ingressTlsSecret: isIbmCluster.value ? null : (ingressData.value.ingressTlsSecret === '' ? null : ingressData.value.ingressTlsSecret)
 })
 
 const specCheck = async () => {
@@ -1902,6 +1945,7 @@ const specCheck = async () => {
         namespace: selectNsId.value,
         clusterName: selectCluster.value,
         catalogId: selectedCatalogIdx.value,
+        servicePortCidr: servicePortCidr.value,
         ...buildIngressPayload()
       })
       if (version !== specCheckVersion) return
@@ -2016,6 +2060,9 @@ const selectedClusterProvider = computed(() => {
   return cluster?.connectionConfig?.providerName || cluster?.connectionName || ''
 })
 
+const isIbmCluster = computed(() => /^(ibm|ibmcloud|ibm-cloud|ibm-vpc|ibmvpc)(-|$)/i.test(selectedClusterProvider.value))
+const effectiveIngressClass = computed(() => isIbmCluster.value ? 'public-iks-k8s-nginx' : 'nginx')
+
 const selectedVmProvider = computed(() => {
   const selectedVmId = selectedVmList.value[0]
   const vm = originalVmList.value.find((item: any) => getVmValue(item) === selectedVmId)
@@ -2111,6 +2158,7 @@ const objectStorageCheckPassed = computed(() => {
 
 const deployDisabled = computed(() => {
   return deploying.value
+    || deploymentCompleted.value
     || specChecking.value
     || Boolean(projectScopeError.value)
     || specCheckFlag.value

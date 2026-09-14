@@ -1,0 +1,16 @@
+# Merge with mc-admin-cli/conf/docker/docker-compose.yaml. Do not run as a standalone Compose project.
+# AM_INGRESS_CONFIG_DIR: absolute host directory containing the 4 real operator files.
+# AM_LOCAL_IMAGE: unique tag of an image built from this source, already loaded on the host.
+services:
+  mc-application-manager:
+    image: ${AM_LOCAL_IMAGE:?Set the image tag built from the updated local source}
+    pull_policy: never
+    environment:
+      SPRING_CONFIG_ADDITIONAL_LOCATION: file:/run/am-ingress/application-ibm-ingress.yaml
+    volumes:
+      - type: bind
+        source: ${AM_INGRESS_CONFIG_DIR:?Set the absolute operator config directory}
+        target: /run/am-ingress
+        read_only: true
+        bind:
+          create_host_path: false

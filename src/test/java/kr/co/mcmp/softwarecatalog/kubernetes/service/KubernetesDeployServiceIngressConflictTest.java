@@ -33,7 +33,7 @@ class KubernetesDeployServiceIngressConflictTest {
     private final DeploymentHistoryRepository histories = mock(DeploymentHistoryRepository.class);
     private final SoftwareSourceService sources = mock(SoftwareSourceService.class);
     private final KubernetesDeployService service = new KubernetesDeployService(
-            factory, null, helm, null, statuses, histories, sources, null, access);
+            factory, null, helm, null, statuses, histories, sources, null, access, IbmIngressAutomationTestSupport.legacy());
     private final SoftwareCatalog catalog = SoftwareCatalog.builder().id(7L)
             .ingressEnabled(true).ingressHost("app.example.com").ingressPath("/app").build();
 
@@ -60,7 +60,9 @@ class KubernetesDeployServiceIngressConflictTest {
                 .hasMessageContaining("Host/Path conflict").hasMessageContaining("other-namespace/old-app")
                 .hasRootCauseInstanceOf(IllegalArgumentException.class)
                 .rootCause().hasMessageContaining("Host/Path conflict").hasMessageContaining("other-namespace/old-app");
-        verifyNoInteractions(helm, access, statuses, histories);
+        verifyNoInteractions(helm, statuses, histories);
+        verify(access).resolveTarget(any(), same(catalog));
+        verifyNoMoreInteractions(access);
         verify(client).close();
     }
 
@@ -80,7 +82,9 @@ class KubernetesDeployServiceIngressConflictTest {
         var order = inOrder(routes, helm);
         order.verify(routes).list();
         order.verify(helm).ensureMetricsServer(client, "project-a", "cluster-a");
-        verifyNoInteractions(access, histories);
+        verifyNoInteractions(histories);
+        verify(access).resolveTarget(any(), same(catalog));
+        verifyNoMoreInteractions(access);
     }
 
     @Test
@@ -102,7 +106,9 @@ class KubernetesDeployServiceIngressConflictTest {
         assertThatThrownBy(() -> service.deployApplication("project-a", "cluster-a", catalog, "user", request()))
                 .hasMessageContaining("cluster-wide Ingress list permission")
                 .hasRootCause(forbidden);
-        verifyNoInteractions(helm, access, statuses, histories);
+        verifyNoInteractions(helm, statuses, histories);
+        verify(access).resolveTarget(any(), same(catalog));
+        verifyNoMoreInteractions(access);
     }
 
     private IllegalStateException stopAtMetricsBoundary() {
@@ -111,5 +117,33 @@ class KubernetesDeployServiceIngressConflictTest {
         IllegalStateException boundary = new IllegalStateException("test-metrics-boundary");
         doThrow(boundary).when(helm).ensureMetricsServer(client, "project-a", "cluster-a");
         return boundary;
+    }
+
+    @ParameterizedTest @ValueSource(booleans={false,true})
+    void ibmDeploymentRechecksPolicyAndNeverInstallsNodePortController(boolean proxyReady) {
+        var ibm = IbmIngressSupportTest.readyClient(IbmIngressSupport.PUBLIC_CLASS,proxyReady,"10.150.0.0/24","proxy-protocol",false);
+        IbmIngressTlsResolverTest.configureDefault(ibm);
+        var ibmRoutes = KubernetesIngressRouteValidatorTest.stubIngressList(ibm);
+        when(ibmRoutes.list()).thenReturn(new IngressListBuilder().build());
+        when(factory.getClient("project-a","cluster-a")).thenReturn(ibm);
+        doAnswer(call -> { ((DeploymentRequest)call.getArgument(0)).setIngressClass(IbmIngressSupport.PUBLIC_CLASS); return null; })
+                .when(access).resolveTarget(any(),same(catalog));
+        var boundary = new IllegalStateException("test-application-helm-boundary");
+        doThrow(boundary).when(helm).deployHelmChart(eq(ibm),eq("project-a"),same(catalog),any(),eq("cluster-a"),any());
+        var request = request(); request.setIngressHost(IbmIngressTlsResolverTest.HOST); request.setIngressTlsEnabled(true);
+        var result = assertThatThrownBy(() -> service.deployApplication("project-a","cluster-a",catalog,"user",request));
+        if (proxyReady) {
+            result.hasCause(boundary);
+            verify(helm).ensureMetricsServer(ibm,"project-a","cluster-a");
+            verify(helm,never()).ensureIngressController(any(),any(),any());
+            assertThat(request.getIngressTlsEnabled()).isTrue();
+            assertThat(request.getIngressTlsSecret()).isEqualTo(IbmIngressTlsResolverTest.SECRET);
+        } else {
+            result.rootCause().hasMessageContaining("source IP preservation is disabled");
+            verifyNoInteractions(helm);
+        }
+        verify(access).resolveTarget(any(),same(catalog));
+        verifyNoMoreInteractions(access);
+        verifyNoInteractions(histories);
     }
 }

@@ -1,6 +1,7 @@
 package kr.co.mcmp.ape.cbtumblebug.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -35,6 +36,7 @@ public class VmAccessInfo {
     private String name;
 
     @Schema(description = "Sub group ID")
+    @JsonAlias("nodeGroupId")
     private String subGroupId;
 
     @Schema(description = "Location information")

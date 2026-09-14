@@ -80,6 +80,8 @@ public class HelmChartService {
         try {
             // 1. 클러스터 정보 조회
             K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
+            config = IbmIngressSupport.resolve(clusterDto, config);
+            config = IbmIngressTlsResolver.resolve(client, KubernetesNamespaces.APPLICATION_WORKLOAD, config);
             String kubeconfigYaml = kubeconfigResolver.getKubeconfigYaml(namespace, clusterName);
 
             // 2. Kubeconfig YAML 생성
@@ -288,6 +290,13 @@ public class HelmChartService {
             if (clusterDto == null) {
                 throw new RuntimeException("K8s cluster not found: " + clusterName);
             }
+            config = IbmIngressSupport.resolve(clusterDto, config);
+            config = IbmIngressTlsResolver.resolve(client, KubernetesNamespaces.APPLICATION_WORKLOAD, config);
+            IbmIngressTlsResolver.apply(request, config);
+            if (config.isIngressEnabled() && IbmIngressSupport.managed(config.getIngressClass())) {
+                IbmIngressSupport.verify(client, config);
+                request.setIngressClass(config.getIngressClass());
+            }
 
             // 2. kubeconfig 파일 생성
             String providerName = clusterDto.getConnectionConfig().getProviderName();
@@ -376,7 +385,7 @@ public class HelmChartService {
                     values,
                     tempValuesPath,
                     ingressCidr,
-                    config.getIngressHost());
+                    config.getIngressHost(), config.getIngressClass());
             
             // 간단한 Release 스텁 반환 - null 반환으로 변경
             Release result = null;
@@ -613,6 +622,10 @@ public class HelmChartService {
     }
 
     public void ensureIngressController(KubernetesClient client, String namespace, String clusterName) {
+        if (IbmIngressSupport.isIbm(cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName))) {
+            IbmIngressSupport.verify(client, IbmIngressSupport.PUBLIC_CLASS);
+            return;
+        }
         Path tempKubeconfigPath = null;
         try {
             tempKubeconfigPath = createTempKubeconfigFile(getKubeconfigForCluster(namespace, clusterName));
@@ -1225,6 +1238,11 @@ public class HelmChartService {
 
     private void runHelmInstallCli(String releaseName, String chartRef, String namespace, String version,
                                    Path kubeconfig, Map<String,String> values, Path valuesFile, String ingressCidr, String ingressHost) throws Exception {
+        runHelmInstallCli(releaseName, chartRef, namespace, version, kubeconfig, values, valuesFile, ingressCidr, ingressHost, "nginx");
+    }
+
+    private void runHelmInstallCli(String releaseName, String chartRef, String namespace, String version,
+                                   Path kubeconfig, Map<String,String> values, Path valuesFile, String ingressCidr, String ingressHost, String ingressClass) throws Exception {
         java.util.List<String> cmd = new java.util.ArrayList<>();
         // Helm 경로 지정 (관리자 권한 없이 사용)
         String helmPath = getHelmPath();
@@ -1238,7 +1256,7 @@ public class HelmChartService {
             cmd.add(valuesFile.toString());
         }
         cmd.addAll(buildHelmSetArguments(values));
-        if (ingressCidr != null) verifyIngressBeforeInstall(cmd, ingressCidr, ingressHost);
+        if (ingressCidr != null) verifyIngressBeforeInstall(cmd, ingressCidr, ingressHost, ingressClass);
         ProcessBuilder pb = new ProcessBuilder(cmd);
         Process p = pb.start();
         int ec = p.waitFor();
@@ -1250,7 +1268,7 @@ public class HelmChartService {
         log.info("helm install output: {}", out);
     }
 
-    private void verifyIngressBeforeInstall(java.util.List<String> installCommand, String cidr, String ingressHost) throws Exception {
+    private void verifyIngressBeforeInstall(java.util.List<String> installCommand, String cidr, String ingressHost, String ingressClass) throws Exception {
         var command = new java.util.ArrayList<>(installCommand);
         command.addAll(java.util.List.of("--dry-run=client", "--output", "json"));
         Path output = Files.createTempFile("helm-ingress-check-", ".json");
@@ -1265,7 +1283,7 @@ public class HelmChartService {
             var result = new com.fasterxml.jackson.databind.ObjectMapper().readTree(output.toFile());
             StringBuilder manifest = new StringBuilder(result.path("manifest").asText());
             for (var hook : result.path("hooks")) manifest.append("\n---\n").append(hook.path("manifest").asText());
-            K8sIngressPolicy.verifyManifest(manifest.toString(), cidr, ingressHost);
+            K8sIngressPolicy.verifyManifest(manifest.toString(), cidr, ingressHost, ingressClass);
         } finally {
             Files.deleteIfExists(output);
             Files.deleteIfExists(error);

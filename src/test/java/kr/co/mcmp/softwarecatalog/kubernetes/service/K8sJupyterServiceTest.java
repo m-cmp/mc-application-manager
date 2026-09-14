@@ -19,7 +19,7 @@ import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 
 class K8sJupyterServiceTest {
     @Test void sshManifestKeepsKeysOutOfNotebookAndDoesNotPublishSsh() throws Exception {
-        var service=new K8sJupyterService(null,null,null,null,null,null,new ObjectMapper(),null);
+        var service=new K8sJupyterService(null,null,null,null,null,null,new ObjectMapper(),null,IbmIngressAutomationTestSupport.legacy());
         var catalog=new SoftwareCatalog();
         catalog.setPackageInfo(PackageInfo.builder().packageName("quay.io/jupyter/scipy-notebook").packageVersion("2026-07-28").build());
         var secret=new SecretBuilder().withNewMetadata().withName("mcmp-jupyter-41-ssh").withNamespace("default").endMetadata()
@@ -50,7 +50,7 @@ class K8sJupyterServiceTest {
     }
     @Test void lifecycleLookupExcludesRejectedRequestsWithoutManagedRelease() {
         var histories = mock(kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository.class);
-        var service = new K8sJupyterService(null, null, null, null, histories, null, new ObjectMapper(), null);
+        var service = new K8sJupyterService(null, null, null, null, histories, null, new ObjectMapper(), null,IbmIngressAutomationTestSupport.legacy());
         service.latest("default", "cluster-a", 41L);
         verify(histories).findTopByCatalogIdAndClusterNameAndNamespaceAndActionTypeAndReleaseNameStartingWithOrderByExecutedAtDesc(
                 41L, "cluster-a", "default", kr.co.mcmp.softwarecatalog.application.constants.ActionType.INSTALL, "mcmp-jupyter-");
@@ -109,8 +109,27 @@ class K8sJupyterServiceTest {
         assertThatThrownBy(() -> K8sJupyterService.validate(r,"https://am.example.test")).hasMessageContaining("nginx");
     }
 
+    @Test void ibmJupyterUsesTheSelectedManagedTlsSecretWithoutChangingThePodProtocol() throws Exception {
+        var service = new K8sJupyterService(null,null,null,null,null,null,new ObjectMapper(),null,IbmIngressAutomationTestSupport.legacy());
+        ReflectionTestUtils.setField(service, "gatewayUrl", "https://gateway.example.com");
+        var catalog = new SoftwareCatalog();
+        catalog.setPackageInfo(PackageInfo.builder().packageName("quay.io/jupyter/scipy-notebook").packageVersion("2026-07-28").build());
+        var r = request(); r.setIngressClass(IbmIngressSupport.PUBLIC_CLASS);
+        r.setIngressTlsEnabled(true); r.setIngressTlsSecret("ibm-existing-cert");
+        K8sJupyterService.validate(r, "https://gateway.example.com");
+        var resources = service.resources(r, catalog, "mcmp-jupyter-41", "grant-token", "login-token");
+        var ingress = (Ingress) resources.stream().filter(Ingress.class::isInstance).findFirst().orElseThrow();
+        assertThat(ingress.getSpec().getTls()).singleElement().satisfies(tls -> {
+            assertThat(tls.getSecretName()).isEqualTo("ibm-existing-cert");
+            assertThat(tls.getHosts()).containsExactly(r.getIngressHost());
+        });
+        assertThat(ingress.getSpec().getRules().get(0).getHttp().getPaths().get(0).getBackend().getService().getPort().getNumber()).isEqualTo(8888);
+        r.setIngressClass("nginx");
+        assertThatThrownBy(() -> K8sJupyterService.validate(r, "https://gateway.example.com")).hasMessageContaining("HTTP NodePort");
+    }
+
     @Test void manifestsUseExistingNotebookSecretAndIngressOnly() throws Exception {
-        var service=new K8sJupyterService(null,null,null,null,null,null,new ObjectMapper(), null);
+        var service=new K8sJupyterService(null,null,null,null,null,null,new ObjectMapper(), null,IbmIngressAutomationTestSupport.legacy());
         ReflectionTestUtils.setField(service,"gatewayUrl","https://am.example.test/applications/object-storage-gateway");
         var catalog=new SoftwareCatalog();
         catalog.setPackageInfo(PackageInfo.builder().packageName("quay.io/jupyter/scipy-notebook").packageVersion("2026-07-28").build());
@@ -139,4 +158,3 @@ class K8sJupyterServiceTest {
         assertThat(pvc.getSpec().getStorageClassName()).isEqualTo("standard");
     }
 }
-

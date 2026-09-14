@@ -33,7 +33,7 @@ class KubernetesDeployRollbackTest {
         var sources = mock(SoftwareSourceService.class);
         var service = new KubernetesDeployService(factory, mock(KubernetesNamespaceService.class), helm,
                 mock(UserRepository.class), mock(ApplicationStatusRepository.class), histories,
-                sources, mock(KubeconfigResolver.class), access);
+                sources, mock(KubeconfigResolver.class), access, IbmIngressAutomationTestSupport.legacy());
         var catalog = new SoftwareCatalog(); catalog.setId(10L); catalog.setDefaultPort(5572);
         var chart = new HelmChart(); chart.setChartName("rclone");
         var request = DeploymentRequest.builder().namespace("default").clusterName("azure")

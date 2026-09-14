@@ -46,6 +46,7 @@ public class KubernetesDeployService {
     private final SoftwareSourceService softwareSourceService;
     private final KubeconfigResolver kubeconfigResolver;
     private final K8sIngressAccessService ingressAccess;
+    private final IbmIngressAutomationService automation;
 
     /**
      * 입력 파라미터 검증 공통 메서드
@@ -100,19 +101,29 @@ public class KubernetesDeployService {
         String ingressCidr = K8sIngressPolicy.validate(request, DeploymentConfigDTO.from(request, catalog));
         
         try (KubernetesClient client = clientFactory.getClient(namespace, clusterName)) {
+            if (isIngressEnabled(request, catalog)) ingressAccess.resolveTarget(request, catalog);
             // namespaceService.ensureNamespaceExists(client, namespace); // 불필요한 코드 제거
 
             boolean ingressEnabled = isIngressEnabled(request, catalog);
 
             KubernetesIngressRouteValidator.assertAvailable(client, DeploymentConfigDTO.from(request, catalog));
+            if (ingressEnabled && IbmIngressSupport.managed(request.getIngressClass())) {
+                updateApplicationStatus(namespace, clusterName, catalog, "PREPARING_INGRESS_IBM");
+                var resolved = automation.prepare(client, namespace, clusterName, KubernetesNamespaces.APPLICATION_WORKLOAD,
+                        DeploymentConfigDTO.from(request, catalog), message -> log.info("IBM Ingress preparation: {}", message));
+                IbmIngressTlsResolver.apply(request, resolved);
+                IbmIngressSupport.verify(client, DeploymentConfigDTO.from(request, catalog));
+            }
 
             updateApplicationStatus(namespace, clusterName, catalog, ApplicationStatusValues.PREPARING_METRICS_SERVER);
             helmChartService.ensureMetricsServer(client, namespace, clusterName);
 
             if (ingressEnabled) {
                 updateApplicationStatus(namespace, clusterName, catalog, ApplicationStatusValues.PREPARING_INGRESS_NGINX);
-                helmChartService.ensureIngressController(client, namespace, clusterName);
-                ingressAccess.verifyController(client, namespace);
+                if (!IbmIngressSupport.managed(request.getIngressClass())) {
+                    helmChartService.ensureIngressController(client, namespace, clusterName);
+                    ingressAccess.verifyController(client, namespace);
+                }
             }
 
             updateApplicationStatus(namespace, clusterName, catalog, ApplicationStatusValues.DEPLOYING);
@@ -168,7 +179,7 @@ public class KubernetesDeployService {
                 throw new DeploymentFailure(history, e);
             }
             if (e instanceof KubernetesIngressRouteValidator.ConflictException
-                    || e instanceof KubernetesIngressRouteValidator.LookupException) {
+                    || e instanceof KubernetesIngressRouteValidator.LookupException || e instanceof IllegalArgumentException) {
                 // KubernetesService persists this message in the user-visible deployment failure log.
                 throw new RuntimeException("애플리케이션 배포 실패: " + e.getMessage(), e);
             }

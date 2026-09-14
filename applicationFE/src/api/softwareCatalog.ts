@@ -125,6 +125,16 @@ export const k8sSpecCheck = (params: {
   return request.get(`/applications/k8s/check?namespace=${params.namespace}&clusterName=${params.clusterName}&catalogId=${params.catalogId}`)
 }
 
+export const k8sIngressTlsSettings = (params: { namespace: string, clusterName: string }) => {
+  return request.get(`/applications/k8s/ingress/tls-settings?${new URLSearchParams(params)}`)
+}
+
+export const startIngressPreparation = (params: Record<string, any>) =>
+  request.post('/applications/k8s/ingress/preparations', params)
+
+export const getIngressPreparation = (namespace: string, id: string) =>
+  request.get(`/applications/k8s/ingress/preparations/${encodeURIComponent(id)}?${new URLSearchParams({ namespace })}`)
+
 export const k8sIngressCheck = (params: {
   namespace: string,
   clusterName: string,
@@ -134,7 +144,8 @@ export const k8sIngressCheck = (params: {
   ingressPath?: string,
   ingressClass?: string,
   ingressTlsEnabled?: boolean,
-  ingressTlsSecret?: string | null
+  ingressTlsSecret?: string | null,
+  servicePortCidr?: string
 }) => request.post('/applications/k8s/ingress/check', params)
 
 export const getBuildLogList = (jobName: string) => {

@@ -498,6 +498,9 @@ const getEndpoint = (history: any, status: any) => {
   const ingressHost = history?.ingressHost
   const ingressPath = history?.ingressPath
 
+  if (history?.ingressEnabled && ['public-iks-k8s-nginx', 'private-iks-k8s-nginx'].includes(history?.ingressClass) && ingressHost) {
+    return `${history?.ingressTlsEnabled ? 'https' : 'http'}://${ingressHost}${ingressPath || '/'}`
+  }
   if (history?.releaseName?.startsWith('mcmp-jupyter-') && ingressHost) {
     return `http://${ingressHost}:30880/`
   }

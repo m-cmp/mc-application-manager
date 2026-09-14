@@ -66,4 +66,23 @@ class ApplicationIngressCheckControllerTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data").value(false));
         verifyNoInteractions(ingress);
     }
+
+    @Test void tlsDiscoveryIsProjectScopedAndOnlyReturnsDomainHints() throws Exception {
+        when(ingress.tlsSettings("project-a", "c")).thenReturn(new kr.co.mcmp.softwarecatalog.application.dto.K8sIngressTlsSettings(
+                true, "cluster.jp-osa.containers.appdomain.cloud", List.of("*.company.com"), List.of()));
+        mvc.perform(get("/applications/k8s/ingress/tls-settings").param("namespace", "project-a").param("clusterName", "c"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.managedTls").value(true))
+                .andExpect(jsonPath("$.data.customDomains[0]").value("*.company.com"))
+                .andExpect(jsonPath("$.data.secret").doesNotExist());
+        var order = inOrder(scope, ingress);
+        order.verify(scope).authorizeNamespace(any(), eq("project-a"));
+        order.verify(ingress).tlsSettings("project-a", "c");
+    }
+
+    @Test void tlsDiscoveryCannotReadAnotherProject() throws Exception {
+        when(scope.authorizeNamespace(any(), eq("other-project"))).thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN));
+        mvc.perform(get("/applications/k8s/ingress/tls-settings").param("namespace", "other-project").param("clusterName", "c"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(ingress);
+    }
 }

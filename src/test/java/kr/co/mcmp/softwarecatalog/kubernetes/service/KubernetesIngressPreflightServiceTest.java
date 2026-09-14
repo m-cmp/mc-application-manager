@@ -31,7 +31,8 @@ class KubernetesIngressPreflightServiceTest {
     private final KubernetesClient client = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
     private final AnyNamespaceOperation<Ingress, IngressList, Resource<Ingress>> routes =
             KubernetesIngressRouteValidatorTest.stubIngressList(client);
-    private final KubernetesIngressPreflightService service = new KubernetesIngressPreflightService(catalogs, sources, clients);
+    private final K8sIngressAccessService ingressAccess = mock(K8sIngressAccessService.class);
+    private final KubernetesIngressPreflightService service = new KubernetesIngressPreflightService(catalogs, sources, clients, ingressAccess, IbmIngressAutomationTestSupport.legacy());
     private final SoftwareCatalog catalog = SoftwareCatalog.builder().id(7L).ingressEnabled(true)
             .ingressHost("catalog.example.com").ingressPath("/").ingressClass("nginx").build();
 
@@ -141,5 +142,26 @@ class KubernetesIngressPreflightServiceTest {
         r.setIngressTlsEnabled(true);
         assertThat(service.check(r).errors()).singleElement().asString().contains("HTTP NodePort 30880");
         verifyNoInteractions(sources);
+    }
+
+    @Test void ibmPreflightResolvesLegacyClassBeforeCheckingCollisionsAndSourceIp() {
+        var ibm = IbmIngressSupportTest.readyClient(IbmIngressSupport.PUBLIC_CLASS, false, "10.150.0.0/24", "", true);
+        IbmIngressTlsResolverTest.configureDefault(ibm);
+        var ibmRoutes = KubernetesIngressRouteValidatorTest.stubIngressList(ibm);
+        when(clients.getClient("project-a","cluster-a")).thenReturn(ibm);
+        doAnswer(call -> { ((kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest)call.getArgument(0)).setIngressClass(IbmIngressSupport.PUBLIC_CLASS); return null; })
+                .when(ingressAccess).resolveTarget(any(),same(catalog));
+        when(ibmRoutes.list()).thenReturn(new IngressListBuilder().withItems(KubernetesIngressRouteValidatorTest.ingress(
+                "default","existing",IbmIngressSupport.PUBLIC_CLASS,IbmIngressTlsResolverTest.HOST,"/app")).build());
+        var r = request(); r.setIngressHost(IbmIngressTlsResolverTest.HOST); r.setServicePortCidr("203.0.113.8/32");
+        assertThat(service.check(r).errors()).singleElement().asString().contains("Host/Path conflict");
+        when(ibmRoutes.list()).thenReturn(new IngressListBuilder().build());
+        assertThat(service.check(r).errors()).singleElement().asString().contains("source IP preservation is disabled");
+        r.setServicePortCidr("0.0.0.0/0");
+        assertThat(service.check(r).errors()).singleElement().asString().contains("CIDR").doesNotContain("connectivity");
+        r.setServicePortCidr("203.0.113.8/32");
+        when(ibm.network().v1().ingressClasses().withName(IbmIngressSupport.PUBLIC_CLASS).get()).thenThrow(new IllegalStateException("private API content"));
+        assertThat(service.check(r).errors()).singleElement().asString().doesNotContain("private API content");
+        verify(catalogs,never()).save(any());
     }
 }

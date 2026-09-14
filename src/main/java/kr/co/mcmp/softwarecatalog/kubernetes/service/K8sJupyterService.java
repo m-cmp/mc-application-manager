@@ -38,6 +38,7 @@ public class K8sJupyterService {
     private final UserRepository users;
     private final ObjectMapper mapper;
     private final K8sObjectStorageTunnelService tunnels;
+    private final IbmIngressAutomationService automation;
     @Value("${app.object-storage.k8s-transport:SSH_TUNNEL}")
     private String transport = "SSH_TUNNEL";
     @Value("${app.object-storage.k8s-ssh-image:" + K8sSshSidecar.DEFAULT_IMAGE + "}")
@@ -65,7 +66,7 @@ public class K8sJupyterService {
         if (r.getServicePort() != null && r.getServicePort() != 8888)
             throw new IllegalArgumentException("K8s Jupyter uses service port 8888 and external Ingress port 30880.");
         if (!Boolean.TRUE.equals(r.getIngressEnabled())) throw new IllegalArgumentException("K8s Jupyter requires Ingress.");
-        if (!"nginx".equals(r.getIngressClass())) throw new IllegalArgumentException("The managed 30880 ingress uses class nginx.");
+        if (!"nginx".equals(r.getIngressClass()) && !IbmIngressSupport.managed(r.getIngressClass())) throw new IllegalArgumentException("Use nginx or an IBM managed NGINX Ingress class.");
         String host = r.getIngressHost();
         if (host == null || host.length() > 253 || !host.matches("(?=.{1,253}$)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?")
                 || host.contains("..") || host.contains("*") || host.matches("[0-9.]+"))
@@ -73,7 +74,7 @@ public class K8sJupyterService {
         for (String label : host.split("\\.")) if (label.length() > 63 || label.startsWith("-") || label.endsWith("-"))
             throw new IllegalArgumentException("Invalid Ingress hostname.");
         if (!"/".equals(r.getIngressPath())) throw new IllegalArgumentException("Jupyter uses a dedicated hostname with path /.");
-        if (Boolean.TRUE.equals(r.getIngressTlsEnabled())) throw new IllegalArgumentException("This managed entry uses HTTP NodePort 30880; configure a separate HTTPS entry before enabling TLS.");
+        if (Boolean.TRUE.equals(r.getIngressTlsEnabled()) && !IbmIngressSupport.managed(r.getIngressClass())) throw new IllegalArgumentException("This managed entry uses HTTP NodePort 30880; configure a separate HTTPS entry before enabling TLS.");
         if (Boolean.TRUE.equals(r.getHpaEnabled()) || Boolean.TRUE.equals(r.getWorkloadRebalancingEnabled())
                 || (r.getMinReplicas() != null && r.getMinReplicas() != 1))
             throw new IllegalArgumentException("Jupyter requires one replica without HPA or workload rebalancing.");
@@ -90,6 +91,7 @@ public class K8sJupyterService {
     }
 
     public synchronized DeploymentHistory deploy(DeploymentRequest request, SoftwareCatalog catalog) {
+        access.resolveTarget(request, catalog);
         boolean sshTunnel = useSshTunnel();
         // Routing/CIDR requirements are identical; only DIRECT needs an external URL.
         validate(request, sshTunnel ? "https://unused.internal" : gatewayUrl, allowHttp);
@@ -114,7 +116,7 @@ public class K8sJupyterService {
         history.setIngressHost(request.getIngressHost());
         history.setIngressPath("/");
         history.setIngressEnabled(true);
-        history.setIngressClass("nginx");
+        history.setIngressClass(request.getIngressClass());
         histories.saveAndFlush(history);
         List<HasMetadata> created = new ArrayList<>();
         try (var client = clients.getClient(request.getNamespace(), request.getClusterName())) {
@@ -125,8 +127,17 @@ public class K8sJupyterService {
                     .filter(i -> i.getSpec() != null && i.getSpec().getRules() != null)
                     .flatMap(i -> i.getSpec().getRules().stream()).anyMatch(r -> request.getIngressHost().equals(r.getHost()));
             if (hostTaken) throw new IllegalArgumentException("Ingress hostname is already in use.");
-            helm.ensureIngressController(client, request.getNamespace(), request.getClusterName());
-            access.verifyController(client, request.getNamespace());
+            if (IbmIngressSupport.managed(request.getIngressClass())) {
+                var resolved = automation.prepare(client, request.getNamespace(), request.getClusterName(), request.getNamespace(),
+                        DeploymentConfigDTO.from(request, catalog), message -> { });
+                IbmIngressTlsResolver.apply(request, resolved);
+                IbmIngressSupport.verify(client, resolved);
+                history.setIngressTlsEnabled(true);
+                history.setIngressTlsSecret(resolved.getIngressTlsSecret());
+            } else {
+                helm.ensureIngressController(client, request.getNamespace(), request.getClusterName());
+                access.verifyController(client, request.getNamespace());
+            }
             var issued = grants.issue(history.getId(), workloadId(request.getClusterName()), request.getNamespace(), storage);
             Secret sshSecret = sshTunnel ? tunnels.credentials(request.getNamespace(), name) : null;
             var resources = resources(request, catalog, name, issued.token(), storage.getJupyterToken(), sshSecret);
@@ -211,13 +222,22 @@ public class K8sJupyterService {
                 "spec", Map.of("type", "ClusterIP", "selector", Map.of(OWNER, name),
                         "ports", List.of(Map.of("name", "http", "port", 8888, "targetPort", "http")))), io.fabric8.kubernetes.api.model.Service.class));
         var ingressMeta = new LinkedHashMap<>(metadata);
-        ingressMeta.put("annotations", Map.of(K8sIngressAccessService.CIDR_ANNOTATION, K8sIngressAccessService.validateCidr(r.getServicePortCidr()),
+        var ingressAnnotations = new LinkedHashMap<String,String>(Map.of(K8sIngressAccessService.CIDR_ANNOTATION, K8sIngressAccessService.validateCidr(r.getServicePortCidr()),
                 "nginx.ingress.kubernetes.io/proxy-read-timeout", "3600", "nginx.ingress.kubernetes.io/proxy-send-timeout", "3600",
                 "nginx.ingress.kubernetes.io/proxy-body-size", "100m"));
-        result.add(mapper.convertValue(Map.of("apiVersion", "networking.k8s.io/v1", "kind", "Ingress", "metadata", ingressMeta,
-                "spec", Map.of("ingressClassName", "nginx", "rules", List.of(Map.of("host", r.getIngressHost(),
+        if (IbmIngressSupport.managed(r.getIngressClass()) && !Boolean.TRUE.equals(r.getIngressTlsEnabled())) {
+            ingressAnnotations.put("nginx.ingress.kubernetes.io/ssl-redirect", "false");
+            ingressAnnotations.put("nginx.ingress.kubernetes.io/force-ssl-redirect", "false");
+        }
+        ingressMeta.put("annotations", ingressAnnotations);
+        Map<String, Object> ingressSpec = new LinkedHashMap<>(Map.of("ingressClassName", r.getIngressClass(), "rules", List.of(Map.of("host", r.getIngressHost(),
                         "http", Map.of("paths", List.of(Map.of("path", "/", "pathType", "Prefix", "backend", Map.of(
-                                "service", Map.of("name", name, "port", Map.of("number", 8888)))))))))), Ingress.class));
+                                "service", Map.of("name", name, "port", Map.of("number", 8888))))))))));
+        if (IbmIngressSupport.managed(r.getIngressClass()) && Boolean.TRUE.equals(r.getIngressTlsEnabled())) {
+            ingressSpec.put("tls", List.of(Map.of("hosts", List.of(r.getIngressHost()), "secretName", r.getIngressTlsSecret())));
+        }
+        result.add(mapper.convertValue(Map.of("apiVersion", "networking.k8s.io/v1", "kind", "Ingress", "metadata", ingressMeta,
+                "spec", ingressSpec), Ingress.class));
         if (sshSecret != null) {
             result.add(0, K8sSshSidecar.configuration(sshSecret.getMetadata().getName(), ns, labels));
             K8sSshSidecar.attach((Deployment) result.stream().filter(Deployment.class::isInstance).findFirst().orElseThrow(), sshImage, sshSecret.getMetadata().getName());

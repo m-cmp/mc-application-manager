@@ -123,6 +123,14 @@ public class ApplicationController {
         return ResponseEntity.ok(new ResponseWrapper<>(kubernetesIngressPreflightService.check(request)));
     }
 
+    @GetMapping("/k8s/ingress/tls-settings")
+    @Operation(summary = "Discover IBM managed HTTPS domains", description = "Read-only domain hints. No certificate data or private keys are returned.")
+    public ResponseEntity<ResponseWrapper<kr.co.mcmp.softwarecatalog.application.dto.K8sIngressTlsSettings>> ingressTlsSettings(
+            @RequestParam String namespace, @RequestParam String clusterName, HttpServletRequest httpRequest) {
+        projectScopeAuthorizationService.authorizeNamespace(httpRequest, namespace);
+        return ResponseEntity.ok(new ResponseWrapper<>(kubernetesIngressPreflightService.tlsSettings(namespace, clusterName)));
+    }
+
     @Operation(summary = "Check S3-compatible Object Storage", description = "Smoke check Object Storage settings for applications that declare object-storage capability.")
     @PostMapping("/k8s/object-storage/smoke-check")
     public ResponseEntity<ResponseWrapper<ObjectStorageSmokeTestResponse>> checkObjectStorage(

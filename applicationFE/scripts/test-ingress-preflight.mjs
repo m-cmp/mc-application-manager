@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import ts from 'typescript'
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 
 // Execute the production form functions and its real Vue invalidation watcher (no browser/network).
 const source = await readFile(new URL('../src/views/softwareCatalog/components/applicationInstallationForm.vue', import.meta.url), 'utf8')
@@ -13,6 +13,7 @@ function between(start, end) {
 }
 const code = ts.transpileModule([
   'let specCheckVersion = 0;',
+  between('const isIbmCluster =', 'const selectedVmProvider ='),
   between('const normalizeIngressHost =', 'const _getSoftwareCatalogList ='),
   between('const onChangeForm =', 'const onSelectVm ='),
   between('const buildIngressPayload =', 'const selectedCatalogInfo ='),
@@ -27,12 +28,13 @@ function harness(options = {}) {
     selectedVmList: ['vm-a'], vmTargetMode: 'VM', selectVmNodeGroupId: '', selectedNodeGroupVmIds: ['vm-a', 'vm-b'],
     selectedCatalogIdx: 7, selectedStorageClass: 'standard', projectContextKey: 'ws/project-a',
     modalTitle: 'Application Installation', projectScopeError: '', specCheckFlag: true, specChecking: false,
-    specCheckErrors: [], specCheckWarnings: [],
+    specCheckErrors: [], specCheckWarnings: [], servicePortCidr: '203.0.113.8/32',
     ingressData: { ingressEnabled: true, ingressHost: 'https://APP.Example.com:30880/ignored',
       ingressPath: '/app', ingressClass: 'nginx', ingressTlsEnabled: false, ingressTlsSecret: '' }
   }).map(([name, value]) => [name, ref(value)]))
   const env = {
     ...state, watch,
+    computed, selectedClusterProvider: ref(options.provider || 'aws'),
     validateStorageClassSelection: () => true,
     toast: { error: message => calls.push(['toast-error', message]), success: message => calls.push(['toast-success', message]) },
     confirm: message => { calls.push(['confirm', message]); return options.confirm ?? true },
@@ -62,9 +64,10 @@ await test('current normalized inputs are checked before resources; an empty UI 
   assert.deepEqual(h.calls.slice(0, 2).map(c => c[0]), ['ingress', 'resources'])
   assert.deepEqual(h.calls[0][1], {
     namespace: 'project-a', clusterName: 'cluster-a', catalogId: 7, ingressEnabled: true,
-    ingressHost: 'app.example.com', ingressPath: '/app', ingressClass: 'nginx', ingressTlsEnabled: false, ingressTlsSecret: null
+    ingressHost: 'app.example.com', ingressPath: '/app', ingressClass: 'nginx', ingressTlsEnabled: false, ingressTlsSecret: null,
+    servicePortCidr: '203.0.113.8/32'
   })
-  assert.deepEqual(h.calls[0][1], { namespace: 'project-a', clusterName: 'cluster-a', catalogId: 7, ...h.buildIngressPayload() })
+  assert.deepEqual(h.calls[0][1], { namespace: 'project-a', clusterName: 'cluster-a', catalogId: 7, servicePortCidr: '203.0.113.8/32', ...h.buildIngressPayload() })
 })
 
 await test('conflicts cannot enter the low-spec override flow', async () => {
@@ -95,7 +98,7 @@ for (const input of ['ingressHost', 'ingressPath', 'ingressClass', 'ingressEnabl
     assert.deepEqual(h.specCheckWarnings.value, [])
   })
 }
-for (const input of ['selectNsId', 'selectCluster', 'selectedCatalogIdx', 'projectContextKey', 'selectedStorageClass']) {
+for (const input of ['selectNsId', 'selectCluster', 'selectedCatalogIdx', 'projectContextKey', 'selectedStorageClass', 'servicePortCidr']) {
   await test(`changing ${input} invalidates the completed check`, async () => {
     const h = harness(); await h.specCheck()
     h[input].value = input === 'selectedCatalogIdx' ? 8 : 'changed'
@@ -170,4 +173,30 @@ await test('retry after correcting the route clears errors and can pass', async 
 
 assert.match(between('const runInstall =', 'const buildIngressPayload ='), /\.\.\.buildIngressPayload\(\)/)
 assert.match(between('const runInstall =', 'const buildIngressPayload ='), /specCheckFlag\.value \|\| specChecking\.value/)
+for (const provider of ['ibm', 'IBM', 'ibm-jp-osa', 'ibmcloud', 'ibm-vpc', 'aws', 'tencent']) {
+  await test(`provider ${provider} selects its effective Ingress class`, async () => {
+    const h = harness({ provider }); await h.specCheck()
+    assert.equal(h.calls[0][1].ingressClass, provider.toLowerCase().startsWith('ibm') ? 'public-iks-k8s-nginx' : 'nginx')
+    assert.equal(h.ingressData.value.ingressClass, 'nginx', 'catalog defaults remain unchanged')
+    if (provider.toLowerCase().startsWith('ibm')) {
+      h.ingressData.value.ingressTlsEnabled = false
+      h.ingressData.value.ingressTlsSecret = 'stale-catalog-cert'
+      assert.equal(h.buildIngressPayload().ingressTlsEnabled, false)
+      assert.equal(h.buildIngressPayload().ingressTlsSecret, null, 'IBM certificate is resolved by the server')
+    }
+  })
+}
+assert.match(between('const runInstall =', 'const buildIngressPayload ='), /openServicePort:.*!isIbmCluster\.value/)
+const statusSource = await readFile(new URL('../src/views/softwareCatalog/components/softwareCatalogList.vue', import.meta.url), 'utf8')
+const endpointSource = statusSource.slice(statusSource.indexOf('const getEndpoint ='), statusSource.indexOf('const displayValue ='))
+const getEndpoint = new Function(ts.transpileModule(endpointSource + '\nreturn getEndpoint', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText)()
+await test('IBM endpoint uses Ingress Host and scheme, not the worker IP or backend port', async () => {
+  for (const ingressClass of ['public-iks-k8s-nginx', 'private-iks-k8s-nginx']) {
+    for (const ingressTlsEnabled of [false, true]) {
+      assert.equal(getEndpoint({ ingressEnabled: true, ingressClass, ingressTlsEnabled, ingressHost: 'app.example.com', ingressPath: '/test' },
+        { publicIp: '10.150.0.8', servicePort: 3000 }), `${ingressTlsEnabled ? 'https' : 'http'}://app.example.com/test`)
+    }
+  }
+  assert.equal(getEndpoint({}, { publicIp: '203.0.113.8', servicePort: 8080 }), '203.0.113.8:8080')
+})
 console.log(`Ingress preflight form tests passed (${cases} cases).`)

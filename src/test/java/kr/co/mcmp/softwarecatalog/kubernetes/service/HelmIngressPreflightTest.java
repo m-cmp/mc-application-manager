@@ -25,7 +25,7 @@ class HelmIngressPreflightTest {
         HelmChartService helmService = mock(HelmChartService.class);
         SoftwareSourceService sources = mock(SoftwareSourceService.class);
         KubernetesDeployService service = new KubernetesDeployService(
-                factory, null, helmService, null, null, null, sources, null, null);
+                factory, null, helmService, null, null, null, sources, null, null, IbmIngressAutomationTestSupport.legacy());
         SoftwareCatalog catalog = SoftwareCatalog.builder().id(1L).ingressEnabled(true)
                 .ingressHost("bad_host").build();
         HelmChart chart = HelmIngressValuesTest.chart("grafana", scenario.equals("unknown")
@@ -61,7 +61,7 @@ class HelmIngressPreflightTest {
         HelmChartService helmService = mock(HelmChartService.class);
         SoftwareSourceService sources = mock(SoftwareSourceService.class);
         KubernetesDeployService service = new KubernetesDeployService(
-                factory, null, helmService, null, null, null, sources, null, null);
+                factory, null, helmService, null, null, null, sources, null, null, IbmIngressAutomationTestSupport.legacy());
         SoftwareCatalog catalog = SoftwareCatalog.builder().id(1L).ingressEnabled(true)
                 .ingressHost("app.example.com").build();
         when(sources.getArtifactHubSource(1L)).thenReturn(Optional.of(HelmIngressValuesTest.chart(
