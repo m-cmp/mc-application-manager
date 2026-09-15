@@ -510,7 +510,7 @@
                   v-for="storageClass in storageClassList"
                   :key="storageClass.name"
                   :value="storageClass.name">
-                  {{ storageClass.name }}{{ storageClass.defaultClass ? ' (default)' : '' }}
+                  {{ storageClass.name }}{{ isRecommendedStorageClass(storageClass) ? ' (recommended)' : '' }}{{ storageClass.defaultClass ? ' (default)' : '' }}
                 </option>
               </select>
               <p class="text-danger mt-1 mb-0" v-if="storageClassRequired && storageClassErrorMessage">
@@ -1632,8 +1632,11 @@ const fetchStorageClasses = async (preferred = '') => {
     const { data } = await getK8sStorageClasses(target)
     if (sequence !== storageRequestSequence) return
     if (!Array.isArray(data)) throw new Error('Invalid StorageClass API response. Retry the lookup.')
-    storageClassList.value = data
+    storageClassList.value = [...data].sort((a, b) => Number(isRecommendedStorageClass(b)) - Number(isRecommendedStorageClass(a)))
     selectedStorageClass.value = data.some(s => s.name === preferred) ? preferred : getInitialStorageClass(data)
+    if (!preferred && selectedClusterProvider.value === 'alibaba') {
+      notebookStorageGi.value = Math.max(notebookStorageGi.value, 20)
+    }
   } catch (error) {
     if (sequence !== storageRequestSequence) return
     storageClassLoadError.value = true
@@ -1664,9 +1667,15 @@ const createNotebookStorageClass = async () => {
   } finally { storageCreating.value = false }
 }
 
+const isRecommendedStorageClass = (item: any) =>
+  selectedClusterProvider.value === 'alibaba' &&
+  item.name === 'alicloud-disk-topology-alltype' &&
+  item.provisioner === 'diskplugin.csi.alibabacloud.com'
+
 const getInitialStorageClass = (items: any[]) => {
+  const recommendedClass = items.find(isRecommendedStorageClass)
   const defaultClass = items.find((item: any) => item.defaultClass)
-  return defaultClass?.name || items[0]?.name || ""
+  return recommendedClass?.name || defaultClass?.name || items[0]?.name || ""
 }
 
 const onChangeNsId = async () => {
