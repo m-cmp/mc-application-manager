@@ -860,6 +860,9 @@
         </div>
 
         <!-- Footer -->
+        <div v-if="jupyterInstallationUnsupported && !deploymentCompleted" class="px-3" role="status">
+          <p class="alert alert-warning">Jupyter installation is unavailable for KT because AM does not support KT Object Storage integration.</p>
+        </div>
         <div v-if="!deploymentCompleted && (specCheckErrors.length || specCheckWarnings.length)" class="px-3" aria-live="polite">
           <div v-for="message in specCheckErrors" :key="message" class="alert alert-danger" role="alert">{{ message }}</div>
           <div v-for="message in specCheckWarnings" :key="message" class="alert alert-warning">{{ message }}</div>
@@ -1816,6 +1819,10 @@ const getDeploymentId = (responseData: any) => {
 
 const runInstall = async () => {
   if (deploying.value || deploymentCompleted.value) return
+  if (jupyterInstallationUnsupported.value) {
+    toast.error('Jupyter installation is unavailable for KT because AM does not support KT Object Storage integration.')
+    return
+  }
   if (modalTitle.value === 'Application Installation' && selectInfra.value === 'VM'
     && selectDeploymentType.value === 'Clustering' && !canSelectClustering.value) {
     toast.error('Clustering is available only for Redis and Elasticsearch on individually selected VMs')
@@ -2166,6 +2173,14 @@ const isJupyterObjectStorageCatalog = computed(() => {
   return packageName.includes('jupyter') && hasObjectStorageCapability(selectedCatalogInfo.value as SoftwareCatalog)
 })
 
+const jupyterInstallationUnsupported = computed(() => {
+  if (modalTitle.value !== 'Application Installation' || !isJupyterObjectStorageCatalog.value) return false
+  const isKtProvider = (provider: unknown) => /^kt(?:classic|cloud|-cloud)?(?:[-_]|$)/i.test(String(provider || '').trim())
+  if (selectInfra.value === 'K8S') return isKtProvider(selectedClusterProvider.value)
+  return originalVmList.value.some((vm: any) => selectedVmList.value.includes(getVmValue(vm))
+    && isKtProvider(vm?.connectionConfig?.providerName || vm?.connectionName))
+})
+
 const supportsStorageClassConfig = computed(() => {
   if (selectInfra.value !== 'K8S') return false
   if (isJupyterObjectStorageCatalog.value) return true
@@ -2240,6 +2255,7 @@ const objectStorageCheckPassed = computed(() => {
 const deployDisabled = computed(() => {
   return deploying.value
     || deploymentCompleted.value
+    || jupyterInstallationUnsupported.value
     || specChecking.value
     || Boolean(projectScopeError.value)
     || specCheckFlag.value
