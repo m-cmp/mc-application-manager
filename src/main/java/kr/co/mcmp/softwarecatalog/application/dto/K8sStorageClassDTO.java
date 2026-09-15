@@ -15,4 +15,6 @@ public class K8sStorageClassDTO {
     private Boolean defaultClass;
     private String reclaimPolicy;
     private String volumeBindingMode;
+    private Integer minimumSizeGi;
+
 }

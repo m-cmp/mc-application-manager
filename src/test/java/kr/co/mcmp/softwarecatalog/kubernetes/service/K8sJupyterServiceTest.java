@@ -142,6 +142,7 @@ class K8sJupyterServiceTest {
         assertThat(deployment.getSpec().getReplicas()).isEqualTo(1);
         assertThat(deployment.getSpec().getTemplate().getSpec().getAutomountServiceAccountToken()).isFalse();
         assertThat(deployment.toString()).doesNotContain("grant-secret","login-secret");
+        assertThat(deployment.getSpec().getTemplate().getSpec().getInitContainers()).isEmpty();
         assertThat(deployment.getSpec().getTemplate().getSpec().getContainers().get(0).getEnvFrom().get(0).getSecretRef().getName()).isEqualTo("mcmp-jupyter-41");
         var svc=(Service)resources.stream().filter(Service.class::isInstance).findFirst().orElseThrow();
         assertThat(svc.getSpec().getType()).isEqualTo("ClusterIP");
@@ -156,5 +157,20 @@ class K8sJupyterServiceTest {
         assertThat(cm.toString()).doesNotContain("grant-secret","login-secret");
         var pvc=(PersistentVolumeClaim)resources.stream().filter(PersistentVolumeClaim.class::isInstance).findFirst().orElseThrow();
         assertThat(pvc.getSpec().getStorageClassName()).isEqualTo("standard");
+    }
+
+    @Test void cinderManifestPreparesNotebookVolumeOwnership() throws Exception {
+        var service=new K8sJupyterService(null,null,null,null,null,null,new ObjectMapper(), null,IbmIngressAutomationTestSupport.legacy());
+        ReflectionTestUtils.setField(service,"gatewayUrl","https://am.example.test/applications/object-storage-gateway");
+        var catalog=new SoftwareCatalog();
+        catalog.setPackageInfo(PackageInfo.builder().packageName("quay.io/jupyter/scipy-notebook").packageVersion("2026-07-28").build());
+        var resources=service.resources(request(),catalog,"mcmp-jupyter-41","grant-secret","login-secret",null,true);
+        var deployment=(Deployment)resources.stream().filter(Deployment.class::isInstance).findFirst().orElseThrow();
+        var volumePermissions=deployment.getSpec().getTemplate().getSpec().getInitContainers().get(0);
+        assertThat(volumePermissions.getName()).isEqualTo("prepare-notebook-volume");
+        assertThat(volumePermissions.getCommand()).containsExactly("sh", "-c",
+                "chown 1000:100 /home/jovyan/work && chmod 2770 /home/jovyan/work");
+        assertThat(volumePermissions.getSecurityContext().getRunAsUser()).isZero();
+        assertThat(volumePermissions.getVolumeMounts().get(0).getMountPath()).isEqualTo("/home/jovyan/work");
     }
 }

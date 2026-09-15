@@ -91,6 +91,11 @@ public class K8sJupyterService {
     }
 
     public synchronized DeploymentHistory deploy(DeploymentRequest request, SoftwareCatalog catalog) {
+        boolean prepareCinderVolume;
+        try (var client = clients.getClient(request.getNamespace(), request.getClusterName())) {
+            var storageClass = JupyterStorageValidation.validate(client, request.getAdditionalConfig());
+            prepareCinderVolume = NhnStorageClassService.DRIVER.equals(storageClass.getProvisioner());
+        } catch (RuntimeException e) { throw StorageOperationException.translate(e); }
         access.resolveTarget(request, catalog);
         boolean sshTunnel = useSshTunnel();
         // Routing/CIDR requirements are identical; only DIRECT needs an external URL.
@@ -140,7 +145,7 @@ public class K8sJupyterService {
             }
             var issued = grants.issue(history.getId(), workloadId(request.getClusterName()), request.getNamespace(), storage);
             Secret sshSecret = sshTunnel ? tunnels.credentials(request.getNamespace(), name) : null;
-            var resources = resources(request, catalog, name, issued.token(), storage.getJupyterToken(), sshSecret);
+            var resources = resources(request, catalog, name, issued.token(), storage.getJupyterToken(), sshSecret, prepareCinderVolume);
             // Ingress is last: no external route until the Pod has passed gateway checks.
             for (HasMetadata resource : resources) {
                 if (resource instanceof Ingress) continue;
@@ -177,10 +182,15 @@ public class K8sJupyterService {
     }
 
     List<HasMetadata> resources(DeploymentRequest r, SoftwareCatalog catalog, String name, String token, String login) throws Exception {
-        return resources(r, catalog, name, token, login, null);
+        return resources(r, catalog, name, token, login, null, false);
     }
 
     List<HasMetadata> resources(DeploymentRequest r, SoftwareCatalog catalog, String name, String token, String login, Secret sshSecret) throws Exception {
+        return resources(r, catalog, name, token, login, sshSecret, false);
+    }
+
+    List<HasMetadata> resources(DeploymentRequest r, SoftwareCatalog catalog, String name, String token, String login,
+            Secret sshSecret, boolean prepareCinderVolume) throws Exception {
         String ns = r.getNamespace();
         Map<String, String> labels = Map.of(OWNER, name, "app.kubernetes.io/instance", name, "app.kubernetes.io/name", "jupyter");
         Map<String, Object> metadata = Map.of("name", name, "namespace", ns, "labels", labels);
@@ -197,7 +207,7 @@ public class K8sJupyterService {
         var config = r.getAdditionalConfig() == null ? Map.of() : r.getAdditionalConfig();
         String storageClass = Objects.toString(config.get("storageClass"), "");
         Map<String,Object> pvcSpec = new LinkedHashMap<>(Map.of("accessModes", List.of("ReadWriteOnce"),
-                "resources", Map.of("requests", Map.of("storage", "10Gi"))));
+                "resources", Map.of("requests", Map.of("storage", JupyterStorageValidation.size(r.getAdditionalConfig())))));
         if (!storageClass.isBlank()) pvcSpec.put("storageClassName", storageClass);
         result.add(mapper.convertValue(Map.of("apiVersion", "v1", "kind", "PersistentVolumeClaim", "metadata", metadata, "spec", pvcSpec), PersistentVolumeClaim.class));
         String image = catalog.getPackageInfo().getPackageName() + ":" + catalog.getPackageInfo().getPackageVersion();
@@ -211,13 +221,29 @@ public class K8sJupyterService {
         container.put("readinessProbe", Map.of("tcpSocket", Map.of("port", "http"), "periodSeconds", 5));
         container.put("resources", Map.of("requests", Map.of("cpu", "500m", "memory", "1Gi"),
                 "limits", Map.of("cpu", Objects.toString(catalog.getRecommendedCpu(), "2"), "memory", "4Gi")));
+        Map<String,Object> podSpec = new LinkedHashMap<>();
+        podSpec.put("automountServiceAccountToken", false);
+        podSpec.put("securityContext", Map.of("fsGroup", 100));
+        if (prepareCinderVolume) {
+            Map<String,Object> volumePermissions = new LinkedHashMap<>();
+            volumePermissions.put("name", "prepare-notebook-volume");
+            volumePermissions.put("image", image);
+            volumePermissions.put("command", List.of("sh", "-c",
+                    "chown 1000:100 /home/jovyan/work && chmod 2770 /home/jovyan/work"));
+            volumePermissions.put("securityContext", Map.of("runAsUser", 0, "runAsGroup", 0,
+                    "allowPrivilegeEscalation", false, "seccompProfile", Map.of("type", "RuntimeDefault"),
+                    "capabilities", Map.of("drop", List.of("ALL"), "add", List.of("CHOWN", "FOWNER", "DAC_OVERRIDE"))));
+            volumePermissions.put("resources", Map.of("requests", Map.of("cpu", "10m", "memory", "16Mi"),
+                    "limits", Map.of("cpu", "100m", "memory", "64Mi")));
+            volumePermissions.put("volumeMounts", List.of(Map.of("name", "work", "mountPath", "/home/jovyan/work")));
+            podSpec.put("initContainers", List.of(volumePermissions));
+        }
+        podSpec.put("containers", List.of(container));
+        podSpec.put("volumes", List.of(Map.of("name", "work", "persistentVolumeClaim", Map.of("claimName", name)),
+                Map.of("name", "templates", "configMap", Map.of("name", name))));
         result.add(mapper.convertValue(Map.of("apiVersion", "apps/v1", "kind", "Deployment", "metadata", metadata,
                 "spec", Map.of("replicas", 1, "strategy", Map.of("type", "Recreate"), "selector", Map.of("matchLabels", Map.of(OWNER, name)),
-                        "template", Map.of("metadata", Map.of("labels", labels), "spec", Map.of(
-                                "automountServiceAccountToken", false, "securityContext", Map.of("fsGroup", 100),
-                                "containers", List.of(container), "volumes", List.of(
-                                        Map.of("name", "work", "persistentVolumeClaim", Map.of("claimName", name)),
-                                        Map.of("name", "templates", "configMap", Map.of("name", name))))))), Deployment.class));
+                        "template", Map.of("metadata", Map.of("labels", labels), "spec", podSpec))), Deployment.class));
         result.add(mapper.convertValue(Map.of("apiVersion", "v1", "kind", "Service", "metadata", metadata,
                 "spec", Map.of("type", "ClusterIP", "selector", Map.of(OWNER, name),
                         "ports", List.of(Map.of("name", "http", "port", 8888, "targetPort", "http")))), io.fabric8.kubernetes.api.model.Service.class));

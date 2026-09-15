@@ -34,7 +34,7 @@ class ApplicationVmDeploymentControllerTest {
         orchestration = mock(ApplicationOrchestrationService.class);
         when(orchestration.deployApplication(any())).thenReturn(DeploymentHistory.builder().build());
         mvc = MockMvcBuilders.standaloneSetup(new ApplicationController(
-                null, orchestration, null, null, null, scope, null)).build();
+                null, orchestration, null, null, null, null, scope, null)).build();
     }
 
     @Test
