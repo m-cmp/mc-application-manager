@@ -72,6 +72,9 @@ public class HelmChartService {
     
     public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog, 
                                  kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart, String clusterName) {
+        if (BuiltInHelmCharts.app(helmChart).isPresent()) {
+            return deployHelmChartWithRequest(client, namespace, catalog, helmChart, clusterName, new DeploymentRequest());
+        }
         DeploymentConfigDTO config = DeploymentConfigDTO.from(new DeploymentRequest(), catalog);
         HelmIngressValues.validate(helmChart, config);
         Path tempKubeconfigPath = null;
@@ -281,8 +284,11 @@ public class HelmChartService {
                 helmChart.getChartName(), namespace, clusterName);
         DeploymentConfigDTO config = DeploymentConfigDTO.from(request, catalog);
         HelmIngressValues.validate(helmChart, config);
+        BuiltInHelmPolicy.validate(helmChart, config);
+        BuiltInHelmPolicy.validateStorage(helmChart, client, request);
         Path tempKubeconfigPath = null;
         Path tempValuesPath = null;
+        Path tempChartPath = null;
 
         try {
             // 1. 클러스터 정보 조회
@@ -305,7 +311,9 @@ public class HelmChartService {
             tempKubeconfigPath = createTempKubeconfigFile(kubeconfigYaml);
 
             // 3. Helm repository 추가
-            addHelmRepository(helmChart);
+            var bundled = BuiltInHelmCharts.app(helmChart);
+            if (bundled.isPresent()) tempChartPath = BuiltInHelmCharts.packageChart(bundled.get());
+            else addHelmRepository(helmChart);
 
             // 4. 릴리스 이름 생성
             String releaseName = releaseNameGenerator.generateReleaseName(helmChart.getChartName());
@@ -323,7 +331,8 @@ public class HelmChartService {
             log.info("배포 설정 생성 완료 - {}", config);
 
             // 7. Helm Chart 설치 - CLI 방식으로 변경
-            String chartRef = helmChart.getRepositoryName() + "/" + helmChart.getChartName();
+            String chartRef = tempChartPath != null ? tempChartPath.toString()
+                    : helmChart.getRepositoryName() + "/" + helmChart.getChartName();
             
             // Values 맵 구성
             java.util.Map<String, String> values = new java.util.HashMap<>();
@@ -370,6 +379,7 @@ public class HelmChartService {
             }
 
             applyObjectStorageValues(catalog, request, providerName, helmChart.getChartName(), chartValues);
+            BuiltInHelmPolicy.configure(helmChart, request, values, chartValues);
             K8sIngressPolicy.configureValues(helmChart.getChartName(), values, chartValues, config, ingressCidr);
             if (!chartValues.isEmpty()) {
                 tempValuesPath = createTempValuesFile(chartValues);
@@ -404,6 +414,10 @@ public class HelmChartService {
             throw new RuntimeException("Helm Chart 배포 실패", e);
         } finally {
             // 8. 임시 kubeconfig 파일 삭제
+            if (tempChartPath != null) {
+                try { Files.deleteIfExists(tempChartPath); }
+                catch (IOException e) { log.warn("Failed to delete temporary built-in chart: {}", e.getMessage()); }
+            }
             if (tempKubeconfigPath != null) {
                 try {
                     log.info("8. 임시 kubeconfig 파일 삭제 중...");

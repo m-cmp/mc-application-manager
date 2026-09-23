@@ -549,10 +549,11 @@
                   <button type="button" class="btn btn-outline-primary" :disabled="storageCreating || !storageCapability.canCreate || !newStorageClassName" @click="createNotebookStorageClass">{{ storageCreating ? 'Creating...' : 'Create NHN StorageClass' }}</button>
                 </div>
               </div>
-              <div v-if="isJupyterObjectStorageCatalog" class="mt-2">
-                <label class="form-label">Notebook volume capacity (GiB)</label>
+              <div v-if="isJupyterObjectStorageCatalog || isBuiltInPersistentCatalog" class="mt-2">
+                <label class="form-label">{{ isJupyterObjectStorageCatalog ? 'Notebook' : 'Data' }} volume capacity (GiB)</label>
                 <input type="number" class="form-control" v-model.number="notebookStorageGi" :min="selectedStorageMinimum" step="1">
                 <p class="text-muted">Minimum {{ selectedStorageMinimum }} GiB for the known disk limits. Access mode: ReadWriteOnce. Provider quotas and disk availability are checked during provisioning.</p>
+                <p v-if="isBuiltInPersistentCatalog" class="text-muted">Single instance with generated credentials in Secret &lt;release-name&gt;-auth (key: password). Data PVC and credentials are retained after uninstall; remove them separately when no longer needed.</p>
               </div>
             </div>
 
@@ -577,6 +578,7 @@
                     class="form-check-input"
                     type="checkbox"
                     id="hpaEnabled"
+                    :disabled="isBuiltInPersistentCatalog"
                     v-model="hpaData.hpaEnabled">
                   <label class="form-check-label" for="hpaEnabled">
                     Enable HPA (Horizontal Pod Autoscaler)
@@ -645,6 +647,7 @@
                     class="form-check-input"
                     type="checkbox"
                     id="workloadRebalancingEnabled"
+                    :disabled="isBuiltInPersistentCatalog"
                     v-model="workloadRebalancingEnabled">
                   <label class="form-check-label" for="workloadRebalancingEnabled">
                     Enable Workload Rebalancing
@@ -662,10 +665,12 @@
                     class="form-check-input"
                     type="checkbox"
                     id="ingressEnabled"
+                    :disabled="isBuiltInPersistentCatalog"
                     v-model="ingressData.ingressEnabled">
                   <label class="form-check-label" for="ingressEnabled">
                     Enable Ingress
                   </label>
+                  <p v-if="isBuiltInPersistentCatalog" class="text-muted">This TCP application uses an internal ClusterIP Service, not HTTP Ingress. Use an authenticated port-forward for access from your PC.</p>
                 </div>
               </div>
 
@@ -2192,6 +2197,22 @@ const STORAGE_CLASS_CAPABILITY = 'storage-class'
 const CONFIG_CAPABILITY_REF_TYPES = ['CAPABILITY', 'TAG']
 
 const isLokiCatalog = computed(() => selectedCatalogChartName.value === 'loki')
+const isBuiltInPersistentCatalog = computed(() => {
+  const chart = selectedCatalogInfo.value?.helmChart
+  return selectInfra.value === 'K8S' && chart?.repositoryName === 'mcmp-builtin'
+    && chart?.chartRepositoryUrl === 'classpath:helm' && chart?.chartVersion === '0.1.0'
+    && chart?.packageId === 'mcmp-builtin-' + selectedCatalogChartName.value
+    && ['redis', 'mariadb', 'postgresql'].includes(selectedCatalogChartName.value)
+})
+function applyBuiltInPersistentDefaults() {
+  if (!isBuiltInPersistentCatalog.value) return
+  ingressData.value.ingressEnabled = false
+  hpaData.value.hpaEnabled = false
+  hpaData.value.hpaMinReplicas = 1
+  hpaData.value.hpaMaxReplicas = 1
+  workloadRebalancingEnabled.value = false
+}
+watch(isBuiltInPersistentCatalog, applyBuiltInPersistentDefaults)
 const isJupyterObjectStorageCatalog = computed(() => {
   const packageName = String(selectedCatalogInfo.value?.packageInfo?.packageName || '').toLowerCase()
   return packageName.includes('jupyter') && hasObjectStorageCapability(selectedCatalogInfo.value as SoftwareCatalog)
@@ -2208,13 +2229,14 @@ const jupyterInstallationUnsupported = computed(() => {
 const supportsStorageClassConfig = computed(() => {
   if (selectInfra.value !== 'K8S') return false
   if (isJupyterObjectStorageCatalog.value) return true
+  if (isBuiltInPersistentCatalog.value) return true
   if (!selectedCatalogInfo.value?.helmChart) return false
   if (!isLokiCatalog.value) return false
   return hasCatalogCapability(selectedCatalogInfo.value, STORAGE_CLASS_CAPABILITY)
 })
 
 const storageClassRequired = computed(() => {
-  return supportsStorageClassConfig.value && (isLokiCatalog.value || isJupyterObjectStorageCatalog.value)
+  return supportsStorageClassConfig.value && (isLokiCatalog.value || isJupyterObjectStorageCatalog.value || isBuiltInPersistentCatalog.value)
 })
 
 const showStorageClassConfig = computed(() => {
@@ -2242,6 +2264,8 @@ const storageClassErrorMessage = computed(() => {
   if (_.isEmpty(selectedStorageClass.value)) return 'This application requires a StorageClass.'
   if (isJupyterObjectStorageCatalog.value && (!Number.isInteger(notebookStorageGi.value) || notebookStorageGi.value < selectedStorageMinimum.value))
     return 'Enter a whole-number notebook capacity of at least ' + selectedStorageMinimum.value + ' GiB.'
+  if (isBuiltInPersistentCatalog.value && (!Number.isInteger(notebookStorageGi.value) || notebookStorageGi.value < selectedStorageMinimum.value || notebookStorageGi.value > 9999))
+    return 'Enter a whole-number volume capacity between ' + selectedStorageMinimum.value + ' and 9999 GiB.'
   return ''
 })
 
@@ -2369,7 +2393,7 @@ function buildK8sAdditionalConfig() {
   const config = {} as Record<string, any>
   if (storageClassRequired.value && !_.isEmpty(selectedStorageClass.value)) {
     config.storageClass = selectedStorageClass.value
-    if (isJupyterObjectStorageCatalog.value) {
+    if (isJupyterObjectStorageCatalog.value || isBuiltInPersistentCatalog.value) {
       config.storageSize = notebookStorageGi.value + 'Gi'
       config.storageAccessMode = 'ReadWriteOnce'
     }
@@ -2463,6 +2487,7 @@ const onChangeCatalog = async () => {
       ingressTlsEnabled: Boolean(catalogInfo.ingressTlsEnabled),
       ingressTlsSecret: catalogInfo.ingressTlsSecret || ''
     }
+    applyBuiltInPersistentDefaults()
     if (selectInfra.value === 'K8S' && isJupyterObjectStorageCatalog.value) {
       ingressData.value.ingressEnabled = true
       hpaData.value.hpaEnabled = false

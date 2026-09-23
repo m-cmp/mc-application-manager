@@ -1,0 +1,15 @@
+image: redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+uid: 999
+containerPort: 6379
+service: {type: ClusterIP, port: 6379}
+persistence: {enabled: true, storageClass: "", size: 10Gi, retain: true}
+dataPath: /data
+container:
+  command: [sh, -ec]
+  args:
+    - 'umask 077; printf "requirepass %s\nappendonly yes\ndir /data\n" "$REDISCLI_AUTH" > /tmp/redis.conf; exec redis-server /tmp/redis.conf'
+  env:
+    - name: REDISCLI_AUTH
+      valueFrom: {secretKeyRef: {name: "{{ .Release.Name }}-auth", key: password}}
+  readinessProbe: {exec: {command: [sh, -ec, 'test "$(redis-cli ping)" = PONG']}, periodSeconds: 5}
+  livenessProbe: {exec: {command: [sh, -ec, 'test "$(redis-cli ping)" = PONG']}, initialDelaySeconds: 30, periodSeconds: 10}

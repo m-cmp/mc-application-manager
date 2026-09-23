@@ -1,0 +1,14 @@
+replicaCount: 1
+service: {type: ClusterIP, port: 80}
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: "1", memory: 512Mi}
+persistence: {enabled: false, storageClass: "", size: 10Gi, retain: true}
+autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 3, targetCPUUtilizationPercentage: 80}
+ingress: {enabled: false, className: nginx, annotations: {}, hosts: [], tls: []}
+config: {}
+emptyDirs: {}
+container: {}
+dataPath: /data
+uid: 1001
+containerPort: 8080

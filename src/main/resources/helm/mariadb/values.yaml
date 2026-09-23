@@ -1,0 +1,18 @@
+image: mariadb:11.4@sha256:70cc072b29b4a89ae07abb2d4da2c64678a7f2dfe092751bb51c87d67dc1338b
+uid: 999
+containerPort: 3306
+service: {type: ClusterIP, port: 3306}
+persistence: {enabled: true, storageClass: "", size: 10Gi, retain: true}
+dataPath: /var/lib/mysql
+container:
+  args: ["--socket=/tmp/mysql.sock", "--pid-file=/tmp/mysql.pid"]
+  env:
+    - {name: MARIADB_DATABASE, value: app}
+    - {name: MARIADB_USER, value: am}
+    - name: MARIADB_PASSWORD
+      valueFrom: {secretKeyRef: {name: "{{ .Release.Name }}-auth", key: password}}
+    - name: MARIADB_ROOT_PASSWORD
+      valueFrom: {secretKeyRef: {name: "{{ .Release.Name }}-auth", key: root-password}}
+  startupProbe: {exec: {command: [healthcheck.sh, --connect, --innodb_initialized]}, failureThreshold: 90, periodSeconds: 5}
+  readinessProbe: {exec: {command: [healthcheck.sh, --connect, --innodb_initialized]}, periodSeconds: 5}
+  livenessProbe: {tcpSocket: {port: app}, periodSeconds: 10}

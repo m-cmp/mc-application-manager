@@ -1,0 +1,10 @@
+{{- if ne .Values.service.type "ClusterIP" }}{{ fail "Built-in charts use ClusterIP; use Ingress or an authenticated port-forward." }}{{ end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  labels: {app.kubernetes.io/name: {{ .Chart.Name }}, app.kubernetes.io/instance: {{ .Release.Name }}}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: {{ .Chart.Name }}, app.kubernetes.io/instance: {{ .Release.Name }}}
+  ports: [{name: app, port: {{ .Values.service.port }}, targetPort: app, protocol: TCP}]

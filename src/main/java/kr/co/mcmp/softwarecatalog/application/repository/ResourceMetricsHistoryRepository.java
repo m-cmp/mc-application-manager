@@ -27,26 +27,28 @@ public interface ResourceMetricsHistoryRepository extends JpaRepository<Resource
     @Query("DELETE FROM ResourceMetricsHistory r WHERE r.recordedAt < :cutoff")
     int deleteByRecordedAtBefore(@Param("cutoff") LocalDateTime cutoff);
 
+    // Spring Data JPA 3.2 native projections require exact Java property aliases.
+    // Quote camelCase names so PostgreSQL does not fold them to lowercase.
     @Query(value = """
             SELECT
-                :deploymentId                                                       AS deployment_id,
-                AVG(cpu_usage_pct)                                                  AS avg_cpu_pct,
-                MAX(cpu_usage_pct)                                                  AS max_cpu_pct,
-                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY cpu_usage_pct)        AS p95_cpu_pct,
-                STDDEV(cpu_usage_pct)                                               AS stddev_cpu,
-                AVG(memory_usage_pct)                                               AS avg_memory_pct,
-                MAX(memory_usage_pct)                                               AS max_memory_pct,
-                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY memory_usage_pct)     AS p95_memory_pct,
-                STDDEV(memory_usage_pct)                                            AS stddev_memory,
-                AVG(network_in_bytes)                                               AS avg_network_in_bytes,
-                MAX(network_in_bytes)                                               AS max_network_in_bytes,
-                AVG(network_out_bytes)                                              AS avg_network_out_bytes,
-                MAX(network_out_bytes)                                              AS max_network_out_bytes,
-                COUNT(*)                                                            AS sample_count,
-                SUM(CASE WHEN oom_killed = true THEN 1 ELSE 0 END)                 AS oom_count,
-                SUM(CASE WHEN status = 'RUNNING' THEN 1 ELSE 0 END) * 10           AS running_minutes,
-                COUNT(*) * 10                                                       AS total_minutes,
-                MIN(resource_type)                                                  AS resource_type
+                :deploymentId AS "deploymentId",
+                AVG(cpu_usage_pct) AS "avgCpuPct",
+                MAX(cpu_usage_pct) AS "maxCpuPct",
+                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY cpu_usage_pct) AS "p95CpuPct",
+                STDDEV(cpu_usage_pct) AS "stddevCpu",
+                AVG(memory_usage_pct) AS "avgMemoryPct",
+                MAX(memory_usage_pct) AS "maxMemoryPct",
+                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY memory_usage_pct) AS "p95MemoryPct",
+                STDDEV(memory_usage_pct) AS "stddevMemory",
+                AVG(network_in_bytes) AS "avgNetworkInBytes",
+                MAX(network_in_bytes) AS "maxNetworkInBytes",
+                AVG(network_out_bytes) AS "avgNetworkOutBytes",
+                MAX(network_out_bytes) AS "maxNetworkOutBytes",
+                COUNT(*) AS "sampleCount",
+                SUM(CASE WHEN oom_killed = true THEN 1 ELSE 0 END) AS "oomCount",
+                SUM(CASE WHEN status = 'RUNNING' THEN 1 ELSE 0 END) * 10 AS "runningMinutes",
+                COUNT(*) * 10 AS "totalMinutes",
+                MIN(resource_type) AS "resourceType"
             FROM resource_metrics_history
             WHERE deployment_id = :deploymentId
               AND recorded_at BETWEEN :start AND :end

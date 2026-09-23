@@ -90,7 +90,8 @@ const submitStart = form.indexOf('const runInstall = async () => {') + 'const ru
 const guardEnd = form.indexOf("\n  if (modalTitle.value === 'Application Installation' && (specCheckFlag", submitStart)
 assert.ok(guardEnd > submitStart)
 const submitGuard = new Function('modalTitle', 'selectInfra', 'selectDeploymentType', 'canSelectClustering', 'toast',
-  'const deploying = { value: false }, deploymentCompleted = { value: false };\n' + transpile(form.slice(submitStart, guardEnd)) + '\nreturn "continue";')
+  // The separate provider guard is unrelated to clustering eligibility.
+  'const deploying = { value: false }, deploymentCompleted = { value: false }, jupyterInstallationUnsupported = { value: false };\n' + transpile(form.slice(submitStart, guardEnd)) + '\nreturn "continue";')
 const installation = { value: 'Application Installation' }
 let errors = 0
 assert.equal(submitGuard(installation, { value: 'VM' }, { value: 'Clustering' }, { value: false }, { error: () => errors++ }), undefined)

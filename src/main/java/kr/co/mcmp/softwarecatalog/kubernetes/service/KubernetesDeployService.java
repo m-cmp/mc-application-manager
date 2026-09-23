@@ -99,8 +99,10 @@ public class KubernetesDeployService {
         HelmIngressValues.validate(helmChart, DeploymentConfigDTO.from(
                 request != null ? request : new DeploymentRequest(), catalog));
         String ingressCidr = K8sIngressPolicy.validate(request, DeploymentConfigDTO.from(request, catalog));
+        BuiltInHelmPolicy.validate(helmChart, DeploymentConfigDTO.from(request, catalog));
         
         try (KubernetesClient client = clientFactory.getClient(namespace, clusterName)) {
+            BuiltInHelmPolicy.validateStorage(helmChart, client, request);
             if (isIngressEnabled(request, catalog)) ingressAccess.resolveTarget(request, catalog);
             // namespaceService.ensureNamespaceExists(client, namespace); // 불필요한 코드 제거
 

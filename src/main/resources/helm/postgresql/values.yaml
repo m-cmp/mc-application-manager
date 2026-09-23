@@ -1,0 +1,16 @@
+image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+uid: 70
+containerPort: 5432
+service: {type: ClusterIP, port: 5432}
+persistence: {enabled: true, storageClass: "", size: 10Gi, retain: true}
+dataPath: /var/lib/postgresql/data
+container:
+  env:
+    - {name: POSTGRES_DB, value: app}
+    - {name: POSTGRES_USER, value: am}
+    - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+    - name: POSTGRES_PASSWORD
+      valueFrom: {secretKeyRef: {name: "{{ .Release.Name }}-auth", key: password}}
+  startupProbe: {exec: {command: [pg_isready, -U, am, -d, app]}, failureThreshold: 60, periodSeconds: 5}
+  readinessProbe: {exec: {command: [pg_isready, -U, am, -d, app]}, periodSeconds: 5}
+  livenessProbe: {exec: {command: [pg_isready, -U, am, -d, app]}, periodSeconds: 10}

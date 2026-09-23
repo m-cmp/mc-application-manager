@@ -1,0 +1,64 @@
+{{- if and (has .Chart.Name (list "redis" "mariadb" "postgresql")) (not .Values.persistence.enabled) }}
+{{- fail "Built-in database/cache charts require persistence and generated authentication." }}
+{{- end }}
+{{- if and .Values.persistence.enabled (or .Values.autoscaling.enabled (ne (int .Values.replicaCount) 1)) }}
+{{- fail "Persistent built-in applications require one replica and HPA disabled." }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels: {app.kubernetes.io/name: {{ .Chart.Name }}, app.kubernetes.io/instance: {{ .Release.Name }}}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  {{- if .Values.persistence.enabled }}
+  strategy: {type: Recreate}
+  {{- end }}
+  selector:
+    matchLabels: {app.kubernetes.io/name: {{ .Chart.Name }}, app.kubernetes.io/instance: {{ .Release.Name }}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: {{ .Chart.Name }}, app.kubernetes.io/instance: {{ .Release.Name }}}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.uid }}
+        runAsGroup: {{ .Values.uid }}
+        fsGroup: {{ .Values.uid }}
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ .Values.image | quote }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+          ports: [{name: app, containerPort: {{ .Values.containerPort }}}]
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+          {{- tpl (toYaml .Values.container) . | nindent 10 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            {{- range $name, $path := .Values.emptyDirs }}
+            - {name: {{ $name }}, mountPath: {{ $path | quote }}}
+            {{- end }}
+            {{- if .Values.persistence.enabled }}
+            - {name: data, mountPath: {{ .Values.dataPath }}}
+            {{- end }}
+            {{- range $key, $item := .Values.config }}
+            - {name: config, mountPath: {{ $item.path | quote }}, subPath: {{ $key | quote }}}
+            {{- end }}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+        {{- range $name, $path := .Values.emptyDirs }}
+        - {name: {{ $name }}, emptyDir: {}}
+        {{- end }}
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim: {claimName: {{ .Release.Name }}-data}
+        {{- end }}
+        {{- if .Values.config }}
+        - name: config
+          configMap: {name: {{ .Release.Name }}}
+        {{- end }}

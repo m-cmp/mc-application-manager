@@ -1,0 +1,16 @@
+image: tomcat:10.1-jre17-temurin@sha256:d9f2c0d63050647ecfdf06557a046e5d9c5e66a9254e807ec43cf5e260e00e72
+uid: 1001
+containerPort: 8080
+service: {type: ClusterIP, port: 8080}
+emptyDirs: {logs: /usr/local/tomcat/logs, work: /usr/local/tomcat/work, temp: /usr/local/tomcat/temp}
+container:
+  env:
+    - {name: CATALINA_TMPDIR, value: /tmp}
+    - {name: CATALINA_OPTS, value: "-XX:MaxRAMPercentage=70 -Djava.awt.headless=true"}
+  startupProbe: {httpGet: {path: /, port: app}, failureThreshold: 60, periodSeconds: 5}
+  readinessProbe: {httpGet: {path: /, port: app}, periodSeconds: 5}
+  livenessProbe: {httpGet: {path: /, port: app}, periodSeconds: 10}
+config:
+  index.html:
+    path: /usr/local/tomcat/webapps/ROOT/index.html
+    content: "<!doctype html><html><body><h1>Apache Tomcat on MCMP</h1></body></html>"

@@ -2,6 +2,7 @@ package kr.co.mcmp.util;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import kr.co.mcmp.softwarecatalog.kubernetes.service.BuiltInHelmCharts;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -37,7 +38,51 @@ public class DatabaseInitializer implements CommandLineRunner{
         }
         ensureBuiltInJupyterCatalog();
         ensureNginxHelmCatalog();
+        ensureBuiltInHelmCatalogs();
         ensureBuiltInCatalogCapabilities();
+    }
+
+    private void ensureBuiltInHelmCatalogs() {
+        for (var app : BuiltInHelmCharts.APPS) {
+            // Reuse the existing VM catalog by title, without changing its settings or Docker image.
+            jdbcTemplate.update("""
+                    INSERT INTO SOFTWARE_CATALOG (
+                        TITLE, DESCRIPTION, SUMMARY, CATEGORY, MIN_CPU, RECOMMENDED_CPU, MIN_MEMORY,
+                        RECOMMENDED_MEMORY, MIN_DISK, RECOMMENDED_DISK, CPU_THRESHOLD, MEMORY_THRESHOLD,
+                        MIN_REPLICAS, MAX_REPLICAS, HPA_ENABLED, DEFAULT_PORT, INGRESS_ENABLED, CREATED_AT, UPDATED_AT)
+                    SELECT ?, ?, ?, ?, 0.1, 1, 0.125, 1, 1, 10, 80, 80, 1, 1, false, ?, false,
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                    WHERE NOT EXISTS (SELECT 1 FROM SOFTWARE_CATALOG WHERE LOWER(TITLE) = LOWER(?))
+                    """, app.title(), app.title() + " deployed with the AM bundled Helm chart.", app.title(),
+                    app.persistent() ? "Databases & Storage" : "Web Servers", app.port(), app.title());
+            for (Long id : jdbcTemplate.queryForList("SELECT ID FROM SOFTWARE_CATALOG WHERE LOWER(TITLE) = LOWER(?)",
+                    Long.class, app.title())) {
+                jdbcTemplate.update("""
+                        INSERT INTO HELM_CHART (CATALOG_ID, CHART_NAME, CHART_VERSION, CHART_REPOSITORY_URL,
+                            REPOSITORY_NAME, REPOSITORY_DISPLAY_NAME, REPOSITORY_OFFICIAL, PACKAGE_ID,
+                            NORMALIZED_NAME, APP_VERSION, DESCRIPTION, CATEGORY, IMAGE_REPOSITORY, TAG, HAS_VALUES_SCHEMA)
+                        SELECT ?, ?, ?, ?, ?, 'MCMP bundled charts', false, ?, ?, ?, ?, ?, ?, ?, false
+                        WHERE NOT EXISTS (SELECT 1 FROM HELM_CHART WHERE CATALOG_ID = ?)
+                        """, id, app.chart(), BuiltInHelmCharts.VERSION, BuiltInHelmCharts.URL, BuiltInHelmCharts.REPOSITORY,
+                        BuiltInHelmCharts.REPOSITORY + "-" + app.chart(), app.chart(), app.appVersion(),
+                        "Single-instance " + app.title() + " using a digest-pinned official container image.",
+                        app.persistent() ? "Databases & Storage" : "Web Servers", app.image(), app.appVersion(), id);
+                // A user-provided Helm mapping wins; do not attach our capability to a different chart.
+                Integer managed = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*) FROM HELM_CHART WHERE CATALOG_ID = ? AND PACKAGE_ID = ?
+                        AND CHART_REPOSITORY_URL = ? AND CHART_VERSION = ? AND REPOSITORY_NAME = ? AND CHART_NAME = ?
+                        """, Integer.class, id, BuiltInHelmCharts.REPOSITORY + "-" + app.chart(), BuiltInHelmCharts.URL,
+                        BuiltInHelmCharts.VERSION, BuiltInHelmCharts.REPOSITORY, app.chart());
+                if (managed != null && managed > 0) {
+                    ensureCatalogReference(id, "helm_application_install", "workflow");
+                    ensureCatalogReference(id, "helm_application_uninstall", "workflow");
+                    if (app.persistent()) {
+                        ensureCatalogReference(id, STORAGE_CLASS_CAPABILITY, "CAPABILITY");
+                        ensureCatalogReference(id, "persistent-single-instance", "CAPABILITY");
+                    }
+                }
+            }
+        }
     }
 
     private void ensureNginxHelmCatalog() {

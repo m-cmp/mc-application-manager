@@ -1,0 +1,11 @@
+{{- if .Values.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}
+  labels: {app.kubernetes.io/name: {{ .Chart.Name }}, app.kubernetes.io/instance: {{ .Release.Name }}}
+data:
+  {{- range $key, $item := .Values.config }}
+  {{ $key }}: {{ $item.content | quote }}
+  {{- end }}
+{{- end }}

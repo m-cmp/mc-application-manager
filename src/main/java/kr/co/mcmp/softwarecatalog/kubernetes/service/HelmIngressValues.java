@@ -88,6 +88,7 @@ final class HelmIngressValues {
 
     /** Read-only validation also used by Spec Check, before a release name exists. */
     static void validate(HelmChart chart, DeploymentConfigDTO config) {
+        BuiltInHelmPolicy.validate(chart, config);
         if (!config.isIngressEnabled()) return;
         String host = config.getIngressHost();
         String dnsHost = host != null && host.startsWith("*.") ? host.substring(2) : host;
