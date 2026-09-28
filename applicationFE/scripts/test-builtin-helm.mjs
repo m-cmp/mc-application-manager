@@ -28,13 +28,14 @@ function harness() {
 }
 let cases=0
 for (const app of ['redis','mariadb','postgresql','apache','tomcat']) {
+ for (const version of ['0.1.0', '0.1.1', 'custom', '']) {
   for (const target of ['VM','K8S']) {
     const h=harness()
     h.selectInfra.value=target
     h.selectedCatalogChartName.value=app
-    h.selectedCatalogInfo.value={helmChart:{chartName:app,repositoryName:'mcmp-builtin',chartRepositoryUrl:'classpath:helm',chartVersion:'0.1.0',packageId:'mcmp-builtin-'+app}}
+    h.selectedCatalogInfo.value={helmChart:{chartName:app,repositoryName:'mcmp-builtin',chartRepositoryUrl:'classpath:helm',chartVersion:version,packageId:'mcmp-builtin-'+app}}
     await nextTick()
-    const persistent=target==='K8S' && ['redis','mariadb','postgresql'].includes(app)
+    const persistent=version==='0.1.0' && target==='K8S' && ['redis','mariadb','postgresql'].includes(app)
     assert.equal(h.isBuiltInPersistentCatalog.value,persistent)
     assert.equal(h.storageClassRequired.value,persistent)
     if (persistent) {
@@ -62,5 +63,6 @@ for (const app of ['redis','mariadb','postgresql','apache','tomcat']) {
     }
     cases++
   }
+ }
 }
 console.log(`Built-in Helm form passed (${cases} scenarios plus storage and identity checks).`)

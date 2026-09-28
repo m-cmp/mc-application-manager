@@ -285,7 +285,7 @@ public class HelmChartService {
         DeploymentConfigDTO config = DeploymentConfigDTO.from(request, catalog);
         HelmIngressValues.validate(helmChart, config);
         BuiltInHelmPolicy.validate(helmChart, config);
-        BuiltInHelmPolicy.validateStorage(helmChart, client, request);
+        boolean prepareCinderVolume = BuiltInHelmPolicy.validateStorage(helmChart, client, request);
         Path tempKubeconfigPath = null;
         Path tempValuesPath = null;
         Path tempChartPath = null;
@@ -379,7 +379,7 @@ public class HelmChartService {
             }
 
             applyObjectStorageValues(catalog, request, providerName, helmChart.getChartName(), chartValues);
-            BuiltInHelmPolicy.configure(helmChart, request, values, chartValues);
+            BuiltInHelmPolicy.configure(helmChart, request, values, chartValues, prepareCinderVolume);
             K8sIngressPolicy.configureValues(helmChart.getChartName(), values, chartValues, config, ingressCidr);
             if (!chartValues.isEmpty()) {
                 tempValuesPath = createTempValuesFile(chartValues);

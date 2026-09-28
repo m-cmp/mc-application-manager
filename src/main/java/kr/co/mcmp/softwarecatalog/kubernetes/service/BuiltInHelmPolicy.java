@@ -18,8 +18,8 @@ final class BuiltInHelmPolicy {
                 throw new IllegalArgumentException(app.title() + " supports one persistent instance; disable HPA and use one replica.");
         });
     }
-    static void validateStorage(HelmChart chart, KubernetesClient client, DeploymentRequest request) {
-        if (BuiltInHelmCharts.app(chart).filter(BuiltInHelmCharts.App::persistent).isEmpty()) return;
+    static boolean validateStorage(HelmChart chart, KubernetesClient client, DeploymentRequest request) {
+        if (BuiltInHelmCharts.app(chart).filter(BuiltInHelmCharts.App::persistent).isEmpty()) return false;
         if (request != null && Boolean.TRUE.equals(request.getWorkloadRebalancingEnabled()))
             throw new IllegalArgumentException("Single-instance persistent applications do not support workload rebalancing.");
         Map<String, Object> extra = extra(request);
@@ -35,6 +35,9 @@ final class BuiltInHelmPolicy {
         if (Quantity.getAmountInBytes(Quantity.parse(size(extra))).compareTo(
                 BigDecimal.valueOf(minimum).multiply(BigDecimal.valueOf(1073741824L))) < 0)
             throw new IllegalArgumentException("This StorageClass requires at least " + minimum + "Gi.");
+        boolean cinder = NhnStorageClassService.DRIVER.equals(storage.getProvisioner());
+        if (cinder) NhnStorageClassService.requireDriverReady(client);
+        return cinder;
     }
     static String size(Map<String, Object> extra) {
         String size = Objects.toString(extra.get("storageSize"), "10Gi");
@@ -44,10 +47,16 @@ final class BuiltInHelmPolicy {
         return size;
     }
     static void configure(HelmChart chart, DeploymentRequest request, Map<String, String> cli, Map<String, Object> yaml) {
+        configure(chart, request, cli, yaml, false);
+    }
+    static void configure(HelmChart chart, DeploymentRequest request, Map<String, String> cli, Map<String, Object> yaml,
+                          boolean prepareCinderVolume) {
         BuiltInHelmCharts.app(chart).ifPresent(app -> {
             cli.put("securityContext.runAsNonRoot", "true");
             if (app.persistent()) {
                 cli.put("persistence.enabled", "true");
+                // Only the server's actual StorageClass lookup may enable the bounded root init container.
+                cli.put("volumePermissions.enabled", Boolean.toString(prepareCinderVolume));
                 // Typed YAML preserves literal StorageClass names instead of interpreting Helm --set syntax.
                 yaml.put("persistence", Map.of("enabled", true, "storageClass",
                         Objects.toString(extra(request).get("storageClass"), "").trim(),

@@ -28,21 +28,24 @@ class BuiltInHelmChartsTest {
                 Map<String, String> entries = read(archive);
                 assertThat(entries).hasSize(9);
                 Map<String, Object> metadata = new Yaml().load(entries.get(app.chart() + "/Chart.yaml"));
-                assertThat(metadata).containsEntry("name", app.chart()).doesNotContainKey("dependencies");
+                assertThat(metadata).containsEntry("name", app.chart()).containsEntry("version", "0.1.0")
+                        .doesNotContainKey("dependencies");
                 Map<String, Object> values = new Yaml().load(entries.get(app.chart() + "/values.yaml"));
                 assertThat(values.get("image").toString()).matches(".+@sha256:[a-f0-9]{64}");
                 assertThat(((Map<?, ?>)values.get("persistence")).get("enabled")).isEqualTo(app.persistent());
                 assertThat(BuiltInHelmCharts.app(chart(app.chart()))).contains(app);
                 // Used by the explicit Helm lint/render and real-cluster test commands; these are production archives.
-                Files.copy(archive, exports.resolve(app.chart() + "-0.1.0.tgz"), StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(archive, exports.resolve(app.chart() + "-" + BuiltInHelmCharts.VERSION + ".tgz"), StandardCopyOption.REPLACE_EXISTING);
             } finally { Files.deleteIfExists(archive); }
         }
     }
     @Test void doesNotInterceptUserOrExternalChartsOrUnknownVersions() {
         var custom = chart("redis"); custom.setChartRepositoryUrl("https://custom.example.org");
         assertThat(BuiltInHelmCharts.app(custom)).isEmpty();
-        custom = chart("redis"); custom.setChartVersion("2.0.0");
-        assertThat(BuiltInHelmCharts.app(custom)).isEmpty();
+        for (String version : new String[]{"0.1.1", "1.0.0", "2.0.0", "", null}) {
+            custom = chart("redis"); custom.setChartVersion(version);
+            assertThat(BuiltInHelmCharts.app(custom)).isEmpty();
+        }
         custom = chart("redis"); custom.setPackageId("custom");
         assertThat(BuiltInHelmCharts.app(custom)).isEmpty();
         assertThat(BuiltInHelmCharts.app(chart("../secret"))).isEmpty();
