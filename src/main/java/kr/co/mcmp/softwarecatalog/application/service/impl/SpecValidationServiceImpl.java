@@ -153,6 +153,16 @@ public class SpecValidationServiceImpl implements SpecValidationService {
      * @return 메모리 값 문자열 (단위 포함)
      */
     private String getMemoryValueFromSpec(K8sSpec spec) {
+        // Prefer Spider's normalized MiB field over provider-specific metadata (e.g. Alibaba Memory=0).
+        // Keep the legacy fallbacks for older Spider versions that do not supply this field.
+        if (StringUtils.isNotBlank(spec.getMemSizeMib())) {
+            try {
+                double mib = Double.parseDouble(spec.getMemSizeMib().trim());
+                if (Double.isFinite(mib) && mib > 0) return java.math.BigDecimal.valueOf(mib).toPlainString() + "MiB";
+            } catch (NumberFormatException ignored) {
+                log.debug("Invalid normalized memory capacity; trying legacy fields");
+            }
+        }
         // 1. mem 필드 확인
         if (spec.getMem() != null && !spec.getMem().trim().isEmpty()) {
             log.debug("Using mem field: {}", spec.getMem());
@@ -286,4 +296,3 @@ public class SpecValidationServiceImpl implements SpecValidationService {
         }
     }
 }
-

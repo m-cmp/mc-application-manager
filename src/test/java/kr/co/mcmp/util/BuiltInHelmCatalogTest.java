@@ -31,6 +31,19 @@ class BuiltInHelmCatalogTest {
         ReflectionTestUtils.setField(initializer, "jdbcTemplate", jdbc);
     }
     private void sync() { ReflectionTestUtils.invokeMethod(initializer, "ensureBuiltInHelmCatalogs"); }
+    @Test void keepsBundledVersionWithoutRewritingExistingMappings() {
+        sync();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM HELM_CHART WHERE CHART_VERSION='0.1.0'", Integer.class)).isEqualTo(5);
+        jdbc.update("UPDATE HELM_CHART SET CHART_VERSION='0.1.1' WHERE CHART_NAME='tomcat'");
+        jdbc.update("UPDATE HELM_CHART SET CHART_VERSION='custom' WHERE CHART_NAME='postgresql'");
+        jdbc.update("UPDATE HELM_CHART SET CHART_REPOSITORY_URL='https://custom.example.org' WHERE CHART_NAME='apache'");
+        sync(); sync();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM HELM_CHART WHERE CHART_VERSION='0.1.0'", Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT CHART_VERSION FROM HELM_CHART WHERE CHART_NAME='tomcat'", String.class)).isEqualTo("0.1.1");
+        assertThat(jdbc.queryForObject("SELECT CHART_VERSION FROM HELM_CHART WHERE CHART_NAME='postgresql'", String.class)).isEqualTo("custom");
+        assertThat(jdbc.queryForObject("SELECT CHART_VERSION FROM HELM_CHART WHERE CHART_NAME='apache'", String.class)).isEqualTo("0.1.0");
+        assertThat(jdbc.queryForObject("SELECT CHART_REPOSITORY_URL FROM HELM_CHART WHERE CHART_NAME='apache'", String.class)).isEqualTo("https://custom.example.org");
+    }
     @Test void cleanDatabaseCreatesFiveAndRepeatedStartupIsIdempotent() {
         sync(); sync();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM SOFTWARE_CATALOG", Integer.class)).isEqualTo(5);
