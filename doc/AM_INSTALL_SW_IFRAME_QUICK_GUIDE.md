@@ -23,11 +23,21 @@ VM:
 https://{AM_HOST}/web/softwareCatalog/install?targetType=VM&mciId={MCI_ID}&vmId={VM_ID}&requestId={REQUEST_ID}
 ```
 
+MC-WEB-CONSOLE의 새 Infra/Node 명칭을 쓰는 경우에도 같은 VM 설치 화면이 열린다.
+
+```text
+https://{AM_HOST}/web/softwareCatalog/install?targetType=NODE&infraId={INFRA_ID}&nodeId={NODE_ID}&requestId={REQUEST_ID}
+```
+
+`VM`/`NODE`, `mciId`/`infraId`, `vmId`/`nodeId`는 각각 같은 의미로 받아들인다. 서로 다른 명칭을 섞어 보내도 된다. 두 이름을 모두 보낼 때 값이 다르면 오류로 거부한다. 호출 측은 한 가지 형식만 보내면 된다.
+
 VM NodeGroup 전체:
 
 ```text
 https://{AM_HOST}/web/softwareCatalog/install?targetType=VM&mciId={MCI_ID}&nodeGroupId={NODE_GROUP_ID}&requestId={REQUEST_ID}
 ```
+
+새 명칭으로는 `targetType=NODE&infraId={INFRA_ID}&nodeGroupId={NODE_GROUP_ID}`를 사용한다. 그룹에서 배포 시점에 Running인 VM만 대상으로 하며, 나중에 켜진 VM에 자동 설치하지 않는다.
 
 특정 VM과 소속 NodeGroup을 함께 전달:
 
@@ -43,7 +53,7 @@ K8s:
 https://{AM_HOST}/web/softwareCatalog/install?targetType=K8S&clusterId={CLUSTER_ID}&requestId={REQUEST_ID}
 ```
 
-- VM은 `mciId`와 `vmId` 또는 `nodeGroupId`가 필요하다.
+- VM/NODE는 `mciId` 또는 `infraId`와, `vmId` 또는 `nodeId` 또는 `nodeGroupId`가 필요하다.
 - K8s는 `clusterId`가 필수다.
 - `requestId`는 선택 사항이지만 요청과 결과를 연결하기 위해 사용하는 것을 권장한다.
 - K8s 요청에는 `nodeGroupId`를 사용하지 않는다.

@@ -37,7 +37,7 @@ export type InstallTargetParseResult =
   | { ok: true; target: InstallTarget }
   | { ok: false; error: string }
 
-const TARGET_KEYS = ['targetType', 'requestId', 'mciId', 'vmId', 'nodeGroupId', 'clusterId'] as const
+const TARGET_KEYS = ['targetType', 'requestId', 'mciId', 'infraId', 'vmId', 'nodeId', 'nodeGroupId', 'clusterId'] as const
 const FORBIDDEN_KEYS = ['namespace', 'namespaceId'] as const
 const MAX_IDENTIFIER_LENGTH = 200
 const PATH_IDENTIFIER_CHARACTERS = /[/?#]/
@@ -56,6 +56,13 @@ const getSingleValue = (params: URLSearchParams, key: string) => {
     return { ok: false as const, error: `Query parameter "${key}" must be provided only once.` }
   }
   return { ok: true as const, value: String(values[0] || '').trim() }
+}
+
+const resolveAlias = (params: URLSearchParams, values: Record<string, string>, oldKey: string, newKey: string) => {
+  if (params.has(oldKey) && params.has(newKey) && values[oldKey] !== values[newKey]) {
+    return { ok: false as const, error: `${oldKey} and ${newKey} must have the same value when both are supplied.` }
+  }
+  return { ok: true as const, value: values[oldKey] || values[newKey] }
 }
 
 const validateIdentifier = (name: string, value: string, required = false) => {
@@ -101,16 +108,22 @@ export const parseInstallTarget = (
     values[key] = result.value
   }
 
-  const targetType = values.targetType.toUpperCase()
+  const infraId = resolveAlias(params, values, 'mciId', 'infraId')
+  if (!infraId.ok) return infraId
+  const nodeId = resolveAlias(params, values, 'vmId', 'nodeId')
+  if (!nodeId.ok) return nodeId
+
+  const requestedTargetType = values.targetType.toUpperCase()
+  const targetType = requestedTargetType === 'NODE' ? 'VM' : requestedTargetType
   if (targetType !== 'VM' && targetType !== 'K8S') {
-    return { ok: false, error: 'targetType must be VM or K8S.' }
+    return { ok: false, error: 'targetType must be VM, NODE or K8S.' }
   }
 
   const requestId = values.requestId || generateRequestId()
   const commonErrors = [
     validateIdentifier('requestId', requestId, true),
-    validateIdentifier('mciId', values.mciId),
-    validateIdentifier('vmId', values.vmId),
+    validateIdentifier('mciId', infraId.value),
+    validateIdentifier('vmId', nodeId.value),
     validateIdentifier('nodeGroupId', values.nodeGroupId),
     validateIdentifier('clusterId', values.clusterId)
   ].filter(Boolean)
@@ -120,11 +133,11 @@ export const parseInstallTarget = (
 
   if (targetType === 'VM') {
     const vmErrors = [
-      validateIdentifier('mciId', values.mciId, true)
+      validateIdentifier('mciId or infraId', infraId.value, true)
     ].filter(Boolean)
     if (vmErrors.length > 0) return { ok: false, error: vmErrors[0] }
-    if (!values.vmId && !values.nodeGroupId) {
-      return { ok: false, error: 'vmId or nodeGroupId is required.' }
+    if (!nodeId.value && !values.nodeGroupId) {
+      return { ok: false, error: 'vmId, nodeId or nodeGroupId is required.' }
     }
     if (values.clusterId) {
       return { ok: false, error: 'clusterId cannot be used with a VM target.' }
@@ -134,8 +147,8 @@ export const parseInstallTarget = (
   if (targetType === 'K8S') {
     const clusterError = validateIdentifier('clusterId', values.clusterId, true)
     if (clusterError) return { ok: false, error: clusterError }
-    if (values.mciId || values.vmId) {
-      return { ok: false, error: 'mciId and vmId cannot be used with a K8S target.' }
+    if (infraId.value || nodeId.value) {
+      return { ok: false, error: 'mciId/infraId and vmId/nodeId cannot be used with a K8S target.' }
     }
     if (values.nodeGroupId) {
       return { ok: false, error: 'nodeGroupId cannot be used with a K8S target.' }
@@ -147,8 +160,8 @@ export const parseInstallTarget = (
     target: {
       requestId,
       targetType,
-      mciId: values.mciId,
-      vmId: values.vmId,
+      mciId: infraId.value,
+      vmId: nodeId.value,
       nodeGroupId: values.nodeGroupId,
       clusterId: values.clusterId
     }
