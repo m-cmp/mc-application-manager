@@ -20,6 +20,7 @@ function harness() {
     isLokiCatalog: false, ingressData: { ingressEnabled: true }, hpaData: { hpaEnabled: true, hpaMinReplicas: 3 },
     workloadRebalancingEnabled: true, selectedStorageClass: 'standard', storageClassList: [{name: 'standard'}],
     storageClassLoading: false, storageClassLoadError: false, storageClassFailure: '', notebookStorageGi: 10,
+    isNhnCluster: false, nhnAddonInstalling: false, nhnAddonChecking: false, storageCapability: null, storageSetupError: '',
     selectedStorageMinimum: 1, modalTitle: 'Application Installation', showObjectStorageConfig: false, objectStorageData: {enabled:false}
   }).map(([key,value]) => [key, ref(value)]))
   const env = {...state, computed, watch, hasCatalogCapability: () => false,
