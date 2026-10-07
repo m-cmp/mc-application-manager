@@ -57,6 +57,52 @@ class K8sJupyterServiceTest {
         verifyNoMoreInteractions(histories);
     }
 
+    private record ReinstallFixture(K8sJupyterService service,
+            kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository histories,
+            DeploymentRequest request, SoftwareCatalog catalog, io.fabric8.kubernetes.client.server.mock.KubernetesServer server) { }
+    private ReinstallFixture reinstallFixture(String previousState) {
+        var histories=mock(kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository.class);
+        var clients=mock(kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory.class);
+        var server=new io.fabric8.kubernetes.client.server.mock.KubernetesServer(false,true);
+        server.before();
+        var client=server.getClient();
+        client.storage().v1().storageClasses().resource(new io.fabric8.kubernetes.api.model.storage.StorageClassBuilder()
+                .withNewMetadata().withName("standard").endMetadata().withProvisioner("test.csi.driver").build()).create();
+        when(clients.getClient("default","cluster-a")).thenReturn(client);
+        var access=mock(K8sIngressAccessService.class);
+        var grants=mock(kr.co.mcmp.softwarecatalog.application.service.ObjectStorageAccessGrantService.class);
+        var service=new K8sJupyterService(clients,null,grants,access,histories,null,new ObjectMapper(),null,IbmIngressAutomationTestSupport.legacy());
+        var catalog=new SoftwareCatalog(); catalog.setId(41L);
+        when(histories.findTopByCatalogIdAndClusterNameAndNamespaceAndActionTypeAndReleaseNameStartingWithOrderByExecutedAtDesc(
+                41L,"cluster-a","default",kr.co.mcmp.softwarecatalog.application.constants.ActionType.INSTALL,"mcmp-jupyter-"))
+                .thenReturn(kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory.builder()
+                        .id(3L).releaseName("mcmp-jupyter-3").status(previousState).build());
+        var request=request();
+        request.setAdditionalConfig(Map.of("storageClass","standard","objectStorage",Map.of("enabled",true,"jupyterToken","test-jupyter-login-token")));
+        return new ReinstallFixture(service,histories,request,catalog,server);
+    }
+    @ParameterizedTest @ValueSource(strings={"DELETED","UNINSTALLED","FAILED"})
+    void retiredInstallationCanReachNewDeploymentCreation(String state) {
+        var fixture=reinstallFixture(state);
+        // Stop at persistence: verifies real deploy preconditions/duplicate handling without creating resources.
+        var checkpoint=new IllegalStateException("new deployment creation reached");
+        when(fixture.histories().saveAndFlush(any())).thenThrow(checkpoint);
+        try {
+            assertThatThrownBy(()->fixture.service().deploy(fixture.request(),fixture.catalog())).isSameAs(checkpoint);
+            verify(fixture.histories()).saveAndFlush(argThat(history->"IN_PROGRESS".equals(history.getStatus())
+                    && "cluster-a".equals(history.getClusterName()) && history.getId()==null));
+        } finally { fixture.server().after(); }
+    }
+    @ParameterizedTest @ValueSource(strings={"SUCCESS","IN_PROGRESS","DELETE_PENDING"})
+    void existingOrUnresolvedInstallationStillBlocksAnotherDeployment(String state) {
+        var fixture=reinstallFixture(state);
+        try {
+            assertThatThrownBy(()->fixture.service().deploy(fixture.request(),fixture.catalog()))
+                    .hasMessageContaining("already exists");
+            verify(fixture.histories(),never()).saveAndFlush(any());
+        } finally { fixture.server().after(); }
+    }
+
     DeploymentRequest request() {
         return DeploymentRequest.builder().namespace("default").clusterName("cluster-a")
                 .ingressEnabled(true).ingressHost("jupyter.example.test").ingressPath("/")

@@ -5,7 +5,7 @@ import * as Vue from 'vue'
 import { compile } from '@vue/compiler-dom'
 import { renderToString } from '@vue/server-renderer'
 
-const source = await readFile(new URL('../src/views/softwareCatalog/components/applicationInstallationForm.vue', import.meta.url), 'utf8')
+const source = (await readFile(new URL('../src/views/softwareCatalog/components/applicationInstallationForm.vue', import.meta.url), 'utf8')).replace(/\r\n/g, '\n')
 const template = source.slice(0, source.indexOf('<script'))
 const start = source.indexOf('const buildIngressPayload =')
 const end = source.indexOf('const specCheck =', start)
