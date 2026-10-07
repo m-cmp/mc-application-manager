@@ -6,9 +6,13 @@ import static org.mockito.Mockito.*;
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
 import org.junit.jupiter.api.Test;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.env.YamlPropertySourceLoader;
+import org.springframework.core.io.ClassPathResource;
 
 class NhnCinderAddonConfigurationTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
@@ -21,6 +25,26 @@ class NhnCinderAddonConfigurationTest {
     @Test void springCreatesAllComponentsWithAutomationDisabledByDefault() {
         runner.run(context -> {
             assertThat(context).hasNotFailed().hasSingleBean(NhnCinderAddonService.class).hasSingleBean(NhnCinderAddonJobs.class);
+            assertThat(context.getBean(NhnCinderAddonProperties.class).isEnabled()).isFalse();
+        });
+    }
+    private ApplicationContextRunner withApplicationYaml() {
+        return runner.withInitializer(context -> {
+            try {
+                new YamlPropertySourceLoader().load("application", new ClassPathResource("application.yaml"))
+                        .forEach(source -> context.getEnvironment().getPropertySources().addLast(source));
+            } catch (IOException e) { throw new UncheckedIOException(e); }
+        });
+    }
+    @Test void applicationYamlEnablesAddonByDefault() {
+        withApplicationYaml().run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context.getBean(NhnCinderAddonProperties.class).isEnabled()).isTrue();
+        });
+    }
+    @Test void applicationYamlCanDisableAddonThroughEnvironmentOverride() {
+        withApplicationYaml().withPropertyValues("NHN_CINDER_ADDON_ENABLED=false").run(context -> {
+            assertThat(context).hasNotFailed();
             assertThat(context.getBean(NhnCinderAddonProperties.class).isEnabled()).isFalse();
         });
     }

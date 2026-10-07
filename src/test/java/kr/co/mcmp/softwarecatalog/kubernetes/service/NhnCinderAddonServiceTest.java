@@ -75,7 +75,10 @@ class NhnCinderAddonServiceTest {
         properties.setEnabled(false);
         var result = service.capability("project-a", "cluster-a");
         assertThat(result.state()).isEqualTo("NOT_CONFIGURED"); assertThat(result.canInstall()).isFalse();
+        assertThatThrownBy(() -> service.prepare(service.resolve("project-a", "cluster-a"), m -> {}))
+                .isInstanceOf(StorageOperationException.class).hasMessageContaining("not configured");
         verifyNoInteractions(credentials); verify(nks, never()).login(any(), anyString());
+        verify(nks, never()).install(any(), anyString(), anyString());
     }
     @Test void rejectsRegionMismatchBeforeReadingSecrets() {
         properties.getBindings().get(0).setRegion("kr2");

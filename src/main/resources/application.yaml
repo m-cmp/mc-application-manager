@@ -4,6 +4,11 @@ config:
   config-string: application,manager,m-cmp
 
 app:
+  nhn-cinder-addon:
+    # true: NHN Cinder CSI addon 설치 기능 활성화, false: 설치 기능 비활성화 (다른 CSP에는 적용하지 않음).
+    # 환경변수 NHN_CINDER_ADDON_ENABLED로 재정의 가능. 변경 후 AM 재시작 필요.
+    # 실제 설치에는 OpenBao 연결 및 프로젝트/클라우드 연결 매핑 설정 필요 (docs/nhn-cinder-addon.md 참고).
+    enabled: ${NHN_CINDER_ADDON_ENABLED:true}
   vm-deployment:
     # Remote pulls are bounded; command HTTP waits allow an additional 120 seconds.
     image-pull-timeout-seconds: ${VM_IMAGE_PULL_TIMEOUT_SECONDS:1800}
