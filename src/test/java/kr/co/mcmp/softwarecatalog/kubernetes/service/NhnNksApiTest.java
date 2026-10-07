@@ -51,19 +51,54 @@ class NhnNksApiTest {
         assertThat(api.compatibleVersion(session, cluster)).isEqualTo("v1.10.0-nks2");
         assertThat(http.requests.get(0).uri().getQuery()).contains("k8s_version=v1.30.0", "image=image-a", "platform_version=1.202605.0");
     }
+    @Test void liveCatalogUnderscoreNameResolvesTheCompatibleCinderVersion() throws Exception {
+        http.respond(200, """
+                {"addons":[{"name":"cinder_csi_plugin","version":"v1.27.101-nks3"},
+                {"name":"cinder_csi_plugin","version":"v1.27.102-nks4"},
+                {"name":"other","version":"v99.0.0"}]}
+                """);
+        var cluster = json.readTree("{\"coe_version\":\"v1.35.5\",\"labels\":{\"node_image\":\"image-a\",\"platform_version\":\"1.202608.0\"}}");
+        assertThat(api.compatibleVersion(session, cluster)).isEqualTo("v1.27.102-nks4");
+    }
+    @Test void installedUnderscoreNameIsReusedWithoutAnotherInstallation() {
+        http.respond(200, "{\"addons\":[{\"name\":\"cinder_csi_plugin\",\"cluster_uuid\":\"" + NhnCinderAddonServiceTest.ID
+                + "\",\"project_id\":\"tenant-a\",\"version\":\"v1.27.102-nks4\",\"status\":\"CREATE_COMPLETE\"}]}");
+        assertThat(api.installed(session, NhnCinderAddonServiceTest.ID)).isPresent();
+    }
     @Test void incompleteCompatibilityMetadataCannotSubmitInstallation() throws Exception {
         assertThatThrownBy(() -> api.compatibleVersion(session, json.readTree("{\"coe_version\":\"v1.30.0\"}")))
                 .hasMessageContaining("base image and platform"); assertThat(http.requests).isEmpty();
+    }
+    @Test void installedListUsesTheCanonicalRouteThatLiveNksAccepts() {
+        http.respond(200, "{\"addons\":[]}");
+        assertThat(api.installed(session, NhnCinderAddonServiceTest.ID)).isEmpty();
+        assertThat(http.requests.get(0).uri().getPath()).isEqualTo("/v1/clusters/" + NhnCinderAddonServiceTest.ID + "/addons");
+    }
+    @Test void notInstalledPlaceholderAllowsARealInstallationRequest() {
+        http.respond(200, "{\"addons\":[{\"name\":\"cinder-csi-plugin\",\"cluster_uuid\":\"" + NhnCinderAddonServiceTest.ID
+                + "\",\"project_id\":\"tenant-a\",\"version\":null,\"status\":\"NOT_INSTALLED\"}]}");
+        assertThat(api.installed(session, NhnCinderAddonServiceTest.ID)).isEmpty();
+    }
+    @Test void notInstalledPlaceholderStillMustBelongToTheSelectedProject() {
+        http.respond(200, "{\"addons\":[{\"name\":\"cinder-csi-plugin\",\"cluster_uuid\":\"" + NhnCinderAddonServiceTest.ID
+                + "\",\"project_id\":\"tenant-b\",\"version\":null,\"status\":\"NOT_INSTALLED\"}]}");
+        assertThatThrownBy(() -> api.installed(session, NhnCinderAddonServiceTest.ID)).hasMessageContaining("different NKS cluster");
+    }
+    @Test void missingInstalledListRouteIsNotTreatedAsAnEmptyInstallation() {
+        http.respond(404, "{\"error\":\"Not Found\"}");
+        assertThatThrownBy(() -> api.installed(session, NhnCinderAddonServiceTest.ID))
+                .isInstanceOf(StorageOperationException.class);
+        assertThat(http.requests).hasSize(1);
     }
     @Test void installationOnlyRequestsCinderWithNoConflictOverwrite() throws Exception {
         http.respond(200, "{\"uuid\":\"" + NhnCinderAddonServiceTest.ID + "\"}");
         api.install(session, NhnCinderAddonServiceTest.ID, "v1.30.0-nks1");
         var request = http.requests.get(0);
-        assertThat(request.method()).isEqualTo("POST"); assertThat(request.uri().getPath()).endsWith("/" + NhnCinderAddonServiceTest.ID + "/addons/");
+        assertThat(request.method()).isEqualTo("POST"); assertThat(request.uri().getPath()).endsWith("/" + NhnCinderAddonServiceTest.ID + "/addons");
         assertThat(request.headers().firstValue("X-Auth-Token")).contains("fake-nhn-token");
         assertThat(request.headers().firstValue("OpenStack-API-Version")).contains("container-infra latest");
         assertThat(json.readTree(NhnTestHttp.body(request)).path("resolve_conflicts").asText()).isEqualTo("none");
-        assertThat(json.readTree(NhnTestHttp.body(request)).path("name").asText()).isEqualTo("cinder-csi-plugin");
+        assertThat(json.readTree(NhnTestHttp.body(request)).path("name").asText()).isEqualTo("cinder_csi_plugin");
     }
     @ParameterizedTest @ValueSource(ints = {301, 400, 401, 403, 409, 500})
     void upstreamErrorsNeverRelaySecretBodyOrCause(int status) {

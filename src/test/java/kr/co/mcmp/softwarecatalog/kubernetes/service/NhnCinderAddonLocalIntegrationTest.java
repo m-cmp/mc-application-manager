@@ -61,15 +61,15 @@ class NhnCinderAddonLocalIntegrationTest {
                         response = "{\"uuid\":\"" + id + "\",\"project_id\":\"tenant-a\",\"status\":\"CREATE_COMPLETE\",\"coe_version\":\"v1.30.0\",\"labels\":{\"node_image\":\"01234567-89ab-cdef-0123-456789abcdef\",\"platform_version\":\"1.202605.0\"}}";
                     } else if (path.equals("/v1/addons/")) {
                         assertThat(exchange.getRequestURI().getQuery()).contains("k8s_version=v1.30.0", "platform_version=1.202605.0", "image=01234567");
-                        response = "{\"addons\":[{\"name\":\"cinder-csi-plugin\",\"version\":\"v1.9.0-nks1\"},{\"name\":\"cinder-csi-plugin\",\"version\":\"v1.10.0-nks2\"}]}";
-                    } else if (path.equals("/v1/clusters/" + id + "/addons/") && method.equals("POST")) {
-                        assertThat(json.readTree(body).path("name").asText()).isEqualTo("cinder-csi-plugin");
+                        response = "{\"addons\":[{\"name\":\"cinder_csi_plugin\",\"version\":\"v1.9.0-nks1\"},{\"name\":\"cinder_csi_plugin\",\"version\":\"v1.10.0-nks2\"}]}";
+                    } else if (path.equals("/v1/clusters/" + id + "/addons") && method.equals("POST")) {
+                        assertThat(json.readTree(body).path("name").asText()).isEqualTo("cinder_csi_plugin");
                         assertThat(json.readTree(body).path("resolve_conflicts").asText()).isEqualTo("none");
                         assertThat(json.readTree(body).path("version").asText()).isEqualTo("v1.10.0-nks2");
                         assertThat(installed.compareAndSet(false, true)).isTrue();
                         response = "{\"uuid\":\"" + id + "\"}";
-                    } else if (path.equals("/v1/clusters/" + id + "/addons/")) {
-                        if (!installed.get()) response = "{\"addons\":[]}";
+                    } else if (path.equals("/v1/clusters/" + id + "/addons")) {
+                        if (!installed.get()) response = "{\"addons\":[{\"name\":\"cinder-csi-plugin\",\"cluster_uuid\":\"" + id + "\",\"project_id\":\"tenant-a\",\"version\":null,\"status\":\"NOT_INSTALLED\"}]}";
                         else {
                             int poll = addonPolls.incrementAndGet();
                             if (poll == 2) NhnCinderAddonServiceTest.registerDriver(kube.getClient());
@@ -122,7 +122,7 @@ class NhnCinderAddonLocalIntegrationTest {
             assertThat(handlerFailure.get()).isNull();
             mvc.perform(get("/applications/k8s/nhn-cinder-addon/jobs/" + jobId).param("namespace", "project-a").param("clusterName", "cluster-a"))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.data.state").value("READY"));
-            assertThat(requests.stream().filter(r -> r.method().equals("POST") && r.path().endsWith("/addons/"))).hasSize(1);
+            assertThat(requests.stream().filter(r -> r.method().equals("POST") && r.path().endsWith("/addons"))).hasSize(1);
             int nativeCount = requests.size();
             mvc.perform(post("/applications/k8s/nhn-cinder-addon").param("namespace", "project-a").param("clusterName", "cluster-a"))
                     .andExpect(status().isAccepted());

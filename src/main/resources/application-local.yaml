@@ -16,6 +16,16 @@
 # =====================================================================
 
 app:
+  nhn-cinder-addon:
+    # 로컬 NHN 설치 버튼용 인증 연결. 활성화 여부는 application.yaml의 enabled 설정을 따름.
+    # 토큰은 Git에 포함하지 않는 별도 파일로 보관하며, NHN 자격증명 경로의 읽기 권한만 필요.
+    open-bao-url: ${NHN_CINDER_ADDON_OPEN_BAO_URL:http://210.217.178.130:8200}
+    open-bao-token-file: ${NHN_CINDER_ADDON_OPEN_BAO_TOKEN_FILE:${user.dir}/.local-secrets/nhn-openbao-token}
+    bindings:
+      - namespace: ${NHN_CINDER_ADDON_NAMESPACE:default}
+        connection-name: ${NHN_CINDER_ADDON_CONNECTION_NAME:nhn-kr1}
+        region: ${NHN_CINDER_ADDON_REGION:kr1}
+        secret-path: ${NHN_CINDER_ADDON_SECRET_PATH:secret/data/csp/nhn}
   scheduling:
     enabled: false
   # Standalone local UI can run without Web Console/IAM context.

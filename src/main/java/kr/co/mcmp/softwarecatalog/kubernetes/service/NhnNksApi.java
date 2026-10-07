@@ -17,6 +17,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class NhnNksApi {
     static final String ADDON = "cinder-csi-plugin";
+    // NKS uses an underscore name in the catalog/install API, and a hyphen in cluster placeholders.
+    static final String CATALOG_ADDON = "cinder_csi_plugin";
+    private static boolean cinder(JsonNode addon) {
+        return Set.of(ADDON, CATALOG_ADDON).contains(addon.path("name").asText());
+    }
     record Session(String token, String tenantId, URI endpoint, Instant expires) {
         @Override public String toString() { return "NHN NKS session (credentials withheld)"; }
     }
@@ -72,16 +77,19 @@ public class NhnNksApi {
 
     Optional<JsonNode> installed(Session session, String id) {
         requireUuid(id);
-        var result = get(session, "clusters/" + id + "/addons/");
+        // The live NKS cluster-addons route rejects a trailing slash with 404.
+        var result = get(session, "clusters/" + id + "/addons");
         if (!result.path("addons").isArray()) throw invalidResponse("NKS returned an invalid installed add-on list.");
         var matches = new ArrayList<JsonNode>();
-        for (var addon : result.path("addons")) if (ADDON.equals(addon.path("name").asText())) matches.add(addon);
+        for (var addon : result.path("addons")) if (cinder(addon)) matches.add(addon);
         if (matches.size() > 1) throw invalidResponse("NKS returned an ambiguous Cinder add-on installation.");
         for (var addon : matches) {
             if (!id.equals(addon.path("cluster_uuid").asText()) || !session.tenantId().equals(addon.path("project_id").asText()))
                 throw new StorageOperationException(409, "NHN_CLUSTER_MISMATCH", "The installed add-on belongs to a different NKS cluster or project.");
         }
-        return matches.stream().findFirst();
+        // NKS includes uninstalled add-on placeholders (version=null, status=NOT_INSTALLED).
+        // Validate the target above, then allow these entries to proceed to a new installation.
+        return matches.stream().filter(addon -> !"NOT_INSTALLED".equals(addon.path("status").asText())).findFirst();
     }
 
     String compatibleVersion(Session session, JsonNode cluster) {
@@ -95,7 +103,7 @@ public class NhnNksApi {
         var versions = new ArrayList<String>();
         for (var addon : result.path("addons")) {
             String candidate = addon.path("version").asText();
-            if (ADDON.equals(addon.path("name").asText()) && candidate.matches("v?\\d+(?:\\.\\d+){1,3}(?:-nks\\d+)?")) versions.add(candidate);
+            if (cinder(addon) && candidate.matches("v?\\d+(?:\\.\\d+){1,3}(?:-nks\\d+)?")) versions.add(candidate);
         }
         return versions.stream().max(NhnNksApi::compareVersions).orElseThrow(() ->
                 new StorageOperationException(409, "NHN_ADDON_UNAVAILABLE", "NKS offers no supported Cinder add-on for this Kubernetes version, base image and platform. Check the NKS registry and cluster support."));
@@ -103,8 +111,8 @@ public class NhnNksApi {
 
     void install(Session session, String id, String version) {
         requireUuid(id);
-        var result = request("POST", session.endpoint().resolve("clusters/" + id + "/addons/"), session.token(),
-                Map.of("name", ADDON, "version", version, "resolve_conflicts", "none"));
+        var result = request("POST", session.endpoint().resolve("clusters/" + id + "/addons"), session.token(),
+                Map.of("name", CATALOG_ADDON, "version", version, "resolve_conflicts", "none"));
         if (!id.equals(result.path("uuid").asText())) throw invalidResponse("NKS did not confirm the selected cluster for the installation request. Refresh the add-on status before retrying.");
     }
 

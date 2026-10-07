@@ -34,7 +34,7 @@ public class SimpleCORSFilter implements Filter {
         response.setHeader(
                 "Access-Control-Allow-Headers",
                 "x-requested-with, authorization, Content-Type, credential, X-XSRF-TOKEN, token, user_id, "
-                        + "X-MCMP-Workspace-ID, X-MCMP-Project-ID, X-MCMP-Namespace-ID");
+                        + "X-MCMP-Workspace-ID, X-MCMP-Project-ID, X-MCMP-Namespace-ID, Idempotency-Key");
 
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_OK);

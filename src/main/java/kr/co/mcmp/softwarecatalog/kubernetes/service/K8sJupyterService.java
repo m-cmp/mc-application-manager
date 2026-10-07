@@ -109,7 +109,7 @@ public class K8sJupyterService {
             throw new IllegalArgumentException("Select Object Storage and a Jupyter token of at least 12 characters.");
         grants.resolveSelections(request.getNamespace(), storage);
         var previous = latest(request.getNamespace(), request.getClusterName(), catalog.getId());
-        if (previous != null && !Set.of("UNINSTALLED", "FAILED").contains(Objects.toString(previous.getStatus(), "")))
+        if (previous != null && !Set.of("UNINSTALLED", "DELETED", "FAILED").contains(Objects.toString(previous.getStatus(), "")))
             throw new IllegalStateException("A Jupyter installation already exists for this catalog and cluster.");
         DeploymentHistory history = histories.saveAndFlush(DeploymentHistory.builder()
                 .namespace(request.getNamespace()).clusterName(request.getClusterName()).catalog(catalog)

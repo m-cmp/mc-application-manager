@@ -48,6 +48,32 @@ class NhnCinderAddonConfigurationTest {
             assertThat(context.getBean(NhnCinderAddonProperties.class).isEnabled()).isFalse();
         });
     }
+    private ApplicationContextRunner withLocalYaml() {
+        return withApplicationYaml().withInitializer(context -> {
+            try {
+                new YamlPropertySourceLoader().load("application-local", new ClassPathResource("application-local.yaml"))
+                        .forEach(source -> context.getEnvironment().getPropertySources().addFirst(source));
+            } catch (IOException e) { throw new UncheckedIOException(e); }
+        });
+    }
+    @Test void localProfileResolvesTheSelectedNhnConnectionAndExternalTokenFile() {
+        withLocalYaml().run(context -> {
+            assertThat(context).hasNotFailed();
+            var properties = context.getBean(NhnCinderAddonProperties.class);
+            assertThat(properties.binding("default", "nhn-kr1").getRegion()).isEqualTo("kr1");
+            assertThat(properties.binding("default", "nhn-kr1").getSecretPath()).isEqualTo("secret/data/csp/nhn");
+            assertThat(properties.getOpenBaoTokenFile()).isEqualTo(System.getProperty("user.dir") + "/.local-secrets/nhn-openbao-token");
+        });
+    }
+    @Test void localProfileStillRespectsTheDisabledFeatureFlag() {
+        withLocalYaml().withPropertyValues("NHN_CINDER_ADDON_ENABLED=false").run(context -> {
+            assertThat(context).hasNotFailed();
+            var properties = context.getBean(NhnCinderAddonProperties.class);
+            assertThat(properties.isEnabled()).isFalse();
+            assertThatThrownBy(() -> properties.binding("default", "nhn-kr1"))
+                    .isInstanceOf(StorageOperationException.class);
+        });
+    }
     @Test void documentedYamlPropertyNamesBindToTheProjectCredentialConnection() {
         runner.withPropertyValues("app.nhn-cinder-addon.enabled=true", "app.nhn-cinder-addon.open-bao-url=http://openbao:8200",
                 "app.nhn-cinder-addon.open-bao-token-file=/run/secrets/am-nhn-openbao-token",

@@ -47,9 +47,19 @@ All endpoints require the existing AM authentication and project context. Query 
 | POST | `/applications/k8s/nhn-cinder-addon` | HTTP 202 with a preparation job |
 | GET | `/applications/k8s/nhn-cinder-addon/jobs/{id}` | `QUEUED`, `RUNNING`, `READY`, or `FAILED` with an actionable error code |
 
-AM requests `POST /v1/clusters/{native-cluster-uuid}/addons/` with only the Cinder name, a compatible version and `resolve_conflicts: none`. The native cluster and installed add-on project IDs must match the authenticated tenant. Installation jobs are deduplicated per namespace/cluster and have a bounded queue. They contain no passwords or IaaS tokens.
+AM requests `POST /v1/clusters/{native-cluster-uuid}/addons` with the catalog name `cinder_csi_plugin`, a compatible version and `resolve_conflicts: none`. The cluster add-on route uses no trailing slash: a live KR1 check returned 404 for the slash form and 200 for the canonical form. Both `cinder_csi_plugin` catalog entries and `cinder-csi-plugin` cluster entries are recognized as Cinder. `NOT_INSTALLED` placeholder entries are treated as absent after project/cluster validation, so AM requests an installation rather than waiting for a nonexistent one. The native cluster and installed add-on project IDs must match the authenticated tenant. Installation jobs are deduplicated per namespace/cluster and have a bounded queue. They contain no passwords or IaaS tokens.
 
 Jobs are local to one AM process and expire two hours after completion. After an AM restart or a lost response, refresh capability and retry preparation: the existing native installation is inspected and reused. A timeout stops verification and does not remove NKS resources. Separate AM replicas do not share job records; NKS conflicts are surfaced rather than retried as overwrites.
+
+## Local configuration
+
+The `local` profile maps namespace `default`, connection `nhn-kr1`, and region `kr1` to the existing `secret/data/csp/nhn` credential on the development OpenBao server. It inherits the feature flag from `application.yaml`, so `NHN_CINDER_ADDON_ENABLED=false` still disables installation.
+
+Place an OpenBao token with read permission on that NHN path in `.local-secrets/nhn-openbao-token` under the repository root. This directory is ignored by Git. Use a scoped token rather than exporting the infrastructure administrator token. The token provisioned for this workstation on 2026-10-07 expires after seven days; renew local access with a newly issued scoped token after expiry. Tokens and NHN passwords must not be added to YAML or sent to the frontend.
+
+Override `NHN_CINDER_ADDON_OPEN_BAO_URL`, `NHN_CINDER_ADDON_OPEN_BAO_TOKEN_FILE`, `NHN_CINDER_ADDON_NAMESPACE`, `NHN_CINDER_ADDON_CONNECTION_NAME`, `NHN_CINDER_ADDON_REGION`, or `NHN_CINDER_ADDON_SECRET_PATH` for another local environment. The token file must be an absolute path. Start the backend from the repository root with `--spring.profiles.active=local`, then restart it after changing these settings.
+
+The installation button appears when the capability endpoint returns `canInstall: true`. `NOT_CONFIGURED` means the feature flag or project/connection binding is missing; credential and NKS compatibility failures are shown separately. Refresh StorageClasses after restarting the backend to reload capability.
 
 ## Local verification
 
