@@ -71,7 +71,7 @@ public class KubernetesIngressPreflightService {
             if (nativeJupyter && config.isTlsEnabled() && !IbmIngressSupport.managed(config.getIngressClass())) {
                 return invalid("K8s Jupyter uses HTTP NodePort 30880; configure a separate HTTPS entry before enabling TLS.");
             }
-            String workloadNamespace = nativeJupyter ? request.getNamespace() : KubernetesNamespaces.APPLICATION_WORKLOAD;
+            String workloadNamespace = KubernetesNamespaces.APPLICATION_WORKLOAD;
             KubernetesIngressRouteValidator.assertAvailable(client, config, nativeJupyter);
             if (IbmIngressSupport.managed(config.getIngressClass())) K8sIngressPolicy.validate(target, config);
             var warnings = new java.util.ArrayList<String>();

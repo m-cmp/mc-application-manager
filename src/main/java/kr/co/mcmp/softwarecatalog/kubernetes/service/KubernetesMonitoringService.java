@@ -235,7 +235,9 @@ public class KubernetesMonitoringService {
             return;
         }
 
-        String namespace = isManagedJupyter(deployment) ? deployment.getNamespace() : DEFAULT_WORKLOAD_NAMESPACE;
+        String namespace = isManagedJupyter(deployment)
+                ? KubernetesNamespaces.jupyterWorkloadNamespace(client, deployment.getNamespace(), deployment.getReleaseName())
+                : DEFAULT_WORKLOAD_NAMESPACE;
         String appName = isManagedJupyter(deployment) ? "jupyter" : deployment.getCatalog().getHelmChart().getChartName();
         String lookupName = resolveWorkloadLookupName(deployment, appName);
         List<Pod> pods = findPodsForDeployment(client, namespace, deployment, appName);
@@ -418,7 +420,9 @@ public class KubernetesMonitoringService {
     @Transactional
     private void updateApplicationStatus(DeploymentHistory deployment, KubernetesClient client) {
         // K8s 배포는 항상 default namespace에 배포됨
-        String namespace = isManagedJupyter(deployment) ? deployment.getNamespace() : DEFAULT_WORKLOAD_NAMESPACE;
+        String namespace = isManagedJupyter(deployment)
+                ? KubernetesNamespaces.jupyterWorkloadNamespace(client, deployment.getNamespace(), deployment.getReleaseName())
+                : DEFAULT_WORKLOAD_NAMESPACE;
         String clusterName = deployment.getClusterName();
         
         // null 체크 추가

@@ -9,6 +9,16 @@ app:
     # 환경변수 NHN_CINDER_ADDON_ENABLED로 재정의 가능. 변경 후 AM 재시작 필요.
     # 실제 설치에는 OpenBao 연결 및 프로젝트/클라우드 연결 매핑 설정 필요 (docs/nhn-cinder-addon.md 참고).
     enabled: ${NHN_CINDER_ADDON_ENABLED:true}
+    # 운영 AM은 OpenBao와 같은 Docker 네트워크에 연결되어야 함. 로컬 주소는 local 프로필에서 재정의.
+    open-bao-url: ${NHN_CINDER_ADDON_OPEN_BAO_URL:http://mc-infra-manager-openbao:8200}
+    # NHN 자격증명 읽기 전용 OpenBao 토큰 파일을 컨테이너에 읽기 전용으로 마운트 (토큰 값은 YAML에 저장하지 않음).
+    open-bao-token-file: ${NHN_CINDER_ADDON_OPEN_BAO_TOKEN_FILE:/run/secrets/am-nhn-openbao-token}
+    # Tumblebug에 등록된 namespace/connection-name과 OpenBao의 NHN 자격증명 경로를 연결.
+    bindings:
+      - namespace: ${NHN_CINDER_ADDON_NAMESPACE:default}
+        connection-name: ${NHN_CINDER_ADDON_CONNECTION_NAME:nhn-kr1}
+        region: ${NHN_CINDER_ADDON_REGION:kr1}
+        secret-path: ${NHN_CINDER_ADDON_SECRET_PATH:secret/data/csp/nhn}
   vm-deployment:
     # Remote pulls are bounded; command HTTP waits allow an additional 120 seconds.
     image-pull-timeout-seconds: ${VM_IMAGE_PULL_TIMEOUT_SECONDS:1800}

@@ -8,6 +8,14 @@ Ingress. These resources use `mcmp-jupyter-<deployment ID>` names and ownership
 labels; they are not a Helm release. Other catalog applications retain their Helm
 deployment path.
 
+New Jupyter installations use the Kubernetes `default` namespace, matching the
+ordinary Helm application policy. The selected AM/Tumblebug project (for example,
+`my-project`) still scopes cluster lookup, deployment history and Object Storage
+grants; a Kubernetes namespace named after that project is not required. Status
+monitoring, SSH tunnel recovery and application lifecycle operations also use the
+workload namespace. Older Jupyter installations in a project-named namespace
+remain managed at their original location; notebooks are not moved or deleted.
+
 ## Before installing
 
 New installations use SSH transport through Kubernetes port-forward by default.
@@ -16,7 +24,7 @@ Build/publish the sidecar and set `OBJECT_STORAGE_K8S_SSH_IMAGE` as described in
 below applies only when explicitly selecting `OBJECT_STORAGE_K8S_TRANSPORT=DIRECT`.
 Both modes preserve the common application CIDR policy in [k8s-cidr.md](k8s-cidr.md).
 
-- The selected Kubernetes namespace must already exist. Select a StorageClass in
+- The Kubernetes `default` namespace must already exist. Select a StorageClass in
   the existing installation form. The Pod must be able to pull the catalog image.
 - For DIRECT transport, set `OBJECT_STORAGE_K8S_GATEWAY_URL` on AM to the **full** gateway URL reachable
   from Pods, for example `https://am.example.com/applications/object-storage-gateway`.
