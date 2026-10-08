@@ -22,6 +22,7 @@ import kr.co.mcmp.softwarecatalog.application.service.ObjectStorageAccessGrantSe
 import kr.co.mcmp.softwarecatalog.application.service.tunnel.K8sObjectStorageTunnelService;
 import kr.co.mcmp.softwarecatalog.application.service.tunnel.K8sObjectStorageTunnelRuntime;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesNamespaces;
 import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -125,7 +126,7 @@ public class K8sJupyterService {
         histories.saveAndFlush(history);
         List<HasMetadata> created = new ArrayList<>();
         try (var client = clients.getClient(request.getNamespace(), request.getClusterName())) {
-            if (client.namespaces().withName(request.getNamespace()).get() == null)
+            if (client.namespaces().withName(KubernetesNamespaces.APPLICATION_WORKLOAD).get() == null)
                 throw new IllegalArgumentException("The target Kubernetes namespace must exist before installing Jupyter.");
             // Do not replace existing routes, even if owned by another application.
             boolean hostTaken = client.network().v1().ingresses().inAnyNamespace().list().getItems().stream()
@@ -133,7 +134,7 @@ public class K8sJupyterService {
                     .flatMap(i -> i.getSpec().getRules().stream()).anyMatch(r -> request.getIngressHost().equals(r.getHost()));
             if (hostTaken) throw new IllegalArgumentException("Ingress hostname is already in use.");
             if (IbmIngressSupport.managed(request.getIngressClass())) {
-                var resolved = automation.prepare(client, request.getNamespace(), request.getClusterName(), request.getNamespace(),
+                var resolved = automation.prepare(client, request.getNamespace(), request.getClusterName(), KubernetesNamespaces.APPLICATION_WORKLOAD,
                         DeploymentConfigDTO.from(request, catalog), message -> { });
                 IbmIngressTlsResolver.apply(request, resolved);
                 IbmIngressSupport.verify(client, resolved);
@@ -144,7 +145,7 @@ public class K8sJupyterService {
                 access.verifyController(client, request.getNamespace());
             }
             var issued = grants.issue(history.getId(), workloadId(request.getClusterName()), request.getNamespace(), storage);
-            Secret sshSecret = sshTunnel ? tunnels.credentials(request.getNamespace(), name) : null;
+            Secret sshSecret = sshTunnel ? tunnels.credentials(KubernetesNamespaces.APPLICATION_WORKLOAD, name) : null;
             var resources = resources(request, catalog, name, issued.token(), storage.getJupyterToken(), sshSecret, prepareCinderVolume);
             // Ingress is last: no external route until the Pod has passed gateway checks.
             for (HasMetadata resource : resources) {
@@ -154,9 +155,9 @@ public class K8sJupyterService {
             if (sshTunnel) {
                 Deployment workload = (Deployment) created.stream().filter(Deployment.class::isInstance).findFirst().orElseThrow();
                 Secret credential = (Secret) created.stream().filter(r -> r instanceof Secret && (name + "-ssh").equals(r.getMetadata().getName())).findFirst().orElseThrow();
-                tunnels.register(history.getId(), request.getClusterName(), workload, credential);
+                tunnels.register(history.getId(), request.getNamespace(), request.getClusterName(), workload, credential);
             }
-            waitForReady(client, request.getNamespace(), name, history.getId(), sshTunnel);
+            waitForReady(client, KubernetesNamespaces.APPLICATION_WORKLOAD, name, history.getId(), sshTunnel);
             access.open(request, history);
             for (HasMetadata resource : resources) if (resource instanceof Ingress) created.add(client.resource(resource).create());
             history.setStatus("SUCCESS");
@@ -191,7 +192,8 @@ public class K8sJupyterService {
 
     List<HasMetadata> resources(DeploymentRequest r, SoftwareCatalog catalog, String name, String token, String login,
             Secret sshSecret, boolean prepareCinderVolume) throws Exception {
-        String ns = r.getNamespace();
+        // The request namespace is the Tumblebug project, not the Kubernetes workload namespace.
+        String ns = KubernetesNamespaces.APPLICATION_WORKLOAD;
         Map<String, String> labels = Map.of(OWNER, name, "app.kubernetes.io/instance", name, "app.kubernetes.io/name", "jupyter");
         Map<String, Object> metadata = Map.of("name", name, "namespace", ns, "labels", labels);
         List<HasMetadata> result = new ArrayList<>();
@@ -332,7 +334,8 @@ public class K8sJupyterService {
     public Map<String,Integer> scale(String ns, String cluster, Long catalog, int replicas, boolean restart) {
         var history = requireHistory(ns, cluster, catalog);
         try (var client = clients.getClient(ns, cluster)) {
-            var resource = client.apps().deployments().inNamespace(ns).withName(history.getReleaseName());
+            String workloadNamespace = KubernetesNamespaces.jupyterWorkloadNamespace(client, ns, history.getReleaseName());
+            var resource = client.apps().deployments().inNamespace(workloadNamespace).withName(history.getReleaseName());
             var existing = resource.get();
             if (existing == null || !history.getReleaseName().equals(existing.getMetadata().getLabels().get(OWNER)))
                 throw new IllegalStateException("Owned Jupyter Deployment not found.");
@@ -342,7 +345,7 @@ public class K8sJupyterService {
             if (restart) resource.rolling().restart();
             if (replicas > 0) {
                 tunnels.resume(history.getId());
-                try { waitForReady(client, ns, history.getReleaseName(), history.getId(), tunnels.exists(history.getId())); }
+                try { waitForReady(client, workloadNamespace, history.getReleaseName(), history.getId(), tunnels.exists(history.getId())); }
                 catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException("Jupyter start interrupted"); }
             }
             history.setStatus(replicas == 0 ? "STOPPED" : "SUCCESS");
@@ -358,11 +361,12 @@ public class K8sJupyterService {
         tunnels.remove(history.getId());
         grants.revoke(history.getId(), workloadId(cluster));
         try (var client = clients.getClient(ns, cluster)) {
-            client.network().v1().ingresses().inNamespace(ns).withLabel(OWNER, name).delete();
-            client.apps().deployments().inNamespace(ns).withLabel(OWNER, name).delete();
-            client.services().inNamespace(ns).withLabel(OWNER, name).delete();
-            client.secrets().inNamespace(ns).withLabel(OWNER, name).delete();
-            client.configMaps().inNamespace(ns).withLabel(OWNER, name).delete();
+            String workloadNamespace = KubernetesNamespaces.jupyterWorkloadNamespace(client, ns, name);
+            client.network().v1().ingresses().inNamespace(workloadNamespace).withLabel(OWNER, name).delete();
+            client.apps().deployments().inNamespace(workloadNamespace).withLabel(OWNER, name).delete();
+            client.services().inNamespace(workloadNamespace).withLabel(OWNER, name).delete();
+            client.secrets().inNamespace(workloadNamespace).withLabel(OWNER, name).delete();
+            client.configMaps().inNamespace(workloadNamespace).withLabel(OWNER, name).delete();
             access.release(history.getId());
             history.setStatus("UNINSTALLED");
             history.setUpdatedAt(LocalDateTime.now());

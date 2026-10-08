@@ -39,7 +39,11 @@ class NhnCinderAddonConfigurationTest {
     @Test void applicationYamlEnablesAddonByDefault() {
         withApplicationYaml().run(context -> {
             assertThat(context).hasNotFailed();
-            assertThat(context.getBean(NhnCinderAddonProperties.class).isEnabled()).isTrue();
+            var properties = context.getBean(NhnCinderAddonProperties.class);
+            assertThat(properties.isEnabled()).isTrue();
+            assertThat(properties.getOpenBaoUrl()).isEqualTo("http://mc-infra-manager-openbao:8200");
+            assertThat(properties.getOpenBaoTokenFile()).isEqualTo("/run/secrets/am-nhn-openbao-token");
+            assertThat(properties.binding("default", "nhn-kr1").getSecretPath()).isEqualTo("secret/data/csp/nhn");
         });
     }
     @Test void applicationYamlCanDisableAddonThroughEnvironmentOverride() {

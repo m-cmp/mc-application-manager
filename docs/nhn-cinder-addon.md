@@ -8,6 +8,8 @@ The installation form's NHN storage setup now offers **Install Cinder CSI add-on
 
 The feature is enabled by default in `src/main/resources/application.yaml` through `app.nhn-cinder-addon.enabled: ${NHN_CINDER_ADDON_ENABLED:true}`. Set the YAML value to `false`, or set the environment variable `NHN_CINDER_ADDON_ENABLED=false`, to disable managed add-on installation. Restart AM after changing the configuration. A disabled feature does not read cloud credentials or call NKS to install an add-on; existing CSI readiness and StorageClass use remain available.
 
+The common `application.yaml` now defines the OpenBao URL, external token-file path, and NHN binding through `NHN_CINDER_ADDON_*` environment variables. The local profile overrides only the OpenBao URL and token-file defaults. Container deployments must share a network with `mc-infra-manager-openbao` and mount a scoped read-only token at `/run/secrets/am-nhn-openbao-token`. Set `NHN_CINDER_ADDON_NAMESPACE` to the actual project namespace (for example, `my-project` on the verification server).
+
 Enabling the feature still requires server-side OpenBao configuration and a binding for the specific project namespace and Tumblebug connection. This binds the existing credential; it does not register another credential or expose it to the browser. If the configuration is entirely omitted, the properties bean remains disabled.
 
 ```yaml

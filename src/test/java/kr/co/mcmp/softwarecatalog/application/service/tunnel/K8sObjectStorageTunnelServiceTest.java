@@ -20,6 +20,15 @@ class K8sObjectStorageTunnelServiceTest {
         when(runtime.start(tunnel)).thenReturn(first);
         when(first.alive()).thenReturn(true); when(first.currentPod()).thenReturn(true);
     }
+    @Test void registrationPersistsProjectForClusterLookupEvenWhenWorkloadIsInDefault() {
+        var deployment = new io.fabric8.kubernetes.api.model.apps.DeploymentBuilder().withNewMetadata()
+                .withName("mcmp-jupyter-41").withNamespace("default").withUid("workload-uid").endMetadata().build();
+        var secret = new io.fabric8.kubernetes.api.model.SecretBuilder().withNewMetadata()
+                .withNamespace("default").withUid("secret-uid").endMetadata().build();
+        service.register(41L, "my-project", "cluster-a", deployment, secret);
+        verify(repository).saveAndFlush(argThat(t -> "my-project".equals(t.getNamespace())
+                && "cluster-a".equals(t.getClusterName()) && "workload-uid".equals(t.getWorkloadUid())));
+    }
     @Test void unchangedPodKeepsConnection() {
         service.ensure(41L); service.ensure(41L);
         verify(runtime,times(1)).start(tunnel); verify(first,never()).close();
