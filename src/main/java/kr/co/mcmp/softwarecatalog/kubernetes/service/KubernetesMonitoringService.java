@@ -915,7 +915,8 @@ public class KubernetesMonitoringService {
         }
 
         double cpuUsagePercentage = (totalCpuUsage / totalCpuCapacity) * 100;
-        double memoryUsagePercentage = (totalMemoryUsage / (totalMemoryCapacity * 1024)) * 100;
+        // Both usage and capacity are in GiB. Do not add a unit conversion here.
+        double memoryUsagePercentage = (totalMemoryUsage / totalMemoryCapacity) * 100;
 
         // 소수점 2자리까지 반올림
         Double roundedCpuUsage = Math.round(cpuUsagePercentage * 100.0) / 100.0;
@@ -1112,7 +1113,8 @@ public class KubernetesMonitoringService {
                     .filter(node -> node.getStatus() != null && node.getStatus().getCapacity() != null)
                     .mapToDouble(node -> {
                         try {
-                            return parseMemoryUsage(node.getStatus().getCapacity().get("memory").getAmount());
+                            // Quantity.getAmount() drops Ki/Mi/Gi; preserve the unit.
+                            return parseMemoryUsage(node.getStatus().getCapacity().get("memory").toString());
                         } catch (Exception e) {
                             log.warn("Error parsing memory capacity for node: {}", node.getMetadata().getName(), e);
                             return 0.0;
@@ -1154,16 +1156,11 @@ public class KubernetesMonitoringService {
         }
         
         try {
-            if (memoryUsage.endsWith("Ki")) {
-                return Double.parseDouble(memoryUsage.substring(0, memoryUsage.length() - 2)) / (1024.0 * 1024.0);
-            } else if (memoryUsage.endsWith("Mi")) {
-                return Double.parseDouble(memoryUsage.substring(0, memoryUsage.length() - 2)) / 1024.0;
-            } else if (memoryUsage.endsWith("Gi")) {
-                return Double.parseDouble(memoryUsage.substring(0, memoryUsage.length() - 2));
-            } else {
-                return Double.parseDouble(memoryUsage) / (1024.0 * 1024.0 * 1024.0);
-            }
-        } catch (NumberFormatException e) {
+            // Kubernetes Quantity supports binary, decimal and exponent formats.
+            // For memory its numerical amount is bytes; normalize once to GiB.
+            return new Quantity(memoryUsage.trim()).getNumericalAmount().doubleValue()
+                    / (1024.0 * 1024.0 * 1024.0);
+        } catch (IllegalArgumentException | ArithmeticException e) {
             log.warn("Error parsing memory usage: {}", memoryUsage, e);
             return 0.0;
         }
