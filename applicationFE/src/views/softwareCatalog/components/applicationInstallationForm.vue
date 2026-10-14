@@ -2296,7 +2296,7 @@ const isLokiCatalog = computed(() => selectedCatalogChartName.value === 'loki')
 const isBuiltInPersistentCatalog = computed(() => {
   const chart = selectedCatalogInfo.value?.helmChart
   return selectInfra.value === 'K8S' && chart?.repositoryName === 'mcmp-builtin'
-    && chart?.chartRepositoryUrl === 'classpath:helm' && chart?.chartVersion === '0.1.0'
+    && chart?.chartRepositoryUrl === 'classpath:helm' && ['0.1.0', '0.1.1'].includes(chart?.chartVersion)
     && chart?.packageId === 'mcmp-builtin-' + selectedCatalogChartName.value
     && ['redis', 'mariadb', 'postgresql'].includes(selectedCatalogChartName.value)
 })

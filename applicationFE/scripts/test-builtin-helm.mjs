@@ -36,7 +36,7 @@ for (const app of ['redis','mariadb','postgresql','apache','tomcat']) {
     h.selectedCatalogChartName.value=app
     h.selectedCatalogInfo.value={helmChart:{chartName:app,repositoryName:'mcmp-builtin',chartRepositoryUrl:'classpath:helm',chartVersion:version,packageId:'mcmp-builtin-'+app}}
     await nextTick()
-    const persistent=version==='0.1.0' && target==='K8S' && ['redis','mariadb','postgresql'].includes(app)
+    const persistent=['0.1.0', '0.1.1'].includes(version) && target==='K8S' && ['redis','mariadb','postgresql'].includes(app)
     assert.equal(h.isBuiltInPersistentCatalog.value,persistent)
     assert.equal(h.storageClassRequired.value,persistent)
     if (persistent) {
