@@ -16,6 +16,7 @@
     "test:ingress-preparation": "node scripts/test-ingress-preparation.mjs",
     "test:nhn-cinder-addon": "node scripts/test-nhn-cinder-addon.mjs",
     "test:detail-modal": "node scripts/test-application-detail-modal.mjs",
+    "test:failed-uninstall": "node scripts/test-failed-uninstall.mjs",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
     "format": "prettier --write src/"
   },

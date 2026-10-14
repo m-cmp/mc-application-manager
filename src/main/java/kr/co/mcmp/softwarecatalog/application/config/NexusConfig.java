@@ -27,6 +27,9 @@ public class NexusConfig {
      * 넥서스 Docker 레지스트리 포트
      */
     private int dockerPort;
+
+    /** Optional image-transfer endpoint; separate from the legacy computed Registry URL. */
+    private String registryEndpoint;
     
     /**
      * 넥서스 사용자명

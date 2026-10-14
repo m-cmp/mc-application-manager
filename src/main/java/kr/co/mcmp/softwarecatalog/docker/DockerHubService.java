@@ -58,6 +58,13 @@ public class DockerHubService {
             Map<String, Object> pushResult = dockerHubIntegrationService.pushImageToNexus(request.getName(),
                     request.getTag());
 
+            if (!Boolean.TRUE.equals(pushResult.get("success"))) {
+                result.put("success", false);
+                result.put("message", "Failed to import image to Nexus: " + pushResult.get("message"));
+                result.put("nexusPush", pushResult);
+                return result;
+            }
+
             // 3. Nexus 이미지 URL 생성
             String nexusImageUrl = null;
             if ((Boolean) pushResult.get("success")) {

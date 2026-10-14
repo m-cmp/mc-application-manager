@@ -41,6 +41,9 @@ import org.slf4j.LoggerFactory;
 @RequiredArgsConstructor
 public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationService {
 
+    @Value("${nexus.registry-endpoint:}")
+    private String dockerRegistryUrl;
+
     private static final Logger log = LoggerFactory.getLogger(DockerHubIntegrationServiceImpl.class);
 
     @Autowired
@@ -259,11 +262,6 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
                 return createErrorResult("OSS 정보를 데이터베이스에서 가져올 수 없습니다.");
             }
 
-            // 2. Docker 환경 검증
-            if (checkDockerDaemon && !validateDockerEnvironment()) {
-                return createErrorResult("Docker 환경 검증에 실패했습니다. Docker가 실행 중인지 확인하세요.");
-            }
-
             // 3. Nexus URL 파싱 및 검증
             DockerRegistryInfo registryInfo;
             try {
@@ -272,32 +270,22 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
                 return createErrorResult("Nexus URL 형식이 올바르지 않습니다: " + e.getMessage());
             }
 
-            // 4. insecure registry 설정 확인 (HTTP의 경우)
-            if (!registryInfo.isSecure()) {
-                boolean isConfigured = validateInsecureRegistryConfiguration(registryInfo.getRegistryUrl());
-                if (!isConfigured) {
-                    return createErrorResult(
-                        String.format("Insecure registry 설정이 필요합니다.\n" +
-                                     "Docker Desktop 설정에서 다음 URL을 insecure-registries에 추가하세요: %s\n" +
-                                     "또는 daemon.json 파일에 \"insecure-registries\": [\"%s\"]를 추가하세요.",
-                                     registryInfo.getRegistryUrl(), registryInfo.getRegistryUrl()));
-                }
-            }
-
             // 5. 이미지 푸시 실행
-            boolean success = executeEnhancedDockerPush(imageName, tag, ossInfo, registryInfo);
+            Map<String, Object> transfer = executeEnhancedDockerPush(imageName, tag, ossInfo, registryInfo);
 
             Map<String, Object> result = new HashMap<>();
-            if (success) {
+            if (Boolean.TRUE.equals(transfer.get("success"))) {
                 result.put("success", true);
                 result.put("message", "이미지가 성공적으로 Nexus에 푸시되었습니다.");
                 result.put("registryUrl", registryInfo.getRegistryUrl());
+                result.put("nexusRegistry", registryInfo.getRegistryUrl());
                 result.put("repository", nexusIntegrationService.getRepositoryNameByFormat("docker"));
-                result.put("fullImageName", String.format("%s/%s/%s:%s",
-                    registryInfo.getRegistryUrl(), nexusIntegrationService.getRepositoryNameByFormat("docker"), imageName, tag));
+                String fullImageUrl = registryInfo.getRegistryUrl() + "/" + imageName + ":" + tag;
+                result.put("fullImageName", fullImageUrl);
+                result.put("fullImageUrl", fullImageUrl);
             } else {
                 result.put("success", false);
-                result.put("message", "이미지 푸시에 실패했습니다. 로그를 확인하세요.");
+                result.put("message", transfer.getOrDefault("message", "Image import to Nexus failed."));
             }
 
             return result;
@@ -311,7 +299,7 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
     /**
      * 개선된 Docker 푸시 실행 (NexusIntegrationServiceImpl의 pushImageAndRegisterCatalog 호출)
      */
-    private boolean executeEnhancedDockerPush(String imageName, String tag, OssDto ossInfo,
+    private Map<String, Object> executeEnhancedDockerPush(String imageName, String tag, OssDto ossInfo,
                                             DockerRegistryInfo registryInfo) {
         log.info("=== Starting enhanced Docker push process using NexusIntegrationService ===");
 
@@ -323,11 +311,10 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
             Map<String, Object> result = nexusIntegrationService.pushImageAndRegisterCatalog(catalog);
             
             // 결과 확인
-            Boolean success = (Boolean) result.get("success");
-            return success != null && success;
+            return result;
         } catch (Exception e) {
             log.error("Error in enhanced Docker push process", e);
-            return false;
+            return createErrorResult("Image import to Nexus could not complete.");
         }
     }
 
@@ -561,41 +548,7 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
      * Insecure registry 설정 검증
      */
     private boolean validateInsecureRegistryConfiguration(String registryUrl) {
-        log.info("Validating insecure registry configuration for: {}", registryUrl);
-
-        try {
-            ProcessBuilder infoBuilder = new ProcessBuilder("docker", "info", "--format", "{{.RegistryConfig.InsecureRegistryCIDRs}}");
-            Process infoProc = infoBuilder.start();
-
-            StringBuilder output = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(infoProc.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line);
-                }
-            }
-
-            boolean finished = infoProc.waitFor(10, TimeUnit.SECONDS);
-            if (finished && infoProc.exitValue() == 0) {
-                String registries = output.toString();
-                boolean isConfigured = registries.contains(registryUrl) || registries.contains("127.0.0.0/8");
-
-                if (isConfigured) {
-                    log.info("Insecure registry configuration found for: {}", registryUrl);
-                } else {
-                    log.warn("Insecure registry not configured for: {}", registryUrl);
-                    log.warn("Docker info output: {}", registries);
-                }
-
-                return isConfigured;
-            } else {
-                log.warn("Failed to get Docker info for insecure registry validation");
-                return false;
-            }
-        } catch (Exception e) {
-            log.error("Error validating insecure registry configuration: {}", e.getMessage());
-            return false;
-        }
+        return DockerRegistryAccess.isHttpAllowed(registryUrl);
     }
 
     /**
@@ -775,28 +728,8 @@ public class DockerHubIntegrationServiceImpl implements DockerHubIntegrationServ
      * Nexus URL 파싱
      */
     private DockerRegistryInfo parseNexusUrl(String nexusUrl) throws IllegalArgumentException {
-        try {
-            URI uri = new URI(nexusUrl);
-            String scheme = uri.getScheme();
-            String host = uri.getHost();
-            int port = uri.getPort();
-
-            if (host == null) {
-                throw new IllegalArgumentException("Invalid URL: missing host");
-            }
-
-            // Docker Registry 포트를 설정 파일에서 가져오기
-            boolean isSecure = dockerRegistrySecure;
-            int dockerPort = dockerRegistryPort;
-            String registryUrl = host + ":" + dockerPort;
-
-            log.info("Parsed Nexus URL - Host: {}, Port: {}, Secure: {}, Registry URL: {}", host, port, isSecure, registryUrl);
-
-            return new DockerRegistryInfo(registryUrl, isSecure, host, port);
-
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Invalid Nexus URL format: " + nexusUrl, e);
-        }
+        var endpoint = DockerRegistryAccess.endpoint(dockerRegistryUrl, nexusUrl, dockerRegistryPort, dockerRegistrySecure);
+        return new DockerRegistryInfo(endpoint.authority(), endpoint.secure(), endpoint.host(), endpoint.port());
     }
 
     /**

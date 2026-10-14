@@ -37,7 +37,8 @@ import ApplicationDetailModal from './applicationDetailModal.vue';
 import {
   getApplicationStatusBadgeClass,
   getApplicationStatusLabel,
-  isApplicationActionDisabledStatus
+  isApplicationActionDisabledStatus,
+  isApplicationUninstallDisabledStatus
 } from '../applicationStatusDisplay'
 
 const toast = useToast()
@@ -217,7 +218,10 @@ const setColumns = () => {
         const target = e.target as HTMLElement;
         const btnFlag = target?.getAttribute('id')
         const status = cell.getRow().getData().status
-        if (isActionDisabledStatus(status)) {
+        const disabled = btnFlag === 'uninstall-btn'
+          ? isApplicationUninstallDisabledStatus(status)
+          : isActionDisabledStatus(status)
+        if (disabled) {
           return
         }
         const applicationStatusId = cell.getRow().getData().id
@@ -336,6 +340,7 @@ const statusFormatter = (cell: any) => {
 const actionButtonFormatter = (cell: any) => {
   const status = cell.getRow().getData().status
   const disabledAttr = isActionDisabledStatus(status) ? 'disabled' : ''
+  const uninstallDisabledAttr = isApplicationUninstallDisabledStatus(status) ? 'disabled' : ''
   const normalizedStatus = String(status || '').trim().toUpperCase()
   const isStopped = normalizedStatus === 'STOP' || normalizedStatus === 'STOPPED'
   const lifecycleButtons = isStopped ? `
@@ -374,7 +379,7 @@ const actionButtonFormatter = (cell: any) => {
       id='uninstall-btn'
       data-bs-toggle='modal'
       data-bs-target='#action-confirm'
-      ${disabledAttr}>
+      ${uninstallDisabledAttr}>
       Uninstall
     </button>
     <button
