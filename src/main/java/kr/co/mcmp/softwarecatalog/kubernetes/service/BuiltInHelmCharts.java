@@ -14,7 +14,7 @@ import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
 public final class BuiltInHelmCharts {
     public static final String REPOSITORY = "mcmp-builtin";
     public static final String URL = "classpath:helm";
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.1.1";
     public record App(String chart, String title, int port, boolean persistent, String image, String appVersion) { }
     public static final List<App> APPS = List.of(
             new App("apache", "Apache HTTP Server", 80, false, "httpd", "2.4-alpine"),

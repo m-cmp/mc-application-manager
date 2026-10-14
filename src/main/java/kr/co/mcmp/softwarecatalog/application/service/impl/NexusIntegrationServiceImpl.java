@@ -56,9 +56,15 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
     private final NexusConfig nexusConfig;
     private final OssService ossService;
     private final RestTemplate restTemplate;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private RegistryImageCopy registryImageCopy;
     
     @Value("${nexus.docker-port:${docker.registry.port:5000}}")
     private int dockerRegistryPort;
+
+    @Value("${nexus.registry-endpoint:}")
+    private String dockerRegistryUrl;
     
     @Value("${docker.push.timeout-seconds:600}")
     private long dockerTimeoutSeconds;
@@ -489,11 +495,6 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 return createErrorResult("OSS 정보를 데이터베이스에서 가져올 수 없습니다.");
             }
             
-            // 2. Docker 환경 검증
-            if (checkDockerDaemon && !validateDockerEnvironment()) {
-                return createErrorResult("Docker 환경 검증에 실패했습니다. Docker가 실행 중인지 확인하세요.");
-            }
-            
             // 3. Nexus URL 파싱 및 검증
             DockerRegistryInfo registryInfo;
             try {
@@ -502,38 +503,29 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 return createErrorResult("Nexus URL 형식이 올바르지 않습니다: " + e.getMessage());
             }
             
-            // 4. insecure registry 설정 확인 (HTTP의 경우)
-            if (!registryInfo.isSecure()) {
-                boolean isConfigured = validateInsecureRegistryConfiguration(registryInfo.getRegistryUrl());
-                if (!isConfigured) {
-                    return createErrorResult(
-                        String.format("Insecure registry 설정이 필요합니다.\n" +
-                                     "Docker Desktop 설정에서 다음 URL을 insecure-registries에 추가하세요: %s\n" +
-                                     "또는 daemon.json 파일에 \"insecure-registries\": [\"%s\"]를 추가하세요.",
-                                     registryInfo.getRegistryUrl(), registryInfo.getRegistryUrl()));
-                }
-            }
-            
-            // 5. 이미지 푸시 실행
-            boolean success = executeEnhancedDockerPush(imageName, tag, ossInfo, registryInfo);
+            var destination = new DockerRegistryAccess.Endpoint(registryInfo.getRegistryUrl(), registryInfo.getHost(),
+                    registryInfo.getPort(), registryInfo.isSecure());
+            var copy = registryImageCopy.copy(imageName, tag, destination, ossInfo.getOssUsername(),
+                    Base64Utils.base64Decoding(ossInfo.getOssPassword()));
             
             Map<String, Object> result = new HashMap<>();
-            if (success) {
-                String repositoryName = getDockerRepositoryName();
+            if (copy.success()) {
+                String repositoryName = getRepositoryNameByFormat("docker");
                 result.put("success", true);
                 result.put("message", "이미지가 성공적으로 Nexus에 푸시되었습니다.");
             result.put("imageName", imageName);
             result.put("tag", tag);
-                result.put("fullImageUrl", registryInfo.getRegistryUrl() + "/" + repositoryName + "/" + imageName + ":" + tag);
+                result.put("fullImageUrl", getNexusImageName(registryInfo.getRegistryUrl(), repositoryName, imageName, tag));
                 result.put("nexusRegistry", registryInfo.getRegistryUrl());
                 result.put("nexusCredentials", ossInfo.getOssUsername() + ":***");
             result.put("source", "Internal Nexus (Development Server)");
                 result.put("repository", repositoryName);
                 result.put("webUrl", ossInfo.getOssUrl() + "/#browse/browse:" + repositoryName);
-                result.put("note", "이미지가 Docker 명령어를 통해 Nexus에 성공적으로 푸시되었습니다.");
+                result.put("imageDigest", copy.digest());
+                result.put("note", "이미지가 Docker 엔진 없이 Nexus에 복사되었습니다.");
             } else {
             result.put("success", false);
-                result.put("message", "이미지 푸시에 실패했습니다. 로그를 확인하세요.");
+                result.put("message", "Failed to copy image to Nexus: " + copy.error());
         }
         
         return result;
@@ -1082,6 +1074,7 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
      */
     @Override
     public boolean checkImageExistsInNexus(String imageName, String tag) {
+        if (isBlank(imageName) || isBlank(tag)) return false;
         log.info("Checking if image exists in Nexus: {}:{}", imageName, tag);
         
         try {
@@ -1090,7 +1083,10 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             String dockerRepositoryName = getRepositoryNameByFormat("docker");
             
             // 넥서스 검색 API 호출
-            String searchUrl = nexusInfo.getOssUrl() + "/service/rest/v1/search?repository=" + dockerRepositoryName + "&name=" + imageName;
+            URI searchUrl = UriComponentsBuilder.fromHttpUrl(removeTrailingSlash(nexusInfo.getOssUrl()))
+                    .path("/service/rest/v1/search").queryParam("repository", "{repository}")
+                    .queryParam("name", "{name}").queryParam("version", "{version}").encode()
+                    .buildAndExpand(Map.of("repository", dockerRepositoryName, "name", imageName, "version", tag)).toUri();
             log.info("Searching for image in Nexus: {}", searchUrl);
             
             // RestTemplate을 사용하여 HTTP 요청
@@ -1113,9 +1109,14 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
                 String responseBody = response.getBody();
                 log.info("Nexus search response: {}", responseBody);
                 
-                // JSON 응답에서 태그 확인
-                return responseBody.contains("\"version\":\"" + tag + "\"") || 
-                       responseBody.contains("\"name\":\"" + imageName + "\"");
+                // Another tag of the same image is not proof that this selected version was copied.
+                for (JsonNode item : new ObjectMapper().readTree(responseBody).path("items")) {
+                    if (dockerRepositoryName.equals(item.path("repository").asText())
+                            && "docker".equals(item.path("format").asText())
+                            && imageName.equals(item.path("name").asText()) && tag.equals(item.path("version").asText())
+                            && item.path("assets").isArray() && !item.path("assets").isEmpty()) return true;
+                }
+                return false;
             } else {
                 log.warn("Failed to search Nexus for image: {}:{}, Status: {}", imageName, tag, response.getStatusCode());
                 return false;
@@ -1576,14 +1577,11 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
         // 프로토콜 제거한 URL 사용
         String cleanRegistryUrl = registryUrl.replaceFirst("^https?://", "");
         
-        log.info("cleanRegistryUrl : " + cleanRegistryUrl + ", username : " + username + ", password : " + password);
-
-        // 사용자가 테스트한 간단한 명령어 사용 (HTTP 프로토콜 명시)
         ProcessBuilder loginProcess = new ProcessBuilder(
-            "docker", "login", "http://" + cleanRegistryUrl, "-u", username, "--password", password
+            "docker", "login", cleanRegistryUrl, "-u", username, "--password-stdin"
         );
-        
-        return executeDockerCommandWithRetry(loginProcess, "Docker Login", 30);
+
+        return executeDockerCommandWithRetryAndStdin(loginProcess, "Docker Login", 30, password);
     }
     
     /**
@@ -2254,30 +2252,8 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
      * Insecure registry 설정 검증 및 동적 추가
      */
     private boolean validateInsecureRegistryConfiguration(String registryUrl) {
-        log.info("Validating insecure registry configuration for: {}", registryUrl);
-        
-        try {
-            // 1. 현재 Docker daemon 설정 확인
-            if (isInsecureRegistryConfigured(registryUrl)) {
-                log.info("Insecure registry already configured for: {}", registryUrl);
-                return true;
-            }
-            
-            // 2. 런타임에 Docker daemon 설정 시도
-            log.info("Insecure registry not configured, attempting runtime configuration: {}", registryUrl);
-            if (configureInsecureRegistryAtRuntime(registryUrl)) {
-                log.info("Successfully configured insecure registry at runtime: {}", registryUrl);
-                return true;
-            }
-            
-            // 3. 설정 파일 수정 시도
-            log.info("Runtime configuration failed, attempting to modify configuration files: {}", registryUrl);
-            return addInsecureRegistryDynamically(registryUrl);
-            
-        } catch (Exception e) {
-            log.error("Error validating insecure registry configuration: {}", e.getMessage());
-            return false;
-        }
+        // A shared host Engine is administrator-managed: never rewrite or restart it from an import.
+        return DockerRegistryAccess.isHttpAllowed(registryUrl.replaceFirst("^https?://", ""));
     }
     
     /**
@@ -2842,29 +2818,8 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
      * Nexus URL 파싱
      */
     private DockerRegistryInfo parseNexusUrl(String nexusUrl) throws IllegalArgumentException {
-        try {
-            URI uri = new URI(nexusUrl);
-            String scheme = uri.getScheme();
-            String host = uri.getHost();
-            int port = uri.getPort();
-            
-            if (host == null) {
-                throw new IllegalArgumentException("Invalid URL: missing host");
-            }
-            
-            // Docker Registry 포트를 설정 파일에서 가져오기
-            boolean isSecure = dockerRegistrySecure;
-            int dockerPort = dockerRegistryPort;
-            // HTTP 프로토콜을 명시적으로 사용 (insecure registry)
-            String registryUrl = "http://" + host.replace("http://", "") + ":" + dockerPort;
-            
-            log.info("Parsed Nexus URL - Host: {}, Port: {}, Secure: {}, Registry URL: {}", host, port, isSecure, registryUrl);
-            
-            return new DockerRegistryInfo(registryUrl, isSecure, host, port);
-            
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Invalid Nexus URL format: " + nexusUrl, e);
-        }
+        var endpoint = DockerRegistryAccess.endpoint(dockerRegistryUrl, nexusUrl, dockerRegistryPort, dockerRegistrySecure);
+        return new DockerRegistryInfo(endpoint.authority(), endpoint.secure(), endpoint.host(), endpoint.port());
     }
     
     /**

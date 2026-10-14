@@ -3,13 +3,17 @@ import { readFile } from 'node:fs/promises'
 import ts from 'typescript'
 const source=await readFile(new URL('../src/utils/deploymentSubmission.ts',import.meta.url),'utf8')
 const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
-const {submitAndTrackDeployment,DeploymentStatusUnknown,deploymentOperationId}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'))
+const {submitAndTrackDeployment,DeploymentStatusUnknown,DeploymentFailed,deploymentOperationId}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'))
 const state=(s)=>({id:'op1',namespace:'ns1',state:s,message:s,deploymentId:22})
 const sleep=async()=>{}
 let submits=0,polls=0
 const result=await submitAndTrackDeployment('op1','ns1',async()=>{submits++;throw {response:{status:504}}},async()=>{polls++;return state(polls===1?'RUNNING':'SUCCEEDED')},()=>true,sleep)
 assert.equal(result.data.id,22);assert.equal(submits,1);assert.equal(polls,2)
 for(const s of ['FAILED','PARTIAL_SUCCESS']) await assert.rejects(submitAndTrackDeployment('op1','ns1',async()=>state(s),async()=>assert.fail(),()=>true,sleep),new RegExp(s))
+for (const deploymentId of [22, undefined]) {
+  await assert.rejects(submitAndTrackDeployment('op1','ns1',async()=>({...state('FAILED'), deploymentId}),async()=>assert.fail(),()=>true,sleep),
+    error => error instanceof DeploymentFailed && error.deploymentId === deploymentId && error.message === 'FAILED')
+}
 await assert.rejects(submitAndTrackDeployment('op1','ns1',async()=>state('INTERRUPTED'),async()=>assert.fail(),()=>true,sleep),DeploymentStatusUnknown)
 await assert.rejects(submitAndTrackDeployment('op1','ns1',async()=>state('QUEUED'),async()=>{throw Error('network')},()=>true,sleep),DeploymentStatusUnknown)
 await assert.rejects(submitAndTrackDeployment('op1','ns1',async()=>state('QUEUED'),async()=>assert.fail(),()=>false,sleep),DeploymentStatusUnknown)

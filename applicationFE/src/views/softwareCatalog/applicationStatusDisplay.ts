@@ -114,6 +114,12 @@ export const isApplicationActionDisabledStatus = (status: string | null | undefi
   return ACTION_DISABLED_STATUSES.has(normalizeStatus(status))
 }
 
+// A failed installation can leave managed resources pending cleanup. Keep
+// lifecycle actions disabled, but allow the existing authorized uninstall flow.
+export const isApplicationUninstallDisabledStatus = (status: string | null | undefined) => {
+  return normalizeStatus(status) !== 'FAILED' && isApplicationActionDisabledStatus(status)
+}
+
 export const getApplicationHealthDisplay = (
   healthCheck: boolean | null | undefined,
   status: string | null | undefined

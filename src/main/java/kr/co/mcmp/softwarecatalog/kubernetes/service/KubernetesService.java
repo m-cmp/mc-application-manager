@@ -86,8 +86,10 @@ public class KubernetesService {
                 history.setStatus("FAILED");
             }
 
+            Long failedDeploymentId = null;
             try {
                 DeploymentHistory savedHistory = historyRepository.save(history);
+                failedDeploymentId = savedHistory.getId();
                 addDeploymentLog(savedHistory, LogType.ERROR, "Deployment failed: " + e.getMessage());
             } catch (Exception failureSaveException) {
                 log.warn("Failed to persist deployment failure history. originalReason={}",
@@ -96,14 +98,14 @@ public class KubernetesService {
 
             if (catalog != null) {
                 try {
-                    updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, "FAILED");
+                    updateApplicationStatus(request.getNamespace(), request.getClusterName(), catalog, "FAILED", failedDeploymentId);
                 } catch (Exception statusException) {
                     log.warn("Failed to mark application status as FAILED. namespace={}, clusterName={}, catalogId={}",
                             request.getNamespace(), request.getClusterName(), catalog.getId(), statusException);
                 }
             }
 
-            throw new RuntimeException("Application deployment failed", e);
+            throw new kr.co.mcmp.softwarecatalog.application.service.DeploymentFailureException(failedDeploymentId, e);
         }
     }
 
@@ -195,7 +197,7 @@ public class KubernetesService {
         if(optApplicationStatus.isPresent()){
             ApplicationStatus applicationStatus = optApplicationStatus.get();
             applicationStatus.setStatus(status);
-            if (deploymentHistoryId != null) {
+            if (deploymentHistoryId != null || "FAILED".equals(status)) {
                 applicationStatus.setDeploymentHistoryId(deploymentHistoryId);
             }
             applicationStatus.setCheckedAt(LocalDateTime.now());

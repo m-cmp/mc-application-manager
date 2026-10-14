@@ -206,6 +206,35 @@ class NexusIntegrationServiceImplTest {
                 eq(String.class));
     }
 
+    @Test
+    void imageCopyUsesInternalRegistryAndDoesNotRequireDockerEngine() {
+        var copy = org.mockito.Mockito.mock(RegistryImageCopy.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "registryImageCopy", copy);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "dockerRegistryPort", 5000);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "checkDockerDaemon", true);
+        when(copy.copy(eq("busybox"), eq("1.37.0"), any(), eq("admin"), eq("secret")))
+                .thenReturn(new RegistryImageCopy.Result(true, "sha256:" + "a".repeat(64), null));
+        when(restTemplate.exchange(org.mockito.ArgumentMatchers.anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("[{\"name\":\"docker-hosted\",\"format\":\"docker\",\"type\":\"hosted\"}]"));
+        var result = service.pushImageToNexus("busybox", "1.37.0", null);
+        assertThat(result.get("success")).isEqualTo(true);
+        assertThat(result.get("fullImageUrl")).isEqualTo("nexus.test:5000/busybox:1.37.0");
+        assertThat(result.get("imageDigest")).isEqualTo("sha256:" + "a".repeat(64));
+        verify(copy).copy(eq("busybox"), eq("1.37.0"), any(), eq("admin"), eq("secret"));
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"1.37.0", "other-version"})
+    void dockerLookupRequiresTheExactImageAndTag(String version) {
+        when(restTemplate.exchange(org.mockito.ArgumentMatchers.anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("[{\"name\":\"docker-hosted\",\"format\":\"docker\",\"type\":\"hosted\"}]"));
+        String body = "{\"items\":[{\"repository\":\"docker-hosted\",\"format\":\"docker\",\"name\":\"busybox\","
+                + "\"version\":\"" + version + "\",\"assets\":[{\"path\":\"v2/busybox/manifests/" + version + "\"}]}]}";
+        when(restTemplate.exchange(any(URI.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok(body));
+        assertThat(service.checkImageExistsInNexus("busybox", "1.37.0")).isEqualTo(version.equals("1.37.0"));
+    }
+
     private static Stream<Arguments> blankLookupValues() {
         return Stream.of(
                 Arguments.of(null, "jenkins", "5.8.56"),

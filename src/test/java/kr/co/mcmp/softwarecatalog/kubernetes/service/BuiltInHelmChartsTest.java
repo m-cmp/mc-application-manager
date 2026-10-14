@@ -28,7 +28,7 @@ class BuiltInHelmChartsTest {
                 Map<String, String> entries = read(archive);
                 assertThat(entries).hasSize(9);
                 Map<String, Object> metadata = new Yaml().load(entries.get(app.chart() + "/Chart.yaml"));
-                assertThat(metadata).containsEntry("name", app.chart()).containsEntry("version", "0.1.0")
+                assertThat(metadata).containsEntry("name", app.chart()).containsEntry("version", "0.1.1")
                         .doesNotContainKey("dependencies");
                 Map<String, Object> values = new Yaml().load(entries.get(app.chart() + "/values.yaml"));
                 assertThat(values.get("image").toString()).matches(".+@sha256:[a-f0-9]{64}");
@@ -42,7 +42,7 @@ class BuiltInHelmChartsTest {
     @Test void doesNotInterceptUserOrExternalChartsOrUnknownVersions() {
         var custom = chart("redis"); custom.setChartRepositoryUrl("https://custom.example.org");
         assertThat(BuiltInHelmCharts.app(custom)).isEmpty();
-        for (String version : new String[]{"0.1.1", "1.0.0", "2.0.0", "", null}) {
+        for (String version : new String[]{"0.1.0", "1.0.0", "2.0.0", "", null}) {
             custom = chart("redis"); custom.setChartVersion(version);
             assertThat(BuiltInHelmCharts.app(custom)).isEmpty();
         }

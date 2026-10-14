@@ -37,7 +37,8 @@ import ApplicationDetailModal from './applicationDetailModal.vue';
 import {
   getApplicationStatusBadgeClass,
   getApplicationStatusLabel,
-  isApplicationActionDisabledStatus
+  isApplicationActionDisabledStatus,
+  isApplicationUninstallDisabledStatus
 } from '../applicationStatusDisplay'
 
 const toast = useToast()
@@ -217,7 +218,10 @@ const setColumns = () => {
         const target = e.target as HTMLElement;
         const btnFlag = target?.getAttribute('id')
         const status = cell.getRow().getData().status
-        if (isActionDisabledStatus(status)) {
+        const disabled = btnFlag === 'uninstall-btn'
+          ? isApplicationUninstallDisabledStatus(status)
+          : isActionDisabledStatus(status)
+        if (disabled) {
           return
         }
         const applicationStatusId = cell.getRow().getData().id
@@ -277,40 +281,12 @@ const openDetailModal = (cell: any) => {
   const rowData = cell.getRow().getData()
   const deploymentId = rowData.deploymentHistoryId || rowData.deploymentId
   if (!deploymentId) {
+    toast.warning('Deployment logs are not available for this record.')
     return
   }
 
   selectedDeploymentId.value = deploymentId
-  
-  // Bootstrap 모달 열기
-  const modal = document.getElementById(applicationStatusDetailModalId)
-  if (modal) {
-    try {
-      if ((window as any).bootstrap && (window as any).bootstrap.Modal) {
-        const modalInstance = new (window as any).bootstrap.Modal(modal)
-        modalInstance.show()
-        
-        // 모달이 완전히 열린 후 API 호출 (약간의 지연 후)
-        setTimeout(() => {
-          if (applicationDetailModalRef.value) {
-            applicationDetailModalRef.value.refreshData(selectedDeploymentId.value)
-          }
-        }, 100)
-      } else {
-        // Fallback: 직접 모달 표시
-        modal.style.display = 'block'
-        modal.classList.add('show')
-        document.body.classList.add('modal-open')
-        
-        // API 호출
-        if (applicationDetailModalRef.value) {
-          applicationDetailModalRef.value.refreshData(selectedDeploymentId.value)
-        }
-      }
-    } catch (error) {
-      console.error('Error opening detail modal:', error)
-    }
-  }
+  applicationDetailModalRef.value?.open(deploymentId)
 }
 
 
@@ -364,6 +340,7 @@ const statusFormatter = (cell: any) => {
 const actionButtonFormatter = (cell: any) => {
   const status = cell.getRow().getData().status
   const disabledAttr = isActionDisabledStatus(status) ? 'disabled' : ''
+  const uninstallDisabledAttr = isApplicationUninstallDisabledStatus(status) ? 'disabled' : ''
   const normalizedStatus = String(status || '').trim().toUpperCase()
   const isStopped = normalizedStatus === 'STOP' || normalizedStatus === 'STOPPED'
   const lifecycleButtons = isStopped ? `
@@ -402,7 +379,7 @@ const actionButtonFormatter = (cell: any) => {
       id='uninstall-btn'
       data-bs-toggle='modal'
       data-bs-target='#action-confirm'
-      ${disabledAttr}>
+      ${uninstallDisabledAttr}>
       Uninstall
     </button>
     <button

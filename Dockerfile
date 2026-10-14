@@ -24,7 +24,7 @@ FROM eclipse-temurin:17-jdk-noble
 
 # Install curl
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl openssh-client && \
+    curl openssh-client skopeo && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy binaries from builder
@@ -32,7 +32,7 @@ COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 
 # Optional: verify versions
-RUN docker --version && helm version
+RUN docker --version && helm version && skopeo --version
 
 # Copy application
 COPY ./build/libs/am.jar /am.jar

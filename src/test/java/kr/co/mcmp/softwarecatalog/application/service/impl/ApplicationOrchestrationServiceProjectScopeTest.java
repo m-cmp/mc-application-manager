@@ -94,4 +94,19 @@ class ApplicationOrchestrationServiceProjectScopeTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Namespace");
     }
+    @Test
+    void legacyK8sFailureResolvesItsHistoryOnlyWithinExactTargetWithoutChangingEntity() {
+        var catalog = new kr.co.mcmp.softwarecatalog.SoftwareCatalog(); catalog.setId(12L);
+        var failed = ApplicationStatus.builder().namespace("project-a").clusterName("cluster-a").catalog(catalog)
+                .deploymentType(kr.co.mcmp.softwarecatalog.application.constants.DeploymentType.K8S)
+                .status("FAILED").deploymentHistoryId(3L).build();
+        when(applicationStatusRepository.findByNamespace("project-a")).thenReturn(List.of(failed));
+        when(deploymentHistoryRepository.findTopByCatalogIdAndClusterNameAndNamespaceAndActionTypeInAndStatusInOrderByExecutedAtDesc(
+                12L,"cluster-a","project-a",List.of(kr.co.mcmp.softwarecatalog.application.constants.ActionType.INSTALL),
+                List.of("FAILED","DELETE_PENDING"))).thenReturn(java.util.Optional.of(
+                        kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory.builder().id(42L).build()));
+        assertThat(service.getApplicationGroups("project-a").get(0).getDeploymentHistoryId()).isEqualTo(42L);
+        assertThat(failed.getDeploymentHistoryId()).isEqualTo(3L);
+        org.mockito.Mockito.verify(applicationStatusRepository,org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+    }
 }
