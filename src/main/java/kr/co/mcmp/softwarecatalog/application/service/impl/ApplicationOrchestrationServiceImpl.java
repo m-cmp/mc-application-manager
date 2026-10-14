@@ -162,6 +162,15 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
 
     private ApplicationStatusDto toStatusDto(ApplicationStatus status) {
         ApplicationStatusDto dto = ApplicationStatusDto.fromEntity(status);
+        // Older AM versions persisted K8s failures without linking their history.
+        // Resolve for display only; never rewrite archived records or cross target/project boundaries.
+        if ("FAILED".equals(status.getStatus()) && status.getDeploymentType() == DeploymentType.K8S
+                && status.getCatalog() != null) {
+            deploymentHistoryRepository.findTopByCatalogIdAndClusterNameAndNamespaceAndActionTypeInAndStatusInOrderByExecutedAtDesc(
+                    status.getCatalog().getId(), status.getClusterName(), status.getNamespace(),
+                    List.of(ActionType.INSTALL), List.of("FAILED", "DELETE_PENDING"))
+                    .ifPresent(history -> dto.setDeploymentHistoryId(history.getId()));
+        }
         if (isEffectivelyUninstalled(status)) {
             dto.setStatus(ApplicationStatusValues.UNINSTALLED);
         }

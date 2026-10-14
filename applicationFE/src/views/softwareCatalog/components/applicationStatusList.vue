@@ -277,40 +277,12 @@ const openDetailModal = (cell: any) => {
   const rowData = cell.getRow().getData()
   const deploymentId = rowData.deploymentHistoryId || rowData.deploymentId
   if (!deploymentId) {
+    toast.warning('Deployment logs are not available for this record.')
     return
   }
 
   selectedDeploymentId.value = deploymentId
-  
-  // Bootstrap 모달 열기
-  const modal = document.getElementById(applicationStatusDetailModalId)
-  if (modal) {
-    try {
-      if ((window as any).bootstrap && (window as any).bootstrap.Modal) {
-        const modalInstance = new (window as any).bootstrap.Modal(modal)
-        modalInstance.show()
-        
-        // 모달이 완전히 열린 후 API 호출 (약간의 지연 후)
-        setTimeout(() => {
-          if (applicationDetailModalRef.value) {
-            applicationDetailModalRef.value.refreshData(selectedDeploymentId.value)
-          }
-        }, 100)
-      } else {
-        // Fallback: 직접 모달 표시
-        modal.style.display = 'block'
-        modal.classList.add('show')
-        document.body.classList.add('modal-open')
-        
-        // API 호출
-        if (applicationDetailModalRef.value) {
-          applicationDetailModalRef.value.refreshData(selectedDeploymentId.value)
-        }
-      }
-    } catch (error) {
-      console.error('Error opening detail modal:', error)
-    }
-  }
+  applicationDetailModalRef.value?.open(deploymentId)
 }
 
 

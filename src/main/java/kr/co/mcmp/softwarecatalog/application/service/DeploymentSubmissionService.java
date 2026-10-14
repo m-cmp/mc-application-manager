@@ -136,7 +136,8 @@ public class DeploymentSubmissionService {
             else finish(id,"FAILED","Installation did not complete successfully. Open Apps Status for deployment logs.",deploymentId);
         } catch(Exception ex) {
             // Provider/Helm errors can contain credentials; details remain in existing deployment logging.
-            finish(id,"FAILED","Installation failed. Open Apps Status for deployment logs.",null);
+            finish(id,"FAILED",DeploymentFailureException.publicReason(ex),
+                    ex instanceof DeploymentFailureException failure ? failure.getDeploymentId() : null);
         }
     }
     private void finish(String id,String state,String message,Long deploymentId) {

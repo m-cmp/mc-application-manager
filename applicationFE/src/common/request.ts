@@ -85,7 +85,10 @@ service.interceptors.response.use(
       return res;
     } else {
       if (!response.config?.url?.startsWith('/applications/deployment-submissions/')) toast.error(res.detail)
-      return Promise.reject(new Error(res.message || "Error"));
+      const error = Object.assign(new Error(res.detail || res.message || "Error"), {
+        deploymentId: res.data?.deploymentId
+      })
+      return Promise.reject(error);
     }
   },
   error => {
@@ -100,6 +103,10 @@ service.interceptors.response.use(
     }
     if (axios.isCancel(error)) {
       return Promise.reject(error);
+    }
+    if (res?.data?.data?.deploymentId) {
+      error.deploymentId = res.data.data.deploymentId
+      error.message = res.data.detail || res.data.message || error.message
     }
     // toast.error(error.message)
     return Promise.reject(error);

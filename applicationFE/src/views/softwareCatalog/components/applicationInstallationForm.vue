@@ -34,6 +34,12 @@
             <button type="button" class="btn btn-sm btn-outline-warning ms-2" :disabled="closingInterruptedTracking"
               @click="closeInterruptedTracking">Close interrupted tracking</button>
           </div>
+          <div v-if="deploymentFailure" class="alert py-2" :class="deploymentFailure.unknown ? 'alert-warning' : 'alert-danger'" role="alert">
+            <strong>{{ deploymentFailure.unknown ? 'Deployment status unknown.' : 'Deployment failed.' }}</strong>
+            <p class="mb-2 text-break">{{ deploymentFailure.message }}</p>
+            <button v-if="deploymentFailure.deploymentId" type="button" class="btn btn-sm btn-outline-danger" @click="viewFailureLogs">View deployment logs</button>
+            <button v-else type="button" class="btn btn-sm btn-outline-secondary" @click="viewAppsStatus">View Apps Status</button>
+          </div>
           <fieldset v-show="!deploymentCompleted" :disabled="deploying || deploymentCompleted" class="border-0 p-0 m-0">
           <div v-if="hasProjectContext" class="alert alert-info py-2" role="status">
             Deployment targets are scoped to
@@ -923,6 +929,7 @@
       </div>
     </div>
   </div>
+  <ApplicationDetailModal :deployment-id="failureDetailId" :modal-id="failureDetailModalId" ref="failureDetailRef" />
 </template>
 
 <script setup lang="ts">
@@ -944,6 +951,8 @@ import { isVmClusteringCatalog } from '@/utils/vmClustering'
 import { resolveInstallVmTarget } from '@/integration/installTarget'
 import { startIngressPreparation, getIngressPreparation, closeInterruptedDeployment } from '@/api/softwareCatalog'
 import { waitForIngressPreparation } from '@/utils/ingressPreparation'
+import ApplicationDetailModal from './applicationDetailModal.vue'
+import { DeploymentFailed } from '@/utils/deploymentSubmission'
 
 interface Props {
   nsId?: string
@@ -1094,6 +1103,33 @@ const closeInterruptedTracking = async () => {
 }
 const deploying = ref(false)
 const deploymentCompleted = ref(false)
+const deploymentFailure = ref<{ message: string, deploymentId?: number, unknown: boolean } | null>(null)
+const failureDetailId = ref(0)
+const failureDetailRef = ref<InstanceType<typeof ApplicationDetailModal> | null>(null)
+const failureDetailModalId = props.formId + '-failure-detail'
+let returningFromFailureDetail = false
+const viewFailureLogs = async () => {
+  const id = deploymentFailure.value?.deploymentId
+  if (!id) return
+  const form = document.getElementById(props.formId)
+  const detail = document.getElementById(failureDetailModalId)
+  if (!detail) return
+  const wasVisible = !props.embedded && form?.classList.contains('show')
+  if (wasVisible && form) {
+    await new Promise<void>(resolve => {
+      form.addEventListener('hidden.bs.modal', () => resolve(), { once: true })
+      Modal.getOrCreateInstance(form).hide()
+    })
+  }
+  failureDetailId.value = id
+  detail.addEventListener('hidden.bs.modal', () => {
+    if (wasVisible && form && installationFormMounted) {
+      returningFromFailureDetail = true
+      Modal.getOrCreateInstance(form).show()
+    }
+  }, { once: true })
+  failureDetailRef.value?.open(id)
+}
 let preparationEpoch = 0
 let installationFormMounted = true
 // Bootstrap backdrop/Escape closes can bypass the Cancel button.
@@ -1328,6 +1364,7 @@ onMounted(async () => {
   if (!modalElement) return
   // Open Modal Action
   modalElement.addEventListener('show.bs.modal', async() => {
+    if (returningFromFailureDetail) { returningFromFailureDetail = false; return }
     await setInit()
     await _getSoftwareCatalogList()
   });
@@ -1336,6 +1373,7 @@ onMounted(async () => {
 const setInit = async () => {
   preparationEpoch++
   deploymentCompleted.value = false
+  deploymentFailure.value = null
   interruptedDeployment.value = null
   storageRequestSequence++
   const loadSequence = ++resourceLoadSequence
@@ -1961,6 +1999,7 @@ const runInstall = async () => {
   if (selectInfra.value === 'K8S' && !validateStorageClassSelection()) return
 
   deploying.value = true
+  deploymentFailure.value = null
   const deploymentContext = projectContextKey.value
   const deploymentSpecVersion = specCheckVersion
   const deploymentEpoch = preparationEpoch
@@ -2044,6 +2083,9 @@ const runInstall = async () => {
     }
 
     if (!isCurrentDeployment()) return
+    if (res.data && ['FAILED', 'PARTIAL_SUCCESS'].includes(res.data.status)) {
+      throw new DeploymentFailed('Installation did not complete successfully. Open deployment logs for details.', getDeploymentId(res.data), res.data.status)
+    }
     if (res.data) {
       deploymentCompleted.value = true
       toast.success('SUCCESS')
@@ -2051,6 +2093,7 @@ const runInstall = async () => {
         deploymentId: getDeploymentId(res.data)
       })
     } else {
+      deploymentFailure.value = { message: 'The deployment API did not return a success result.', unknown: false }
       toast.error('FAIL')
       emitDeploymentEvent('DEPLOY_FAILED', {
         message: 'The deployment API did not return a success result.'
@@ -2059,13 +2102,14 @@ const runInstall = async () => {
   } catch (error) {
     if (!isCurrentDeployment()) return
     const message = error instanceof Error ? error.message : 'The deployment request failed.'
+    deploymentFailure.value = { message, deploymentId: (error as any)?.deploymentId, unknown: Boolean((error as any)?.deploymentStatusUnknown) }
     if ((error as any)?.deploymentStatusUnknown) {
       if ((error as any).interruptedOperation) interruptedDeployment.value = (error as any).interruptedOperation
       toast.warning(message)
       emitDeploymentEvent('DEPLOY_STATUS_UNKNOWN', { message })
     } else {
       toast.error(message)
-      emitDeploymentEvent('DEPLOY_FAILED', { message })
+      emitDeploymentEvent('DEPLOY_FAILED', { message, deploymentId: deploymentFailure.value.deploymentId })
     }
   } finally {
     deploying.value = false
