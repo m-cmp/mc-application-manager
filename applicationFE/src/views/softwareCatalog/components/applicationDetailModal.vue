@@ -4,7 +4,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Application Detail</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @click="closeModal"></button>
+          <button type="button" class="btn-close" aria-label="Close" @click="closeModal"></button>
         </div>
         <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
           <div v-if="loading" class="text-center">
@@ -14,6 +14,11 @@
           </div>
           
           <div v-else-if="applicationDetail">
+            <div v-if="isFailedDeployment" class="alert alert-danger py-2 text-break" role="alert">
+              <strong>Deployment failed.</strong>
+              <p class="mb-0" v-for="log in failureLogs" :key="log.id">{{ log.logMessage }}</p>
+              <p v-if="!failureLogs.length" class="mb-0">No failure log was recorded for this deployment.</p>
+            </div>
             <!-- Application Overview -->
             <div class="mb-4">
               <h6 class="text-primary">Application Overview</h6>
@@ -503,7 +508,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="closeModal">Close</button>
+          <button type="button" class="btn btn-secondary" @click="closeModal">Close</button>
         </div>
       </div>
     </div>
@@ -511,9 +516,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useToast } from 'vue-toastification'
 import { IconPackage } from '@tabler/icons-vue'
+import { Modal } from 'bootstrap'
 import {
   analyzePolicyRecommendation,
   getApplicationDetail,
@@ -541,6 +547,8 @@ const toast = useToast()
 const loading = ref(false)
 const policyLoading = ref(false)
 const applicationDetail = ref(null as any)
+const isFailedDeployment = computed(() => ['FAILED', 'PARTIAL_SUCCESS', 'DELETE_PENDING'].includes(applicationDetail.value?.status))
+const failureLogs = computed(() => (applicationDetail.value?.deploymentLogs || []).filter((log: any) => log.logType === 'ERROR'))
 const operationProfile = ref(null as any)
 const operationProfiles = ref([] as any[])
 const policyRecommendation = ref(null as any)
@@ -550,6 +558,62 @@ const analysisPeriods = [7, 30, 90]
 // computed로 deploymentId 관리
 const currentDeploymentId = ref(0 as number)
 let detailLoadSequence = 0
+let modalElement: HTMLElement | null = null
+let modalInstance: Modal | null = null
+let modalActive = false
+let closeRequested = false
+let componentMounted = true
+
+const clearData = () => {
+  currentDeploymentId.value = 0
+  applicationDetail.value = null
+  operationProfile.value = null
+  operationProfiles.value = []
+  policyRecommendation.value = null
+  logoLoadFailed.value = false
+  loading.value = false
+  policyLoading.value = false
+}
+const onModalShow = () => { modalActive = true }
+const onModalShown = () => {
+  // Bootstrap ignores hide() during the opening animation; close once it finishes.
+  if (closeRequested) modalInstance?.hide()
+}
+const onModalHide = () => { detailLoadSequence++ }
+const removeModalListeners = () => {
+  modalElement?.removeEventListener('show.bs.modal', onModalShow)
+  modalElement?.removeEventListener('shown.bs.modal', onModalShown)
+  modalElement?.removeEventListener('hide.bs.modal', onModalHide)
+  modalElement?.removeEventListener('hidden.bs.modal', onModalHidden)
+}
+const onModalHidden = () => {
+  modalActive = false
+  closeRequested = false
+  clearData()
+  if (componentMounted) emit('close')
+  else {
+    removeModalListeners()
+    modalInstance?.dispose()
+    modalInstance = null
+  }
+}
+onMounted(() => {
+  modalElement = document.getElementById(props.modalId)
+  modalElement?.addEventListener('show.bs.modal', onModalShow)
+  modalElement?.addEventListener('shown.bs.modal', onModalShown)
+  modalElement?.addEventListener('hide.bs.modal', onModalHide)
+  modalElement?.addEventListener('hidden.bs.modal', onModalHidden)
+})
+onBeforeUnmount(() => {
+  componentMounted = false
+  detailLoadSequence++
+  if (modalActive) closeModal()
+  else {
+    removeModalListeners()
+    modalInstance?.dispose()
+    modalInstance = null
+  }
+})
 
 const catalogIconUrlByName: Record<string, string> = {
   'apache tomcat': '/catalog-icons/apache-tomcat.png',
@@ -597,18 +661,20 @@ const refreshData = (deploymentId: number) => {
 
 const resetData = () => {
   detailLoadSequence += 1
-  currentDeploymentId.value = 0
-  applicationDetail.value = null
-  operationProfile.value = null
-  operationProfiles.value = []
-  policyRecommendation.value = null
-  logoLoadFailed.value = false
-  loading.value = false
-  policyLoading.value = false
-  closeModal()
+  if (modalActive) closeModal()
+  else clearData()
+}
+
+const open = (deploymentId: number) => {
+  if (!componentMounted || !modalElement || !deploymentId) return
+  closeRequested = false
+  modalInstance = Modal.getOrCreateInstance(modalElement)
+  refreshData(deploymentId)
+  modalInstance.show()
 }
 
 defineExpose({
+  open,
   refreshData,
   resetData
 })
@@ -1061,52 +1127,12 @@ const formatBytes = (bytes: number) => {
 }
 
 const closeModal = () => {
-  const modal = document.getElementById(props.modalId)
-  if (modal) {
-    try {
-      // Bootstrap 5를 사용하는 경우
-      if ((window as any).bootstrap && (window as any).bootstrap.Modal) {
-        const modalInstance = (window as any).bootstrap.Modal.getInstance(modal)
-        if (modalInstance) {
-          modalInstance.hide()
-        } else {
-          // 인스턴스가 없으면 새로 생성해서 닫기
-          const newModalInstance = new (window as any).bootstrap.Modal(modal)
-          newModalInstance.hide()
-        }
-      } else {
-        // Bootstrap이 없거나 다른 경우 직접 모달 닫기
-        modal.style.display = 'none'
-        modal.classList.remove('show')
-        modal.setAttribute('aria-hidden', 'true')
-        modal.removeAttribute('aria-modal')
-        document.body.classList.remove('modal-open')
-        
-        // backdrop 제거
-        const backdrops = document.querySelectorAll('.modal-backdrop')
-        backdrops.forEach(backdrop => backdrop.remove())
-        
-        // body의 overflow 스타일 복원
-        document.body.style.overflow = ''
-        document.body.style.paddingRight = ''
-      }
-    } catch (error) {
-      console.error('Error closing modal:', error)
-      // 에러 발생 시 강제로 모달 닫기
-      modal.style.display = 'none'
-      modal.classList.remove('show')
-      document.body.classList.remove('modal-open')
-      const backdrops = document.querySelectorAll('.modal-backdrop')
-      backdrops.forEach(backdrop => backdrop.remove())
-    }
-  }
-  
-  // 데이터 초기화
-  applicationDetail.value = null
-  operationProfile.value = null
-  operationProfiles.value = []
-  policyRecommendation.value = null
-  emit('close')
+  detailLoadSequence++
+  closeRequested = true
+  // Use only the instance that opened this dialog. Do not create a second,
+  // never-shown instance via a delegated data-bs-dismiss handler.
+  if (modalActive) modalInstance?.hide()
+  else clearData()
 }
 
 

@@ -66,14 +66,15 @@ Do not use broad namespace or label deletion against shared/archiving workloads.
   proof of a successful CSP deployment: check readiness, native protocol access,
   authentication rejection, restart persistence, and exact-resource cleanup.
 
-This compatibility fix intentionally keeps the bundled chart version at `0.1.0`.
-The running AM image supplies the chart templates; record its image digest/source
-commit to distinguish installations made before and after the fix. Startup does
-not rewrite these five mappings' existing chart versions or running releases.
-Future version changes need an explicit migration and rollback policy; never
-overwrite custom mappings.
+New installations register the bundled charts at version `0.1.1`. Startup upgrades
+only the exact AM-managed `0.1.0` mappings (catalog, package, repository URL/name
+and chart name must all match). Custom mappings and other versions are untouched.
+This updates catalog metadata only, not running Helm releases or archived data.
+Record the AM image digest/source commit for deployment provenance. Returning to
+an older AM image after this migration requires explicitly reviewing its chart
+version support and restoring only the corresponding catalog metadata if needed.
 
-## NHN Cinder compatibility (chart version remains 0.1.0)
+## NHN Cinder compatibility (0.1.1)
 
 The persistent Redis, MariaDB and PostgreSQL charts check that the selected Cinder
 CSI driver is registered before installation. Missing CSI is a cluster prerequisite:
@@ -89,7 +90,8 @@ Other drivers and the stateless HTTP apps do not get this initializer. A cluster
 enforcing restricted Pod Security may reject the root init container; AM does not
 weaken namespace admission policy to bypass that restriction.
 
-Reinstalling through an AM image containing this fix uses the updated templates
-without a catalog-version migration. Reinstalling through an old AM image does not
-include the fix. Existing running Helm releases, VM configurations and custom
-chart mappings remain unchanged until an explicit deployment action.
+Reinstalling through an AM image containing this fix uses the updated templates.
+The installation form recognizes both `0.1.0` and `0.1.1`; the server packages
+the current version after catalog initialization. Existing running Helm releases,
+VM configurations and custom chart mappings remain unchanged until an explicit
+deployment action.

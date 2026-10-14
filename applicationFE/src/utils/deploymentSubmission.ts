@@ -20,6 +20,10 @@ export class DeploymentStatusUnknown extends Error {
   constructor(message: string, readonly interruptedOperation?: { id: string, namespace: string }) { super(message) }
 }
 
+export class DeploymentFailed extends Error {
+  constructor(message: string, readonly deploymentId?: number, readonly state = 'FAILED') { super(message) }
+}
+
 /** A transport failure is not an installation failure. Never automatically submit a second operation. */
 export async function submitAndTrackDeployment(
   id: string,
@@ -54,7 +58,7 @@ export async function submitAndTrackDeployment(
     if (status) {
       if (status.id !== id || status.namespace !== namespace) throw new DeploymentStatusUnknown('Deployment response did not match this operation. Check Apps Status before retrying.')
       if (status.state === 'SUCCEEDED') { terminal(); return { data: { id: status.deploymentId, status: 'SUCCESS' } } }
-      if (status.state === 'FAILED' || status.state === 'PARTIAL_SUCCESS' || status.state === 'ABANDONED') { terminal(); throw new Error(status.message || 'Installation failed. Open Apps Status for details.') }
+      if (status.state === 'FAILED' || status.state === 'PARTIAL_SUCCESS' || status.state === 'ABANDONED') { terminal(); throw new DeploymentFailed(status.message || 'Installation failed. Open Apps Status for details.', status.deploymentId, status.state) }
       if (status.state === 'INTERRUPTED') throw new DeploymentStatusUnknown(status.message, { id, namespace })
       if (!['QUEUED', 'RUNNING'].includes(status.state)) throw new DeploymentStatusUnknown('Unknown deployment state. Check Apps Status before retrying.')
     }

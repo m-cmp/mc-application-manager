@@ -63,6 +63,16 @@ class DeploymentSubmissionServiceTest {
         assertThatThrownBy(()->restarted.submit(scope,UUID.randomUUID().toString(),request(DeploymentType.VM))).isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(orchestration);
     }
+    @Test void preservesFailureHistoryAndSafeReasonForAuthenticatedOwner() {
+        String id = UUID.randomUUID().toString();
+        when(orchestration.deployApplication(any())).thenThrow(new DeploymentFailureException(42L,
+                new IllegalArgumentException("Enable Ingress to configure external CIDR access.")));
+        jobs.submit(scope, id, request(DeploymentType.K8S)); executor.runNext();
+        assertThat(jobs.get(scope,id).deploymentId()).isEqualTo(42L);
+        assertThat(jobs.get(scope,id).message()).isEqualTo("Enable Ingress to configure external CIDR access.");
+        assertThatThrownBy(() -> jobs.get(new DeploymentSubmissionService.Scope("w1","p2","default","user1"),id))
+                .isInstanceOf(ResponseStatusException.class);
+    }
     @Test void isolatesOwnerAndProjectAndDoesNotPersistCredentialsOrExceptionText() {
         String id=UUID.randomUUID().toString();var req=request(DeploymentType.VM);req.setAdditionalConfig(Map.of("password","sensitive-test-value"));
         when(orchestration.deployApplication(any())).thenThrow(new IllegalStateException("sensitive-test-value"));

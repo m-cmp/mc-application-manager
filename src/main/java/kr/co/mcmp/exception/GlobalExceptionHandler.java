@@ -16,6 +16,14 @@ import kr.co.mcmp.security.project.ProjectScopeException;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(kr.co.mcmp.softwarecatalog.application.service.DeploymentFailureException.class)
+    public ResponseEntity<ResponseWrapper<java.util.Map<String, Long>>> handleDeploymentFailure(
+            kr.co.mcmp.softwarecatalog.application.service.DeploymentFailureException e) {
+        ResponseWrapper<java.util.Map<String, Long>> body = new ResponseWrapper<>(500, "Deployment failed", e.getMessage());
+        body.setData(e.getDeploymentId() == null ? java.util.Map.of() : java.util.Map.of("deploymentId", e.getDeploymentId()));
+        return ResponseEntity.status(500).body(body);
+    }
+
     @ExceptionHandler(kr.co.mcmp.softwarecatalog.kubernetes.service.StorageOperationException.class)
     public ResponseEntity<ResponseWrapper<String>> handleStorageOperation(
             kr.co.mcmp.softwarecatalog.kubernetes.service.StorageOperationException e) {

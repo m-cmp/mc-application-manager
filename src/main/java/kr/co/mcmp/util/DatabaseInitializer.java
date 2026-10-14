@@ -67,6 +67,12 @@ public class DatabaseInitializer implements CommandLineRunner{
                         BuiltInHelmCharts.REPOSITORY + "-" + app.chart(), app.chart(), app.appVersion(),
                         "Single-instance " + app.title() + " using a digest-pinned official container image.",
                         app.persistent() ? "Databases & Storage" : "Web Servers", app.image(), app.appVersion(), id);
+                // Upgrade only the previous bundled identity, not customized mappings or running releases.
+                jdbcTemplate.update("""
+                        UPDATE HELM_CHART SET CHART_VERSION = ? WHERE CATALOG_ID = ? AND PACKAGE_ID = ?
+                        AND CHART_REPOSITORY_URL = ? AND CHART_VERSION = '0.1.0' AND REPOSITORY_NAME = ? AND CHART_NAME = ?
+                        """, BuiltInHelmCharts.VERSION, id, BuiltInHelmCharts.REPOSITORY + "-" + app.chart(),
+                        BuiltInHelmCharts.URL, BuiltInHelmCharts.REPOSITORY, app.chart());
                 // A user-provided Helm mapping wins; do not attach our capability to a different chart.
                 Integer managed = jdbcTemplate.queryForObject("""
                         SELECT COUNT(*) FROM HELM_CHART WHERE CATALOG_ID = ? AND PACKAGE_ID = ?

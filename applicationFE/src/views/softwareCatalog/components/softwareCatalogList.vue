@@ -567,27 +567,7 @@ const openApplicationDetail = (deploymentId: number | null) => {
   if (!deploymentId) return
 
   selectedDeploymentId.value = deploymentId
-  const modal = document.getElementById('application-detail-modal')
-  if (modal) {
-    try {
-      if ((window as any).bootstrap && (window as any).bootstrap.Modal) {
-        const modalInstance = new (window as any).bootstrap.Modal(modal)
-        modalInstance.show()
-      } else {
-        modal.style.display = 'block'
-        modal.classList.add('show')
-        document.body.classList.add('modal-open')
-      }
-
-      setTimeout(() => {
-        if (applicationDetailModalRef.value) {
-          applicationDetailModalRef.value.refreshData(selectedDeploymentId.value)
-        }
-      }, 100)
-    } catch (error) {
-      console.error('Error opening detail modal:', error)
-    }
-  }
+  applicationDetailModalRef.value?.open(deploymentId)
 }
 
 const hasProperty = (data:any, prop:any) => {

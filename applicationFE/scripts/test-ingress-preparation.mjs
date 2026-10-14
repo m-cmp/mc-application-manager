@@ -58,7 +58,7 @@ return { runInstall, cancel: () => { preparationEpoch++ }, invalidate: () => { s
 function harness(options = {}) {
   const calls = []
   const values = Object.fromEntries(Object.entries({
-    jupyterInstallationUnsupported: false, deploying: false, deploymentCompleted: false, modalTitle: 'Application Installation', selectInfra: options.infra || 'K8S', specCheckFlag: false,
+    interruptedDeployment: null, deploymentFailure: null, jupyterInstallationUnsupported: false, deploying: false, deploymentCompleted: false, modalTitle: 'Application Installation', selectInfra: options.infra || 'K8S', specCheckFlag: false,
     specChecking: false, projectScopeError: '', servicePortCidr: '203.0.113.4/32',
     ingressData: { ingressEnabled: options.ingress !== false, ingressHost: 'app.company.com', ingressPath: '/', ingressTlsEnabled: Boolean(options.tls) },
     isJupyterObjectStorageCatalog: Boolean(options.jupyter), projectContextKey: 'workspace/project-a',
@@ -70,7 +70,8 @@ function harness(options = {}) {
   }).map(([k,v]) => [k,ref(v)]))
   const args = {
     ...values,
-    toast: { success: m => calls.push(['success',m]), error: m => calls.push(['error',m]) },
+    toast: { success: m => calls.push(['success',m]), error: m => calls.push(['error',m]), warning: m => calls.push(['warning',m]) },
+    DeploymentFailed: class extends Error { constructor(message,id) { super(message); this.deploymentId=id } },
     validateStorageClassSelection: () => true,
     emitDeploymentEvent: (...e) => calls.push(['event',...e]), getDeploymentId: () => 123,
     buildK8sAdditionalConfig: () => ({}),
@@ -96,6 +97,23 @@ await test('actual IBM Deploy uses prepare -> poll READY -> application API with
   const prepared=h.calls.find(c => c[0]==='prepare')[1], deployed=h.calls.find(c => c[0]==='deploy')[1]
   for(const key of ['namespace','clusterName','catalogId','ingressHost','servicePortCidr']) assert.equal(prepared[key],deployed[key])
   assert.equal(deployed.openServicePort,false); assert.equal(h.deploying.value,false)
+})
+await test('actual form retains failure reason and history ID without reporting success', async () => {
+  const h=harness({ibm:false,deploy:async()=>{throw Object.assign(new Error('Enable Ingress to configure external CIDR access.'),{deploymentId:42})}});
+  await h.runInstall();
+  assert.deepEqual(h.deploymentFailure.value,{message:'Enable Ingress to configure external CIDR access.',deploymentId:42,unknown:false});
+  assert.equal(h.calls.some(c=>c[0]==='success'),false);
+  assert.equal(h.calls.find(c=>c[0]==='event' && c[1]==='DEPLOY_FAILED')[2].deploymentId,42);
+})
+await test('legacy FAILED result is not treated as success and transport uncertainty stays separate', async () => {
+  const failed=harness({ibm:false,deploy:async()=>({data:{id:123,status:'FAILED'}})});
+  await failed.runInstall();
+  assert.equal(failed.deploymentFailure.value.deploymentId,123);
+  assert.equal(failed.deploymentCompleted.value,false);
+  const unknown=harness({ibm:false,deploy:async()=>{throw Object.assign(new Error('May still be running'),{deploymentStatusUnknown:true})}});
+  await unknown.runInstall();
+  assert.equal(unknown.deploymentFailure.value.unknown,true);
+  assert.equal(unknown.calls.some(c=>c[0]==='event' && c[1]==='DEPLOY_FAILED'),false);
 })
 for(const event of ['cancel','invalidate','unmount','project']) {
   await test(`actual form ${event} during preparation does not call application deployment`, async () => {
