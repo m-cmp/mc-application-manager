@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import kr.co.mcmp.softwarecatalog.application.model.K8sObjectStorageTunnel;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
+import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesNamespaces;
 import lombok.RequiredArgsConstructor;
 
 /** AM -> Kubernetes port-forward -> SSH server; reverse forwarding remains Pod-local. */
@@ -56,12 +57,13 @@ public class K8sObjectStorageTunnelRuntime {
         KubernetesClient client = null; LocalPortForward forward = null; Process process = null; Path directory = null;
         try {
             client = clients.getClient(tunnel.getNamespace(), tunnel.getClusterName());
-            var deployment = client.apps().deployments().inNamespace(tunnel.getNamespace()).withName(tunnel.getReleaseName()).get();
+            String workloadNamespace = KubernetesNamespaces.jupyterWorkloadNamespace(client, tunnel.getNamespace(), tunnel.getReleaseName());
+            var deployment = client.apps().deployments().inNamespace(workloadNamespace).withName(tunnel.getReleaseName()).get();
             if (deployment == null || !tunnel.getWorkloadUid().equals(deployment.getMetadata().getUid())
                     || deployment.getSpec().getReplicas() == 0) throw new IllegalStateException("Owned workload is not running");
-            Secret secret = client.secrets().inNamespace(tunnel.getNamespace()).withName(tunnel.getReleaseName() + "-ssh").get();
+            Secret secret = client.secrets().inNamespace(workloadNamespace).withName(tunnel.getReleaseName() + "-ssh").get();
             if (secret == null || !tunnel.getSecretUid().equals(secret.getMetadata().getUid())) throw new IllegalStateException("SSH Secret identity changed");
-            var pod = client.pods().inNamespace(tunnel.getNamespace()).withLabel(OWNER, tunnel.getReleaseName()).list().getItems().stream()
+            var pod = client.pods().inNamespace(workloadNamespace).withLabel(OWNER, tunnel.getReleaseName()).list().getItems().stream()
                     .filter(p -> p.getMetadata().getDeletionTimestamp() == null && p.getStatus() != null && p.getStatus().getContainerStatuses() != null)
                     .filter(p -> p.getStatus().getContainerStatuses().stream().anyMatch(c -> "ssh-tunnel".equals(c.getName()) && c.getState() != null && c.getState().getRunning() != null))
                     .findFirst().orElseThrow(() -> new IllegalStateException("SSH sidecar has not started"));
@@ -72,11 +74,11 @@ public class K8sObjectStorageTunnelRuntime {
             // The directory is private on POSIX and Windows; SSH also requires a private key file.
             if (Files.getFileStore(directory).supportsFileAttributeView("posix"))
                 Files.setPosixFilePermissions(directory.resolve("key"), java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
-            forward = client.pods().inNamespace(tunnel.getNamespace()).withName(pod.getMetadata().getName())
+            forward = client.pods().inNamespace(workloadNamespace).withName(pod.getMetadata().getName())
                     .portForward(2222, InetAddress.getByName("127.0.0.1"), 0);
             process = new ProcessBuilder(sshArguments(ssh, tunnel.getDeploymentId(), directory, forward.getLocalPort(), proxy.port()))
                     .redirectOutput(ProcessBuilder.Redirect.DISCARD).redirectError(ProcessBuilder.Redirect.DISCARD).start();
-            return new Running(client, forward, process, directory, tunnel.getNamespace(), pod.getMetadata().getName(), pod.getMetadata().getUid());
+            return new Running(client, forward, process, directory, workloadNamespace, pod.getMetadata().getName(), pod.getMetadata().getUid());
         } catch (Exception e) {
             if (process != null) process.destroyForcibly();
             if (forward != null) try { forward.close(); } catch (Exception ignored) { }

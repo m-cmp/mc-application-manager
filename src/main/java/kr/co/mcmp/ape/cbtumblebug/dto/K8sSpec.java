@@ -19,6 +19,10 @@ public class K8sSpec {
 
     @JsonProperty("Mem")
     private String mem;
+
+    // Spider's normalized capacity. Provider KeyValueList can contain unrelated zero values.
+    @JsonProperty("MemSizeMib")
+    private String memSizeMib;
     
     @JsonProperty("Gpu")
     private Object gpu;

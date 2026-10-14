@@ -523,7 +523,7 @@
               </p>
               <button type="button" class="btn btn-outline-secondary btn-sm mt-2" :disabled="storageClassLoading || storageCreating" @click="fetchStorageClasses(selectedStorageClass)">Refresh StorageClasses</button>
               <p v-if="storageSetupError" class="text-danger mt-2" role="alert">{{ storageSetupError }}</p>
-              <div v-if="isNhnCluster && !storageClassLoadError && !storageClassList.length" class="border rounded p-2 mt-2">
+              <div v-if="isNhnCluster && !storageClassLoadError && (!storageClassList.length || !storageCapability?.driverReady)" class="border rounded p-2 mt-2">
                 <div class="fw-bold mb-2">NHN block storage setup</div>
                 <p role="status" class="mb-2">
                   {{ storageCapability?.message || (storageSetupError ? 'NHN storage setup is unavailable.' : 'Checking Cinder CSI and AM permissions...') }}
@@ -533,9 +533,16 @@
                   <span v-if="storageCapability" class="badge ms-2" :class="storageCapability.driverReady ? 'bg-success' : 'bg-warning text-dark'">
                     {{ storageCapability.driverReady ? 'Ready' : 'Required' }}
                   </span>
-                  <p v-if="storageCapability && !storageCapability.driverReady" class="text-muted mt-1 mb-0">
-                    Install cinder-csi-plugin from the selected cluster's NHN NKS Add-ons page, wait until it is active, and refresh StorageClasses here.
-                  </p>
+                  <div v-if="storageCapability && !storageCapability.driverReady" class="mt-2">
+                    <p class="text-muted mb-2" role="status">{{ nhnAddonProgress || nhnAddonCapability?.message || 'Checking Cinder add-on availability...' }}</p>
+                    <button v-if="nhnAddonCapability?.canInstall" type="button" class="btn btn-outline-primary"
+                      :disabled="nhnAddonInstalling || nhnAddonChecking || storageClassLoading" @click="installCinderAddon">
+                      {{ nhnAddonInstalling ? 'Preparing Cinder CSI...' : nhnAddonCapability.state === 'REGISTERING' ? 'Check Cinder readiness' : 'Install Cinder CSI add-on' }}
+                    </button>
+                    <p v-if="!nhnAddonChecking && !nhnAddonCapability?.canInstall && !nhnAddonInstalling" class="text-muted mt-1 mb-0">
+                      You can also install cinder-csi-plugin on the selected cluster's NHN NKS Add-ons page, then refresh StorageClasses here.
+                    </p>
+                  </div>
                 </div>
                 <div v-if="storageCapability?.driverReady">
                   <div class="fw-semibold mb-2">2. Create StorageClass</div>
@@ -929,6 +936,8 @@ import { Modal } from 'bootstrap';
 import _ from 'lodash';
 import { getNsInfo, getMciInfo, getVmInfo, getClusterInfo } from '@/api/tumblebug'
 import { getNhnStorageCapability, createNhnStorageClass, getK8sStorageClasses, getRegisteredObjectStorages, getSoftwareCatalogList, k8sSpecCheck, k8sIngressCheck, objectStorageSmokeCheck, runK8SInstall, runAction, runVmInstall, vmSpecCheck } from '@/api/softwareCatalog'
+import { getNhnCinderAddon, startNhnCinderAddon, getNhnCinderAddonJob } from '@/api/softwareCatalog'
+import { waitForNhnCinderAddon } from '@/utils/nhnCinderAddon'
 import { type SoftwareCatalog } from '@/views/type/type'
 import { useUserStore } from '@/stores/user'
 import { isVmClusteringCatalog } from '@/utils/vmClustering'
@@ -1102,6 +1111,10 @@ const storageClassFailure = ref('')
 const storageCapability = ref<any>(null)
 const storageSetupError = ref('')
 const storageCreating = ref(false)
+const nhnAddonCapability = ref<any>(null)
+const nhnAddonChecking = ref(false)
+const nhnAddonInstalling = ref(false)
+const nhnAddonProgress = ref('')
 const newStorageClassName = ref('mcmp-nhn-notebooks')
 const newStorageDiskType = ref('General HDD')
 const notebookStorageGi = ref(10)
@@ -1359,6 +1372,10 @@ const setInit = async () => {
   storageClassLoadError.value = false
   storageClassFailure.value = ''
   storageCapability.value = null
+  nhnAddonCapability.value = null
+  nhnAddonProgress.value = ''
+  nhnAddonInstalling.value = false
+  nhnAddonChecking.value = false
   storageSetupError.value = ''
   storageCreating.value = false
   notebookStorageGi.value = 10
@@ -1646,6 +1663,10 @@ const fetchRegisteredObjectStorages = async () => {
 
 const fetchStorageClasses = async (preferred = '') => {
   const sequence = ++storageRequestSequence
+  nhnAddonCapability.value = null
+  nhnAddonProgress.value = ''
+  nhnAddonInstalling.value = false
+  nhnAddonChecking.value = false
   storageClassList.value = []
   selectedStorageClass.value = ''
   storageClassLoadError.value = false
@@ -1672,12 +1693,43 @@ const fetchStorageClasses = async (preferred = '') => {
   } finally {
     if (sequence === storageRequestSequence) storageClassLoading.value = false
   }
-  if (sequence !== storageRequestSequence || storageClassLoadError.value || storageClassList.value.length || !isNhnCluster.value) return
+  if (sequence !== storageRequestSequence || storageClassLoadError.value || !isNhnCluster.value) return
+  nhnAddonChecking.value = true
   try {
     const { data } = await getNhnStorageCapability(target)
-    if (sequence === storageRequestSequence) storageCapability.value = data
+    if (sequence !== storageRequestSequence) return
+    storageCapability.value = data
+    if (!data.driverReady) {
+      const addon = await getNhnCinderAddon(target)
+      if (sequence === storageRequestSequence) nhnAddonCapability.value = addon.data
+    }
   } catch (error) {
     if (sequence === storageRequestSequence) storageSetupError.value = storageErrorDetail(error)
+  } finally {
+    if (sequence === storageRequestSequence) nhnAddonChecking.value = false
+  }
+}
+
+const installCinderAddon = async () => {
+  if (!isNhnCluster.value || nhnAddonInstalling.value || !nhnAddonCapability.value?.canInstall) return
+  const sequence = storageRequestSequence
+  const context = projectContextKey.value
+  const epoch = preparationEpoch
+  const target = { namespace: selectNsId.value, clusterName: selectCluster.value }
+  const preferred = selectedStorageClass.value
+  const isCurrent = () => installationFormMounted && sequence === storageRequestSequence && context === projectContextKey.value
+    && epoch === preparationEpoch && target.namespace === selectNsId.value && target.clusterName === selectCluster.value
+  nhnAddonInstalling.value = true
+  storageSetupError.value = ''
+  try {
+    const { data } = await startNhnCinderAddon(target)
+    await waitForNhnCinderAddon(data, target, async id => (await getNhnCinderAddonJob(target, id)).data,
+      message => { if (isCurrent()) nhnAddonProgress.value = message }, isCurrent)
+    if (isCurrent()) await fetchStorageClasses(preferred)
+  } catch (error) {
+    if (isCurrent()) storageSetupError.value = storageErrorDetail(error)
+  } finally {
+    if (sequence === storageRequestSequence) nhnAddonInstalling.value = false
   }
 }
 
@@ -2246,7 +2298,7 @@ const showStorageClassConfig = computed(() => {
 })
 
 const storageClassSelectDisabled = computed(() => {
-  return storageClassLoading.value || storageClassList.value.length <= 1
+  return storageClassLoading.value || nhnAddonInstalling.value || storageClassList.value.length <= 1
 })
 
 const storageClassPlaceholder = computed(() => {
@@ -2260,6 +2312,8 @@ const storageClassErrorMessage = computed(() => {
   if (!storageClassRequired.value) return ''
   if (storageClassLoading.value) return 'StorageClass list is loading.'
   if (storageClassLoadError.value) return storageClassFailure.value || 'StorageClass list could not be loaded.'
+  if (isNhnCluster.value && (nhnAddonInstalling.value || nhnAddonChecking.value || !storageCapability.value?.driverReady))
+    return storageSetupError.value || 'Prepare Cinder CSI on the selected NHN cluster before deploying this application.'
   if (storageClassList.value.length === 0) return 'This application requires a StorageClass, but none was found.'
   if (_.isEmpty(selectedStorageClass.value)) return 'This application requires a StorageClass.'
   if (isJupyterObjectStorageCatalog.value && (!Number.isInteger(notebookStorageGi.value) || notebookStorageGi.value < selectedStorageMinimum.value))

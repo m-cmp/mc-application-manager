@@ -16,6 +16,11 @@
 # =====================================================================
 
 app:
+  nhn-cinder-addon:
+    # NHN 활성화 여부와 연결 매핑은 application.yaml을 따르고, 로컬 OpenBao 주소/토큰 파일만 재정의.
+    # 토큰은 Git에 포함하지 않는 별도 파일로 보관하며, NHN 자격증명 경로의 읽기 권한만 필요.
+    open-bao-url: ${NHN_CINDER_ADDON_OPEN_BAO_URL:http://210.217.178.130:8200}
+    open-bao-token-file: ${NHN_CINDER_ADDON_OPEN_BAO_TOKEN_FILE:${user.dir}/.local-secrets/nhn-openbao-token}
   scheduling:
     enabled: false
   # Standalone local UI can run without Web Console/IAM context.

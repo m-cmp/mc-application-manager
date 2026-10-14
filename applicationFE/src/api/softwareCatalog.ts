@@ -325,3 +325,10 @@ export const getNhnStorageCapability = (params: { namespace: string, clusterName
   request.get('/applications/k8s/storage-classes/nhn-capability', { params })
 export const createNhnStorageClass = (params: { namespace: string, clusterName: string }, body: { name: string, diskType: string }) =>
   request.post('/applications/k8s/storage-classes/nhn', body, { params })
+
+export const getNhnCinderAddon = (params: { namespace: string, clusterName: string }) =>
+  request.get('/applications/k8s/nhn-cinder-addon', { params })
+export const startNhnCinderAddon = (params: { namespace: string, clusterName: string }) =>
+  request.post('/applications/k8s/nhn-cinder-addon', null, { params })
+export const getNhnCinderAddonJob = (params: { namespace: string, clusterName: string }, id: string) =>
+  request.get('/applications/k8s/nhn-cinder-addon/jobs/' + encodeURIComponent(id), { params })

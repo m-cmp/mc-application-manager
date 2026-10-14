@@ -29,21 +29,28 @@ public class NhnStorageClassService {
         } catch (RuntimeException e) { throw StorageOperationException.translate(e); }
     }
     static Capability inspect(KubernetesClient client) {
-        if (client.storage().v1().csiDrivers().withName(DRIVER).get() == null)
-            return new Capability(true, false, false,
-                    "cinder-csi-plugin is not registered. Install the managed add-on in NHN NKS, then refresh StorageClasses.");
-        var csiNodes = client.storage().v1().csiNodes().list().getItems();
-        boolean registered = !csiNodes.isEmpty() && csiNodes.stream()
-                .allMatch(n -> n.getSpec() != null && n.getSpec().getDrivers() != null &&
-                        n.getSpec().getDrivers().stream().anyMatch(d -> DRIVER.equals(d.getName())));
-        if (!registered) return new Capability(true, false, false,
-                "The Cinder CSI driver is still registering on worker nodes. Refresh after the add-on is ready.");
+        String issue = driverIssue(client);
+        if (issue != null) return new Capability(true, false, false, issue);
         var review = client.authorization().v1().selfSubjectAccessReview().create(new SelfSubjectAccessReviewBuilder()
                 .withNewSpec().withNewResourceAttributes().withGroup("storage.k8s.io")
                 .withResource("storageclasses").withVerb("create").endResourceAttributes().endSpec().build());
         boolean allowed = review.getStatus() != null && Boolean.TRUE.equals(review.getStatus().getAllowed());
-        return new Capability(true, true, allowed, allowed ? "Cinder CSI is ready. Create an NHN notebook StorageClass (ReadWriteOnce)." :
+        return new Capability(true, true, allowed, allowed ? "Cinder CSI is ready. Create an NHN application StorageClass (ReadWriteOnce)." :
                 "AM needs cluster-level permission to create storageclasses.storage.k8s.io.");
+    }
+    // Existing StorageClass users need driver readiness, not permission to create cluster-wide classes.
+    static void requireDriverReady(KubernetesClient client) {
+        String issue = driverIssue(client);
+        if (issue != null) throw new StorageOperationException(400, "STORAGE_CLASS_SETUP_REQUIRED", issue);
+    }
+    private static String driverIssue(KubernetesClient client) {
+        if (client.storage().v1().csiDrivers().withName(DRIVER).get() == null)
+            return "cinder-csi-plugin is not registered. Install the managed add-on in NHN NKS, then refresh StorageClasses.";
+        var csiNodes = client.storage().v1().csiNodes().list().getItems();
+        boolean registered = !csiNodes.isEmpty() && csiNodes.stream()
+                .allMatch(n -> n.getSpec() != null && n.getSpec().getDrivers() != null &&
+                        n.getSpec().getDrivers().stream().anyMatch(d -> DRIVER.equals(d.getName())));
+        return registered ? null : "The Cinder CSI driver is still registering on worker nodes. Refresh after the add-on is ready.";
     }
     public K8sStorageClassDTO create(String namespace, String clusterName, CreateRequest request) {
         if (request == null || request.name() == null || request.name().length() > 63 ||
@@ -57,7 +64,7 @@ public class NhnStorageClassService {
             // Create only: never replace existing classes or change the cluster default.
             var sc = client.storage().v1().storageClasses().resource(new StorageClassBuilder()
                     .withNewMetadata().withName(request.name()).endMetadata()
-                    .withProvisioner(DRIVER).withParameters(Map.of("type", request.diskType()))
+                    .withProvisioner(DRIVER).withParameters(Map.of("type", request.diskType(), "csi.storage.k8s.io/fstype", "ext4"))
                     .withVolumeBindingMode("WaitForFirstConsumer").withReclaimPolicy("Retain").build()).create();
             return KubernetesStorageClassService.toDto(sc);
         } catch (RuntimeException e) { throw StorageOperationException.translate(e); }

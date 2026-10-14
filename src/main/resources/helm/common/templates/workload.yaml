@@ -28,6 +28,26 @@ spec:
         fsGroup: {{ .Values.uid }}
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile: {type: RuntimeDefault}
+      {{- if and .Values.persistence.enabled .Values.volumePermissions.enabled }}
+      initContainers:
+        - name: prepare-data-volume
+          image: {{ .Values.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-ec"]
+          # No recursive chown: preserve existing files; prepare only this PVC's mount root.
+          args: [{{ printf "chown %d:%d /mnt/data && chmod 2770 /mnt/data" (int .Values.uid) (int .Values.uid) | quote }}]
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"], add: ["CHOWN", "FOWNER", "DAC_OVERRIDE"]}
+            seccompProfile: {type: RuntimeDefault}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+          volumeMounts: [{name: data, mountPath: /mnt/data}]
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: {{ .Values.image | quote }}

@@ -162,3 +162,5 @@ bin/
 src/main/resources/static/images/*.jpg
 src/main/resources/static/images/*.png
 src/main/resources/static/images/*.gif
+# Local server-side authentication files
+/.local-secrets/

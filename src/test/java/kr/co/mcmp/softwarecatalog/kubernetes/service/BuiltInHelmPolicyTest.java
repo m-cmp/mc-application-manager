@@ -3,6 +3,8 @@ package kr.co.mcmp.softwarecatalog.kubernetes.service;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import io.fabric8.kubernetes.api.model.storage.StorageClassBuilder;
+import io.fabric8.kubernetes.api.model.storage.CSIDriverBuilder;
+import io.fabric8.kubernetes.api.model.storage.CSINodeBuilder;
 import io.fabric8.kubernetes.client.server.mock.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import kr.co.mcmp.softwarecatalog.application.dto.*;
@@ -11,6 +13,30 @@ import static org.assertj.core.api.Assertions.*;
 @EnableKubernetesMockClient(crud = true)
 class BuiltInHelmPolicyTest {
     KubernetesClient client;
+    @Test void cinderRequiresReadyDriverAndEnablesOnlyBoundedInitializationForDataApps() {
+        client.storage().v1().storageClasses().resource(new StorageClassBuilder().withNewMetadata().withName("cinder").endMetadata()
+                .withProvisioner(NhnStorageClassService.DRIVER).build()).create();
+        var req = DeploymentRequest.builder().additionalConfig(Map.of("storageClass", "cinder", "storageSize", "10Gi")).build();
+        var chart = BuiltInHelmChartsTest.chart("redis");
+        assertThatThrownBy(() -> BuiltInHelmPolicy.validateStorage(chart, client, req)).hasMessageContaining("cinder-csi-plugin");
+        client.storage().v1().csiDrivers().resource(new CSIDriverBuilder().withNewMetadata()
+                .withName(NhnStorageClassService.DRIVER).endMetadata().build()).create();
+        assertThatThrownBy(() -> BuiltInHelmPolicy.validateStorage(chart, client, req)).hasMessageContaining("registering");
+        client.storage().v1().csiNodes().resource(new CSINodeBuilder().withNewMetadata().withName("worker").endMetadata()
+                .withNewSpec().addNewDriver().withName(NhnStorageClassService.DRIVER).withNodeID("worker").endDriver().endSpec().build()).create();
+        for (String app : List.of("redis", "mariadb", "postgresql", "apache", "tomcat")) {
+            var appChart = BuiltInHelmChartsTest.chart(app);
+            boolean cinder = BuiltInHelmPolicy.validateStorage(appChart, client, req);
+            var cli = new HashMap<String, String>(); var yaml = new HashMap<String, Object>();
+            BuiltInHelmPolicy.configure(appChart, req, cli, yaml, cinder);
+            if (List.of("redis", "mariadb", "postgresql").contains(app)) {
+                assertThat(cinder).isTrue();
+                assertThat(cli).containsEntry("volumePermissions.enabled", "true");
+            } else {
+                assertThat(cinder).isFalse(); assertThat(cli).doesNotContainKey("volumePermissions.enabled");
+            }
+        }
+    }
     @Test void persistentAppsRejectHttpIngressHpaAndMultipleReplicas() {
         for (String app : List.of("redis", "mariadb", "postgresql")) {
             var chart = BuiltInHelmChartsTest.chart(app);

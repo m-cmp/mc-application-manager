@@ -28,6 +28,24 @@ assert.deepEqual(validVm.target, {
   clusterId: ''
 })
 
+const validNewNode = parseInstallTarget(
+  '?targetType=NODE&infraId=mci-01&nodeId=vm-01&requestId=req-01',
+  generatedId
+)
+assert.deepEqual(validNewNode, validVm)
+
+const validMixedNames = parseInstallTarget(
+  '?targetType=NODE&mciId=mci-01&nodeId=vm-01&requestId=req-01',
+  generatedId
+)
+assert.deepEqual(validMixedNames, validVm)
+
+const validBothNames = parseInstallTarget(
+  '?targetType=VM&mciId=mci-01&infraId=%20mci-01%20&vmId=vm-01&nodeId=vm-01&requestId=req-01',
+  generatedId
+)
+assert.deepEqual(validBothNames, validVm)
+
 const validVmWithNodeGroup = parseInstallTarget(
   '?targetType=VM&mciId=mci-01&nodeGroupId=group-01&vmId=vm-01',
   generatedId
@@ -44,24 +62,41 @@ assert.equal(validNodeGroup.ok, true)
 assert.equal(validNodeGroup.target.nodeGroupId, 'group-01')
 assert.equal(validNodeGroup.target.vmId, '')
 
+const validNewNodeGroup = parseInstallTarget(
+  '?targetType=NODE&infraId=mci-01&nodeGroupId=group-01',
+  generatedId
+)
+assert.deepEqual(validNewNodeGroup, validNodeGroup)
+
 const validK8s = parseInstallTarget('?targetType=k8s&clusterId=cluster-01', generatedId)
 assert.equal(validK8s.ok, true)
 assert.equal(validK8s.target.targetType, 'K8S')
 assert.equal(validK8s.target.requestId, 'generated-request-id')
 
 const invalidCases = [
-  ['', 'targetType must be VM or K8S.'],
-  ['?targetType=VM&mciId=mci-01', 'vmId or nodeGroupId is required.'],
+  ['', 'targetType must be VM, NODE or K8S.'],
+  ['?targetType=VM&mciId=mci-01', 'vmId, nodeId or nodeGroupId is required.'],
   ['?targetType=VM&mciId=mci-01&vmId=vm-01&clusterId=cluster-01', 'clusterId cannot be used'],
+  ['?targetType=NODE&infraId=mci-01', 'vmId, nodeId or nodeGroupId is required.'],
+  ['?targetType=NODE&nodeId=vm-01', 'mciId or infraId is required.'],
+  ['?targetType=NODE&infraId=mci-01&nodeId=vm-01&clusterId=cluster-01', 'clusterId cannot be used'],
+  ['?targetType=VM&mciId=mci-01&infraId=other&vmId=vm-01', 'mciId and infraId must have the same value'],
+  ['?targetType=NODE&infraId=mci-01&vmId=vm-01&nodeId=other', 'vmId and nodeId must have the same value'],
+  ['?targetType=VM&mciId=mci-01&infraId=&vmId=vm-01', 'mciId and infraId must have the same value'],
   ['?targetType=K8S', 'clusterId is required.'],
-  ['?targetType=K8S&clusterId=cluster-01&mciId=mci-01', 'mciId and vmId cannot be used'],
+  ['?targetType=K8S&clusterId=cluster-01&mciId=mci-01', 'mciId/infraId and vmId/nodeId cannot be used'],
+  ['?targetType=K8S&clusterId=cluster-01&infraId=mci-01', 'mciId/infraId and vmId/nodeId cannot be used'],
+  ['?targetType=K8S&clusterId=cluster-01&nodeId=vm-01', 'mciId/infraId and vmId/nodeId cannot be used'],
   ['?targetType=K8S&clusterId=bad/path', 'unsupported path characters'],
   ['?targetType=VM&mciId=mci-01&mciId=mci-02&vmId=vm-01', 'must be provided only once'],
+  ['?targetType=NODE&infraId=mci-01&infraId=mci-02&nodeId=vm-01', 'must be provided only once'],
+  ['?targetType=NODE&infraId=mci-01&nodeId=vm-01&nodeId=vm-02', 'must be provided only once'],
   ['?targetType=VM&mciId=mci-01&vmId=vm-01&requestId=one&requestId=two', 'must be provided only once'],
   ['?targetType=VM&mciId=mci-01&vmId=vm-01&namespaceId=other', 'must not be supplied in the URL'],
   ['?targetType=K8S&clusterId=cluster-01&nodeGroupId=group-01', 'nodeGroupId cannot be used with a K8S target'],
   ['?targetType=VM&mciId=mci-01&nodeGroupId=group-01&nodeGroupId=group-02', 'must be provided only once'],
   ['?targetType=VM&mciId=mci-01&nodeGroupId=bad/path', 'unsupported path characters'],
+  ['?targetType=NODE&infraId=bad/path&nodeId=vm-01', 'unsupported path characters'],
   ['?targetType=K8S&clusterId=cluster-01&accessToken=secret', 'Unsupported query parameter'],
   [`?targetType=K8S&clusterId=${'x'.repeat(201)}`, '200 characters or fewer']
 ]
@@ -121,4 +156,4 @@ assert.match(form, /vmTargetMode\.value = 'NODE_GROUP'/)
 assert.match(form, /vmNodeGroupId: isNodeGroupDeployment/)
 assert.match(form, /isTargetLocked\.value && props\.targetNodeGroupId/)
 
-console.log(`Install target integration passed: ${invalidCases.length + 4} parser cases, 7 VM resolution cases, iframe-to-deploy wiring.`)
+console.log(`Install target integration passed: ${invalidCases.length + 8} parser cases, 7 VM resolution cases, iframe-to-deploy wiring.`)

@@ -29,11 +29,21 @@ AM URL:
 {AM_BASE_URL}/web/softwareCatalog/install?targetType=VM&mciId={MCI_ID}&vmId={VM_ID}&requestId={REQUEST_ID}
 ```
 
+Console의 새 명칭을 그대로 사용하는 호출도 지원합니다.
+
+```text
+{AM_BASE_URL}/web/softwareCatalog/install?targetType=NODE&infraId={INFRA_ID}&nodeId={NODE_ID}&requestId={REQUEST_ID}
+```
+
+`targetType=VM`과 `targetType=NODE`는 모두 VM 배포를 의미합니다. `mciId`/`infraId`, `vmId`/`nodeId`도 각각 동일한 대상을 가리킵니다. 한 가지 형식만 보내면 되며, 두 명칭을 함께 보내면서 값이 다르면 AM이 요청을 거부합니다.
+
 NodeGroup 전체에 각각 독립 설치할 때:
 
 ```text
 {AM_BASE_URL}/web/softwareCatalog/install?targetType=VM&mciId={MCI_ID}&nodeGroupId={NODE_GROUP_ID}&requestId={REQUEST_ID}
 ```
+
+새 명칭으로는 `targetType=NODE&infraId={INFRA_ID}&nodeGroupId={NODE_GROUP_ID}`를 보낼 수 있습니다. 배포 시점에 Running인 그룹 VM만 설치되며 나중에 시작한 VM에는 자동 설치되지 않습니다.
 
 VM과 NodeGroup을 모두 알고 있으면 두 값을 함께 전달할 수 있습니다. 이 경우에는 VM 한 대가 배포 대상이며, AM이 해당 VM의 NodeGroup 소속을 검증합니다.
 

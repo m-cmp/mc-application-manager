@@ -23,10 +23,22 @@ class BuiltInHelmRenderTest {
                 Map<String, Object> deploy = ofKind(docs, "Deployment");
                 Map<String, Object> pod = map(map(map(deploy.get("spec")).get("template")).get("spec"));
                 assertThat(map(pod.get("securityContext"))).containsEntry("runAsNonRoot", true);
+                assertThat(pod).doesNotContainKey("initContainers");
                 var container = map(((List<?>)pod.get("containers")).get(0));
                 assertThat(container).containsKeys("readinessProbe", "livenessProbe");
                 assertThat(map(ofKind(docs, "Service").get("spec"))).containsEntry("type", "ClusterIP");
                 if (app.persistent()) {
+                    String cinder = run(true, "template", "cinder", path.toString(), "--set", "volumePermissions.enabled=true");
+                    List<Map<String, Object>> cinderDocs = new ArrayList<>();
+                    for (Object obj : new Yaml().loadAll(cinder)) if (obj instanceof Map) cinderDocs.add((Map<String, Object>)obj);
+                    var cinderPod = map(map(map(ofKind(cinderDocs, "Deployment").get("spec")).get("template")).get("spec"));
+                    var init = map(((List<?>)cinderPod.get("initContainers")).get(0));
+                    assertThat(init.get("image")).isEqualTo(container.get("image"));
+                    assertThat(map(init.get("securityContext"))).containsEntry("runAsUser", 0).containsEntry("runAsNonRoot", false)
+                            .containsEntry("allowPrivilegeEscalation", false);
+                    int uid = app.chart().equals("postgresql") ? 70 : 999;
+                    assertThat(init.get("args")).isEqualTo(List.of("chown " + uid + ":" + uid + " /mnt/data && chmod 2770 /mnt/data"));
+                    assertThat(map(cinderPod.get("securityContext"))).containsEntry("runAsNonRoot", true);
                     assertThat(ofKind(docs, "PersistentVolumeClaim")).isNotNull();
                     assertThat(map(ofKind(docs, "Secret").get("data"))).containsKeys("password", "root-password");
                     run(false, "template", "bad", path.toString(), "--set", "replicaCount=2");

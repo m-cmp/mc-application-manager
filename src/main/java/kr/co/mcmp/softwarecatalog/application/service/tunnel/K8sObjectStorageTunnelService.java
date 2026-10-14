@@ -33,11 +33,11 @@ public class K8sObjectStorageTunnelService {
 
     public Secret credentials(String namespace, String name) { return runtime.credentials(namespace, name); }
 
-    public synchronized void register(Long id, String cluster, Deployment deployment, Secret secret) {
+    public synchronized void register(Long id, String projectNamespace, String cluster, Deployment deployment, Secret secret) {
         if (closed) throw new IllegalStateException("AM is shutting down");
         if (repository.existsById(id)) throw new IllegalStateException("Tunnel already registered for this deployment");
         var t = new K8sObjectStorageTunnel();
-        t.setDeploymentId(id); t.setNamespace(deployment.getMetadata().getNamespace()); t.setClusterName(cluster);
+        t.setDeploymentId(id); t.setNamespace(projectNamespace); t.setClusterName(cluster);
         t.setReleaseName(deployment.getMetadata().getName()); t.setWorkloadUid(deployment.getMetadata().getUid());
         t.setSecretUid(secret.getMetadata().getUid()); t.setLeaseOwner(owner);
         t.setLeaseUntil(Instant.now().plusSeconds(LEASE_SECONDS)); t.setUpdatedAt(Instant.now());

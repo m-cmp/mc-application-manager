@@ -66,5 +66,30 @@ Do not use broad namespace or label deletion against shared/archiving workloads.
   proof of a successful CSP deployment: check readiness, native protocol access,
   authentication rejection, restart persistence, and exact-resource cleanup.
 
-Chart template/image changes require a new chart version and a deliberate migration
-policy; do not silently overwrite user-customized mappings or running releases.
+This compatibility fix intentionally keeps the bundled chart version at `0.1.0`.
+The running AM image supplies the chart templates; record its image digest/source
+commit to distinguish installations made before and after the fix. Startup does
+not rewrite these five mappings' existing chart versions or running releases.
+Future version changes need an explicit migration and rollback policy; never
+overwrite custom mappings.
+
+## NHN Cinder compatibility (chart version remains 0.1.0)
+
+The persistent Redis, MariaDB and PostgreSQL charts check that the selected Cinder
+CSI driver is registered before installation. Missing CSI is a cluster prerequisite:
+AM reports the managed `cinder-csi-plugin` setup requirement, but does not install
+the shared add-on or change the default StorageClass automatically. The existing
+NHN StorageClass creation action now explicitly sets `ext4`, with `Retain` and
+`WaitForFirstConsumer`; pre-existing classes are never modified.
+
+For a selected Cinder class, AM enables a short-lived init container using the same
+digest-pinned application image. It changes ownership and mode only on the PVC
+mount root, not recursively on existing data. The application remains non-root.
+Other drivers and the stateless HTTP apps do not get this initializer. A cluster
+enforcing restricted Pod Security may reject the root init container; AM does not
+weaken namespace admission policy to bypass that restriction.
+
+Reinstalling through an AM image containing this fix uses the updated templates
+without a catalog-version migration. Reinstalling through an old AM image does not
+include the fix. Existing running Helm releases, VM configurations and custom
+chart mappings remain unchanged until an explicit deployment action.

@@ -83,4 +83,20 @@ class NhnStorageClassServiceTest {
         assertThat(result.canCreate()).isFalse();
         verifyNoInteractions(clients);
     }
+    @Test void createsExt4RetainedNonDefaultClassWithoutMutatingExistingClasses() {
+        var clients = mock(KubernetesClientFactory.class);
+        when(clients.getClient("test", "cluster")).thenReturn(client);
+        var service = spy(new NhnStorageClassService(clients, mock(CbtumblebugRestApi.class)));
+        doReturn(new NhnStorageClassService.Capability(true, true, true, "ready"))
+                .when(service).capability("test", "cluster");
+        service.create("test", "cluster", new NhnStorageClassService.CreateRequest("am-test", "General HDD"));
+        // Service closes its client. A fresh mock-server client inspects the persisted resource.
+        try (var check = new io.fabric8.kubernetes.client.KubernetesClientBuilder().withConfig(client.getConfiguration()).build()) {
+            var sc = check.storage().v1().storageClasses().withName("am-test").get();
+            assertThat(sc.getParameters()).containsEntry("csi.storage.k8s.io/fstype", "ext4").containsEntry("type", "General HDD");
+            assertThat(sc.getReclaimPolicy()).isEqualTo("Retain");
+            assertThat(sc.getVolumeBindingMode()).isEqualTo("WaitForFirstConsumer");
+            assertThat(sc.getMetadata().getAnnotations()).doesNotContainKey("storageclass.kubernetes.io/is-default-class");
+        }
+    }
 }

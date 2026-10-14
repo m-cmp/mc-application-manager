@@ -12,3 +12,5 @@ container: {}
 dataPath: /data
 uid: 1001
 containerPort: 8080
+volumePermissions:
+  enabled: false
