@@ -16,19 +16,43 @@ import org.springframework.stereotype.Component;
 @Component
 public class IbmCloudIngressApi {
     private final HttpClient http;
+    private final IbmOpenBaoCredentials credentials;
     private final ObjectMapper json = new ObjectMapper();
     public IbmCloudIngressApi() { this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
             .followRedirects(HttpClient.Redirect.NEVER).build()); }
-    IbmCloudIngressApi(HttpClient http) { this.http = http; }
+    @org.springframework.beans.factory.annotation.Autowired
+    public IbmCloudIngressApi(IbmOpenBaoCredentials credentials) {
+        this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
+                .followRedirects(HttpClient.Redirect.NEVER).build(), credentials);
+    }
+    IbmCloudIngressApi(HttpClient http) { this(http, null); }
+    IbmCloudIngressApi(HttpClient http, IbmOpenBaoCredentials credentials) {
+        this.http = http;
+        this.credentials = credentials;
+    }
 
     record Session(String token, URI containers, URI vpc) {
         @Override public String toString() { return "IBM session (credentials withheld)"; }
     }
 
+    static final class RequestFailure extends IllegalArgumentException {
+        final int status;
+        RequestFailure(String method, int status, String code) {
+            super("IBM " + method + " request failed (HTTP " + status + ")"
+                    + (code.isBlank() ? "" : " [" + code + "]") + ". Check automation account permissions and IBM service status.");
+            this.status = status;
+        }
+        boolean definitelyRejected() { return Set.of(400,401,403,404,405,406,415,422).contains(status); }
+    }
+
     Session login(IbmIngressAutomationProperties.Profile profile) {
         if (profile.getRegion() == null || !profile.getRegion().matches("[a-z]{2}-[a-z]+"))
             throw new IllegalArgumentException("Configure the IBM region in the automation profile.");
-        String key = IbmIngressAutomationProperties.readOperatorFile(profile.getApiKeyFile(), "IBM API key").trim();
+        String key;
+        if (profile.getApiKeyFile() != null && !profile.getApiKeyFile().isBlank())
+            key = IbmIngressAutomationProperties.readOperatorFile(profile.getApiKeyFile(), "IBM API key").trim();
+        else if (credentials != null) key = credentials.read(profile);
+        else throw new IllegalArgumentException("Configure IBM OpenBao credentials or a server-side IBM API key file.");
         if (key.isEmpty()) throw new IllegalArgumentException("The IBM automation API key is empty.");
         var response = request("POST", URI.create("https://iam.cloud.ibm.com/identity/token"), null,
                 "grant_type=urn:ibm:params:oauth:grant-type:apikey&apikey=" + encode(key), "application/x-www-form-urlencoded");
@@ -50,6 +74,13 @@ public class IbmCloudIngressApi {
         requireId(id);
         if (!Set.of("public","private").contains(type)) throw new IllegalArgumentException("Invalid IBM LB type.");
         var result = get(session, session.containers.resolve("ingress/v2/load-balancer/configuration?cluster=" + encode(id) + "&type=" + type));
+        // IBM's current API omits the optional PROXY configuration on a new Traefik LB.
+        // Accept that schema only for the requested cluster and recognized backend.
+        if (!result.has("proxyProtocol") && id.equals(result.path("cluster").asText())
+                && "traefik".equals(result.path("backend").path(type).asText()) && result.isObject()) {
+            result = result.deepCopy();
+            ((com.fasterxml.jackson.databind.node.ObjectNode) result).putObject("proxyProtocol").put("enable", false);
+        }
         if (!result.path("proxyProtocol").path("enable").isBoolean())
             throw new IllegalArgumentException("IBM returned an unknown PROXY configuration. AM will not infer that it is disabled or change the LB.");
         return result;
@@ -61,7 +92,7 @@ public class IbmCloudIngressApi {
         cidrs.forEach(K8sIngressAccessService::validateCidr);
         try {
             String body = json.writeValueAsString(Map.of("cluster", id,
-                    "proxyProtocol", Map.of("enable", true, "cidr", cidrs, "headerTimeout", 5)));
+                    "proxyProtocol", Map.of("enable", true, "cidr", cidrs)));
             request("PATCH", session.containers.resolve("ingress/v2/load-balancer/configuration"), session.token, body, "application/json");
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) { throw new IllegalStateException("Cannot encode IBM LB configuration."); }
     }
@@ -112,8 +143,15 @@ public class IbmCloudIngressApi {
             if (token != null) builder.header("Authorization", "Bearer " + token);
             builder.header("Content-Type", contentType).method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body));
             var response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() < 200 || response.statusCode() >= 300)
-                throw new IllegalArgumentException("IBM " + method + " request failed (HTTP " + response.statusCode() + "). Check automation account permissions and IBM service status.");
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                String code = "";
+                try {
+                    var error = json.readTree(response.body());
+                    String value = error.path("code").asText(error.path("errors").path(0).path("code").asText());
+                    if (value.matches("[A-Za-z0-9_.-]{1,80}")) code = value;
+                } catch (Exception ignored) { }
+                throw new RequestFailure(method, response.statusCode(), code);
+            }
             return response.body().isBlank() ? json.createObjectNode() : json.readTree(response.body());
         } catch (IllegalArgumentException e) { throw e; }
         catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException("IBM request interrupted; check live configuration before retrying."); }

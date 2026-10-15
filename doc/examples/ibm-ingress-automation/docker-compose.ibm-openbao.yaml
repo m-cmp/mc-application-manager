@@ -1,0 +1,25 @@
+# Merge with the environment's AM/mc-admin-cli Compose file.
+# Use an AM image built from the source that includes IBM Traefik and OpenBao support.
+services:
+  mc-application-manager:
+    environment:
+      IBM_INGRESS_OPEN_BAO_URL: ${IBM_INGRESS_OPEN_BAO_URL:-http://mc-infra-manager-openbao:8200}
+      IBM_INGRESS_OPEN_BAO_TOKEN_FILE: /run/secrets/am-ibm-openbao-token
+      IBM_INGRESS_NAMESPACE: ${IBM_INGRESS_NAMESPACE:-default}
+      IBM_INGRESS_CONNECTION_NAME: ${IBM_INGRESS_CONNECTION_NAME:-ibm-jp-tok}
+      IBM_INGRESS_REGION: ${IBM_INGRESS_REGION:-jp-tok}
+      IBM_INGRESS_SECRET_PATH: ${IBM_INGRESS_SECRET_PATH:-secret/data/csp/ibm}
+      IBM_INGRESS_ALLOW_SHARED_LB_CHANGES: ${IBM_INGRESS_ALLOW_SHARED_LB_CHANGES:-true}
+    volumes:
+      - type: bind
+        source: ${IBM_INGRESS_OPEN_BAO_TOKEN_HOST_FILE:?Set the absolute scoped IBM OpenBao token file}
+        target: /run/secrets/am-ibm-openbao-token
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      ibm-openbao: {}
+networks:
+  ibm-openbao:
+    external: true
+    name: ${IBM_INGRESS_OPEN_BAO_NETWORK:?Set the existing OpenBao Docker network name}

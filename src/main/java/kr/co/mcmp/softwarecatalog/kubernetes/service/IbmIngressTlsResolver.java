@@ -113,8 +113,27 @@ final class IbmIngressTlsResolver {
     private static String defaultSecretReference(KubernetesClient client, String clazz) {
         try {
             var ingressClass = client.network().v1().ingressClasses().withName(clazz).get();
-            if (ingressClass == null || ingressClass.getSpec() == null || !("cloud.ibm.com/" + clazz).equals(ingressClass.getSpec().getController())) {
+            if (ingressClass == null || ingressClass.getSpec() == null || !IbmIngressSupport.controllerMatches(clazz, ingressClass.getSpec().getController())) {
                 throw new IllegalArgumentException("IBM managed Ingress class is unavailable.");
+            }
+            if (IbmIngressSupport.traefik(clazz)) {
+                var context = new io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext.Builder()
+                        .withGroup("traefik.io").withVersion("v1alpha1").withPlural("tlsstores").withKind("TLSStore").withNamespaced(true).build();
+                Set<String> references = new HashSet<>();
+                for (var store : client.genericKubernetesResources(context).inAnyNamespace().list().getItems()) {
+                    if (!"default".equals(store.getMetadata().getName())) continue;
+                    var spec = JSON.valueToTree(store.getAdditionalProperties().get("spec"));
+                    String secret = spec.path("defaultCertificate").path("secretName").asText();
+                    if (validSecretName(secret)) references.add(store.getMetadata().getNamespace() + "/" + secret);
+                }
+                // IBM also publishes its generated certificate through the default-server Ingress.
+                if (references.isEmpty()) {
+                    var server = client.network().v1().ingresses().inNamespace("kube-system").withName("alb-default-server").get();
+                    if (server != null && server.getSpec() != null && server.getSpec().getTls() != null)
+                        for (var tls : server.getSpec().getTls()) if (validSecretName(tls.getSecretName())) references.add("kube-system/" + tls.getSecretName());
+                }
+                if (references.size() != 1) throw new IllegalArgumentException("Cannot identify the IBM Traefik default TLS Secret. Register a certificate in " + BINDINGS_CONFIG_MAP + ".");
+                return references.iterator().next();
             }
             var deployments = client.apps().deployments().inNamespace("kube-system").withLabel("ingress-class", clazz).list().getItems();
             Set<String> references = new HashSet<>();

@@ -35,10 +35,11 @@ public class IbmIngressAutomationService {
     public List<String> check(KubernetesClient client, String ns, String name, String workload,
                               DeploymentConfigDTO config) {
         if (!config.isIngressEnabled() || !IbmIngressSupport.managed(config.getIngressClass())) return List.of();
+        config = IbmIngressSupport.resolveAvailable(client, config);
         Target target = target(ns, name);
-        if (!config.isTlsEnabled()) return kubernetesSetup.check(client, ns, target.cluster, config);
+        if (!config.isTlsEnabled() && !IbmIngressSupport.traefik(config.getIngressClass())) return kubernetesSetup.check(client, ns, target.cluster, config);
         var warnings = new ArrayList<String>();
-        certificatePlan(client, target.profile, workload, config, warnings);
+        if (config.isTlsEnabled()) certificatePlan(client, target.profile, workload, config, warnings);
         try { warnings.addAll(IbmIngressSupport.verify(client, https(config))); }
         catch (IbmIngressSupport.MissingProxyException missing) {
             requireProxyProfile(target.profile);
@@ -48,21 +49,36 @@ public class IbmIngressAutomationService {
             verifyRegion(cluster.path("region").asText(), target.profile);
             if (!proxyEnabled(client, session, target.cluster.getCspResourceId())) {
                 cloud.trustedSubnets(session, cluster, managedHostnames(client), true);
-                if (client.configMaps().inNamespace("kube-system").withName(INTENT).get() != null)
-                    throw new IllegalArgumentException("An earlier IBM PROXY update has an unresolved outcome. Ask an operator to inspect am-ibm-proxy-intent before retrying.");
+                rejectUnresolvedIntent(client, target.cluster.getCspResourceId());
                 warnings.add("Deploy will enable PROXY protocol on the selected cluster's shared IBM LBs. Existing applications may briefly lose connectivity while the LBs are replaced.");
             } else warnings.add("IBM PROXY protocol is configured; Deploy will wait for the managed LBs and controllers to become ready.");
         }
+        if (!config.isTlsEnabled()) warnings.addAll(kubernetesSetup.check(client, ns, target.cluster, config));
         return warnings;
     }
 
     public DeploymentConfigDTO prepare(KubernetesClient client, String ns, String name, String workload,
                                         DeploymentConfigDTO config, Consumer<String> progress) {
         if (!config.isIngressEnabled() || !IbmIngressSupport.managed(config.getIngressClass())) return config;
+        config = IbmIngressSupport.resolveAvailable(client, config);
         Target target = target(ns, name);
         if (!config.isTlsEnabled()) {
             var resolved = IbmIngressTlsResolver.resolve(client, workload, config);
             KubernetesIngressRouteValidator.assertAvailable(client, resolved);
+            if (IbmIngressSupport.traefik(resolved.getIngressClass())) {
+                try { IbmIngressSupport.verify(client, https(resolved)); }
+                catch (IbmIngressSupport.MissingProxyException missing) {
+                    check(client, ns, name, workload, resolved);
+                    ConfigMap proxyLock = acquire(client, target.cluster.getCspResourceId());
+                    try {
+                        // IBM's API updates Traefik's entrypoints; the NGINX controller ConfigMap does not.
+                        enableProxy(client, target, https(resolved), progress);
+                        kubernetesSetup.prepare(client, ns, target.cluster, resolved, progress);
+                        IbmIngressSupport.verify(client, resolved);
+                        return resolved;
+                    } finally { release(client, proxyLock); }
+                }
+            }
             var plan = kubernetesSetup.plan(client, ns, target.cluster, resolved);
             if (plan.ready()) return resolved;
             ConfigMap lock = acquire(client, target.cluster.getCspResourceId());
@@ -140,17 +156,60 @@ public class IbmIngressAutomationService {
             List<String> cidrs = cloud.trustedSubnets(session, cluster, managedHostnames(client), true);
             // A durable write-ahead marker prevents blind repetition after an HTTP timeout or AM restart.
             var maps = client.configMaps().inNamespace("kube-system");
-            if (maps.withName(INTENT).get() != null) throw new IllegalArgumentException("Previous PROXY update outcome is unresolved. Operator review is required before another LB update.");
-            maps.resource(new ConfigMapBuilder().withNewMetadata().withName(INTENT).withLabels(Map.of(IbmCertificateManager.OWNER,"true")).endMetadata()
-                    .withData(Map.of("clusterId",id,"requestedAt",Instant.now().toString(),"trustedCidrs",String.join(",",cidrs),"state","SUBMITTED")).build()).create();
+            rejectUnresolvedIntent(client, id);
+            var previous = maps.withName(INTENT).get();
+            var data = new LinkedHashMap<String,String>();
+            data.put("clusterId",id); data.put("requestedAt",Instant.now().toString());
+            data.put("trustedCidrs",String.join(",",cidrs)); data.put("state","SUBMITTED");
+            if (previous != null) {
+                data.put("previousRequestedAt",previous.getData().getOrDefault("requestedAt",""));
+                data.put("previousState",previous.getData().getOrDefault("state",""));
+                data.put("previousError",previous.getData().getOrDefault("error",""));
+            }
+            var intent = new ConfigMapBuilder().withNewMetadata().withName(INTENT).withLabels(Map.of(IbmCertificateManager.OWNER,"true")).endMetadata().withData(data).build();
+            if (previous == null) intent = maps.resource(intent).create();
+            else {
+                intent.getMetadata().setResourceVersion(previous.getMetadata().getResourceVersion());
+                intent = maps.resource(intent).lockResourceVersion(previous.getMetadata().getResourceVersion()).replace();
+            }
             progress.accept("Enabling PROXY protocol; IBM is replacing shared load balancers…");
-            cloud.enableProxy(session, id, cidrs);
+            try {
+                cloud.enableProxy(session, id, cidrs);
+            } catch (IbmCloudIngressApi.RequestFailure error) {
+                recordIntent(client, intent, error.definitelyRejected() ? "REJECTED" : "UNKNOWN", error.getMessage());
+                throw error;
+            } catch (RuntimeException error) {
+                recordIntent(client, intent, "UNKNOWN", "IBM request outcome could not be confirmed.");
+                throw error;
+            }
+            recordIntent(client, intent, "ACCEPTED", "");
         } else progress.accept("Waiting for IBM load balancer and controller readiness…");
         certificates.await(() -> {
             try { IbmIngressSupport.verify(client, config); return true; }
             catch (IllegalArgumentException e) { return false; }
         }, "IBM PROXY setup is not ready yet. No application was exposed. Inspect IBM Ingress status; retry will not repeat an accepted LB update.");
         // Keep the marker as an audit/replay guard. A later disable must be reviewed explicitly.
+    }
+
+    private void rejectUnresolvedIntent(KubernetesClient client, String id) {
+        var intent = client.configMaps().inNamespace("kube-system").withName(INTENT).get();
+        if (intent == null) return;
+        if (!IbmCertificateManager.owned(intent) || intent.getData() == null || !id.equals(intent.getData().get("clusterId")))
+            throw new IllegalArgumentException("IBM PROXY update record does not match this cluster. Operator review is required.");
+        if (!Set.of("REJECTED", "OPERATOR_REVIEWED_RETRY").contains(intent.getData().getOrDefault("state","")))
+            throw new IllegalArgumentException("An earlier IBM PROXY update has an unresolved outcome. Ask an operator to inspect am-ibm-proxy-intent before retrying.");
+    }
+
+    private void recordIntent(KubernetesClient client, ConfigMap submitted, String state, String error) {
+        var maps = client.configMaps().inNamespace("kube-system");
+        var current = maps.withName(INTENT).get();
+        if (current == null || !IbmCertificateManager.owned(current) || current.getData() == null
+                || !Objects.equals(current.getData().get("requestedAt"), submitted.getData().get("requestedAt")))
+            throw new IllegalArgumentException("IBM PROXY request record changed concurrently. Inspect the live configuration before retrying.");
+        var data = new LinkedHashMap<>(current.getData());
+        data.put("state",state); data.put("error",error); data.put("updatedAt",Instant.now().toString());
+        current.setData(data);
+        maps.resource(current).lockResourceVersion(current.getMetadata().getResourceVersion()).replace();
     }
 
     private ConfigMap acquire(KubernetesClient client, String clusterId) {
