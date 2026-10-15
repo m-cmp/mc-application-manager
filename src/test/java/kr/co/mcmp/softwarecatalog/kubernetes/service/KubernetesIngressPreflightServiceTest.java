@@ -149,8 +149,8 @@ class KubernetesIngressPreflightServiceTest {
         IbmIngressTlsResolverTest.configureDefault(ibm);
         var ibmRoutes = KubernetesIngressRouteValidatorTest.stubIngressList(ibm);
         when(clients.getClient("project-a","cluster-a")).thenReturn(ibm);
-        doAnswer(call -> { ((kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest)call.getArgument(0)).setIngressClass(IbmIngressSupport.PUBLIC_CLASS); return null; })
-                .when(ingressAccess).resolveTarget(any(),same(catalog));
+        doAnswer(call -> { ((kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest)call.getArgument(1)).setIngressClass(IbmIngressSupport.PUBLIC_CLASS); return null; })
+                .when(ingressAccess).resolveTarget(same(ibm),any(),same(catalog));
         when(ibmRoutes.list()).thenReturn(new IngressListBuilder().withItems(KubernetesIngressRouteValidatorTest.ingress(
                 "default","existing",IbmIngressSupport.PUBLIC_CLASS,IbmIngressTlsResolverTest.HOST,"/app")).build());
         var r = request(); r.setIngressHost(IbmIngressTlsResolverTest.HOST); r.setServicePortCidr("203.0.113.8/32");

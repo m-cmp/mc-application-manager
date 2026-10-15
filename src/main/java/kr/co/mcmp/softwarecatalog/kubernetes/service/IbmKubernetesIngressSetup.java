@@ -33,8 +33,11 @@ class IbmKubernetesIngressSetup {
             throw new IllegalArgumentException("Kubernetes Ingress preparation requires the selected IBM cluster.");
         IbmIngressSupport.verifyBase(client, config.getIngressClass());
         var services = new ArrayList<Service>();
-        services.addAll(IbmIngressSupport.managedServices(client, "public-"));
-        services.addAll(IbmIngressSupport.managedServices(client, "private-"));
+        if (IbmIngressSupport.traefik(config.getIngressClass())) services.addAll(IbmIngressSupport.servicesForClass(client, config.getIngressClass()));
+        else {
+            services.addAll(IbmIngressSupport.managedServices(client, "public-"));
+            services.addAll(IbmIngressSupport.managedServices(client, "private-"));
+        }
         var cm = client.configMaps().inNamespace("kube-system").withName(CONFIG).get();
         try {
             IbmIngressSupport.verify(client, config);
@@ -46,7 +49,7 @@ class IbmKubernetesIngressSetup {
         rejectUnresolved(client.configMaps().inNamespace("kube-system").withName(JOURNAL).get());
         // One controller ConfigMap affects every ALB. Never silently repair an operator's mixed configuration.
         boolean proxy = "true".equalsIgnoreCase(data(cm).get("use-proxy-protocol"));
-        if (services.stream().anyMatch(s -> hasProxy(s) != proxy))
+        if (!IbmIngressSupport.traefik(config.getIngressClass()) && services.stream().anyMatch(s -> hasProxy(s) != proxy))
             throw new IllegalArgumentException("IBM ALBs and controller have mixed PROXY settings. Operator review is required before shared configuration changes.");
         for (Service s : services) {
             String lbName = annotations(s).get("service.kubernetes.io/ibm-load-balancer-cloud-provider-vpc-lb-name");
@@ -55,10 +58,16 @@ class IbmKubernetesIngressSetup {
             if (s.getSpec().getPorts() == null || s.getSpec().getPorts().stream().anyMatch(p -> !Set.of(80,443).contains(p.getPort())))
                 throw new IllegalArgumentException("Automatic IBM preparation supports existing HTTP/HTTPS listeners only; custom listeners require operator review.");
             String prefix = s.getMetadata().getName().startsWith("public-") ? "public-" : "private-";
-            String clazz = prefix.equals("public-") ? IbmIngressSupport.PUBLIC_CLASS : IbmIngressSupport.PRIVATE_CLASS;
+            String legacyClass = prefix.equals("public-") ? IbmIngressSupport.PUBLIC_CLASS : IbmIngressSupport.PRIVATE_CLASS;
+            String clazz = IbmIngressSupport.resolveAvailable(client, config.toBuilder().ingressClass(legacyClass).build()).getIngressClass();
             IbmIngressSupport.verifyBase(client, clazz);
             var controllers = client.apps().deployments().inNamespace("kube-system").withLabel("ingress-class", clazz).list().getItems();
-            if (controllers.stream().anyMatch(d -> d.getSpec() == null || d.getSpec().getTemplate().getSpec().getContainers().stream()
+            if (IbmIngressSupport.traefik(clazz)) {
+                if (controllers.stream().anyMatch(d -> d.getSpec() == null || d.getSpec().getTemplate().getSpec().getContainers().stream()
+                        .noneMatch(c -> ":80/tcp".equals(IbmTraefikIngress.arguments(c).get("entrypoints.web.address"))
+                                && ":443/tcp".equals(IbmTraefikIngress.arguments(c).get("entrypoints.websecure.address")))))
+                    throw new IllegalArgumentException("IBM Traefik controllers must already listen on ports 80/443.");
+            } else if (controllers.stream().anyMatch(d -> d.getSpec() == null || d.getSpec().getTemplate().getSpec().getContainers().stream()
                     .noneMatch(c -> c.getArgs() != null && c.getArgs().contains("--configmap=kube-system/" + CONFIG)
                             && c.getArgs().contains("--http-port=80") && c.getArgs().contains("--https-port=443"))))
                 throw new IllegalArgumentException("IBM controllers must already listen on ports 80/443 and use the managed ConfigMap. AM will not replace controllers.");
@@ -105,9 +114,11 @@ class IbmKubernetesIngressSetup {
                 client.services().inNamespace("kube-system").resource(desired)
                         .lockResourceVersion(s.getMetadata().getResourceVersion()).replace();
             }
-            updated = desiredController(plan.controller, plan.cidrs);
-            if (plan.controller == null) maps.resource(updated).create();
-            else maps.resource(updated).lockResourceVersion(plan.controller.getMetadata().getResourceVersion()).replace();
+            if (!IbmIngressSupport.traefik(config.getIngressClass())) {
+                updated = desiredController(plan.controller, plan.cidrs);
+                if (plan.controller == null) maps.resource(updated).create();
+                else maps.resource(updated).lockResourceVersion(plan.controller.getMetadata().getResourceVersion()).replace();
+            }
             awaitReady(client, config, plan.services, Instant.parse(backup.get("startedAt")));
             state(client, "READY");
             progress.accept("IBM HTTP entry and source-IP preservation are ready.");
@@ -125,7 +136,7 @@ class IbmKubernetesIngressSetup {
         var s = new ServiceBuilder(original).build();
         var annotations = new LinkedHashMap<>(annotations(s));
         annotations.put(IbmIngressSupport.PROXY_FEATURE, append(annotations.get(IbmIngressSupport.PROXY_FEATURE), "proxy-protocol"));
-        boolean selected = s.getMetadata().getName().startsWith(IbmIngressSupport.PUBLIC_CLASS.equals(config.getIngressClass()) ? "public-" : "private-");
+        boolean selected = s.getMetadata().getName().startsWith(IbmIngressSupport.prefix(config.getIngressClass()));
         if (selected && !config.isTlsEnabled() && s.getSpec().getPorts().stream().noneMatch(p -> Integer.valueOf(80).equals(p.getPort()))) {
             if (s.getSpec().getPorts().stream().anyMatch(p -> "http".equals(p.getName())))
                 throw new IllegalArgumentException("The existing http Service port has a nonstandard number.");
@@ -200,7 +211,7 @@ class IbmKubernetesIngressSetup {
                     synchronizedAddedListeners = true;
                     if (!requested.isEmpty()) { stable = 0; continue; }
                 }
-                boolean responding = IbmIngressSupport.managedServices(client, IbmIngressSupport.PUBLIC_CLASS.equals(config.getIngressClass()) ? "public-" : "private-")
+                boolean responding = IbmIngressSupport.managedServices(client, IbmIngressSupport.prefix(config.getIngressClass()))
                         .stream().allMatch(IbmKubernetesIngressSetup::httpResponding);
                 if (reconciled && responding) { if (++stable >= 3) return; } else stable = 0;
             } catch (RuntimeException ignored) { stable = 0; }

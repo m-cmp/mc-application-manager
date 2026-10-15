@@ -13,6 +13,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class IbmCloudIngressApiTest {
+    @Test void newTraefikBackendMayOmitTheOptionalProxyConfiguration() throws Exception {
+        doReturn(json.readTree("{\"cluster\":\"cluster-id\",\"backend\":{\"public\":\"traefik\"}}"))
+                .when(api).request(eq("GET"),any(),any(),isNull(),any());
+        assertThat(api.proxyConfig(session,"cluster-id","public").path("proxyProtocol").path("enable").asBoolean()).isFalse();
+        assertThatThrownBy(()->api.proxyConfig(session,"different-cluster","public")).hasMessageContaining("unknown PROXY");
+        verify(api,never()).request(eq("PATCH"),any(),any(),any(),any());
+    }
     final ObjectMapper json = new ObjectMapper();
     final IbmCloudIngressApi api = spy(new IbmCloudIngressApi());
     final IbmCloudIngressApi.Session session = new IbmCloudIngressApi.Session("test-token",URI.create("https://containers.cloud.ibm.com/global/"),URI.create("https://jp-osa.iaas.cloud.ibm.com"));
@@ -34,6 +41,7 @@ class IbmCloudIngressApiTest {
         verify(api).request(eq("PATCH"),eq(URI.create("https://containers.cloud.ibm.com/global/ingress/v2/load-balancer/configuration")),eq("test-token"),body.capture(),eq("application/json"));
         assertThat(json.readTree(body.getValue()).path("proxyProtocol").path("cidr").get(0).asText()).isEqualTo("10.2.0.0/24");
         assertThat(json.readTree(body.getValue()).path("proxyProtocol").path("enable").asBoolean()).isTrue();
+        assertThat(json.readTree(body.getValue()).path("proxyProtocol").has("headerTimeout")).isFalse();
     }
 
     void lbResponses(String vpc, int capacity, String cidr, String next) throws Exception {
@@ -67,7 +75,7 @@ class IbmCloudIngressApiTest {
         assertThatThrownBy(() -> api.trustedSubnets(session,json.readTree("{\"vpcs\":[\"vpc-1\"]}"),Set.of("a.lb.appdomain.cloud"),true)).hasMessageContaining("pagination");
         verify(api,never()).request(eq("GET"),eq(URI.create(next)),any(),any(),any());
     }
-    @ParameterizedTest @ValueSource(ints={301,401,403,429,500}) void httpFailuresDoNotExposeCredentialsOrUpstreamBody(int status) throws Exception {
+    @ParameterizedTest @ValueSource(ints={301,400,401,403,408,429,500}) void httpFailuresDoNotExposeCredentialsOrUpstreamBody(int status) throws Exception {
         HttpClient http=mock(HttpClient.class); HttpResponse<String> response=mock(HttpResponse.class);
         when(http.send(any(),any(HttpResponse.BodyHandler.class))).thenReturn(response);
         when(response.statusCode()).thenReturn(status); when(response.body()).thenReturn("private upstream key data");
@@ -75,6 +83,18 @@ class IbmCloudIngressApiTest {
         assertThatThrownBy(() -> real.request("PATCH",URI.create("https://containers.cloud.ibm.com/global/test"),"secret-token","secret-body","application/json"))
                 .hasMessageContaining("HTTP "+status).hasMessageNotContaining("private upstream")
                 .hasMessageNotContaining("secret-token").hasMessageNotContaining("secret-body");
+    }
+    @Test void structuredIbmRejectionRetainsSafeCodeAndStatusWithoutResponseDetails() throws Exception {
+        HttpClient http=mock(HttpClient.class);HttpResponse<String> response=mock(HttpResponse.class);
+        when(http.send(any(),any(HttpResponse.BodyHandler.class))).thenReturn(response);
+        when(response.statusCode()).thenReturn(400);
+        when(response.body()).thenReturn("{\"code\":\"EInvalidParameter\",\"description\":\"sensitive upstream detail\"}");
+        var real=new IbmCloudIngressApi(http);
+        assertThatThrownBy(()->real.request("PATCH",URI.create("https://containers.cloud.ibm.com/global/test"),"secret-token","secret-body","application/json"))
+                .isInstanceOfSatisfying(IbmCloudIngressApi.RequestFailure.class,error->{
+                    assertThat(error.status).isEqualTo(400);assertThat(error.definitelyRejected()).isTrue();
+                    assertThat(error.getMessage()).contains("EInvalidParameter").doesNotContain("sensitive upstream detail");
+                });
     }
     @ParameterizedTest @ValueSource(strings={"", "../another-cluster", "https://bad", "cluster?x=y", "cluster\nheader"})
     void invalidIdsNeverReachNetwork(String id) {

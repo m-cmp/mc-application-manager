@@ -54,8 +54,8 @@ public class IngressAddressService {
 
     List<Integer> resolvePorts(KubernetesClient client, String namespace, String provider, String ingressClass, boolean tls) {
         boolean ibm = IbmIngressSupport.isIbm(provider) || IbmIngressSupport.managed(ingressClass);
-        if (ibm && IbmIngressSupport.PRIVATE_CLASS.equals(ingressClass)) return List.of();
-        var services = ibm ? IbmIngressSupport.managedServices(client, "public-")
+        if (ibm && IbmIngressSupport.privateClass(ingressClass)) return List.of();
+        var services = ibm ? IbmIngressSupport.servicesForClass(client, ingressClass)
                 : client.services().inNamespace("default")
                     .withLabel("app.kubernetes.io/instance", "nginx-ingress-" + namespace)
                     .withLabel("app.kubernetes.io/component", "controller").list().getItems();
@@ -80,8 +80,8 @@ public class IngressAddressService {
         var addresses = new TreeSet<String>();
         if (IbmIngressSupport.isIbm(provider) || IbmIngressSupport.managed(ingressClass)) {
             // Private IBM ingress has no public entry point.
-            if (IbmIngressSupport.PRIVATE_CLASS.equals(ingressClass)) return List.of();
-            for (var service : IbmIngressSupport.managedServices(client, "public-")) {
+            if (IbmIngressSupport.privateClass(ingressClass)) return List.of();
+            for (var service : IbmIngressSupport.servicesForClass(client, ingressClass)) {
                 if (service.getStatus() != null && service.getStatus().getLoadBalancer() != null
                         && service.getStatus().getLoadBalancer().getIngress() != null) {
                     for (var entry : service.getStatus().getLoadBalancer().getIngress()) {

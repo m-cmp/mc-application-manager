@@ -176,7 +176,7 @@ assert.match(between('const runInstall =', 'const buildIngressPayload ='), /spec
 for (const provider of ['ibm', 'IBM', 'ibm-jp-osa', 'ibmcloud', 'ibm-vpc', 'aws', 'tencent']) {
   await test(`provider ${provider} selects its effective Ingress class`, async () => {
     const h = harness({ provider }); await h.specCheck()
-    assert.equal(h.calls[0][1].ingressClass, provider.toLowerCase().startsWith('ibm') ? 'public-iks-k8s-nginx' : 'nginx')
+    assert.equal(h.calls[0][1].ingressClass, 'nginx')
     assert.equal(h.ingressData.value.ingressClass, 'nginx', 'catalog defaults remain unchanged')
     if (provider.toLowerCase().startsWith('ibm')) {
       h.ingressData.value.ingressTlsEnabled = false
@@ -191,7 +191,7 @@ const statusSource = await readFile(new URL('../src/views/softwareCatalog/compon
 const endpointSource = statusSource.slice(statusSource.indexOf('const getEndpoint ='), statusSource.indexOf('const displayValue ='))
 const getEndpoint = new Function(ts.transpileModule(endpointSource + '\nreturn getEndpoint', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText)()
 await test('IBM endpoint uses Ingress Host and scheme, not the worker IP or backend port', async () => {
-  for (const ingressClass of ['public-iks-k8s-nginx', 'private-iks-k8s-nginx']) {
+  for (const ingressClass of ['public-iks-k8s-nginx', 'private-iks-k8s-nginx', 'public-iks-traefik', 'private-iks-traefik']) {
     for (const ingressTlsEnabled of [false, true]) {
       assert.equal(getEndpoint({ ingressEnabled: true, ingressClass, ingressTlsEnabled, ingressHost: 'app.example.com', ingressPath: '/test' },
         { publicIp: '10.150.0.8', servicePort: 3000 }), `${ingressTlsEnabled ? 'https' : 'http'}://app.example.com/test`)

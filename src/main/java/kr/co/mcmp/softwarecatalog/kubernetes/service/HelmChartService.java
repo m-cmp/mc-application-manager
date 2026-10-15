@@ -83,7 +83,7 @@ public class HelmChartService {
         try {
             // 1. 클러스터 정보 조회
             K8sClusterDto clusterDto = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
-            config = IbmIngressSupport.resolve(clusterDto, config);
+            config = IbmIngressSupport.resolveAvailable(client, IbmIngressSupport.resolve(clusterDto, config));
             config = IbmIngressTlsResolver.resolve(client, KubernetesNamespaces.APPLICATION_WORKLOAD, config);
             String kubeconfigYaml = kubeconfigResolver.getKubeconfigYaml(namespace, clusterName);
 
@@ -289,6 +289,8 @@ public class HelmChartService {
         Path tempKubeconfigPath = null;
         Path tempValuesPath = null;
         Path tempChartPath = null;
+        io.fabric8.kubernetes.api.model.GenericKubernetesResource traefikPolicy = null;
+        boolean installed = false;
 
         try {
             // 1. 클러스터 정보 조회
@@ -296,7 +298,7 @@ public class HelmChartService {
             if (clusterDto == null) {
                 throw new RuntimeException("K8s cluster not found: " + clusterName);
             }
-            config = IbmIngressSupport.resolve(clusterDto, config);
+            config = IbmIngressSupport.resolveAvailable(client, IbmIngressSupport.resolve(clusterDto, config));
             config = IbmIngressTlsResolver.resolve(client, KubernetesNamespaces.APPLICATION_WORKLOAD, config);
             IbmIngressTlsResolver.apply(request, config);
             if (config.isIngressEnabled() && IbmIngressSupport.managed(config.getIngressClass())) {
@@ -386,6 +388,7 @@ public class HelmChartService {
             }
 
             // Helm CLI로 설치 실행
+            traefikPolicy = IbmTraefikIngress.create(client, config, ingressCidr);
             runHelmInstallCli(
                     releaseName,
                     chartRef,
@@ -397,6 +400,13 @@ public class HelmChartService {
                     ingressCidr,
                     config.getIngressHost(), config.getIngressClass());
             
+            try { IbmTraefikIngress.bind(client, traefikPolicy, releaseName); }
+            catch (RuntimeException e) {
+                try { uninstallRelease(namespace, clusterName, releaseName); }
+                catch (RuntimeException cleanup) { e.addSuppressed(cleanup); }
+                throw e;
+            }
+            installed = true;
             // 간단한 Release 스텁 반환 - null 반환으로 변경
             Release result = null;
 
@@ -414,6 +424,10 @@ public class HelmChartService {
             throw new RuntimeException("Helm Chart 배포 실패", e);
         } finally {
             // 8. 임시 kubeconfig 파일 삭제
+            if (!installed && traefikPolicy != null) {
+                client.genericKubernetesResources(IbmTraefikIngress.CONTEXT).inNamespace(KubernetesNamespaces.APPLICATION_WORKLOAD)
+                        .withName(traefikPolicy.getMetadata().getName()).delete();
+            }
             if (tempChartPath != null) {
                 try { Files.deleteIfExists(tempChartPath); }
                 catch (IOException e) { log.warn("Failed to delete temporary built-in chart: {}", e.getMessage()); }

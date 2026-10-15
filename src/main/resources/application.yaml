@@ -4,6 +4,19 @@ config:
   config-string: application,manager,m-cmp
 
 app:
+  ibm-ingress:
+    automation:
+      # true: IBM Ingress 준비 시 AM이 필요한 PROXY protocol을 공식 IBM API로 자동 활성화.
+      # 공유 LB가 재구성되므로 기존 연결이 잠시 끊길 수 있음. 실제 변경은 배포/준비 요청 시에만 실행.
+      # IBM 키는 OpenBao에서 읽어 메모리에서만 사용. IBM 경로 읽기 전용 토큰을 파일로 마운트해야 함.
+      open-bao-url: ${IBM_INGRESS_OPEN_BAO_URL:http://mc-infra-manager-openbao:8200}
+      open-bao-token-file: ${IBM_INGRESS_OPEN_BAO_TOKEN_FILE:/run/secrets/am-ibm-openbao-token}
+      profiles:
+        - namespace: ${IBM_INGRESS_NAMESPACE:default}
+          connection-name: ${IBM_INGRESS_CONNECTION_NAME:ibm-jp-tok}
+          region: ${IBM_INGRESS_REGION:jp-tok}
+          allow-shared-lb-changes: ${IBM_INGRESS_ALLOW_SHARED_LB_CHANGES:true}
+          secret-path: ${IBM_INGRESS_SECRET_PATH:secret/data/csp/ibm}
   nhn-cinder-addon:
     # true: NHN Cinder CSI addon 설치 기능 활성화, false: 설치 기능 비활성화 (다른 CSP에는 적용하지 않음).
     # 환경변수 NHN_CINDER_ADDON_ENABLED로 재정의 가능. 변경 후 AM 재시작 필요.

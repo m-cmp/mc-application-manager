@@ -1,12 +1,46 @@
 # IBM Ingress 및 자체 도메인 인증서 자동 준비
 
-> 현재 HTTP 경로는 문서 하단 **2026-09-11: hosts 파일 기반 HTTP 배포**를 따릅니다. 아래 IBM API 키/프로필 및 인증서 준비 항목은 기존 HTTPS 자동화 경로에만 해당하며, HTTP 배포에는 필요하지 않습니다.
+> 2026-10-15: IBM 관리형 NGINX와 Traefik을 모두 지원합니다. Traefik은 HTTP 배포도 IBM 공식 API를 통한 PROXY protocol 준비가 필요합니다. 아래 OpenBao 연결을 구성하면 AM이 Deploy 준비 단계에서 자동 활성화합니다. 문서 하단의 2026-09-11 검증 기록은 당시 NGINX 환경의 기록입니다.
+
+## OpenBao를 사용하는 HTTP 자동 준비 (환경 공통)
+
+공통 `application.yaml`의 `app.ibm-ingress.automation`을 사용합니다. AM은 선택한 클러스터의 실제 ID와 connectionName을 Tumblebug에서 조회하며 특정 서버나 클러스터 ID를 사용하지 않습니다. 일치하는 Project/connection 프로필의 `allow-shared-lb-changes=true`이면 필요한 PROXY protocol을 자동 활성화하고 실제 Controller/Service 준비 후 앱을 배포합니다. 이미 준비된 클러스터에는 같은 변경을 반복하지 않습니다. Spec Check는 변경 없이 검사만 합니다.
+
+IBM 키 원문은 OpenBao의 `IC_API_KEY`에서 읽어 메모리에서만 사용합니다. AM 서버 파일이나 배포 요청에 IBM 키를 넣지 않습니다. OpenBao용 읽기 토큰은 별도로 필요하며 AM이 관리자 토큰으로 자기 권한을 발급하지는 않습니다.
+
+다른 환경도 다음 최초 연결을 설정해야 합니다. 소스/이미지만 교체하고 인증 연결을 생략하면 자동 준비는 동작하지 않습니다.
+
+1. 해당 환경의 OpenBao에 IBM 자격증명이 등록되어 있어야 합니다.
+2. `secret/data/csp/ibm` 읽기만 허용하는 토큰 파일을 준비합니다. 30일 토큰이면 만료 전에 새 토큰으로 교체합니다. 토큰 파일은 Git 밖의 절대 경로, 소유자 전용 권한으로 관리합니다.
+3. [docker-compose.ibm-openbao.yaml](examples/ibm-ingress-automation/docker-compose.ibm-openbao.yaml)을 기존 Compose 파일에 추가합니다. 이 파일은 원래 AM 네트워크를 유지하며 OpenBao 네트워크와 토큰 읽기 전용 마운트를 추가합니다.
+4. 환경변수에 실제 Project/connection/region 및 OpenBao 주소·네트워크·토큰 파일 경로를 지정하고 최신 AM 이미지를 사용해 AM만 다시 생성합니다.
+
+| 환경변수 | 기본값 / 의미 |
+| --- | --- |
+| `IBM_INGRESS_NAMESPACE` | `default` — Tumblebug Project namespace |
+| `IBM_INGRESS_CONNECTION_NAME` | `ibm-jp-tok` — 등록된 IBM connectionName |
+| `IBM_INGRESS_REGION` | `jp-tok` |
+| `IBM_INGRESS_ALLOW_SHARED_LB_CHANGES` | `true` — 자동 PROXY 변경 허용; `false`로 끄기 |
+| `IBM_INGRESS_SECRET_PATH` | `secret/data/csp/ibm` — 해당 환경의 등록 IBM 자격증명 |
+| `IBM_INGRESS_OPEN_BAO_URL` | `http://mc-infra-manager-openbao:8200` |
+| `IBM_INGRESS_OPEN_BAO_NETWORK` | OpenBao가 연결된 실제 Docker 네트워크 이름; override 사용 시 필수 |
+| `IBM_INGRESS_OPEN_BAO_TOKEN_HOST_FILE` | 읽기 전용 토큰 파일의 호스트 절대 경로; override 사용 시 필수 |
+
+예를 들어 Compose project 이름이 `mcc`이면 OpenBao 네트워크는 `mcc_mc-infra-manager-network`일 수 있습니다. 다른 환경에서는 실제 이름을 사용합니다. 여러 Project/connection에는 추가 Spring 설정 파일의 `profiles` 배열로 각각의 namespace, connection-name, region, secret-path, allow-shared-lb-changes를 지정합니다. 프로필은 정확히 일치해야 하며 자격증명을 다른 연결에 자동으로 공유하지 않습니다.
+
+```bash
+docker compose -f /absolute/path/docker-compose.yaml \
+  -f /absolute/path/docker-compose.ibm-openbao.yaml \
+  up -d --no-deps mc-application-manager
+```
+
+실제 IBM 계정에는 클러스터 조회, 해당 리전의 LB/서브넷 조회와 Ingress LB 설정 변경 권한이 있어야 합니다. 준비 시 공유 LB가 재구성되어 기존 연결이 잠시 끊길 수 있습니다. HTTP 배포에는 인증서나 cert-manager 설정은 필요하지 않습니다. NGINX의 기존 Kubernetes 기반 HTTP 준비와 명시적 `api-key-file` 방식도 유지합니다.
 
 ## 적용 범위
 
 SW Catalog의 Deploy에서 **선택한 Project/클러스터와 입력한 Host**를 사용한다.
 특정 IBM 클러스터 ID나 도메인을 코드에 고정하지 않는다. 실제 CSP ID와 connectionName은
-Tumblebug에서 조회하며, IBM VPC Kubernetes의 관리형 NGINX ALB를 대상으로 한다.
+Tumblebug에서 조회하며, IBM VPC Kubernetes의 관리형 NGINX 또는 Traefik ALB를 대상으로 한다.
 AWS 등 다른 CSP의 기존 배포 흐름에는 이 자동화가 개입하지 않는다.
 
 기능 구현은 끝났지만 운영 계정/DNS 권한이 자동으로 생기지는 않는다. 관리자가 AM 서버에
@@ -119,9 +153,13 @@ bash ./gradlew bootJar -PincludeFrontend
 
 ## 재시도·중단·수명
 
+- PROXY 요청 기록은 `SUBMITTED` → `ACCEPTED`로 갱신됩니다. IBM이 HTTP 400/401/403/404/405/406/415/422로 명확히 거절하면 `REJECTED`와 안전한 HTTP 상태/오류 코드가 저장되고, 다음 Deploy에서 실제 IBM 상태·LB 준비·서브넷을 다시 검사한 뒤 재시도합니다. 응답 본문이나 인증정보는 기록하지 않습니다.
+- 타임아웃, 408/409/429/5xx 또는 요청 결과를 확인할 수 없는 오류는 `UNKNOWN`으로 남기며 자동 재전송하지 않습니다. 이전 버전의 `SUBMITTED` 기록도 같은 보호 대상입니다. 코드 재배포만으로 이런 기록을 삭제하거나 성공으로 바꾸지 않습니다.
+- 운영자가 기존 요청이 반영되지 않았고 진행 중인 LB 작업/AM 잠금이 없음을 확인한 경우에만, 해당 클러스터의 AM 소유 `am-ibm-proxy-intent`를 백업하고 `state=OPERATOR_REVIEWED_RETRY`로 갱신할 수 있습니다. 이후 사용자의 Deploy가 잠금을 획득하고 다시 확인한 뒤 한 번 요청합니다. 이전 요청 시각·상태·오류는 새 기록에 남습니다. `proxyProtocol=false` 조회 한 번만으로 결과 불명확 기록을 지우지 않습니다.
+
 - 동일 클러스터의 같은 준비 요청은 실행 중 job ID를 재사용한다. 다른 설정은 중복 실행을 거부한다.
   AM 내부 작업자 2개/대기 4개, 클러스터 ConfigMap 잠금으로 공유 변경을 직렬화한다.
-- IBM PATCH 전에 변경 의도를 영속 기록한다. 응답 유실/실패 뒤 IBM 설정이 여전히 false이면
+- IBM PATCH 전에 변경 의도를 영속 기록한다. 응답 유실/결과 불명확 오류 뒤 IBM 설정이 여전히 false이면
   자동 재전송하지 않는다. 운영자가 실제 IBM 작업 결과를 확인한 뒤에만
   `kube-system/am-ibm-proxy-intent` 재시도 여부를 판단한다. 무조건 삭제해서 우회하면 안 된다.
 - 잠금은 정상 종료 시 해당 작업의 것만 해제한다. 프로세스 비정상 종료 시 최대 3.5시간 만료를 기다리거나,

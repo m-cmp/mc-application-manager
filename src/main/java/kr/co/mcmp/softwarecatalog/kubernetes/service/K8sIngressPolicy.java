@@ -16,7 +16,7 @@ final class K8sIngressPolicy {
             return null;
         }
         if (!"nginx".equals(config.getIngressClass()) && !IbmIngressSupport.managed(config.getIngressClass()))
-            throw new IllegalArgumentException("CIDR access requires nginx or an IBM managed NGINX ingress class.");
+            throw new IllegalArgumentException("CIDR access requires nginx or an IBM managed NGINX or Traefik ingress class.");
         if (config.getIngressHost() == null || config.getIngressHost().isBlank() || "localhost".equals(config.getIngressHost()))
             throw new IllegalArgumentException("Enter an Ingress hostname for external access.");
         return K8sIngressAccessService.validateCidr(request.getServicePortCidr());
@@ -56,9 +56,12 @@ final class K8sIngressPolicy {
         }
         boolean chartMapped = ingress.containsKey("enabled");
         Map<String,Object> annotations = new LinkedHashMap<>((Map<String,Object>) map(ingress.get("annotations")));
-        annotations.put(K8sIngressAccessService.CIDR_ANNOTATION, cidr);
+        if (IbmIngressSupport.traefik(config.getIngressClass())) {
+            annotations.keySet().removeIf(k -> k.toString().startsWith("nginx.ingress.kubernetes.io/"));
+            annotations.putAll(IbmTraefikIngress.annotations(config, cidr));
+        } else annotations.put(K8sIngressAccessService.CIDR_ANNOTATION, cidr);
         annotations.put("kubernetes.io/ingress.class", config.getIngressClass());
-        if (IbmIngressSupport.managed(config.getIngressClass()) && !config.isTlsEnabled()) {
+        if (IbmIngressSupport.managed(config.getIngressClass()) && !IbmIngressSupport.traefik(config.getIngressClass()) && !config.isTlsEnabled()) {
             // Per application only: leave the shared controller and existing HTTPS routes unchanged.
             annotations.put("nginx.ingress.kubernetes.io/ssl-redirect", "false");
             annotations.put("nginx.ingress.kubernetes.io/force-ssl-redirect", "false");
@@ -106,8 +109,11 @@ final class K8sIngressPolicy {
                 if (clazz == null) clazz = annotations.get("kubernetes.io/ingress.class");
                 if (!Objects.equals(expectedClass, clazz)
                         || (annotations.containsKey("kubernetes.io/ingress.class") && !Objects.equals(expectedClass, annotations.get("kubernetes.io/ingress.class")))
-                        || !cidr.equals(annotations.get(K8sIngressAccessService.CIDR_ANNOTATION)))
-                    throw new IllegalArgumentException("Helm chart did not render the required nginx Ingress CIDR restriction.");
+                        || !(IbmIngressSupport.traefik(expectedClass)
+                            ? IbmTraefikIngress.reference(kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesNamespaces.APPLICATION_WORKLOAD,
+                                    expectedHost, expectedClass, cidr).equals(annotations.get(IbmTraefikIngress.MIDDLEWARES))
+                            : cidr.equals(annotations.get(K8sIngressAccessService.CIDR_ANNOTATION))))
+                    throw new IllegalArgumentException("Helm chart did not render the required Ingress CIDR restriction.");
             }
             if ("Service".equals(resource.get("kind")) && Set.of("LoadBalancer", "NodePort").contains(Objects.toString(spec.get("type"), "")))
                 throw new IllegalArgumentException("Application Services must use ClusterIP to avoid bypassing Ingress CIDR restrictions.");

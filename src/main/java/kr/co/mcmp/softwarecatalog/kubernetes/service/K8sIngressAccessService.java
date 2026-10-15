@@ -32,6 +32,12 @@ public class K8sIngressAccessService {
         request.setIngressClass(IbmIngressSupport.resolve(cluster, config).getIngressClass());
     }
 
+    public void resolveTarget(KubernetesClient client, DeploymentRequest request, kr.co.mcmp.softwarecatalog.SoftwareCatalog catalog) {
+        resolveTarget(request, catalog);
+        request.setIngressClass(IbmIngressSupport.resolveAvailable(client,
+                kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO.from(request, catalog)).getIngressClass());
+    }
+
     public void open(DeploymentRequest request, DeploymentHistory history) {
         if (!Boolean.TRUE.equals(request.getOpenServicePort())) return;
         var cluster = tumblebug.getK8sClusterByName(request.getNamespace(), request.getClusterName());

@@ -713,7 +713,7 @@
                     type="text"
                     class="form-control"
                     placeholder="nginx"
-                    :value="effectiveIngressClass"
+                    :value="isIbmCluster ? 'IBM managed (auto: NGINX / Traefik)' : effectiveIngressClass"
                     disabled>
                 </div>
 
@@ -2272,7 +2272,7 @@ const selectedClusterProvider = computed(() => {
 
 const isIbmCluster = computed(() => /^(ibm|ibmcloud|ibm-cloud|ibm-vpc|ibmvpc)(-|$)/i.test(selectedClusterProvider.value))
 const isNhnCluster = computed(() => selectedClusterProvider.value === 'nhn')
-const effectiveIngressClass = computed(() => isIbmCluster.value ? 'public-iks-k8s-nginx' : 'nginx')
+const effectiveIngressClass = computed(() => 'nginx')
 
 const selectedVmProvider = computed(() => {
   const selectedVmId = selectedVmList.value[0]

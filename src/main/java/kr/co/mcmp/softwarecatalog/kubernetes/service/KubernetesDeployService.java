@@ -103,7 +103,7 @@ public class KubernetesDeployService {
         
         try (KubernetesClient client = clientFactory.getClient(namespace, clusterName)) {
             BuiltInHelmPolicy.validateStorage(helmChart, client, request);
-            if (isIngressEnabled(request, catalog)) ingressAccess.resolveTarget(request, catalog);
+            if (isIngressEnabled(request, catalog)) ingressAccess.resolveTarget(client, request, catalog);
             // namespaceService.ensureNamespaceExists(client, namespace); // 불필요한 코드 제거
 
             boolean ingressEnabled = isIngressEnabled(request, catalog);

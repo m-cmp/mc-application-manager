@@ -19,6 +19,8 @@ public class IbmIngressAutomationProperties {
     private int pollSeconds = 10;
     private String certManagerVersion = "v1.20.2";
     private String helmExecutable = "helm";
+    private String openBaoUrl;
+    private String openBaoTokenFile;
 
     @Getter @Setter
     public static class Profile {
@@ -26,6 +28,7 @@ public class IbmIngressAutomationProperties {
         private String connectionName;
         private String region;
         private String apiKeyFile;
+        private String secretPath;
         private boolean allowSharedLbChanges;
         private boolean installCertManager;
         private List<String> allowedDomains = new ArrayList<>();

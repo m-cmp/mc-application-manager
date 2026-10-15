@@ -36,6 +36,7 @@ public class KubernetesIngressPreflightService {
         ingressAccess.resolveTarget(target, new kr.co.mcmp.softwarecatalog.SoftwareCatalog());
         if (!IbmIngressSupport.managed(target.getIngressClass())) return new K8sIngressTlsSettings(false, null, List.of(), List.of());
         try (var client = clients.getClient(namespace, clusterName)) {
+            target.setIngressClass(IbmIngressSupport.resolveAvailable(client, DeploymentConfigDTO.from(target, new kr.co.mcmp.softwarecatalog.SoftwareCatalog())).getIngressClass());
             return IbmIngressTlsResolver.describe(client, KubernetesNamespaces.APPLICATION_WORKLOAD, target.getIngressClass());
         } catch (IllegalArgumentException e) { throw e; }
         catch (RuntimeException e) { throw new IllegalArgumentException("Cannot discover IBM HTTPS settings. Check cluster connectivity and read permissions."); }
@@ -66,7 +67,7 @@ public class KubernetesIngressPreflightService {
 
         try (var client = clients.getClient(request.getNamespace(), request.getClusterName())) {
             var target = request.toDeploymentRequest();
-            ingressAccess.resolveTarget(target, catalog);
+            ingressAccess.resolveTarget(client, target, catalog);
             config = DeploymentConfigDTO.from(target, catalog);
             if (nativeJupyter && config.isTlsEnabled() && !IbmIngressSupport.managed(config.getIngressClass())) {
                 return invalid("K8s Jupyter uses HTTP NodePort 30880; configure a separate HTTPS entry before enabling TLS.");

@@ -14,6 +14,8 @@ import kr.co.mcmp.softwarecatalog.application.dto.DeploymentConfigDTO;
 final class IbmIngressSupport {
     static final String PUBLIC_CLASS = "public-iks-k8s-nginx";
     static final String PRIVATE_CLASS = "private-iks-k8s-nginx";
+    static final String PUBLIC_TRAEFIK_CLASS = "public-iks-traefik";
+    static final String PRIVATE_TRAEFIK_CLASS = "private-iks-traefik";
     static final String PROXY_FEATURE = "service.kubernetes.io/ibm-load-balancer-cloud-provider-enable-features";
 
     private IbmIngressSupport() {}
@@ -29,7 +31,29 @@ final class IbmIngressSupport {
     }
 
     static boolean managed(String ingressClass) {
-        return PUBLIC_CLASS.equals(ingressClass) || PRIVATE_CLASS.equals(ingressClass);
+        return PUBLIC_CLASS.equals(ingressClass) || PRIVATE_CLASS.equals(ingressClass) || traefik(ingressClass);
+    }
+
+    static boolean traefik(String clazz) { return PUBLIC_TRAEFIK_CLASS.equals(clazz) || PRIVATE_TRAEFIK_CLASS.equals(clazz); }
+    static boolean privateClass(String clazz) { return PRIVATE_CLASS.equals(clazz) || PRIVATE_TRAEFIK_CLASS.equals(clazz); }
+    static String prefix(String clazz) { return privateClass(clazz) ? "private-" : "public-"; }
+    static boolean controllerMatches(String clazz, String controller) {
+        return traefik(clazz) ? "traefik.io/ingress-controller".equals(controller) : ("cloud.ibm.com/" + clazz).equals(controller);
+    }
+
+    /** Legacy nginx selections also work on clusters provisioned with IBM's Traefik default. */
+    static DeploymentConfigDTO resolveAvailable(KubernetesClient client, DeploymentConfigDTO config) {
+        String clazz = config.getIngressClass();
+        if (!config.isIngressEnabled() || !managed(clazz) || traefik(clazz)) return config;
+        var classes = client.network().v1().ingressClasses();
+        var nginx = classes.withName(clazz).get();
+        String alternative = privateClass(clazz) ? PRIVATE_TRAEFIK_CLASS : PUBLIC_TRAEFIK_CLASS;
+        var candidate = classes.withName(alternative).get();
+        boolean preferred = candidate != null && candidate.getMetadata() != null && candidate.getMetadata().getAnnotations() != null
+                && "true".equals(candidate.getMetadata().getAnnotations().get("ingressclass.kubernetes.io/is-default-class"));
+        if (candidate != null && candidate.getSpec() != null && controllerMatches(alternative, candidate.getSpec().getController())
+                && (nginx == null || preferred)) return config.toBuilder().ingressClass(alternative).build();
+        return config;
     }
 
     static DeploymentConfigDTO resolve(K8sClusterDto cluster, DeploymentConfigDTO config) {
@@ -38,7 +62,7 @@ final class IbmIngressSupport {
         if (isIbm(cluster)) {
             // Existing catalogs and API clients use nginx; select IBM's public managed entry by default.
             if (clazz == null || "nginx".equals(clazz)) clazz = PUBLIC_CLASS;
-            if (!managed(clazz)) throw new IllegalArgumentException("IBM requires a managed NGINX Ingress class: " + PUBLIC_CLASS + " or " + PRIVATE_CLASS);
+            if (!managed(clazz)) throw new IllegalArgumentException("IBM requires a managed NGINX or Traefik Ingress class: " + PUBLIC_CLASS + " or " + PRIVATE_CLASS + ", " + PUBLIC_TRAEFIK_CLASS + " or " + PRIVATE_TRAEFIK_CLASS);
         } else if (managed(clazz)) {
             throw new IllegalArgumentException("IBM managed Ingress classes require an IBM cluster.");
         }
@@ -48,9 +72,9 @@ final class IbmIngressSupport {
     /** Read-only, fail closed before deploying a CIDR-restricted route. */
     static List<String> verify(KubernetesClient client, DeploymentConfigDTO config) {
         var warnings = verify(client, config.getIngressClass());
-        String prefix = PUBLIC_CLASS.equals(config.getIngressClass()) ? "public-" : "private-";
+        String prefix = prefix(config.getIngressClass());
         int port = config.isTlsEnabled() ? 443 : 80;
-        boolean available = managedServices(client, prefix).stream()
+        boolean available = servicesForClass(client, config.getIngressClass()).stream()
                 .allMatch(s -> s.getSpec().getPorts() != null && s.getSpec().getPorts().stream().anyMatch(p -> Integer.valueOf(port).equals(p.getPort())));
         if (!available) throw new MissingPortException("IBM managed ALB does not expose port " + port
                 + ". Ask the cluster administrator to check the managed ALB listener configuration.");
@@ -59,8 +83,9 @@ final class IbmIngressSupport {
 
     static List<String> verify(KubernetesClient client, String clazz) {
         verifyBase(client, clazz);
-        String prefix = PUBLIC_CLASS.equals(clazz) ? "public-" : "private-";
-        var services = managedServices(client, prefix);
+        String prefix = prefix(clazz);
+        var services = servicesForClass(client, clazz);
+        if (traefik(clazz)) return IbmTraefikIngress.verify(client, clazz, services);
         var cm = client.configMaps().inNamespace("kube-system").withName("ibm-k8s-controller-config").get();
         Map<String,String> data = cm == null || cm.getData() == null ? Map.of() : cm.getData();
         if (!"true".equalsIgnoreCase(data.get("use-proxy-protocol"))) {
@@ -96,11 +121,11 @@ final class IbmIngressSupport {
     static void verifyBase(KubernetesClient client, String clazz) {
         var ingressClass = client.network().v1().ingressClasses().withName(clazz).get();
         if (ingressClass == null || ingressClass.getSpec() == null
-                || !("cloud.ibm.com/" + clazz).equals(ingressClass.getSpec().getController())) {
-            throw new IllegalArgumentException("IBM managed NGINX IngressClass " + clazz + " is unavailable. Enable the IBM NGINX ALB first.");
+                || !controllerMatches(clazz, ingressClass.getSpec().getController())) {
+            throw new IllegalArgumentException("IBM managed IngressClass " + clazz + " is unavailable. Enable the corresponding IBM NGINX or Traefik ALB first.");
         }
-        String prefix = PUBLIC_CLASS.equals(clazz) ? "public-" : "private-";
-        var services = managedServices(client, prefix);
+        String prefix = prefix(clazz);
+        var services = servicesForClass(client, clazz);
         if (services.isEmpty()) throw new IllegalArgumentException("No active IBM " + prefix + "ALB LoadBalancer Service was found.");
         var deployments = client.apps().deployments().inNamespace("kube-system")
                 .withLabel("ingress-class", clazz).list().getItems();
@@ -108,6 +133,22 @@ final class IbmIngressSupport {
                 || d.getStatus().getAvailableReplicas() == null || d.getStatus().getAvailableReplicas() < 1)) {
             throw new IllegalArgumentException("IBM managed Ingress Controller is not ready for " + clazz + ".");
         }
+    }
+
+    static List<Service> servicesForClass(KubernetesClient client, String clazz) {
+        if (!traefik(clazz)) return managedServices(client, prefix(clazz)).stream()
+                .filter(s -> s.getSpec().getSelector() == null || s.getSpec().getSelector().values().stream().noneMatch(v -> v.contains("traefik"))).toList();
+        var controllers = client.apps().deployments().inNamespace("kube-system").withLabel("ingress-class", clazz).list().getItems();
+        var published = new java.util.HashSet<String>();
+        for (var deployment : controllers) if (deployment.getSpec() != null && deployment.getSpec().getTemplate() != null
+                && deployment.getSpec().getTemplate().getSpec() != null)
+            for (var container : deployment.getSpec().getTemplate().getSpec().getContainers())
+                for (String arg : container.getArgs() == null ? List.<String>of() : container.getArgs())
+                    if (arg.toLowerCase(Locale.ROOT).startsWith("--providers.kubernetesingress.ingressendpoint.publishedservice=kube-system/"))
+                        published.add(arg.substring(arg.indexOf("=") + 1).substring("kube-system/".length()));
+        var services = managedServices(client, prefix(clazz));
+        // IBM Traefik publishes its Service explicitly; do not mix NGINX and Traefik endpoints.
+        return published.isEmpty() ? services : services.stream().filter(s -> published.contains(s.getMetadata().getName())).toList();
     }
 
     static List<Service> managedServices(KubernetesClient client, String prefix) {

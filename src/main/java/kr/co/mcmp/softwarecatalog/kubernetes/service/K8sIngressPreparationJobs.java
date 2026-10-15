@@ -72,9 +72,7 @@ public class K8sIngressPreparationJobs {
             var config = DeploymentConfigDTO.from(target,catalog);
             if (!config.isIngressEnabled() || !IbmIngressSupport.managed(config.getIngressClass()))
                 throw new IllegalArgumentException("This preparation endpoint requires IBM managed Ingress.");
-            String workload = catalog.getPackageInfo() != null && catalog.getPackageInfo().getPackageName() != null
-                    && catalog.getPackageInfo().getPackageName().toLowerCase(Locale.ROOT).contains("jupyter")
-                    ? target.getNamespace() : KubernetesNamespaces.APPLICATION_WORKLOAD;
+            String workload = KubernetesNamespaces.APPLICATION_WORKLOAD;
             try (var client = clients.getClient(target.getNamespace(),target.getClusterName())) {
                 automation.prepare(client,target.getNamespace(),target.getClusterName(),workload,config, message -> job.message=message);
             }

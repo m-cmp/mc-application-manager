@@ -13,6 +13,49 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class IbmIngressAutomationServiceTest {
+    @Test void traefikHttpDeployEnablesProxyOnceAndWaitsForNativeControllerConfiguration() throws Exception {
+        authorize();
+        var setup=mock(IbmKubernetesIngressSetup.class);
+        var nativeService=new IbmIngressAutomationService(tb,properties,cloud,certificates,setup);
+        try(var fixture=new IbmAutomationClusterFixture(false)) {
+            new IbmTraefikIngressTest().cluster(fixture.client,false);
+            var config=new IbmTraefikIngressTest().config();
+            var lb=fixture.client.services().inNamespace("kube-system").withName("public-traefik").get();
+            lb.getSpec().getPorts().add(new io.fabric8.kubernetes.api.model.ServicePortBuilder().withPort(443).build());
+            fixture.client.services().inNamespace("kube-system").resource(lb).update();
+            when(setup.check(any(),any(),any(),any())).thenReturn(List.of());
+            when(setup.plan(any(),any(),any(),any())).thenReturn(new IbmKubernetesIngressSetup.Plan(List.of(),null,List.of(),true));
+            when(cloud.trustedSubnets(eq(session),any(),eq(Set.of("a.lb.appdomain.cloud","test.lb.appdomain.cloud")),eq(true)))
+                    .thenReturn(List.of("10.2.0.0/24"));
+            assertThat(nativeService.check(fixture.client,"project-a","chosen-cluster","default",config))
+                    .anyMatch(message->message.contains("Deploy will enable PROXY"));
+            verify(cloud,never()).enableProxy(any(),any(),any());
+            doAnswer(call -> {
+                var deployment=fixture.client.apps().deployments().inNamespace("kube-system").withName("traefik").get();
+                deployment.getSpec().getTemplate().getSpec().getContainers().get(0).getArgs().addAll(List.of(
+                        "--entryPoints.web.proxyProtocol.trustedIPs=10.2.0.0/24",
+                        "--entryPoints.websecure.proxyProtocol.trustedIPs=10.2.0.0/24"));
+                fixture.client.apps().deployments().inNamespace("kube-system").resource(deployment).update();
+                return null;
+            }).when(cloud).enableProxy(session,"ibm-cluster-selected",List.of("10.2.0.0/24"));
+            nativeService.prepare(fixture.client,"project-a","chosen-cluster","default",config,m->{});
+            nativeService.prepare(fixture.client,"project-a","chosen-cluster","default",config,m->{});
+            verify(cloud,times(1)).enableProxy(session,"ibm-cluster-selected",List.of("10.2.0.0/24"));
+            assertThat(IbmIngressSupport.verify(fixture.client,config)).anyMatch(message->message.contains("Traefik"));
+            assertThat(fixture.client.configMaps().inNamespace("kube-system").withName(IbmIngressAutomationService.LOCK).get()).isNull();
+        }
+    }
+    @Test void unpreparedTraefikRequiresAnAuthorizedOfficialApiProfileBeforeAnySharedWrites() {
+        try(var fixture=new IbmAutomationClusterFixture(false)) {
+            new IbmTraefikIngressTest().cluster(fixture.client,false);
+            var config=new IbmTraefikIngressTest().config();
+            assertThatThrownBy(()->service.prepare(fixture.client,"project-a","chosen-cluster","default",config,m->{}))
+                    .hasMessageContaining("authorize");
+            assertThat(fixture.client.configMaps().inNamespace("kube-system").withName(IbmKubernetesIngressSetup.JOURNAL).get()).isNull();
+            assertThat(fixture.client.configMaps().inNamespace("kube-system").withName(IbmIngressAutomationService.INTENT).get()).isNull();
+            verifyNoInteractions(cloud);
+        }
+    }
     final CbtumblebugRestApi tb=mock(CbtumblebugRestApi.class);
     final IbmCloudIngressApi cloud=mock(IbmCloudIngressApi.class);
     final IbmIngressAutomationProperties properties=new IbmIngressAutomationProperties();
@@ -77,8 +120,27 @@ class IbmIngressAutomationServiceTest {
         try(var fixture=new IbmAutomationClusterFixture(false)) {
             doThrow(new IllegalArgumentException("IBM request timed out")).when(cloud).enableProxy(any(),any(),any());
             assertThatThrownBy(() -> service.prepare(fixture.client,"project-a","chosen-cluster","default",IbmIngressTlsResolverTest.config(),m -> {})).hasMessageContaining("timed out");
+            assertThat(fixture.client.configMaps().inNamespace("kube-system").withName(IbmIngressAutomationService.INTENT).get().getData().get("state")).isEqualTo("UNKNOWN");
             assertThatThrownBy(() -> service.prepare(fixture.client,"project-a","chosen-cluster","default",IbmIngressTlsResolverTest.config(),m -> {})).hasMessageContaining("unresolved");
             verify(cloud,times(1)).enableProxy(any(),any(),any());
+        }
+    }
+    @Test void definiteRejectionIsRecordedAndCanBeRetriedAfterRecheckingLiveIbmState() {
+        authorize();
+        try(var fixture=new IbmAutomationClusterFixture(false)) {
+            doThrow(new IbmCloudIngressApi.RequestFailure("PATCH",400,"EInvalidParameter"))
+                    .when(cloud).enableProxy(any(),any(),any());
+            assertThatThrownBy(()->service.prepare(fixture.client,"project-a","chosen-cluster","default",IbmIngressTlsResolverTest.config(),m->{}))
+                    .hasMessageContaining("HTTP 400");
+            var record=fixture.client.configMaps().inNamespace("kube-system").withName(IbmIngressAutomationService.INTENT).get();
+            assertThat(record.getData()).containsEntry("state","REJECTED");
+            assertThat(record.getData().get("error")).contains("EInvalidParameter");
+            doAnswer(call->{fixture.proxyReady();return null;}).when(cloud).enableProxy(any(),any(),any());
+            service.prepare(fixture.client,"project-a","chosen-cluster","default",IbmIngressTlsResolverTest.config(),m->{});
+            var retried=fixture.client.configMaps().inNamespace("kube-system").withName(IbmIngressAutomationService.INTENT).get();
+            assertThat(retried.getData()).containsEntry("state","ACCEPTED").containsEntry("previousState","REJECTED");
+            assertThat(retried.getData().get("previousError")).contains("EInvalidParameter");
+            verify(cloud,times(2)).enableProxy(any(),any(),any());
         }
     }
     @Test void activePreparationLockCannotBeStolen() {

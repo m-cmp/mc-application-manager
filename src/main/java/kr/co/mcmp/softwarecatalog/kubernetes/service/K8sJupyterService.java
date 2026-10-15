@@ -67,7 +67,7 @@ public class K8sJupyterService {
         if (r.getServicePort() != null && r.getServicePort() != 8888)
             throw new IllegalArgumentException("K8s Jupyter uses service port 8888 and external Ingress port 30880.");
         if (!Boolean.TRUE.equals(r.getIngressEnabled())) throw new IllegalArgumentException("K8s Jupyter requires Ingress.");
-        if (!"nginx".equals(r.getIngressClass()) && !IbmIngressSupport.managed(r.getIngressClass())) throw new IllegalArgumentException("Use nginx or an IBM managed NGINX Ingress class.");
+        if (!"nginx".equals(r.getIngressClass()) && !IbmIngressSupport.managed(r.getIngressClass())) throw new IllegalArgumentException("Use nginx or an IBM managed NGINX or Traefik Ingress class.");
         String host = r.getIngressHost();
         if (host == null || host.length() > 253 || !host.matches("(?=.{1,253}$)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?")
                 || host.contains("..") || host.contains("*") || host.matches("[0-9.]+"))
@@ -94,10 +94,10 @@ public class K8sJupyterService {
     public synchronized DeploymentHistory deploy(DeploymentRequest request, SoftwareCatalog catalog) {
         boolean prepareCinderVolume;
         try (var client = clients.getClient(request.getNamespace(), request.getClusterName())) {
+            access.resolveTarget(client, request, catalog);
             var storageClass = JupyterStorageValidation.validate(client, request.getAdditionalConfig());
             prepareCinderVolume = NhnStorageClassService.DRIVER.equals(storageClass.getProvisioner());
         } catch (RuntimeException e) { throw StorageOperationException.translate(e); }
-        access.resolveTarget(request, catalog);
         boolean sshTunnel = useSshTunnel();
         // Routing/CIDR requirements are identical; only DIRECT needs an external URL.
         validate(request, sshTunnel ? "https://unused.internal" : gatewayUrl, allowHttp);
@@ -257,6 +257,15 @@ public class K8sJupyterService {
             ingressAnnotations.put("nginx.ingress.kubernetes.io/ssl-redirect", "false");
             ingressAnnotations.put("nginx.ingress.kubernetes.io/force-ssl-redirect", "false");
         }
+        if (IbmIngressSupport.traefik(r.getIngressClass())) {
+            String cidr = K8sIngressAccessService.validateCidr(r.getServicePortCidr());
+            var routeConfig = DeploymentConfigDTO.from(r, catalog);
+            ingressAnnotations.clear();
+            ingressAnnotations.putAll(IbmTraefikIngress.annotations(routeConfig, cidr));
+            var middleware = IbmTraefikIngress.middleware(ns, routeConfig, cidr);
+            middleware.getMetadata().getLabels().putAll(labels);
+            result.add(middleware);
+        }
         ingressMeta.put("annotations", ingressAnnotations);
         Map<String, Object> ingressSpec = new LinkedHashMap<>(Map.of("ingressClassName", r.getIngressClass(), "rules", List.of(Map.of("host", r.getIngressHost(),
                         "http", Map.of("paths", List.of(Map.of("path", "/", "pathType", "Prefix", "backend", Map.of(
@@ -367,6 +376,8 @@ public class K8sJupyterService {
             client.services().inNamespace(workloadNamespace).withLabel(OWNER, name).delete();
             client.secrets().inNamespace(workloadNamespace).withLabel(OWNER, name).delete();
             client.configMaps().inNamespace(workloadNamespace).withLabel(OWNER, name).delete();
+            if (IbmIngressSupport.traefik(history.getIngressClass()))
+                client.genericKubernetesResources(IbmTraefikIngress.CONTEXT).inNamespace(workloadNamespace).withLabel(OWNER, name).delete();
             access.release(history.getId());
             history.setStatus("UNINSTALLED");
             history.setUpdatedAt(LocalDateTime.now());
