@@ -18,6 +18,7 @@ public class NhnCinderAddonService {
     private final NhnCinderAddonProperties properties;
     private final NhnOpenBaoCredentials credentials;
     private final NhnNksApi nks;
+    private final NhnClusterIdentitySessions clusterIdentity;
 
     public Capability capability(String namespace, String clusterName) {
         validateNames(namespace, clusterName);
@@ -26,24 +27,23 @@ public class NhnCinderAddonService {
         var target = target(namespace, clusterName, cluster);
         try (var client = clients.getClient(namespace, clusterName)) {
             if (driverReady(client)) return new Capability(true, false, true, "READY", "", "Cinder CSI is ready. Select or create an NHN StorageClass.");
+            try { requireAuthenticationConfigured(target); }
+            catch (StorageOperationException e) { return new Capability(true, false, false, "NOT_CONFIGURED", "", e.getMessage()); }
+            var session = authenticate(client, target);
+            var nativeCluster = nks.cluster(session, target.clusterId());
+            var installed = nks.installed(session, target.clusterId());
+            if (installed.isPresent()) {
+                var addon = installed.get();
+                String state = addon.path("status").asText();
+                boolean failed = failed(state);
+                return new Capability(true, !failed, false, failed ? "FAILED" : "REGISTERING", addon.path("version").asText(),
+                        failed ? "The existing Cinder add-on failed in NKS. Resolve its status in NKS before retrying."
+                                : "Cinder is installed or installing. Continue to wait for CSI registration on the worker nodes.");
+            }
+            requireClusterReady(nativeCluster.path("status").asText());
+            return new Capability(true, true, false, "AVAILABLE", nks.compatibleVersion(session, nativeCluster),
+                    "Install the compatible Cinder CSI add-on, then create or select an NHN StorageClass.");
         } catch (RuntimeException e) { throw StorageOperationException.translate(e); }
-        NhnCinderAddonProperties.Binding binding;
-        try { binding = binding(target); }
-        catch (StorageOperationException e) { return new Capability(true, false, false, "NOT_CONFIGURED", "", e.getMessage()); }
-        var session = nks.login(credentials.read(binding), binding.getRegion());
-        var nativeCluster = nks.cluster(session, target.clusterId());
-        var installed = nks.installed(session, target.clusterId());
-        if (installed.isPresent()) {
-            var addon = installed.get();
-            String state = addon.path("status").asText();
-            boolean failed = failed(state);
-            return new Capability(true, !failed, false, failed ? "FAILED" : "REGISTERING", addon.path("version").asText(),
-                    failed ? "The existing Cinder add-on failed in NKS. Resolve its status in NKS before retrying."
-                            : "Cinder is installed or installing. Continue to wait for CSI registration on the worker nodes.");
-        }
-        requireClusterReady(nativeCluster.path("status").asText());
-        return new Capability(true, true, false, "AVAILABLE", nks.compatibleVersion(session, nativeCluster),
-                "Install the compatible Cinder CSI add-on, then create or select an NHN StorageClass.");
     }
 
     Target resolve(String namespace, String clusterName) {
@@ -60,9 +60,9 @@ public class NhnCinderAddonService {
         try (var client = clients.getClient(target.namespace(), target.clusterName())) {
             // Preserve a working managed or manually installed driver; no cloud mutation or credential read is needed.
             if (driverReady(client)) { progress.accept("Cinder CSI is already ready. Existing installation reused."); return; }
-            var binding = binding(target);
-            progress.accept("Authenticating the registered NHN project and checking the selected NKS cluster…");
-            var session = nks.login(credentials.read(binding), binding.getRegion());
+            requireAuthenticationConfigured(target);
+            progress.accept("Authenticating NHN and checking the selected NKS cluster…");
+            var session = authenticate(client, target);
             var nativeCluster = nks.cluster(session, target.clusterId());
             var installed = nks.installed(session, target.clusterId());
             if (installed.isEmpty()) {
@@ -76,6 +76,11 @@ public class NhnCinderAddonService {
             }
             long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(properties.getReadyTimeoutSeconds());
             while (System.nanoTime() < deadline) {
+                // Renew from the current cluster trust before expiry; never repeat an installation POST.
+                if (!session.expires().isAfter(java.time.Instant.now().plusSeconds(60))) {
+                    session = authenticate(client, target);
+                    nks.cluster(session, target.clusterId());
+                }
                 installed = nks.installed(session, target.clusterId());
                 if (installed.isPresent()) {
                     String state = installed.get().path("status").asText();
@@ -97,6 +102,15 @@ public class NhnCinderAddonService {
         } catch (RuntimeException e) { throw StorageOperationException.translate(e); }
     }
 
+    private void requireAuthenticationConfigured(Target target) {
+        if (properties.clusterIdentity()) NhnClusterIdentitySessions.requireRegion(target.region());
+        else binding(target);
+    }
+    private NhnNksApi.Session authenticate(KubernetesClient client, Target target) {
+        if (properties.clusterIdentity()) return clusterIdentity.login(client, target.region());
+        var binding = binding(target);
+        return nks.login(credentials.read(binding), binding.getRegion());
+    }
     private NhnCinderAddonProperties.Binding binding(Target target) {
         var binding = properties.binding(target.namespace(), target.connectionName());
         if (!target.region().isBlank() && !target.region().equalsIgnoreCase(binding.getRegion()))

@@ -65,6 +65,7 @@ class IbmIngressAutomationServiceTest {
     final K8sClusterDto target=IbmIngressSupportTest.cluster("ibm");
 
     IbmIngressAutomationServiceTest() throws Exception {
+        properties.setCredentialSource("openbao");
         target.setConnectionName("ibm-jp-osa"); target.setCspResourceId("ibm-cluster-selected");
         when(tb.getK8sClusterByName("project-a","chosen-cluster")).thenReturn(target);
         when(cloud.login(any())).thenReturn(session);

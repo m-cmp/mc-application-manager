@@ -17,13 +17,27 @@ import org.springframework.stereotype.Component;
 public class IbmCloudIngressApi {
     private final HttpClient http;
     private final IbmOpenBaoCredentials credentials;
+    private IbmClusterIdentityTokens clusterIdentity;
     private final ObjectMapper json = new ObjectMapper();
     public IbmCloudIngressApi() { this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
             .followRedirects(HttpClient.Redirect.NEVER).build()); }
-    @org.springframework.beans.factory.annotation.Autowired
     public IbmCloudIngressApi(IbmOpenBaoCredentials credentials) {
         this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
                 .followRedirects(HttpClient.Redirect.NEVER).build(), credentials);
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    public IbmCloudIngressApi(@org.springframework.context.annotation.Lazy IbmOpenBaoCredentials credentials, IbmClusterIdentityTokens clusterIdentity) {
+        this(credentials);
+        this.clusterIdentity = clusterIdentity;
+    }
+    void checkClusterIdentity(io.fabric8.kubernetes.client.KubernetesClient client) {
+        clusterIdentity.check(client);
+    }
+    Session login(io.fabric8.kubernetes.client.KubernetesClient client, IbmIngressAutomationProperties.Profile profile, String id) {
+        if (profile.getRegion() == null || !profile.getRegion().matches("[a-z]{2}-[a-z]+"))
+            throw new IllegalArgumentException("The registered IBM region is invalid.");
+        return new Session(clusterIdentity.token(client, id), URI.create("https://containers.cloud.ibm.com/global/"),
+                URI.create("https://" + profile.getRegion() + ".iaas.cloud.ibm.com"));
     }
     IbmCloudIngressApi(HttpClient http) { this(http, null); }
     IbmCloudIngressApi(HttpClient http, IbmOpenBaoCredentials credentials) {

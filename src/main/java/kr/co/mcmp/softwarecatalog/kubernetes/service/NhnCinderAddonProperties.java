@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 @Getter @Setter
 public class NhnCinderAddonProperties {
     private boolean enabled;
+    private String credentialSource = "cluster";
     private String openBaoUrl;
     private String openBaoTokenFile;
     private int readyTimeoutSeconds = 900;
@@ -25,6 +26,15 @@ public class NhnCinderAddonProperties {
         private String connectionName;
         private String secretPath;
         private String region;
+    }
+
+    boolean clusterIdentity() {
+        if (!enabled) throw new StorageOperationException(503, "NHN_ADDON_NOT_CONFIGURED",
+                "NHN add-on installation is not configured because it is disabled on AM.");
+        if ("cluster".equals(credentialSource)) return true;
+        if ("openbao".equals(credentialSource)) return false;
+        throw new StorageOperationException(503, "NHN_ADDON_NOT_CONFIGURED",
+                "Configure NHN credential-source as cluster or openbao.");
     }
 
     Binding binding(String namespace, String connectionName) {

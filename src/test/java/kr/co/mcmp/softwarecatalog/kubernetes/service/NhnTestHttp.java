@@ -24,6 +24,16 @@ final class NhnTestHttp {
         var response = (HttpResponse<String>) mock(HttpResponse.class);
         when(response.statusCode()).thenReturn(status); when(response.body()).thenReturn(body); responses.add(response);
     }
+    void respond(int status, String body, Map<String, List<String>> headers) {
+        respond(status, body);
+        when(responses.getLast().headers()).thenReturn(HttpHeaders.of(headers, (a, b) -> true));
+    }
+    static String trustBody(String trust, String region, String endpoint, java.time.Instant expiry) {
+        return """
+                {"token":{"expires_at":"%s","project":{"id":"tenant-a"},"OS-TRUST:trust":{"id":"%s"},
+                "catalog":[{"type":"container-infra","endpoints":[{"interface":"public","region":"%s","url":"%s"}]}]}}
+                """.formatted(expiry, trust, region, endpoint);
+    }
     static String body(HttpRequest request) {
         var output = new java.io.ByteArrayOutputStream();
         request.bodyPublisher().orElseThrow().subscribe(new Flow.Subscriber<ByteBuffer>() {

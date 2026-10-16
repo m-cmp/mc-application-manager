@@ -23,7 +23,8 @@ import kr.co.mcmp.exception.GlobalExceptionHandler;
 import kr.co.mcmp.security.project.ProjectScopeAuthorizationService;
 import kr.co.mcmp.softwarecatalog.application.controller.*;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentMatchers;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -33,7 +34,8 @@ class NhnCinderAddonLocalIntegrationTest {
     @TempDir Path directory;
     record Request(String method, String path, String query, String body, Map<String, List<String>> headers) { }
 
-    @Test void localRestJobInstallsCompatibleCinderWaitsForWorkersAndCreatesJupyterStorageClass() throws Exception {
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void localRestJobInstallsCompatibleCinderWaitsForWorkersAndCreatesJupyterStorageClass(boolean clusterIdentity) throws Exception {
         var json = new ObjectMapper();
         var kube = new KubernetesServer(false, true); kube.before();
         var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
@@ -51,6 +53,11 @@ class NhnCinderAddonLocalIntegrationTest {
                 if (path.equals("/v1/secret/data/csp/nhn")) {
                     assertThat(exchange.getRequestHeaders().getFirst("X-Vault-Token")).isEqualTo("fake-vault-read-token");
                     response = "{\"data\":{\"data\":{\"NHN_IDENTITY_ENDPOINT\":\"https://api-identity-infrastructure.nhncloudservice.com/v2.0\",\"NHN_USERNAME\":\"fake-user\",\"NHN_PASSWORD\":\"fake-password\",\"NHN_TENANT_ID\":\"tenant-a\"}}}";
+                } else if (path.equals("/v3/auth/tokens")) {
+                    assertThat(clusterIdentity).isTrue();
+                    assertThat(json.readTree(body).path("auth").path("scope").path("OS-TRUST:trust").path("id").asText()).isEqualTo("trust-a");
+                    status = 201; exchange.getResponseHeaders().set("X-Subject-Token", "fake-nhn-token");
+                    response = NhnTestHttp.trustBody("trust-a", "KR1", "https://kr1-api-kubernetes-infrastructure.nhncloudservice.com/v1/", java.time.Instant.now().plusSeconds(3600));
                 } else if (path.equals("/v2.0/tokens")) {
                     assertThat(json.readTree(body).path("auth").path("tenantId").asText()).isEqualTo("tenant-a");
                     response = NhnTestHttp.loginBody("tenant-a", "https://kr1-api-kubernetes-infrastructure.nhncloudservice.com/v1/");
@@ -103,7 +110,21 @@ class NhnCinderAddonLocalIntegrationTest {
             when(tumblebug.getK8sClusterByName("project-a", "cluster-a")).thenReturn(NhnCinderAddonServiceTest.cluster("nhn"));
             var clients = mock(KubernetesClientFactory.class);
             when(clients.getClient("project-a", "cluster-a")).thenAnswer(a -> new KubernetesClientBuilder().withConfig(kube.getClient().getConfiguration()).build());
-            var service = new NhnCinderAddonService(tumblebug, clients, properties, new NhnOpenBaoCredentials(properties), new NhnNksApi(nativeHttp));
+            if (clusterIdentity) {
+                properties.setCredentialSource("cluster"); properties.setBindings(List.of());
+                properties.setOpenBaoUrl(null); properties.setOpenBaoTokenFile("/missing-token-file");
+                kube.getClient().secrets().inNamespace("kube-system").resource(new io.fabric8.kubernetes.api.model.SecretBuilder()
+                        .withNewMetadata().withName("os-trustee").endMetadata().withType("Opaque")
+                        .addToStringData("os-trustID", "trust-a").addToStringData("os-trusteeID", "trustee-a")
+                        .addToStringData("os-trusteePassword", "fake-password").build()).create();
+                // Fabric8 mock CRUD does not materialize Secret.stringData into data.
+                var secret = kube.getClient().secrets().inNamespace("kube-system").withName("os-trustee").get();
+                var data = new HashMap<String, String>();
+                secret.getStringData().forEach((k, v) -> data.put(k, Base64.getEncoder().encodeToString(v.getBytes(StandardCharsets.UTF_8))));
+                secret.setData(data); kube.getClient().secrets().inNamespace("kube-system").resource(secret).update();
+            }
+            var nativeApi = new NhnNksApi(nativeHttp);
+            var service = new NhnCinderAddonService(tumblebug, clients, properties, new NhnOpenBaoCredentials(properties), nativeApi, new NhnClusterIdentitySessions(nativeApi));
             var jobs = new NhnCinderAddonJobs(service); jobsRef.set(jobs);
             var authorization = mock(ProjectScopeAuthorizationService.class);
             var storage = new NhnStorageClassService(clients, tumblebug);
