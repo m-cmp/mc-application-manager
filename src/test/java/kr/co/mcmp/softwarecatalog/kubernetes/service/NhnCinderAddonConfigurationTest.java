@@ -18,7 +18,7 @@ class NhnCinderAddonConfigurationTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(ConfigurationPropertiesAutoConfiguration.class))
             .withUserConfiguration(NhnCinderAddonProperties.class, NhnOpenBaoCredentials.class, NhnNksApi.class,
-                    NhnCinderAddonService.class, NhnCinderAddonJobs.class)
+                    NhnCinderAddonService.class, NhnCinderAddonJobs.class, NhnClusterIdentitySessions.class)
             .withBean(CbtumblebugRestApi.class, () -> mock(CbtumblebugRestApi.class))
             .withBean(KubernetesClientFactory.class, () -> mock(KubernetesClientFactory.class));
 
@@ -41,6 +41,7 @@ class NhnCinderAddonConfigurationTest {
             assertThat(context).hasNotFailed();
             var properties = context.getBean(NhnCinderAddonProperties.class);
             assertThat(properties.isEnabled()).isTrue();
+            assertThat(properties.getCredentialSource()).isEqualTo("cluster");
             assertThat(properties.getOpenBaoUrl()).isEqualTo("http://mc-infra-manager-openbao:8200");
             assertThat(properties.getOpenBaoTokenFile()).isEqualTo("/run/secrets/am-nhn-openbao-token");
             assertThat(properties.binding("default", "nhn-kr1").getSecretPath()).isEqualTo("secret/data/csp/nhn");

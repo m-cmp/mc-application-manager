@@ -25,13 +25,14 @@ class NhnCinderAddonServiceTest {
     private final NhnOpenBaoCredentials credentials = mock(NhnOpenBaoCredentials.class);
     private final NhnNksApi nks = mock(NhnNksApi.class);
     private final NhnCinderAddonProperties properties = configured();
-    private final NhnCinderAddonService service = new NhnCinderAddonService(tumblebug, clients, properties, credentials, nks);
+    private final NhnClusterIdentitySessions identity = mock(NhnClusterIdentitySessions.class);
+    private final NhnCinderAddonService service = new NhnCinderAddonService(tumblebug, clients, properties, credentials, nks, identity);
     private final ObjectMapper json = new ObjectMapper();
     private final NhnNksApi.Session session = new NhnNksApi.Session("test-token", "tenant", URI.create("https://kr1-api-kubernetes-infrastructure.nhncloudservice.com/v1/"), Instant.now().plusSeconds(3600));
     private KubernetesClient client;
 
     static NhnCinderAddonProperties configured() {
-        var p = new NhnCinderAddonProperties(); p.setEnabled(true); p.setReadyTimeoutSeconds(1); p.setPollSeconds(1);
+        var p = new NhnCinderAddonProperties(); p.setEnabled(true); p.setCredentialSource("openbao"); p.setReadyTimeoutSeconds(1); p.setPollSeconds(1);
         var b = new NhnCinderAddonProperties.Binding(); b.setNamespace("project-a"); b.setConnectionName("nhn-kr1");
         b.setSecretPath("secret/data/csp/nhn"); b.setRegion("kr1"); p.setBindings(List.of(b)); return p;
     }
@@ -118,6 +119,42 @@ class NhnCinderAddonServiceTest {
     @Test void malformedTargetRejectedBeforeTumblebugLookup() {
         assertThatThrownBy(() -> service.resolve("../other", "cluster-a")).isInstanceOf(StorageOperationException.class);
         verify(tumblebug, never()).getK8sClusterByName("../other", "cluster-a");
+    }
+    @Test void clusterAuthenticationNeedsNoOpenBaoBindingEvenInAnotherProject() {
+        properties.setCredentialSource("cluster"); properties.setBindings(List.of());
+        when(identity.login(any(), eq("kr1"))).thenReturn(session);
+        assertThat(service.capability("project-a", "cluster-a").canInstall()).isTrue();
+        verifyNoInteractions(credentials);
+        verify(nks, never()).login(any(), anyString());
+    }
+    @Test void missingClusterIdentityDoesNotFallBackToOpenBao() {
+        properties.setCredentialSource("cluster");
+        when(identity.login(any(), eq("kr1"))).thenThrow(new StorageOperationException(503, "NHN_CLUSTER_IDENTITY_UNAVAILABLE", "Missing NKS cluster identity"));
+        assertThatThrownBy(() -> service.capability("project-a", "cluster-a")).hasMessageContaining("cluster identity");
+        verifyNoInteractions(credentials); verify(nks, never()).login(any(), anyString());
+    }
+    @Test void disabledClusterAuthenticationDoesNotReadTheTrust() {
+        properties.setCredentialSource("cluster"); properties.setEnabled(false);
+        assertThat(service.capability("project-a", "cluster-a").canInstall()).isFalse();
+        verifyNoInteractions(identity, credentials);
+    }
+    @Test void unknownCredentialSourceCannotSilentlyEnableTheLegacyPath() {
+        properties.setCredentialSource("typo");
+        assertThat(service.capability("project-a", "cluster-a").canInstall()).isFalse();
+        verifyNoInteractions(identity, credentials);
+    }
+    @Test void renewsTrustAndRevalidatesTheNativeProjectWithoutRepeatingInstallation() throws Exception {
+        properties.setCredentialSource("cluster");
+        var expiring = new NhnNksApi.Session("expiring", "tenant", session.endpoint(), Instant.now().plusSeconds(1));
+        when(identity.login(any(), eq("kr1"))).thenReturn(expiring, session);
+        when(nks.cluster(expiring, ID)).thenReturn(json.readTree("{\"status\":\"CREATE_COMPLETE\"}"));
+        when(nks.compatibleVersion(eq(expiring), any())).thenReturn("v1.30.0-nks1");
+        when(nks.installed(expiring, ID)).thenReturn(Optional.empty());
+        doAnswer(a -> { registerDriver(client); return null; }).when(nks).install(expiring, ID, "v1.30.0-nks1");
+        when(nks.installed(session, ID)).thenReturn(Optional.of(json.readTree("{\"status\":\"CREATE_COMPLETE\"}")));
+        service.prepare(service.resolve("project-a", "cluster-a"), m -> {});
+        verify(identity, times(2)).login(any(), eq("kr1")); verify(nks).cluster(session, ID);
+        verify(nks, times(1)).install(any(), eq(ID), anyString()); verifyNoInteractions(credentials);
     }
     @Test void legacyRegionDetailsUseIdentifierRatherThanDisplayName() {
         var cluster = cluster("nhn"); cluster.getConnectionConfig().setRegionZoneInfo(null);

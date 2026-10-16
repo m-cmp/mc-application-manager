@@ -14,6 +14,14 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "app.ibm-ingress.automation")
 @Getter @Setter
 public class IbmIngressAutomationProperties {
+    // cluster: IBM-managed Secret Provider; openbao: explicitly configured legacy credentials.
+    private String credentialSource = "cluster";
+    private boolean allowSharedLbChanges = true;
+    boolean clusterIdentity() {
+        if ("cluster".equals(credentialSource)) return true;
+        if ("openbao".equals(credentialSource)) return false;
+        throw new IllegalArgumentException("IBM credential-source must be cluster or openbao.");
+    }
     private List<Profile> profiles = new ArrayList<>();
     private int readyTimeoutSeconds = 2400;
     private int pollSeconds = 10;
@@ -21,6 +29,7 @@ public class IbmIngressAutomationProperties {
     private String helmExecutable = "helm";
     private String openBaoUrl;
     private String openBaoTokenFile;
+    private String credentialKeyFile = IbmOpenBaoTokenCipher.DEFAULT_KEY_FILE;
 
     @Getter @Setter
     public static class Profile {

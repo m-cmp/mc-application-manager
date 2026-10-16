@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.*;
 import org.springframework.stereotype.Component;
 
-/** NHN IaaS v2 token and NKS managed add-on API. Only Cinder installation is exposed. */
+/** NHN cluster trust / legacy IaaS authentication and managed Cinder add-on API. */
 @Component
 public class NhnNksApi {
     static final String ADDON = "cinder-csi-plugin";
@@ -65,6 +65,43 @@ public class NhnNksApi {
             if (endpoints.size() != 1) throw new IllegalArgumentException();
             return new Session(token, tenant, endpoints.iterator().next(), expiry);
         } catch (Exception e) { throw invalidResponse("NHN did not return a valid project token and an unambiguous NKS endpoint for this region."); }
+    }
+
+    Session loginTrust(NhnClusterIdentitySessions.TrustCredential credential, String region) {
+        NhnClusterIdentitySessions.requireRegion(region);
+        // Fixed public TLS endpoint: never send the trust password to a URL read from a Secret or request.
+        URI identity = URI.create("https://api-identity-infrastructure.nhncloudservice.com/v3/auth/tokens");
+        var response = exchange("POST", identity, null, Map.of("auth", Map.of(
+                "identity", Map.of("methods", List.of("password"), "password", Map.of("user",
+                        Map.of("id", credential.userId(), "password", credential.password()))),
+                "scope", Map.of("OS-TRUST:trust", Map.of("id", credential.trustId())))));
+        try {
+            if (response.statusCode() != 201) throw new IllegalArgumentException();
+            var token = json.readTree(response.body()).path("token");
+            String bearer = response.headers().firstValue("X-Subject-Token").orElseThrow();
+            String tenant = token.path("project").path("id").asText();
+            Instant expiry = Instant.parse(token.path("expires_at").asText());
+            if (bearer.isBlank() || tenant.isBlank() || !expiry.isAfter(Instant.now().plusSeconds(60))
+                    || !credential.trustId().equals(token.path("OS-TRUST:trust").path("id").asText()))
+                throw new IllegalArgumentException();
+            Set<URI> endpoints = new HashSet<>();
+            for (var service : token.path("catalog")) {
+                if (!"container-infra".equals(service.path("type").asText())) continue;
+                for (var endpoint : service.path("endpoints")) {
+                    if (!"public".equals(endpoint.path("interface").asText())
+                            || !region.equalsIgnoreCase(endpoint.path("region").asText())) continue;
+                    URI uri = URI.create(endpoint.path("url").asText());
+                    String prefix = region.toLowerCase(Locale.ROOT) + "-api-kubernetes-infrastructure.";
+                    if (!officialHttps(uri) || !Set.of(prefix + "nhncloudservice.com", prefix + "cloud.toast.com").contains(uri.getHost().toLowerCase(Locale.ROOT))
+                            || !Set.of("", "/", "/v1", "/v1/").contains(uri.getPath())) throw new IllegalArgumentException();
+                    endpoints.add(uri.resolve("/v1/"));
+                }
+            }
+            if (endpoints.size() != 1) throw new IllegalArgumentException();
+            return new Session(bearer, tenant, endpoints.iterator().next(), expiry);
+        } catch (Exception e) {
+            throw invalidResponse("NHN did not return a valid cluster trust token and an unambiguous public NKS endpoint for the selected region.");
+        }
     }
 
     JsonNode cluster(Session session, String id) {
@@ -122,6 +159,11 @@ public class NhnNksApi {
         return request("GET", session.endpoint().resolve(path), session.token(), null);
     }
     private JsonNode request(String method, URI uri, String token, Object body) {
+        var response = exchange(method, uri, token, body);
+        try { return json.readTree(response.body()); }
+        catch (Exception e) { throw invalidResponse("NHN returned an invalid API response. Refresh status before retrying."); }
+    }
+    private HttpResponse<String> exchange(String method, URI uri, String token, Object body) {
         try {
             var builder = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30)).header("Accept", "application/json");
             if (token != null) builder.header("X-Auth-Token", token).header("OpenStack-API-Version", "container-infra latest");
@@ -135,7 +177,7 @@ public class NhnNksApi {
             if (status == 400) throw new StorageOperationException(409, "NHN_ADDON_PRECONDITION", "NKS rejected the request. Check NKS registry activation, cluster readiness and add-on compatibility.");
             if (status < 200 || status >= 300 || response.body().length() > 1048576)
                 throw invalidResponse("The NHN NKS API is unavailable. Check connectivity and refresh status before retrying an installation.");
-            return json.readTree(response.body());
+            return response;
         } catch (StorageOperationException e) { throw e; }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

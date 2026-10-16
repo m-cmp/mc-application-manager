@@ -28,7 +28,19 @@ public class IbmIngressAutomationService {
     private Target target(String ns, String name) {
         var cluster = tumblebug.getK8sClusterByName(ns, name);
         if (!IbmIngressSupport.isIbm(cluster)) throw new IllegalArgumentException("Ingress automation requires an IBM cluster.");
-        return new Target(cluster, properties.profile(ns, cluster.getConnectionName()));
+        var profile = properties.profile(ns, cluster.getConnectionName());
+        if (profile == null && properties.clusterIdentity()) {
+            profile = new IbmIngressAutomationProperties.Profile();
+            profile.setNamespace(ns); profile.setConnectionName(cluster.getConnectionName());
+            var connection = cluster.getConnectionConfig();
+            String region = connection == null ? null : connection.getRegionZoneInfo() == null ? null
+                    : connection.getRegionZoneInfo().getAssignedRegion();
+            if (region == null && connection != null && connection.getRegionDetail() != null)
+                region = connection.getRegionDetail().getRegionId();
+            profile.setRegion(region);
+            profile.setAllowSharedLbChanges(properties.isAllowSharedLbChanges());
+        }
+        return new Target(cluster, profile);
     }
 
     /** No persistent writes: warn about preparable states, fail on invalid/unauthorized states. */
@@ -44,6 +56,13 @@ public class IbmIngressAutomationService {
         catch (IbmIngressSupport.MissingProxyException missing) {
             requireProxyProfile(target.profile);
             IngressAutomationPermissions.lock(client);
+            if (properties.clusterIdentity()) {
+                cloud.checkClusterIdentity(client);
+                rejectUnresolvedIntent(client, target.cluster.getCspResourceId());
+                warnings.add("Deploy will obtain a temporary IBM token using this cluster's managed Secret Provider and verify the shared ALB configuration. If PROXY protocol must be enabled, existing connections may briefly be interrupted.");
+                if (!config.isTlsEnabled()) warnings.addAll(kubernetesSetup.check(client, ns, target.cluster, config));
+                return warnings;
+            }
             var session = cloud.login(target.profile);
             var cluster = cloud.cluster(session, target.cluster.getCspResourceId());
             verifyRegion(cluster.path("region").asText(), target.profile);
@@ -148,8 +167,8 @@ public class IbmIngressAutomationService {
 
     private void enableProxy(KubernetesClient client, Target target, DeploymentConfigDTO config, Consumer<String> progress) {
         requireProxyProfile(target.profile);
-        var session = cloud.login(target.profile);
         String id = target.cluster.getCspResourceId();
+        var session = properties.clusterIdentity() ? cloud.login(client, target.profile, id) : cloud.login(target.profile);
         var cluster = cloud.cluster(session, id);
         verifyRegion(cluster.path("region").asText(), target.profile);
         if (!proxyEnabled(client, session, id)) {

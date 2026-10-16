@@ -1,4 +1,32 @@
-# NHN Cinder CSI 로컬 검증 결과
+# NHN Cinder CSI 검증 결과
+
+## 2026-10-16 클러스터 위임 인증과 52번 실환경 설치
+
+기본 `credential-source: cluster` 경로를 추가했다. AM은 선택한 NKS의 기존 `kube-system/os-trustee`로 공식 HTTPS Identity v3 토큰을 발급받으며, AM용 OpenBao 토큰 파일·AppRole·DB 암호화 키·프로젝트별 OpenBao 바인딩을 사용하지 않는다. NKS의 내부 HTTP 인증 주소와 `RegionOne`은 공개 API 호출에 사용하지 않는다. 기존 `openbao` 방식은 명시적으로 선택할 때만 작동한다.
+
+| 검사 | 결과 |
+|---|---|
+| Kubernetes/Jupyter/IBM 및 NHN controller 회귀 테스트 | 596건 통과, 실패/오류/제외 0 |
+| 위 결과에 포함된 NHN 테스트 | 81건 통과 |
+| 기본 인증 로컬 REST 통합 테스트 | OpenBao URL/토큰 파일/바인딩 없이 Identity v3 → NKS 설치 → CSI 등록 → StorageClass 생성 통과 |
+| 토큰 만료 임박 처리 | 단위 테스트에서 재인증·대상 프로젝트 재확인 및 설치 POST 1회 유지 검증 |
+| 52번 AM 교체 후 인증 | 공식 Identity/NKS 조회 성공 |
+| AM 컨테이너 강제 재생성 후 인증 | 추가 인증 설정/마운트 없이 재인증 및 NKS 조회 성공 |
+| 실제 AM 설치 API | 작업 `ccdadb80-aad5-4579-948f-8d75d89510e2`가 `READY`로 완료 |
+| NHN 관리형 add-on | `v1.27.102-nks4`, `CREATE_COMPLETE` |
+| 실제 CSI 상태 | 컨트롤러/노드 Pod 모든 컨테이너 Ready, 전체 워커 1개 등록 |
+| 통합 배포 구성/다른 서비스 | mc-admin-cli 원본 파일과 다른 서비스 컨테이너 50개 유지 |
+| 프론트 | 수정 없음. 기존 dist 43개 파일이 배포 JAR 내용과 일치 |
+
+실제 대상은 `default/k8s-mariadb-data-init-nhn-01`, NKS UUID `8ff98fcd-0b26-467b-befb-3b16951dff0a`이다. 설치한 Cinder add-on은 사용할 수 있도록 유지했다. 이번 NHN 검증에서는 Jupyter 배포나 실제 PVC/볼륨 쓰기 테스트를 실행하지 않았다. 토큰의 실제 12시간 만료를 기다리는 대신 만료 임박 분기 단위 테스트와 컨테이너 재생성 후 실 API 재인증을 확인했다. 별도 새 물리 서버에서 전체 mc-admin-cli 통합 배포를 실행한 것은 아니다.
+
+52번 테스트 이미지: `mc-application-manager:nhn-identity-20261016`. AM 프로젝트만 수정·재배포했으며 Git 커밋/푸시나 공용 이미지 발행은 하지 않았다. 다른 서버는 이번 변경을 포함한 AM 이미지와 정상 등록된 NKS kubeconfig 및 클러스터 위임 Secret 접근 권한이 필요하다.
+
+빌드 산출물 `build/libs/am.jar`의 SHA-256: `f8f780952d9882df5b42f49752750a09b215e7e3dac5f22fb9223148d4afc8ba`.
+
+---
+
+# 2026-10-06 기존 OpenBao 방식 로컬 검증
 
 검증일: 2026-10-06. AM 기준 커밋은 `8f2181605822260caa97c118c0e1b1eae2ddbcdb`, 작업 브랜치는 `codex/nhn-cinder-addon`이다.
 

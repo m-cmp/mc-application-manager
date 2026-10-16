@@ -6,11 +6,19 @@ config:
 app:
   ibm-ingress:
     automation:
-      # true: IBM Ingress 준비 시 AM이 필요한 PROXY protocol을 공식 IBM API로 자동 활성화.
-      # 공유 LB가 재구성되므로 기존 연결이 잠시 끊길 수 있음. 실제 변경은 배포/준비 요청 시에만 실행.
-      # IBM 키는 OpenBao에서 읽어 메모리에서만 사용. IBM 경로 읽기 전용 토큰을 파일로 마운트해야 함.
+      # cluster: 선택한 IBM 클러스터의 공식 Secret Provider로 IAM 단기 토큰을 자동 발급/갱신.
+      # 새 AM 서버에도 OpenBao/AppRole 초기 등록 불필요. 추가 LB를 만들지 않고 기존 관리형 ALB 사용.
+      # openbao: 기존 운영자 등록 AppRole/토큰 파일 사용. cluster 실패 시 OpenBao로 자동 우회하지 않음.
+      credential-source: ${IBM_INGRESS_CREDENTIAL_SOURCE:cluster}
+      # true: 배포 시 기존 공유 ALB의 PROXY 자동 준비 허용. false: 준비가 필요한 클러스터 배포 차단.
+      # 연결별 profiles 값이 있으면 해당 값을 우선. 초기 PROXY 활성화 중 기존 연결이 잠시 끊길 수 있음.
+      allow-shared-lb-changes: ${IBM_INGRESS_ALLOW_SHARED_LB_CHANGES:true}
+      # 아래 OpenBao 값은 credential-source=openbao인 환경에서만 사용.
       open-bao-url: ${IBM_INGRESS_OPEN_BAO_URL:http://mc-infra-manager-openbao:8200}
       open-bao-token-file: ${IBM_INGRESS_OPEN_BAO_TOKEN_FILE:/run/secrets/am-ibm-openbao-token}
+      # 통합 배포가 이미 마운트하는 /nexus-data에 무작위 암호화 키를 보관. 토큰 원문은 DB/이미지에 저장하지 않음.
+      # 재배포 시 AM DB와 이 키 파일을 함께 유지해야 저장한 인증 설정을 다시 사용할 수 있음.
+      credential-key-file: ${IBM_INGRESS_CREDENTIAL_KEY_FILE:/nexus-data/.am/ibm-openbao.key}
       profiles:
         - namespace: ${IBM_INGRESS_NAMESPACE:default}
           connection-name: ${IBM_INGRESS_CONNECTION_NAME:ibm-jp-tok}
@@ -20,13 +28,14 @@ app:
   nhn-cinder-addon:
     # true: NHN Cinder CSI addon 설치 기능 활성화, false: 설치 기능 비활성화 (다른 CSP에는 적용하지 않음).
     # 환경변수 NHN_CINDER_ADDON_ENABLED로 재정의 가능. 변경 후 AM 재시작 필요.
-    # 실제 설치에는 OpenBao 연결 및 프로젝트/클라우드 연결 매핑 설정 필요 (docs/nhn-cinder-addon.md 참고).
+    # 기본 cluster 방식은 선택한 NKS의 위임 인증을 사용하며 AM용 OpenBao 토큰/초기 설정이 필요하지 않음.
     enabled: ${NHN_CINDER_ADDON_ENABLED:true}
-    # 운영 AM은 OpenBao와 같은 Docker 네트워크에 연결되어야 함. 로컬 주소는 local 프로필에서 재정의.
+    credential-source: ${NHN_CINDER_ADDON_CREDENTIAL_SOURCE:cluster}
+    # 아래 OpenBao 설정 및 bindings는 credential-source: openbao를 명시한 기존 방식에서만 사용.
     open-bao-url: ${NHN_CINDER_ADDON_OPEN_BAO_URL:http://mc-infra-manager-openbao:8200}
     # NHN 자격증명 읽기 전용 OpenBao 토큰 파일을 컨테이너에 읽기 전용으로 마운트 (토큰 값은 YAML에 저장하지 않음).
     open-bao-token-file: ${NHN_CINDER_ADDON_OPEN_BAO_TOKEN_FILE:/run/secrets/am-nhn-openbao-token}
-    # Tumblebug에 등록된 namespace/connection-name과 OpenBao의 NHN 자격증명 경로를 연결.
+    # openbao 방식에서만 Tumblebug namespace/connection-name과 자격증명 경로를 연결.
     bindings:
       - namespace: ${NHN_CINDER_ADDON_NAMESPACE:default}
         connection-name: ${NHN_CINDER_ADDON_CONNECTION_NAME:nhn-kr1}

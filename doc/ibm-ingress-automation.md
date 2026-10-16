@@ -1,14 +1,130 @@
 # IBM Ingress 및 자체 도메인 인증서 자동 준비
 
-> 2026-10-15: IBM 관리형 NGINX와 Traefik을 모두 지원합니다. Traefik은 HTTP 배포도 IBM 공식 API를 통한 PROXY protocol 준비가 필요합니다. 아래 OpenBao 연결을 구성하면 AM이 Deploy 준비 단계에서 자동 활성화합니다. 문서 하단의 2026-09-11 검증 기록은 당시 NGINX 환경의 기록입니다.
+> 2026-10-16: IBM 관리형 NGINX와 Traefik을 모두 지원합니다. 기본 인증은 클러스터의 공식 Secret Provider이며 OpenBao/AppRole 초기 등록이 필요하지 않습니다. Traefik의 초기 PROXY 준비는 이 단기 토큰으로 IBM 공식 API를 호출합니다. 문서 하단의 2026-09-11 기록은 당시 NGINX 환경의 검증입니다.
+
+## 새 환경의 기본 인증: IBM 클러스터 신원 (2026-10-16)
+
+기본 `application.yaml`의 `credential-source: cluster`는 OpenBao/AppRole을 사용하지 않는다. AM은 Tumblebug에 등록된 **선택한 클러스터의 Kubernetes 접속정보**로 `kube-system`에 전용 임시 서비스 계정과 Pod를 만들고, IBM 공식 managed Secret Provider에서 IAM 단기 토큰을 받는다. 추가 NLB/Ingress Controller를 만들지 않으며 기존 IBM 관리형 NGINX/Traefik ALB와 접속 경로를 유지한다. 초기 PROXY 활성화 과정의 IBM 자체 LB 재구성은 기존 방식과 동일하다.
+
+- `mc-admin-cli` 수정, 새 서버의 AppRole/SecretID 등록, OpenBao 토큰 파일 마운트가 필요하지 않다. AM DB의 AppRole 행이나 `/nexus-data/.am/ibm-openbao.key`에도 의존하지 않는다. 기본 AM 설정과 새 이미지로 동작한다.
+- 등록된 IBM 연결/리전과 실제 IBM API의 cluster ID/VPC/subnet/기존 ALB 호스트를 교차 검증한 뒤 필요한 PROXY 변경만 수행한다. 연결별 프로필이 없으면 등록된 연결의 리전을 사용한다. 기존 프로필에서 공유 LB 변경을 금지했다면 그대로 거부한다.
+- 단기 토큰은 메모리에 최대 15분 또는 남은 TTL-60초 중 짧은 기간만 캐시한다. 이후 요청 또는 AM 재시작 시 새 토큰을 받는다. 원본 IBM 키·단기 토큰을 AM DB/파일/이미지/API 응답에 저장하지 않는다. 토큰은 Pod 로그가 아닌 Kubernetes exec의 비공개 출력으로 전달한다.
+- Spec Check는 읽기와 SelfSubjectAccessReview만 수행한다. 실제 인증 Pod는 Deploy 준비 시에만 생성하며, IBM 인증이 거절되면 OpenBao나 다른 권한으로 우회하지 않는다.
+- 임시 계정은 `storage-secret-store`/`ibm-cloud-credentials` 두 Secret의 읽기/이름 제한 watch 및 `cloud-conf`/`cluster-info` 두 ConfigMap의 읽기만 갖는다. 기존 CSI 서비스 계정을 재사용하지 않는다. Pod/Role/RoleBinding/ConfigMap은 전용 계정의 ownerReference로 연결하고 요청 종료 시 계정을 resourceVersion 사전조건으로 삭제하고 나머지는 Kubernetes GC로 함께 정리한다. AM 중단 시 Pod는 420초에 종료하며, 다음 인증 시 10분 이상 지난 AM 소유 계정만 정리한다.
+- 전제: IBM VPC 클러스터에 정상 동작하는 IBM VPC Block CSI Secret Provider가 있어야 한다. AM의 기존 Kubernetes 접속정보는 위 전용 리소스 생성/삭제와 Pod exec 권한이 있어야 하고, 클러스터의 IBM 인프라 자격증명에는 기존 ALB 관리 권한이 있어야 한다. 일반 Kubernetes 접속 권한만으로 IBM IAM 권한을 새로 부여하지 않는다.
+- Secret Provider 이미지는 현재 정상 실행 중인 IBM CSI sidecar의 공식 `icr.io/obs/armada-storage-secret` digest를 사용한다. Java/curl 실행용 컨테이너는 공개 AM 이미지의 검증된 digest를 사용하고 AM 서버를 실행하지 않는다. IBM v1.3.67에서 비특권 UID 2121과 `TOKEN_EXPIRY_DIFF=20m`를 검증했다.
+
+기존 운영자의 OpenBao/AppRole 방식은 `IBM_INGRESS_CREDENTIAL_SOURCE=openbao`로 명시적으로 선택할 수 있다. 아래 AppRole 설명은 이 선택 경로에만 해당한다.
+
+공식 구현 근거: [IBM secret-common-lib managed provider](https://github.com/IBM/secret-common-lib), [IBM secret-utils-lib gRPC 계약](https://github.com/IBM/secret-utils-lib).
+
+### 클러스터 신원 방식의 52번 검증 (2026-10-16)
+
+- AM만 `mc-application-manager:ibm-identity-final-20261016` 이미지로 교체했다. 컨테이너를 강제 재생성한 뒤에도 IAM 발급 및 기존 IBM API 조회가 성공했다. mc-admin-cli 파일과 다른 서비스 컨테이너 ID는 바뀌지 않았다.
+- OpenBao reader가 호출되면 즉시 실패하도록 만든 검증에서, 배포된 AM 클래스가 클러스터 신원으로 IAM 토큰을 발급하고 등록 cluster ID, 기존 ALB, 해당 VPC/subnet 조회에 성공했다. 토큰 캐시 시계를 901초 진행시켜 새 IAM 토큰 발급 및 API 조회를 다시 확인했다. 실제 IAM 토큰의 1시간 만료까지 대기한 시험은 아니며, 갱신 시점과 잘못된/짧은 TTL 거부는 단위 테스트로 검증했다.
+- OpenBao용 JDBC 빈과 유효한 암호화 경로가 없어도 기본 인증 빈이 시작되는 Spring 테스트를 추가했다. OpenBao reader 및 저장 설정은 명시적으로 사용할 때만 초기화한다. 관련 서비스 테스트 **556건 통과**, 실패/제외 0. 프런트 변경은 없으며 기존 dist 파일 43개가 JAR 내용과 일치한다.
+- 기존 클러스터 `db8nbb1t0dmfse1vul1g`에 Jupyter 배포 3을 정상 설치했다. 작업 ID는 `38a37ed0-3f7f-4a89-a0dc-55a24c9cdc2a`다. 허용 IP 로그인, 비허용 IP 및 위조 전달 헤더의 403, 실제 Python 커널의 샘플 CSV 합계 42, 읽기/쓰기 grant 및 읽기 전용 업로드 거부를 검증했다. 최종 AM 재배포 후에도 기능을 재검증하고, Jupyter Pod 재시작 후 노트북 SHA 보존 및 스토리지 터널 복구를 확인했다.
+- 테스트 Jupyter, PVC/PV, 실제 IBM 디스크, 테스트 Object Storage 접두사 파일 및 모든 임시 인증 Pod/계정/Role/RoleBinding/ConfigMap을 정리했다. 테스트 grant는 폐기했다. 기존 버킷과 ALB 주소 `5245a284-jp-tok.lb.appdomain.cloud`, PROXY 설정은 유지됐다.
+- 이 클러스터는 이미 PROXY가 활성화되어 있어 초기 ALB 변경을 실환경에서 재실행하지 않았다. 새 인증을 사용하는 최초 PROXY 변경 흐름은 모의 IBM/Kubernetes API 테스트로 검증했다. 새 서버에서 기존 공개 이미지만 사용하는 배포는 이 변경을 포함하지 않으므로, 이 소스로 빌드한 AM 이미지의 배포가 필요하다. 이 작업에서 Git 커밋/푸시 또는 공식 이미지 게시는 하지 않았다.
+- 실행 JAR SHA-256: `4107843f4971eac3c238fdc35cf9f11680cfde224da55e88a5cb7c36996e3424`.
+
+## AppRole 자동 재인증 (2026-10-16)
+
+`credential-source=openbao`를 선택하는 운영 환경에서는 고정 30일 토큰 대신 IBM 전용 **AppRole**을 사용합니다. AM은 처음 IBM 인증정보를 읽을 때 AppRole로 로그인하며, 발급받은 접근 토큰은 메모리에만 캐시합니다. TTL이 지나면 다음 요청에서 새 토큰을 받습니다. 캐시된 토큰이 만료·폐기되어 OpenBao가 401/403을 반환해도 한 번만 재로그인하고 읽기를 다시 시도합니다. 로그인 실패, SecretID 폐기, 권한 거절은 다른 고정 토큰이나 관리자 권한으로 우회하지 않습니다. 5xx/통신 오류에는 반복 로그인을 수행하지 않습니다.
+
+정확한 namespace/connection별 RoleID·SecretID·인증 경로는 기존 무작위 키로 암호화하여 AM DB의 `ibm_ingress_openbao_approle_configuration`에 저장합니다. IBM API 키와 발급된 접근 토큰은 DB/파일/이미지에 저장하지 않습니다. AM DB와 `/nexus-data/.am/ibm-openbao.key`를 유지하면 AM 컨테이너를 교체한 뒤에도 자동 로그인합니다. AppRole 설정은 기존 고정 토큰 설정보다 우선합니다.
+
+Docker와 OpenBao 운영 권한이 있는 관리자가 최초 한 번 다음을 실행합니다. 관리자 토큰은 숨김 프롬프트에서 받아 운영자 프로세스 메모리에서만 사용하며 AM에 전달하거나 저장하지 않습니다.
+
+```sh
+python3 scripts/bootstrap_ibm_approle.py \
+  --url http://OPENBAO_OPERATOR_HOST:8200 \
+  --am-url http://OPENBAO_AM_REACHABLE_HOST:8200 \
+  --namespace default --connection ibm-jp-tok --role am-ibm-ingress
+
+python3 scripts/configure_ibm_openbao.py verify \
+  --namespace default --connection ibm-jp-tok
+```
+
+부트스트랩은 전용 정책에 등록된 IBM 경로의 `read`만 허용합니다. AppRole 접근 토큰은 기본 1시간 TTL/최대 TTL이며 default/admin 정책이 없습니다. AM은 자식 토큰 발급, 다른 CSP 읽기, OpenBao 관리 권한을 갖지 않습니다. AppRole SecretID는 접근 토큰이 만료되거나 AM이 장시간 중단되어도 재로그인할 수 있도록 TTL과 사용 횟수 제한을 두지 않습니다. 따라서 SecretID는 장기 서비스 자격증명으로 보호하고 필요 시 폐기·교체해야 합니다. 동일 이름의 다른 정책/역할을 발견하면 덮어쓰지 않습니다.
+
+이미 운영자가 AppRole을 제공한 환경에서는 `configure_ibm_openbao.py configure-approle --url ...`의 숨김 프롬프트로 RoleID/SecretID를 등록할 수 있습니다. 기본 인증 경로는 `auth/approle/login`이며 `--auth-path`로 전용 AppRole 마운트를 지정할 수 있습니다. 자동화에서는 `--from-stdin` JSON의 `roleId`, `secretId`, `authPath`를 사용합니다. 비밀 값을 명령행 인자나 셸 기록에 넣지 않습니다.
+
+**OpenBao 재시작/재배포 시 데이터가 유지되면 AppRole을 재사용합니다. OpenBao 데이터가 완전히 초기화되면 AppRole과 IBM 비밀 값도 복원해야 합니다.** 자동 재인증은 유효한 서비스 신원으로 새 접근 토큰을 받는 기능이며, 삭제된 권한이나 IBM 비밀 값을 임의로 재생성하는 기능은 아닙니다. `mc-admin-cli` 소스와 기본 배포 파일은 변경하지 않습니다.
+
+### 52번 서버 AppRole 실환경 검증 (2026-10-16)
+
+- AM 이미지 `mc-application-manager:ibm-approle-20261016`을 AM 서비스에만 배포했다. 컨테이너를 한 번 더 강제 재생성한 뒤에도 암호화된 설정과 원래 암호화 키가 유지되고 IBM 인증정보 읽기·IBM IAM 로그인이 성공했다. 다른 서비스 컨테이너는 교체하지 않았고 mc-admin-cli 소스와 기본 Compose는 변경하지 않았다.
+- 실제 OpenBao 접근 토큰 TTL을 5초로 설정하고 7.5초 대기해 이전 토큰의 403을 확인했다. 배포된 AM 클래스가 AppRole로 새 토큰을 발급받아 IBM 인증정보 읽기·IAM 로그인에 성공했다. 별도로 TTL 내 토큰을 운영자가 폐기해 403 응답 후 1회 재로그인하는 경로도 검증했다. 운영 TTL/최대 TTL은 검증 후 1시간으로 복원했다.
+- IBM 경로 이외 CSP 경로와 OpenBao 관리 API는 403이었다. AppRole에는 IBM 경로 읽기 전용 정책만 있으며 default/admin 정책은 없다. 발급 토큰과 IBM API 키는 출력하거나 저장하지 않았다.
+- 기존 IBM 클러스터 `k8s-mariadb-data-init-ibm-01`에 AM의 정상 비동기 배포 API로 Jupyter를 한 번 설치해 `SUCCEEDED`를 확인했다. Traefik PROXY protocol/HTTP 준비도 AM이 수행했다. 허용 IP의 로그인 페이지 접근, 비허용 IP 및 위조 X-Forwarded-For 요청의 403, Jupyter 인증 API, 샘플 노트북 Python 커널 실행을 확인했다.
+- 전용 테스트 Prefix에 READ_WRITE 업로드·READ_ONLY 다운로드가 성공하고 READ_ONLY 업로드는 거절됐다. 기존 공통 예외 처리기는 이 거절을 HTTP 200 / 본문 `code=9999`, `detail=This Object Storage grant is read-only.`로 반환하며 URL 데이터는 발급하지 않는다. 검증은 본문 오류도 확인했다.
+- AM의 Restart 후 실제 Pod UID가 바뀌어도 저장 노트북의 SHA-256과 마커 파일이 유지됐고 Object Storage SSH 터널이 복구됐다. 테스트 완료 후 정상 Uninstall, 테스트 PVC/PV 및 실제 IBM 디스크 삭제, 전용 테스트 객체·버전 정리, grant 회수를 확인했다. 기존 클러스터·공유 Ingress·원래 버킷은 유지했다.
+- Kubernetes 서비스 회귀 테스트 539건이 실패·제외 없이 통과했다. 이번 작업에는 프런트엔드 소스 변경이 없으며, 배포 JAR에 현재 dist 43개 파일이 모두 같은 내용으로 포함됐음을 확인했다.
+
+이 검증은 HTTP와 Object Storage 연동을 대상으로 했다. DNS/TLS 인증서 발급이나 다른 CSP의 실배포를 추가 검증한 결과는 아니다. 현재 52번 이미지는 로컬 검증 태그이며, 통합 배포에서 동일 기능을 사용하려면 이 소스로 빌드한 AM 이미지를 배포해야 한다.
+
+## 신규 환경의 인증정보 재사용 조사 (2026-10-16)
+
+이 절은 초기 조사 기록이다. 이후 위의 IBM managed Secret Provider 경로에서 IAM 발급 및 기존 ALB/VPC 조회를 검증해 기본 인증 경로로 추가했다. 추가 NLB 대안은 채택하지 않았다.
+
+52번의 실제 배포 버전은 Tumblebug 0.13.6 / Spider 0.13.17이다. AM이 원래 받는 Tumblebug Basic 인증만 사용해 IBM 연결과 등록 credential 조회 범위를 확인했다. `POST /tumblebug/forward/credential/ibm`이 조회하는 Spider credential의 `ApiKey`, `S3AccessKey`, `S3SecretKey`는 모두 `Hidden for security.`로 반환됐다. Tumblebug의 OpenBao 연결은 정상이어도 이 조회에서 원문 키를 제공하지 않는다.
+
+- Spider REST `GetCredential`은 마스킹된 조회 함수를 사용한다. 내부 `GetCredentialDecrypt`는 Go 내부 함수이며 원문 조회 REST API로 노출되지 않는다.
+- Spider의 IBM `GenerateClusterToken`은 명시적으로 미지원 오류를 반환한다. AWS/GCP용 클러스터 토큰 API를 IBM IAM 토큰 발급에 사용할 수 없다.
+- Tumblebug `forward/*`는 Spider로 GET을 전달한다. 임의의 IBM Cloud API나 OpenBao 관리 API에 대한 인증 프록시가 아니다. 현재 IBM 드라이버에는 AnyCall 확장도 없다.
+- NHN Cinder 설치는 등록된 NHN 자격증명을 재사용하지만 AM용 OpenBao 읽기 토큰과 마운트는 별도로 준비한 방식이다. 이 성공은 새 환경에서 추가 인증 설정이 불필요하다는 증거가 아니다.
+- IBM이 문서화한 선택 클러스터의 `kube-system/storage-secret-store`도 읽기 전용으로 확인했다. 현재 클러스터의 `g2_api_key`와 `iam_api_key`는 일반 IAM 키 형식이 아니어서 원문 자격증명 재사용 경로로 채택하지 않았다. 비밀 값 출력·저장 및 복호화 우회는 수행하지 않았다.
+
+별도 OpenBao 등록을 없애는 대안으로 AM이 Tumblebug의 기존 Kubernetes 접속정보를 사용해 전용 Traefik과 `externalTrafficPolicy: Local`인 VPC NLB Service를 생성할 수 있다. IBM Cloud Controller가 NLB를 생성하므로 AM에 IBM API 키를 추가 전달하지 않는 구조다. 이 대안은 추가 NLB 비용과 새 접속 엔드포인트가 발생하며, 기존 IBM 관리형 ALB 준비 방식과 구조가 다르다. 구현 전에 이 구조 선택이 필요하다. 현행 배포에 추가 NLB나 새 Ingress Controller를 생성한 상태는 아니다.
+
+조사 근거:
+
+- [Spider credential 조회 구현](https://github.com/cloud-barista/cb-spider/blob/v0.13.17/cloud-info-manager/credential-info-manager/CredentialInfoManager.go)
+- [Spider IBM ClusterHandler](https://github.com/cloud-barista/cb-spider/blob/v0.13.17/cloud-control-manager/cloud-driver/drivers/ibm/resources/ClusterHandler.go)
+- [Tumblebug forward REST 구현](https://github.com/cloud-barista/cb-tumblebug/blob/v0.13.6/src/interface/rest/server/common/utility.go)
+- [IBM 클러스터 storage-secret-store 설명](https://cloud.ibm.com/docs/containers?topic=containers-missing_permissions)
+- [IBM Kubernetes Service를 통한 VPC NLB 생성](https://cloud.ibm.com/docs/containers?topic=containers-setup_vpc_nlb)
+- [Traefik Kubernetes 설치](https://doc.traefik.io/traefik/setup/kubernetes/)
+
+## 기존 mc-admin-cli 통합 배포에서 인증 설정 유지 (2026-10-16)
+
+`mc-admin-cli` 소스나 기본 Compose를 변경하지 않습니다. AM 이미지에 포함된 운영자 명령으로 **OpenBao 주소와 IBM 읽기 전용 토큰을 최초 등록**하면, AM DB의 `ibm_ingress_openbao_configuration`에 namespace/connection별로 보관합니다. 토큰은 AES-256-GCM으로 암호화하며 IBM API 키 자체는 저장하지 않습니다. 일반 애플리케이션 배포 요청이나 공개 HTTP 설정 API로 토큰을 받지 않습니다.
+
+암호화 키는 통합 배포가 이미 AM에 마운트하는 `/nexus-data/.am/ibm-openbao.key`에 최초 생성됩니다. 디렉터리와 파일 권한은 각각 700/600입니다. 키 원문은 DB, 이미지, Git, 명령행 인자에 포함되지 않습니다. 저장 설정은 정확히 일치하는 namespace/connection의 기존 토큰 파일 설정보다 우선합니다. 저장 설정이 없으면 아래의 기존 토큰 파일 방식도 사용할 수 있습니다. 저장 설정이 손상되거나 읽기 권한이 거절된 경우 다른 인증정보로 자동 우회하지 않습니다.
+
+Docker 접근 권한이 있는 운영자가 AM 저장소의 다음 명령을 실행합니다. Python 3과 Docker CLI가 필요하며, Java/JDBC 드라이버는 실행 중인 AM 이미지의 것을 사용합니다. Spring 서버나 스케줄러를 추가 기동하지 않습니다.
+
+```sh
+# AM의 기존 네트워크에서 접근 가능한 OpenBao 주소를 지정합니다.
+# 비밀 토큰은 숨김 프롬프트에 입력하며 명령행이나 셸 기록에 넣지 않습니다.
+python3 scripts/configure_ibm_openbao.py configure \
+  --namespace default --connection ibm-jp-tok \
+  --url http://OPENBAO_REACHABLE_HOST:8200
+
+python3 scripts/configure_ibm_openbao.py verify \
+  --namespace default --connection ibm-jp-tok
+```
+
+OpenBao가 AM과 Docker 네트워크를 공유하지 않으면 내부 서비스명은 해석되지 않습니다. 이 경우 OpenBao가 이미 공개한 포트에 연결 가능한 사설 호스트 주소 등을 지정합니다. 주소는 환경별 설정이며 특정 서버 IP나 Docker gateway를 소스에 고정하지 않습니다. HTTP는 신뢰할 수 있는 내부 연결에서 사용하고, 외부 연결에는 신뢰되는 인증서의 HTTPS 주소를 사용합니다. 등록 전에는 해당 경로의 IBM 자격증명 읽기를 검증하며, 실패한 값으로 기존 설정을 교체하지 않습니다.
+
+토큰은 `secret/data/csp/ibm` 읽기 전용이어야 합니다. 기본 경로가 아닌 등록 경로를 사용하는 경우 `--secret-path`를 지정하고 `application.yaml`의 IBM 프로필 경로도 일치시킵니다. namespace/connection/region 프로필과 IBM 계정 권한 설정은 여전히 필요합니다. 관리자 토큰을 AM에 등록하지 않습니다. AM은 토큰 발급이나 권한 확대를 수행하지 않습니다.
+
+그 뒤에는 **새 AM 이미지를 기존 mc-admin-cli 통합 배포로 실행**하면 저장한 설정을 다시 읽습니다. 고정 토큰 대신 위의 AppRole을 등록하면 접근 토큰 만료도 자동으로 처리합니다. 별도 AM 배포 스크립트나 OpenBao 토큰 파일 마운트가 필요하지 않습니다. 다음 항목은 유지해야 합니다.
+
+- AM PostgreSQL 데이터와 `/nexus-data/.am/ibm-openbao.key`를 함께 유지·백업합니다. 키가 없어지면 기존 토큰을 복호화할 수 없으며 AM은 자동으로 새 키를 덮어쓰지 않습니다.
+- 다른 체크아웃 경로가 새 데이터 디렉터리를 사용하는 경우 DB와 키도 해당 환경으로 복원해야 합니다. 컨테이너 교체와 데이터 초기화는 다릅니다.
+- OpenBao와 등록된 IBM 비밀 값이 유지되고 저장 주소에 계속 접근할 수 있어야 합니다. 고정 토큰 방식에서는 토큰 만료/폐기 후 `configure`로 유효한 읽기 토큰을 다시 등록합니다. AppRole 방식은 접근 토큰 만료/폐기를 자동 처리합니다. OpenBao 데이터 초기화로 AppRole이나 IBM 비밀 값이 없어지면 복원이 필요합니다.
+
+`IBM_INGRESS_CREDENTIAL_KEY_FILE`로 키 경로를 변경할 수 있지만, 변경 경로도 기존 통합 배포에서 영속화되는 위치여야 합니다. 자동화 입력은 `--from-stdin`의 JSON을 사용할 수 있으며 키는 `namespace`, `connectionName`, `openBaoUrl`, `token`, `secretPath`입니다. 비밀 값을 파일이나 명령행에 기록하지 않고 표준입력으로 전달합니다.
 
 ## OpenBao를 사용하는 HTTP 자동 준비 (환경 공통)
 
 공통 `application.yaml`의 `app.ibm-ingress.automation`을 사용합니다. AM은 선택한 클러스터의 실제 ID와 connectionName을 Tumblebug에서 조회하며 특정 서버나 클러스터 ID를 사용하지 않습니다. 일치하는 Project/connection 프로필의 `allow-shared-lb-changes=true`이면 필요한 PROXY protocol을 자동 활성화하고 실제 Controller/Service 준비 후 앱을 배포합니다. 이미 준비된 클러스터에는 같은 변경을 반복하지 않습니다. Spec Check는 변경 없이 검사만 합니다.
 
-IBM 키 원문은 OpenBao의 `IC_API_KEY`에서 읽어 메모리에서만 사용합니다. AM 서버 파일이나 배포 요청에 IBM 키를 넣지 않습니다. OpenBao용 읽기 토큰은 별도로 필요하며 AM이 관리자 토큰으로 자기 권한을 발급하지는 않습니다.
+IBM 키 원문은 OpenBao의 `IC_API_KEY`에서 읽어 메모리에서만 사용합니다. AM 서버 파일이나 배포 요청에 IBM 키를 넣지 않습니다. OpenBao용 인증 연결은 최초 등록해야 합니다. 위 AppRole 방식에서는 AM이 읽기 토큰을 자동 발급받으며 관리자 토큰은 사용하지 않습니다.
 
-다른 환경도 다음 최초 연결을 설정해야 합니다. 소스/이미지만 교체하고 인증 연결을 생략하면 자동 준비는 동작하지 않습니다.
+기본 통합 배포에서는 위의 AM DB 저장 방식을 사용합니다. 다음은 기존 토큰 파일/Compose override를 유지하는 환경에서의 대체 설정입니다. 두 방식 모두 최초 연결 설정을 생략하면 자동 준비는 동작하지 않습니다.
 
 1. 해당 환경의 OpenBao에 IBM 자격증명이 등록되어 있어야 합니다.
 2. `secret/data/csp/ibm` 읽기만 허용하는 토큰 파일을 준비합니다. 30일 토큰이면 만료 전에 새 토큰으로 교체합니다. 토큰 파일은 Git 밖의 절대 경로, 소유자 전용 권한으로 관리합니다.
