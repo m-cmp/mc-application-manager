@@ -115,3 +115,21 @@ blobs remained accessible, and catalog 18 still referenced the deleted tag.
 The existing component deletion path does not coordinate Docker garbage collection, blob-store
 compaction, or catalog reference handling. Dedicated Docker GC and compaction tasks were not
 configured at the time of the check. The component deletion follow-up is outside this change.
+
+## Frontend build and Nexus UI revalidation
+
+The current frontend was rebuilt with `npm run build`, including the TypeScript check,
+using the server's API and asset URLs. All 43 output files matched both the frontend
+packaged in the running AM JAR and the bytes actually served by AM. The existing
+`catalog-nexus-20261022.4` deployment already contains that exact build.
+
+The Nexus UI image was rebuilt on server 52 using `scripts/nexus-ui/build.sh`.
+The generated JAR matched the running Nexus JAR byte-for-byte, with SHA-256
+`981e9774c9cc074587982fd5d29b8611d16e177c577e9be850b7851a51ab3c3e`.
+The ExtDirect transport regression check passed. Both containers remained healthy;
+the matching builds did not require a container restart.
+
+The file manifest and verification result are saved under
+`build/catalog-nexus-validation/frontend-build-manifest.json` and
+`build/catalog-nexus-validation/ui-build-verification.json` locally. The server copy
+is in `/home/ubuntu/am-catalog-nexus-20261022/ui-build-validation`.

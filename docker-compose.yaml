@@ -41,7 +41,9 @@ services:
 
   # sonatype nexus - for application manager
   sonatype-nexus:
-    image: sonatype/nexus3:latest
+    # Build this local image first: bash scripts/nexus-ui/build.sh
+    image: mcmp/nexus-ui-fixed:3.97.0-20261021.3
+    pull_policy: never
     container_name: nexus-repository
     platform: linux/amd64
     networks:
