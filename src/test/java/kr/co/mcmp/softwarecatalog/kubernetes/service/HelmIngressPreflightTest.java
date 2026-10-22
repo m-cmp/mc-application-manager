@@ -43,7 +43,7 @@ class HelmIngressPreflightTest {
     void directHelmEntryPointsAlsoRejectBeforeExternalActions(boolean withRequest) {
         CbtumblebugRestApi api = mock(CbtumblebugRestApi.class);
         KubeconfigResolver resolver = mock(KubeconfigResolver.class);
-        HelmChartService service = new HelmChartService(api, resolver, null, null, null, null);
+        HelmChartService service = new HelmChartService(api, resolver, null, null, null, null, null);
         SoftwareCatalog catalog = SoftwareCatalog.builder().ingressEnabled(true).ingressHost("bad_host").build();
         HelmChart chart = HelmIngressValuesTest.chart("unverified", "https://example.com/charts", "1.0.0");
         assertThatIllegalArgumentException().isThrownBy(() -> {
@@ -89,7 +89,7 @@ class HelmIngressPreflightTest {
     void bothDirectHelmEntryPointsAcceptValidUnknownCharts(boolean withRequest) {
         CbtumblebugRestApi api = mock(CbtumblebugRestApi.class);
         KubeconfigResolver resolver = mock(KubeconfigResolver.class);
-        HelmChartService service = new HelmChartService(api, resolver, null, null, null, null);
+        HelmChartService service = new HelmChartService(api, resolver, null, null, null, null, null);
         SoftwareCatalog catalog = SoftwareCatalog.builder().ingressEnabled(true)
                 .ingressHost("app.example.com").build();
         HelmChart chart = HelmIngressValuesTest.chart("new-app", "https://example.com/charts", "1.0.0");

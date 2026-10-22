@@ -70,7 +70,7 @@ class HelmIngressRenderTest {
         }
         if (withCidr) config.setIngressClass(ingressClass);
         Map<String, Object> values = HelmIngressValues.from(HelmIngressValuesTest.chart(name, url, version), config);
-        HelmChartService service = new HelmChartService(null, null, null, null, null, null);
+        HelmChartService service = new HelmChartService(null, null, null, null, null, null, null);
         // Use the production YAML writer and chart-specific service defaults as the deployment does.
         Map<String, String> setValues = new LinkedHashMap<>();
         setValues.put("service.type", "ClusterIP");

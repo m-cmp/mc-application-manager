@@ -1,6 +1,8 @@
 package kr.co.mcmp.softwarecatalog.application.dto;
 
 import kr.co.mcmp.softwarecatalog.application.model.HelmChart;
+import kr.co.mcmp.softwarecatalog.application.constants.ArtifactSource;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -18,6 +20,8 @@ public class HelmChartDTO {
     private String chartName;
     private String chartVersion;
     private String chartRepositoryUrl;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private ArtifactSource artifactSource;
     private String valuesFile;
     private String packageId;
     private String normalizedName;
@@ -31,6 +35,7 @@ public class HelmChartDTO {
                 .chartName(this.chartName)
                 .chartVersion(this.chartVersion)
                 .chartRepositoryUrl(this.chartRepositoryUrl)
+                .artifactSource(this.artifactSource)
                 .valuesFile(this.valuesFile)
                 .packageId(this.packageId)
                 .normalizedName(this.normalizedName)
@@ -48,6 +53,7 @@ public class HelmChartDTO {
                 .chartName(helmChart.getChartName())
                 .chartVersion(helmChart.getChartVersion())
                 .chartRepositoryUrl(helmChart.getChartRepositoryUrl())
+                .artifactSource(helmChart.getArtifactSource())
                 .valuesFile(helmChart.getValuesFile())
                 .packageId(helmChart.getPackageId())
                 .normalizedName(helmChart.getNormalizedName())

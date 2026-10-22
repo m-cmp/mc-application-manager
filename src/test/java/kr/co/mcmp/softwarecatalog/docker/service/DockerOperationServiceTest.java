@@ -38,10 +38,27 @@ class DockerOperationServiceTest {
     private DockerSshCommandExecutor commandExecutor;
 
     private DockerOperationService service;
+    @Mock
+    private kr.co.mcmp.softwarecatalog.application.service.impl.NexusImageAccess nexusImageAccess;
+
+    @Test
+    void pullsAnImportedImageWithShortLivedAuthenticationWithoutSavingALogin() {
+        when(nexusImageAccess.dockerAuthConfig("registry.test:5500/nginx:v1"))
+                .thenReturn("{\"auths\":{\"registry.test:5500\":{\"auth\":\"test-token\"}}}");
+        when(commandExecutor.execute(eq(TARGET), anyString()))
+                .thenReturn(new DockerCommandResult(0, "__MCMP_CONTAINER_ID__=" + CONTAINER_ID, ""));
+        var result = service.runDockerContainer(TARGET, Map.of("name", "imported-nginx",
+                "image", "registry.test:5500/nginx:v1", "portBindings", "8080:80", "artifactSource", "NEXUS"), List.of(), 0);
+        assertThat(result.isSuccess()).isTrue();
+        var script = ArgumentCaptor.forClass(String.class);
+        verify(commandExecutor, times(2)).execute(eq(TARGET), script.capture());
+        assertThat(script.getAllValues().get(0)).contains("umask 077", "mktemp -d", "trap", "rmdir", "docker --config")
+                .doesNotContain("docker login", "test-token");
+    }
 
     @BeforeEach
     void setUp() {
-        service = new DockerOperationService(commandExecutor, new ObjectMapper());
+        service = new DockerOperationService(commandExecutor, new ObjectMapper(), nexusImageAccess);
     }
 
     @Test

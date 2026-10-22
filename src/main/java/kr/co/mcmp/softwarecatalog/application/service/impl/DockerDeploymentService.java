@@ -31,6 +31,8 @@ import kr.co.mcmp.softwarecatalog.application.dto.DeploymentRequest;
 import kr.co.mcmp.softwarecatalog.application.dto.ObjectStorageConfiguration;
 import kr.co.mcmp.softwarecatalog.application.exception.ApplicationException;
 import kr.co.mcmp.softwarecatalog.application.model.DeploymentHistory;
+import kr.co.mcmp.softwarecatalog.application.model.PackageImageReference;
+import kr.co.mcmp.softwarecatalog.application.constants.ArtifactSource;
 import kr.co.mcmp.softwarecatalog.application.model.InfraSpecSnapshot;
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.InfraSpecSnapshotRepository;
@@ -571,6 +573,7 @@ public class DockerDeploymentService implements DeploymentService {
         DeploymentParameters parameters = DeploymentParameters.builder()
                 .name(containerConfig.name)
                 .image(imageUrl)
+                .artifactSource(catalog.getPackageInfo().getArtifactSource())
                 .portBindings(containerConfig.portBindings)
                 .debugKeepAlive(Boolean.TRUE.equals(request.getDebugKeepAlive()))
                 .build();
@@ -1031,19 +1034,7 @@ public class DockerDeploymentService implements DeploymentService {
      * 소스 타입에 따라 적절한 이미지 URL을 생성합니다.
      */
     private String buildImageUrl(SoftwareCatalogDTO catalog) {
-        String imageName = catalog.getPackageInfo().getPackageName().toLowerCase();
-        String imageTag = catalog.getPackageInfo().getPackageVersion().toLowerCase();
-
-        String firstPathSegment = imageName.contains("/")
-                ? imageName.substring(0, imageName.indexOf('/'))
-                : imageName;
-        if (firstPathSegment.contains(".")
-                || firstPathSegment.contains(":")
-                || "localhost".equals(firstPathSegment)) {
-            return imageName + ":" + imageTag;
-        }
-
-        return nexusConfig.getImageUrlBySourceType(imageName, imageTag, "DOCKERHUB");
+        return PackageImageReference.resolve(catalog.getPackageInfo());
     }
 
     private static final String JUPYTER_OBJECT_STORAGE_NOTEBOOK = loadObjectStorageNotebook();
@@ -1066,6 +1057,7 @@ public class DockerDeploymentService implements DeploymentService {
         Map<String, String> map = new java.util.HashMap<>();
         map.put("name", params.getName());
         map.put("image", params.getImage());
+        map.put("artifactSource", params.getArtifactSource() == ArtifactSource.NEXUS ? "NEXUS" : "EXTERNAL");
         map.put("portBindings", params.getPortBindings());
         map.put("debugKeepAlive", String.valueOf(Boolean.TRUE.equals(params.getDebugKeepAlive())));
         if (catalogId != null) {

@@ -199,6 +199,7 @@ const onClickSubmit = async () => {
     repositoryFormData.value.docker = {}
   } else {
     const dockerConfig: Record<string, boolean | number | string> = {
+      ...repositoryFormData.value.docker,
       "v1Enabled": false,
       "forceBasicAuth": true
     }

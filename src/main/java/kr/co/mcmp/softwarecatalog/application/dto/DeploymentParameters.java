@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 import java.util.Map;
+import kr.co.mcmp.softwarecatalog.application.constants.ArtifactSource;
 
 /**
  * 배포 파라미터 정보를 담는 DTO
@@ -26,6 +27,7 @@ public class DeploymentParameters {
      * 이미지 이름
      */
     private String image;
+    private ArtifactSource artifactSource;
     
     /**
      * 포트 바인딩 (hostPort:containerPort)

@@ -432,25 +432,32 @@ public class CatalogService {
      * 카탈로그 정보로부터 PackageInfo 또는 HelmChart를 조회하고 업데이트합니다.
      */
     private void updateCatalogMappings(SoftwareCatalog catalog, SoftwareCatalogDTO catalogDTO) {
-        try {
-            String packageName = catalogDTO.getPackageName();
-            String version = catalogDTO.getVersion();
-            String target = catalogDTO.getTarget();
-            String category = catalogDTO.getCategory();
-
-            log.info("Updating {} with packageName: {}, version: {}, category: {}",
-                    target, packageName, version, category);
-
-            if ("K8S".equalsIgnoreCase(target)) {
-                // K8S인 경우 HelmChart 테이블에서 chart_name과 chart_version으로 조회
-                updateHelmChartMapping(catalog, packageName, version, category);
-            } else {
-                // DOCKER인 경우 PackageInfo 테이블에서 package_name과 package_version으로 조회
-                updatePackageInfoMapping(catalog, packageName, version, category);
-            }
-
-        } catch (Exception e) {
-            log.error("Failed to update from catalog", e);
+        String name = catalogDTO.getPackageName();
+        String version = catalogDTO.getVersion();
+        if ("K8S".equalsIgnoreCase(catalogDTO.getTarget())) {
+            List<HelmChart> candidates = catalogDTO.getHelmChartId() == null
+                    ? helmChartRepository.findByChartNameAndChartVersion(name, version)
+                    : helmChartRepository.findById(catalogDTO.getHelmChartId()).map(List::of).orElse(List.of());
+            HelmChart selected = candidates.stream()
+                    .filter(chart -> chart.getCatalog() == null)
+                    .filter(chart -> java.util.Objects.equals(name, chart.getChartName())
+                            && java.util.Objects.equals(version, chart.getChartVersion()))
+                    .findFirst().orElseThrow(() -> new IllegalArgumentException("The selected Helm package is unavailable"));
+            selected.setCatalog(catalog);
+            helmChartRepository.save(selected);
+            catalog.setHelmChart(selected);
+        } else {
+            List<PackageInfo> candidates = catalogDTO.getPackageInfoId() == null
+                    ? packageInfoRepository.findByPackageNameAndPackageVersion(name, version)
+                    : packageInfoRepository.findById(catalogDTO.getPackageInfoId()).map(List::of).orElse(List.of());
+            PackageInfo selected = candidates.stream()
+                    .filter(info -> info.getCatalog() == null)
+                    .filter(info -> java.util.Objects.equals(name, info.getPackageName())
+                            && java.util.Objects.equals(version, info.getPackageVersion()))
+                    .findFirst().orElseThrow(() -> new IllegalArgumentException("The selected Docker package is unavailable"));
+            selected.setCatalog(catalog);
+            packageInfoRepository.save(selected);
+            catalog.setPackageInfo(selected);
         }
     }
 

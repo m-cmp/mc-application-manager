@@ -106,7 +106,8 @@
             <template v-else>
               <div class="alert alert-info py-2 mb-3" role="status">
                 <strong>{{ registryProviderName }}</strong> will be searched for the selected target.
-                The package is imported only when you complete registration.
+                The selected package is copied to Nexus when you complete registration.
+                <span v-if="catalogDto.target === 'K8S'">Container image locations defined by the chart are preserved.</span>
               </div>
 
               <form class="mb-3" @submit.prevent="searchPublicRegistry">
@@ -687,6 +688,8 @@ const resetRegistrySelection = (clearKeyword = true) => {
   registryVersionLoading.value = false
   registryImporting.value = false
   importedRegistryKey.value = ''
+  delete catalogDto.value.packageInfoId
+  delete catalogDto.value.helmChartId
 }
 
 const normalizeCategoryValue = (category: any): string => {
@@ -1002,6 +1005,13 @@ const importSelectedRegistryPackage = async () => {
 
     if (response?.data?.success !== true) {
       throw new Error(response?.data?.message || `${registryProviderName.value} import failed.`)
+    }
+    if (catalogDto.value.target === 'VM') {
+      catalogDto.value.packageInfoId = response.data.packageInfoId
+      if (!catalogDto.value.packageInfoId) throw new Error('Imported Docker package was not returned.')
+    } else {
+      catalogDto.value.helmChartId = response.data.helmChart?.id
+      if (!catalogDto.value.helmChartId) throw new Error('Imported Helm package was not returned.')
     }
     importedRegistryKey.value = importKey
   } finally {

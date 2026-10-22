@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
+import kr.co.mcmp.softwarecatalog.application.constants.ArtifactSource;
 import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -54,6 +55,10 @@ public class PackageInfo {
 
     @Column(name = "repository_url")
     private String repositoryUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "artifact_source", length = 20)
+    private ArtifactSource artifactSource;
 
     @Column(name = "docker_image_id")
     private String dockerImageId;
@@ -103,9 +108,11 @@ public class PackageInfo {
     public void updateFromDTO(PackageInfoDTO dto) {
         // 기존 필드 업데이트
         this.packageType = dto.getPackageType();
-        this.packageName = dto.getPackageName();
-        this.packageVersion = dto.getPackageVersion();
-        this.repositoryUrl = dto.getRepositoryUrl();
+        if (this.artifactSource != ArtifactSource.NEXUS) {
+            this.packageName = dto.getPackageName();
+            this.packageVersion = dto.getPackageVersion();
+            this.repositoryUrl = dto.getRepositoryUrl();
+        }
         this.dockerImageId = dto.getDockerImageId();
         this.dockerPublisher = dto.getDockerPublisher();
         this.dockerCreatedAt = dto.getDockerCreatedAt();
