@@ -38,6 +38,7 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
     private static final int DEFAULT_DAYS = 14;
     private static final int MIN_VALID_DAYS = 7;
     private static final int VALID_SAMPLE_COUNT = 72;
+    private static final int NORMALIZED_CPU_METRICS_VERSION = 1;
 
     private static final String RESOURCE_CPU = "CPU_INTENSIVE";
     private static final String RESOURCE_MEMORY = "MEMORY_INTENSIVE";
@@ -167,15 +168,32 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
         result.missingDays = Math.max(analysisDays - result.validDays, 0);
         result.sampleCount = summaries.stream().mapToInt(s -> value(s.getSampleCount())).sum();
 
-        result.cpuPressureP95 = average(summaries.stream()
+        // A legacy Docker percentage is measured per core (and may exceed 100),
+        // whereas normalized VM metrics are percentages of available CPU capacity.
+        // Never infer the denominator of old data from the VM's current spec:
+        // quotas, cpusets, or the VM size may have changed since collection.
+        boolean vmDeployment = deployment.getDeploymentType() != null
+                && "VM".equals(deployment.getDeploymentType().name());
+        List<DailyMetricsSummary> cpuSummaries = summaries;
+        if (vmDeployment) {
+            cpuSummaries = summaries.stream().filter(this::isValidNormalizedCpuDay).toList();
+            result.cpuCoverageIncomplete = cpuSummaries.size() < MIN_VALID_DAYS
+                    || cpuSummaries.size() < result.validDays;
+            if (result.cpuCoverageIncomplete) {
+                result.reasons.add("VM CPU 정규화 이력 " + cpuSummaries.size() + "일 / 전체 유효 이력 "
+                        + result.validDays + "일: 기존 단위 또는 CPU 용량 기준을 확인할 수 없는 이력은 CPU 판단에서 제외합니다.");
+            }
+        }
+        boolean sufficientCpuCoverage = !vmDeployment || cpuSummaries.size() >= MIN_VALID_DAYS;
+        result.cpuPressureP95 = sufficientCpuCoverage ? average(cpuSummaries.stream()
                 .map(DailyMetricsSummary::getP95CpuPct)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList())) : null;
         result.memoryPressureP95 = average(summaries.stream()
                 .map(DailyMetricsSummary::getP95MemoryPct)
                 .collect(Collectors.toList()));
-        result.maxCpuPressure = max(summaries.stream()
+        result.maxCpuPressure = sufficientCpuCoverage ? max(cpuSummaries.stream()
                 .map(DailyMetricsSummary::getMaxCpuPct)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList())) : null;
         result.maxMemoryPressure = max(summaries.stream()
                 .map(DailyMetricsSummary::getMaxMemoryPct)
                 .collect(Collectors.toList()));
@@ -209,7 +227,8 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
                         + unifiedLogRepository.countByDeploymentIdAndMessageContainingBetween(deploymentId, "dns", eventStart, eventEnd));
 
         result.dataStatus = resolveDataStatus(result.validDays, result.missingDays, analysisDays);
-        result.cpuSizingStatus = resolveSizingStatus(result.cpuPressureP95, result.maxCpuPressure, false);
+        result.cpuSizingStatus = sufficientCpuCoverage
+                ? resolveSizingStatus(result.cpuPressureP95, result.maxCpuPressure, false) : "UNKNOWN";
         result.memorySizingStatus = resolveSizingStatus(result.memoryPressureP95, result.maxMemoryPressure, result.oomCount > 0);
         applyRecommendation(result, deployment);
         appendSupportingEvidence(result);
@@ -266,8 +285,12 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
         } else {
             result.recommendedResourceType = result.selectedResourceType != null ? result.selectedResourceType : RESOURCE_GENERAL;
             result.actions.add("NO_ACTION");
-            result.message = "현재 resourceType 유지가 적절합니다.";
-            result.reasons.add("CPU/Memory pressure is within right-sized range");
+            if ("UNKNOWN".equals(result.cpuSizingStatus)) {
+                result.message = "정규화된 CPU 이력이 부족하여 CPU 정책 판단을 보류하고 현재 운영 유형을 유지합니다.";
+            } else {
+                result.message = "현재 resourceType 유지가 적절합니다.";
+                result.reasons.add("CPU/Memory pressure is within right-sized range");
+            }
         }
 
         if (result.restartCount >= 5 || result.crashLoopCount > 0) {
@@ -354,7 +377,22 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
             confidence = Math.min(confidence, 0.60);
             result.reasons.add("K8s percentage metrics require request/limit normalization; confidence capped at 0.60");
         }
+        if (result.cpuCoverageIncomplete) {
+            confidence = Math.min(confidence, 0.60);
+            result.reasons.add("VM CPU 정규화 이력이 부족하거나 일부 누락되어 신뢰도를 60% 이하로 제한합니다.");
+        }
         return confidence;
+    }
+
+    private boolean isValidNormalizedCpuDay(DailyMetricsSummary summary) {
+        return isValidDay(summary)
+                && Integer.valueOf(NORMALIZED_CPU_METRICS_VERSION).equals(summary.getCpuMetricsVersion())
+                && isNormalizedPercentage(summary.getP95CpuPct())
+                && (summary.getMaxCpuPct() == null || isNormalizedPercentage(summary.getMaxCpuPct()));
+    }
+
+    private boolean isNormalizedPercentage(Double percentage) {
+        return percentage != null && Double.isFinite(percentage) && percentage >= 0.0 && percentage <= 100.0;
     }
 
     private boolean isValidDay(DailyMetricsSummary summary) {
@@ -461,6 +499,7 @@ public class PolicyRecommendationServiceImpl implements PolicyRecommendationServ
         Integer oomLogCount;
         Integer timeoutLogCount;
         Double confidence;
+        boolean cpuCoverageIncomplete;
         String message;
         List<String> actions = new ArrayList<>();
         List<String> reasons = new ArrayList<>();

@@ -29,13 +29,30 @@ public interface ResourceMetricsHistoryRepository extends JpaRepository<Resource
 
     // Spring Data JPA 3.2 native projections require exact Java property aliases.
     // Quote camelCase names so PostgreSQL does not fold them to lowercase.
+    // Legacy Docker percentages are core-based and must not be averaged with
+    // capacity-based percentages. Mixed days keep their other metrics/coverage,
+    // but a null CPU version prevents recommending from an incomplete CPU basis.
     @Query(value = """
             SELECT
                 :deploymentId AS "deploymentId",
-                AVG(cpu_usage_pct) AS "avgCpuPct",
-                MAX(cpu_usage_pct) AS "maxCpuPct",
-                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY cpu_usage_pct) AS "p95CpuPct",
-                STDDEV(cpu_usage_pct) AS "stddevCpu",
+                AVG(comparable_cpu_pct) AS "avgCpuPct",
+                MAX(comparable_cpu_pct) AS "maxCpuPct",
+                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY comparable_cpu_pct) AS "p95CpuPct",
+                STDDEV(comparable_cpu_pct) AS "stddevCpu",
+                CASE
+                    WHEN COUNT(CASE WHEN UPPER(deployment_type) IN ('VM', 'DOCKER')
+                                         AND cpu_usage_pct IS NOT NULL AND cpu_metrics_version = 1
+                                    THEN 1 END) >= 72
+                     AND COUNT(CASE WHEN UPPER(deployment_type) IN ('VM', 'DOCKER')
+                                         AND cpu_usage_pct IS NOT NULL AND cpu_metrics_version = 1
+                                         AND status = 'RUNNING' THEN 1 END) * 10 >= 720
+                     AND COUNT(CASE WHEN UPPER(deployment_type) IN ('VM', 'DOCKER')
+                                         AND cpu_usage_pct IS NOT NULL
+                                         AND (cpu_metrics_version IS NULL OR cpu_metrics_version <> 1)
+                                    THEN 1 END) = 0
+                    THEN 1
+                    ELSE NULL
+                END AS "cpuMetricsVersion",
                 AVG(memory_usage_pct) AS "avgMemoryPct",
                 MAX(memory_usage_pct) AS "maxMemoryPct",
                 PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY memory_usage_pct) AS "p95MemoryPct",
@@ -49,9 +66,18 @@ public interface ResourceMetricsHistoryRepository extends JpaRepository<Resource
                 SUM(CASE WHEN status = 'RUNNING' THEN 1 ELSE 0 END) * 10 AS "runningMinutes",
                 COUNT(*) * 10 AS "totalMinutes",
                 MIN(resource_type) AS "resourceType"
-            FROM resource_metrics_history
-            WHERE deployment_id = :deploymentId
-              AND recorded_at BETWEEN :start AND :end
+            FROM (
+                SELECT metrics.*,
+                    CASE
+                        WHEN UPPER(deployment_type) IN ('VM', 'DOCKER')
+                             AND (cpu_metrics_version IS NULL OR cpu_metrics_version <> 1)
+                        THEN NULL
+                        ELSE cpu_usage_pct
+                    END AS comparable_cpu_pct
+                FROM resource_metrics_history metrics
+                WHERE deployment_id = :deploymentId
+                  AND recorded_at BETWEEN :start AND :end
+            ) comparable_metrics
             """, nativeQuery = true)
     DailyAggregationProjection aggregateByDeploymentAndDate(
             @Param("deploymentId") Long deploymentId,
@@ -64,6 +90,7 @@ public interface ResourceMetricsHistoryRepository extends JpaRepository<Resource
         Double getMaxCpuPct();
         Double getP95CpuPct();
         Double getStddevCpu();
+        Integer getCpuMetricsVersion();
         Double getAvgMemoryPct();
         Double getMaxMemoryPct();
         Double getP95MemoryPct();

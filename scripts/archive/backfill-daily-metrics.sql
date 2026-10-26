@@ -28,11 +28,30 @@ BEGIN
   END IF;
 END $$;
 
-WITH raw AS (
+WITH selected_metrics AS (
+  SELECT m.*,
+         CASE WHEN UPPER(deployment_type) IN ('VM', 'DOCKER')
+                    AND (cpu_metrics_version IS NULL OR cpu_metrics_version <> 1)
+              THEN NULL ELSE cpu_usage_pct END AS comparable_cpu_pct
+    FROM resource_metrics_history m CROSS JOIN archive_backfill_scope s
+   WHERE m.deployment_id = ANY(s.ids)
+     AND m.recorded_at >= s.first_day AND m.recorded_at < s.last_day + 1
+     -- Match the current scheduler's inclusive 23:59:59 upper bound exactly.
+     AND m.recorded_at <= m.recorded_at::date + time '23:59:59'
+), raw AS (
   SELECT m.deployment_id, m.recorded_at::date AS summary_date,
-         avg(cpu_usage_pct) AS avg_cpu_pct, max(cpu_usage_pct) AS max_cpu_pct,
-         percentile_cont(0.95) WITHIN GROUP (ORDER BY cpu_usage_pct) AS p95_cpu_pct,
-         stddev(cpu_usage_pct) AS stddev_cpu,
+         avg(comparable_cpu_pct) AS avg_cpu_pct, max(comparable_cpu_pct) AS max_cpu_pct,
+         percentile_cont(0.95) WITHIN GROUP (ORDER BY comparable_cpu_pct) AS p95_cpu_pct,
+         stddev(comparable_cpu_pct) AS stddev_cpu,
+         CASE WHEN count(*) FILTER (WHERE UPPER(deployment_type) IN ('VM', 'DOCKER')
+                       AND cpu_usage_pct IS NOT NULL AND cpu_metrics_version = 1) >= 72
+                   AND count(*) FILTER (WHERE UPPER(deployment_type) IN ('VM', 'DOCKER')
+                       AND cpu_usage_pct IS NOT NULL AND cpu_metrics_version = 1
+                       AND status = 'RUNNING') * 10 >= 720
+                   AND count(*) FILTER (WHERE UPPER(deployment_type) IN ('VM', 'DOCKER')
+                       AND cpu_usage_pct IS NOT NULL
+                       AND (cpu_metrics_version IS NULL OR cpu_metrics_version <> 1)) = 0
+              THEN 1 ELSE NULL END AS cpu_metrics_version,
          avg(memory_usage_pct) AS avg_memory_pct, max(memory_usage_pct) AS max_memory_pct,
          percentile_cont(0.95) WITHIN GROUP (ORDER BY memory_usage_pct) AS p95_memory_pct,
          stddev(memory_usage_pct) AS stddev_memory,
@@ -42,11 +61,7 @@ WITH raw AS (
          (count(*) FILTER (WHERE oom_killed = true))::integer AS oom_count,
          (count(*) FILTER (WHERE status = 'RUNNING') * 10)::integer AS running_minutes,
          (count(*) * 10)::integer AS total_minutes, min(resource_type) AS resource_type
-    FROM resource_metrics_history m CROSS JOIN archive_backfill_scope s
-   WHERE m.deployment_id = ANY(s.ids)
-     AND m.recorded_at >= s.first_day AND m.recorded_at < s.last_day + 1
-     -- Match the current scheduler's inclusive 23:59:59 upper bound exactly.
-     AND m.recorded_at <= m.recorded_at::date + time '23:59:59'
+    FROM selected_metrics m
    GROUP BY m.deployment_id, m.recorded_at::date
 ), events AS (
   SELECT e.deployment_id, e.occurred_at::date AS summary_date,
@@ -60,13 +75,13 @@ WITH raw AS (
    GROUP BY e.deployment_id, e.occurred_at::date
 )
 INSERT INTO daily_metrics_summary (
-  deployment_id, summary_date, avg_cpu_pct, max_cpu_pct, p95_cpu_pct, stddev_cpu,
+  deployment_id, summary_date, avg_cpu_pct, max_cpu_pct, p95_cpu_pct, stddev_cpu, cpu_metrics_version,
   avg_memory_pct, max_memory_pct, p95_memory_pct, stddev_memory,
   avg_network_in_bytes, max_network_in_bytes, avg_network_out_bytes, max_network_out_bytes,
   sample_count, oom_count, restart_count, crash_loop_count, running_minutes, total_minutes,
   resource_type, created_at
 )
-SELECT r.deployment_id, r.summary_date, avg_cpu_pct, max_cpu_pct, p95_cpu_pct, stddev_cpu,
+SELECT r.deployment_id, r.summary_date, avg_cpu_pct, max_cpu_pct, p95_cpu_pct, stddev_cpu, cpu_metrics_version,
        avg_memory_pct, max_memory_pct, p95_memory_pct, stddev_memory,
        avg_network_in_bytes, max_network_in_bytes, avg_network_out_bytes, max_network_out_bytes,
        sample_count, r.oom_count + coalesce(e.oom_count, 0), coalesce(e.restart_count, 0),
@@ -75,6 +90,7 @@ SELECT r.deployment_id, r.summary_date, avg_cpu_pct, max_cpu_pct, p95_cpu_pct, s
 ON CONFLICT (deployment_id, summary_date) DO UPDATE SET
   avg_cpu_pct = excluded.avg_cpu_pct, max_cpu_pct = excluded.max_cpu_pct,
   p95_cpu_pct = excluded.p95_cpu_pct, stddev_cpu = excluded.stddev_cpu,
+  cpu_metrics_version = excluded.cpu_metrics_version,
   avg_memory_pct = excluded.avg_memory_pct, max_memory_pct = excluded.max_memory_pct,
   p95_memory_pct = excluded.p95_memory_pct, stddev_memory = excluded.stddev_memory,
   avg_network_in_bytes = excluded.avg_network_in_bytes, max_network_in_bytes = excluded.max_network_in_bytes,

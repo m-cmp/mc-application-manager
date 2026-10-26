@@ -65,7 +65,12 @@
 
             <!-- Performance Metrics -->
             <div class="mb-4">
-              <h6 class="text-primary">성능 지표</h6>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="text-primary mb-0">성능 지표</h6>
+                <span v-if="applicationDetail.lastCheckedAt" class="text-muted small">
+                  최근 수집: {{ formatDateTime(applicationDetail.lastCheckedAt) }}
+                </span>
+              </div>
               <div v-if="!isRuntimeMetricAvailable" class="text-muted small mb-2">
                 현재 실행 중인 상태가 아니므로 최신 성능 지표를 표시하지 않습니다.
               </div>
@@ -74,7 +79,7 @@
                   <div class="card text-center">
                     <div class="card-body">
                       <h5 class="card-title">{{ formatMetricPercent(applicationDetail.cpuUsage) }}</h5>
-                      <p class="card-text">CPU 사용률</p>
+                      <p class="card-text" title="컨테이너가 사용 가능한 CPU 용량 대비 현재 사용률">CPU 사용률</p>
                     </div>
                   </div>
                 </div>
@@ -90,7 +95,7 @@
                   <div class="card text-center">
                     <div class="card-body">
                       <h5 class="card-title">{{ formatMetricBytes(applicationDetail.networkIn) }}</h5>
-                      <p class="card-text">네트워크 수신</p>
+                      <p class="card-text">현재 누적 수신</p>
                     </div>
                   </div>
                 </div>
@@ -98,7 +103,7 @@
                   <div class="card text-center">
                     <div class="card-body">
                       <h5 class="card-title">{{ formatMetricBytes(applicationDetail.networkOut) }}</h5>
-                      <p class="card-text">네트워크 송신</p>
+                      <p class="card-text">현재 누적 송신</p>
                     </div>
                   </div>
                 </div>
@@ -194,7 +199,7 @@
                   </div>
                   <div class="col-md-3">
                     <div class="text-muted small">CPU 상태</div>
-                    <span>{{ formatSizingStatus(operationProfile.cpuSizingStatus) }}</span>
+                    <span>{{ formatSizingStatus(operationProfile.cpuSizingStatus, true) }}</span>
                   </div>
                   <div class="col-md-3">
                     <div class="text-muted small">Memory 상태</div>
@@ -927,14 +932,16 @@ const formatResourceType = (resourceType: string | null | undefined) => {
 }
 
 
-const formatSizingStatus = (status: string | null | undefined) => {
+const formatSizingStatus = (status: string | null | undefined, isCpu = false) => {
   switch (normalizeStatus(status)) {
     case 'UNDER_PROVISIONED':
-      return '용량 부족'
+      return isCpu ? '사용률 높음 · 증설 검토' : '용량 부족'
     case 'OVER_PROVISIONED':
       return '사용률 낮음'
     case 'RIGHT_SIZED':
       return '적정'
+    case 'UNKNOWN':
+      return '판단 보류'
     default:
       return status || 'N/A'
   }
@@ -1044,7 +1051,7 @@ const formatReason = (reason: string) => {
 
   const networkMatch = reason.match(/^networkEvidence=maxInBytes=(\d+), maxOutBytes=(\d+)$/)
   if (networkMatch) {
-    return `네트워크 최대 수신 ${formatBytes(Number(networkMatch[1]))}, 최대 송신 ${formatBytes(Number(networkMatch[2]))}가 확인되었습니다.`
+    return `분석 기간 내 누적 수신 최댓값 ${formatBytes(Number(networkMatch[1]))}, 누적 송신 최댓값 ${formatBytes(Number(networkMatch[2]))}가 확인되었습니다.`
   }
 
   const errorLogMatch = reason.match(/^errorLogCount=(\d+)$/)

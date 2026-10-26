@@ -46,3 +46,85 @@ on exit. It requires the `postgres:16-alpine` image to be available or downloada
 `bash gradlew test --tests '*ResourceMetricsHistoryRepositoryTest'` tests the actual
 Spring Data native projection against isolated in-memory data, including every
 projection field, empty/single-sample data and 71/72/137/144-sample cases.
+
+## Normalize proven legacy VM CPU history
+
+`normalize-legacy-vm-cpu.py` is an **explicit per-deployment maintenance tool**, not
+an automatic migration. Old Docker CPU percentages use one core as 100%; new VM
+CPU percentages use the container's effective CPU capacity as 100%. For example,
+an original 87.48% becomes 43.74% with a proven capacity of two cores.
+
+Only use it when an operator has established that the **host CPU count, CPU quota,
+cpuset and effective capacity were unchanged for the entire selected history**,
+and that its unversioned values really are original Docker percentages. A current
+VM specification alone does not prove past capacity. If capacity is unknown or
+changed, leave the old CPU values unversioned; AM excludes them from VM CPU policy
+recommendations while retaining memory, network, events and archive coverage.
+
+The tool requires Python 3, Docker access, and the updated AM database columns.
+The PostgreSQL container must already define `POSTGRES_USER` and `POSTGRES_DB`.
+It uses those values inside the container without printing credentials.
+
+1. Back up and verify the database before maintenance.
+2. Run on the database host, replacing the deployment ID and proven capacity:
+
+   ```sh
+   python3 scripts/archive/normalize-legacy-vm-cpu.py \
+     --container mc-application-manager-db \
+     --deployment-id 43 --cpu-capacity-cores 2 \
+     --confirm-capacity-unchanged --confirm-legacy-docker-percent
+   ```
+
+3. Review the JSON summary. The default run **rolls back every database change**,
+   including backup creation. Add `--apply` to the same command to commit.
+4. Re-run the normal authenticated policy-recommendation analysis endpoint and
+   verify the current metric, daily CPU values and resulting recommendation.
+
+The transaction saves original full rows as JSON in a private, deployment-specific
+schema, e.g. `am_cpu_v1_d43.raw_before` and `am_cpu_v1_d43.daily_before`. Existing
+backup rows are never overwritten. `runs` records the operator's capacity
+assertions and the changed-row counts. Only CPU fields in public archive tables
+are updated; memory, network, sample counts, events, statuses, timestamps,
+deployment records and source/provenance metadata are not changed. The tool does
+not create measurements or turn generated data into real historical measurements.
+
+Each original raw CPU value is retained in `cpu_raw_pct`; `cpu_capacity_cores` and
+`cpu_metrics_version=1` record the conversion basis. Version-1 rows are skipped, so
+repeat runs cannot divide them again. Unknown versions, negative/non-finite values,
+values above the proven capacity, and conflicting existing raw values abort the
+transaction instead of being silently clamped or guessed.
+
+Daily CPU aggregates are rebuilt only when the complete raw sample count matches
+the existing daily `sample_count`, all non-null CPU samples are normalized, and
+there are at least **72 normalized CPU samples and 720 CPU-observed running
+minutes**. A daily row with purged/partial raw history, insufficient CPU coverage,
+or already normalized CPU is left unchanged. It is **not** linearly divided from
+an assumed current VM size. Future daily aggregation uses the same CPU coverage
+thresholds without affecting the overall memory/availability coverage.
+
+The general `backfill-daily-metrics.sql` repair tool uses the same VM CPU masking,
+version and coverage rules as the scheduler. A rebuild updates the CPU version
+alongside its values; it cannot leave a stale normalized marker on a mixed or
+legacy-only day. K8S CPU aggregation remains unchanged. Its PostgreSQL integration
+fixture includes normalized, legacy-only, one-CPU-sample, mixed, and 710/720-minute
+boundary cases.
+
+For a scoped rollback, review the corresponding private backup rows and restore
+only the raw CPU fields (`cpu_usage_pct`, `cpu_raw_pct`, `cpu_capacity_cores`,
+`cpu_metrics_version`) and daily CPU fields (`avg_cpu_pct`, `max_cpu_pct`,
+`p95_cpu_pct`, `stddev_cpu`, `cpu_metrics_version`) by their saved IDs. Do not
+overwrite subsequent operator changes or restore unrelated tables. Keep the
+verified pre-maintenance database dump as an additional recovery option.
+
+Run the offline CLI/SQL safety tests with:
+
+```sh
+python3 scripts/archive/test-normalize-legacy-vm-cpu.py
+```
+
+`bash scripts/archive/test-normalize-legacy-vm-cpu.sh` additionally runs the real
+migration against disposable PostgreSQL 16. It covers rollback, repeat runs,
+original backups, complete versus purged/partial/sparse CPU days, running-minute
+coverage, range/version rejection, and hashes all non-CPU fields before/after.
+Like the backfill integration test, it uses no published ports, external network
+or persistent volume and removes its temporary container on exit.

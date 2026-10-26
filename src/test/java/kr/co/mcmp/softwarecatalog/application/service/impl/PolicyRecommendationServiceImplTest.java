@@ -14,6 +14,10 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
@@ -158,6 +162,191 @@ class PolicyRecommendationServiceImplTest {
         assertThat(recommendation.getConfidence()).isEqualTo(0.0);
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "1, 87.48, 89.0, UNDER_PROVISIONED, CPU_INTENSIVE, 0.78",
+            "2, 43.74, 44.5, RIGHT_SIZED, GENERAL_PURPOSE, 0.75",
+            "4, 21.87, 22.25, OVER_PROVISIONED, GENERAL_PURPOSE, 0.75"
+    })
+    void analyzeUsesArchivedNormalizedPercentagesWithoutDividingByCurrentCpuCount(
+            int availableCpuCount, double normalizedP95, double normalizedMax,
+            String sizingStatus, String resourceType, double confidence) {
+        long deploymentId = 5L;
+        mockDeployment(deploymentId, DeploymentType.VM, "GENERAL_PURPOSE");
+        // Collection already normalized the same 87.48% Docker measurement.
+        // The policy layer must not divide it again, even if a current spec exists.
+        assertThat(normalizedP95).isEqualTo(87.48 / availableCpuCount);
+        mockSpec(deploymentId, "GENERAL_PURPOSE", "VM").setVmCpuCores(8);
+        mockSummaries(deploymentId, summaries("GENERAL_PURPOSE", 7,
+                normalizedP95, normalizedMax, 48.91, 53.0, 0, 0, 0, 144));
+        mockEventCounts(0, 0, 0);
+
+        OperationProfileAnalysisDTO analysis = service.analyze(deploymentId, 7);
+
+        assertThat(analysis.getCpuPressureP95()).isCloseTo(normalizedP95, org.assertj.core.data.Offset.offset(0.00001));
+        assertThat(analysis.getCpuSizingStatus()).isEqualTo(sizingStatus);
+        assertThat(analysis.getMemorySizingStatus()).isEqualTo("RIGHT_SIZED");
+        assertThat(analysis.getRecommendedResourceType()).isEqualTo(resourceType);
+        assertThat(analysis.getDataStatus()).isEqualTo("SUFFICIENT");
+        assertThat(analysis.getConfidence()).isEqualTo(confidence);
+        assertThat(recommendationCaptor.getValue().getActions()).doesNotContain("DOWNSIZE");
+        assertThat(recommendationCaptor.getValue().getMismatch()).isEqualTo(!"GENERAL_PURPOSE".equals(resourceType));
+    }
+
+    @Test
+    void analyzeDoesNotInterpretLegacyVmCpuAsCapacityPercentageOrZeroLoad() {
+        long deploymentId = 6L;
+        mockDeployment(deploymentId, DeploymentType.VM, "GENERAL_PURPOSE");
+        mockSpec(deploymentId, "GENERAL_PURPOSE", "VM");
+        List<DailyMetricsSummary> rows = summaries("GENERAL_PURPOSE", 7, 187.0, 200.0, 20.0, 30.0, 0, 0, 0, 144);
+        rows.forEach(row -> row.setCpuMetricsVersion(null));
+        mockSummaries(deploymentId, rows);
+        mockEventCounts(0, 0, 0);
+
+        OperationProfileAnalysisDTO analysis = service.analyze(deploymentId, 7);
+
+        assertThat(analysis.getCpuSizingStatus()).isEqualTo("UNKNOWN");
+        assertThat(analysis.getCpuPressureP95()).isNull();
+        assertThat(analysis.getMaxCpuPressure()).isNull();
+        assertThat(analysis.getDataStatus()).isEqualTo("SUFFICIENT");
+        assertThat(analysis.getRecommendedResourceType()).isEqualTo("GENERAL_PURPOSE");
+        assertThat(analysis.getConfidence()).isEqualTo(0.60);
+        assertThat(analysis.getReasons()).contains("CPU 정규화 이력 0일", "기존 단위");
+        assertThat(recommendationCaptor.getValue().getActions()).isEqualTo("NO_ACTION");
+        assertThat(recommendationCaptor.getValue().getMessage()).contains("CPU 정책 판단을 보류");
+    }
+
+    @Test
+    void analyzeRequiresSevenNormalizedCpuDaysEvenWhenOverallCoverageIsSufficient() {
+        long deploymentId = 7L;
+        mockDeployment(deploymentId, DeploymentType.VM, "GENERAL_PURPOSE");
+        mockSpec(deploymentId, "GENERAL_PURPOSE", "VM");
+        List<DailyMetricsSummary> rows = summaries("GENERAL_PURPOSE", 7, 88.0, 93.0, 20.0, 30.0, 0, 0, 0, 144);
+        rows.get(0).setCpuMetricsVersion(null);
+        mockSummaries(deploymentId, rows);
+        mockEventCounts(0, 0, 0);
+
+        OperationProfileAnalysisDTO analysis = service.analyze(deploymentId, 7);
+
+        assertThat(analysis.getValidDays()).isEqualTo(7);
+        assertThat(analysis.getCpuSizingStatus()).isEqualTo("UNKNOWN");
+        assertThat(analysis.getCpuPressureP95()).isNull();
+        assertThat(analysis.getConfidence()).isEqualTo(0.60);
+        assertThat(recommendationCaptor.getValue().getActions()).isEqualTo("NO_ACTION");
+    }
+
+    @Test
+    void analyzeIgnoresLegacyOutlierWithSevenKnownDaysAndCapsPartialCpuConfidence() {
+        long deploymentId = 8L;
+        mockDeployment(deploymentId, DeploymentType.VM, "GENERAL_PURPOSE");
+        mockSpec(deploymentId, "GENERAL_PURPOSE", "VM");
+        List<DailyMetricsSummary> rows = summaries("GENERAL_PURPOSE", 8, 43.74, 49.0, 48.91, 53.0, 0, 0, 0, 144);
+        rows.get(0).setCpuMetricsVersion(null);
+        rows.get(0).setP95CpuPct(190.0);
+        rows.get(0).setMaxCpuPct(200.0);
+        mockSummaries(deploymentId, rows);
+        mockEventCounts(0, 0, 0);
+
+        OperationProfileAnalysisDTO analysis = service.analyze(deploymentId, 8);
+
+        assertThat(analysis.getDataStatus()).isEqualTo("SUFFICIENT");
+        assertThat(analysis.getCpuPressureP95()).isCloseTo(43.74, org.assertj.core.data.Offset.offset(0.00001));
+        assertThat(analysis.getMaxCpuPressure()).isEqualTo(49.0);
+        assertThat(analysis.getCpuSizingStatus()).isEqualTo("RIGHT_SIZED");
+        assertThat(analysis.getRecommendedResourceType()).isEqualTo("GENERAL_PURPOSE");
+        assertThat(analysis.getConfidence()).isEqualTo(0.60);
+        assertThat(analysis.getReasons()).contains("CPU 정규화 이력 7일 / 전체 유효 이력 8일");
+    }
+
+    @Test
+    void analyzeStillRecommendsMemoryWhenVmCpuBasisIsUnknown() {
+        long deploymentId = 9L;
+        mockDeployment(deploymentId, DeploymentType.VM, "GENERAL_PURPOSE");
+        mockSpec(deploymentId, "GENERAL_PURPOSE", "VM");
+        List<DailyMetricsSummary> rows = summaries("GENERAL_PURPOSE", 7, 190.0, 200.0, 92.0, 98.0, 0, 0, 0, 144);
+        rows.forEach(row -> row.setCpuMetricsVersion(null));
+        mockSummaries(deploymentId, rows);
+        mockEventCounts(0, 0, 0);
+
+        OperationProfileAnalysisDTO analysis = service.analyze(deploymentId, 7);
+
+        assertThat(analysis.getCpuSizingStatus()).isEqualTo("UNKNOWN");
+        assertThat(analysis.getMemorySizingStatus()).isEqualTo("UNDER_PROVISIONED");
+        assertThat(analysis.getRecommendedResourceType()).isEqualTo("MEMORY_INTENSIVE");
+        assertThat(analysis.getConfidence()).isEqualTo(0.60);
+        assertThat(recommendationCaptor.getValue().getActions()).contains("INCREASE_MEMORY").doesNotContain("INCREASE_CPU");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(doubles = {-1.0, 101.0, Double.NaN, Double.POSITIVE_INFINITY})
+    void analyzeDoesNotTreatMissingOrInvalidNormalizedCpuAsZeroLoad(Double cpuP95) {
+        long deploymentId = 12L;
+        mockDeployment(deploymentId, DeploymentType.VM, "GENERAL_PURPOSE");
+        mockSpec(deploymentId, "GENERAL_PURPOSE", "VM");
+        List<DailyMetricsSummary> rows = summaries("GENERAL_PURPOSE", 7, 20.0, 30.0, 20.0, 30.0, 0, 0, 0, 144);
+        rows.forEach(row -> row.setP95CpuPct(cpuP95));
+        mockSummaries(deploymentId, rows);
+        mockEventCounts(0, 0, 0);
+
+        OperationProfileAnalysisDTO analysis = service.analyze(deploymentId, 7);
+
+        assertThat(analysis.getCpuSizingStatus()).isEqualTo("UNKNOWN");
+        assertThat(analysis.getCpuPressureP95()).isNull();
+        assertThat(analysis.getConfidence()).isEqualTo(0.60);
+        assertThat(recommendationCaptor.getValue().getActions()).isEqualTo("NO_ACTION");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 2})
+    void analyzeRequiresExplicitSupportedCpuMetricsVersion(int version) {
+        long deploymentId = 13L;
+        mockDeployment(deploymentId, DeploymentType.VM, "GENERAL_PURPOSE");
+        mockSpec(deploymentId, "GENERAL_PURPOSE", "VM");
+        List<DailyMetricsSummary> rows = summaries("GENERAL_PURPOSE", 7, 88.0, 93.0, 48.91, 53.0, 0, 0, 0, 144);
+        rows.forEach(row -> row.setCpuMetricsVersion(version));
+        mockSummaries(deploymentId, rows);
+        mockEventCounts(0, 0, 0);
+
+        OperationProfileAnalysisDTO analysis = service.analyze(deploymentId, 7);
+
+        assertThat(analysis.getCpuSizingStatus()).isEqualTo("UNKNOWN");
+        assertThat(analysis.getRecommendedResourceType()).isEqualTo("GENERAL_PURPOSE");
+        assertThat(recommendationCaptor.getValue().getActions()).isEqualTo("NO_ACTION");
+    }
+
+    @Test
+    void analyzeDoesNotRequireVmNormalizationMarkerForK8s() {
+        long deploymentId = 10L;
+        mockDeployment(deploymentId, DeploymentType.K8S, "GENERAL_PURPOSE");
+        mockSpec(deploymentId, "GENERAL_PURPOSE", "K8S");
+        List<DailyMetricsSummary> rows = summaries("GENERAL_PURPOSE", 7, 88.0, 93.0, 48.91, 53.0, 0, 0, 0, 144);
+        rows.forEach(row -> row.setCpuMetricsVersion(null));
+        mockSummaries(deploymentId, rows);
+        mockEventCounts(0, 0, 0);
+
+        OperationProfileAnalysisDTO analysis = service.analyze(deploymentId, 7);
+
+        assertThat(analysis.getCpuSizingStatus()).isEqualTo("UNDER_PROVISIONED");
+        assertThat(analysis.getCpuPressureP95()).isEqualTo(88.0);
+        assertThat(analysis.getRecommendedResourceType()).isEqualTo("CPU_INTENSIVE");
+        assertThat(analysis.getConfidence()).isEqualTo(0.60);
+        assertThat(analysis.getReasons()).doesNotContain("VM CPU 정규화 이력");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"79.99, 89.99, RIGHT_SIZED", "80.0, 89.99, UNDER_PROVISIONED",
+            "39.99, 59.99, OVER_PROVISIONED", "39.99, 90.0, UNDER_PROVISIONED"})
+    void analyzeAppliesExistingThresholdsToNormalizedVmPercentages(double p95, double max, String expected) {
+        long deploymentId = 11L;
+        mockDeployment(deploymentId, DeploymentType.VM, "GENERAL_PURPOSE");
+        mockSpec(deploymentId, "GENERAL_PURPOSE", "VM");
+        mockSummaries(deploymentId, summaries("GENERAL_PURPOSE", 7, p95, max, 48.91, 53.0, 0, 0, 0, 144));
+        mockEventCounts(0, 0, 0);
+
+        assertThat(service.analyze(deploymentId, 7).getCpuSizingStatus()).isEqualTo(expected);
+    }
+
     private void mockDeployment(long deploymentId, DeploymentType deploymentType, String resourceType) {
         DeploymentHistory deployment = DeploymentHistory.builder()
                 .id(deploymentId)
@@ -167,7 +356,7 @@ class PolicyRecommendationServiceImplTest {
         when(deploymentHistoryRepository.findById(deploymentId)).thenReturn(Optional.of(deployment));
     }
 
-    private void mockSpec(long deploymentId, String resourceType, String deploymentType) {
+    private InfraSpecSnapshot mockSpec(long deploymentId, String resourceType, String deploymentType) {
         InfraSpecSnapshot spec = InfraSpecSnapshot.builder()
                 .deploymentId(deploymentId)
                 .resourceType(resourceType)
@@ -175,6 +364,7 @@ class PolicyRecommendationServiceImplTest {
                 .capturedAt(LocalDateTime.now())
                 .build();
         when(infraSpecSnapshotRepository.findByDeploymentId(deploymentId)).thenReturn(Optional.of(spec));
+        return spec;
     }
 
     private void mockSummaries(long deploymentId, List<DailyMetricsSummary> summaries) {
@@ -220,6 +410,7 @@ class PolicyRecommendationServiceImplTest {
                         .avgCpuPct(Math.max(p95Cpu - 12.0, 0.0))
                         .maxCpuPct(maxCpu)
                         .p95CpuPct(p95Cpu)
+                        .cpuMetricsVersion(1)
                         .avgMemoryPct(Math.max(p95Memory - 12.0, 0.0))
                         .maxMemoryPct(maxMemory)
                         .p95MemoryPct(p95Memory)

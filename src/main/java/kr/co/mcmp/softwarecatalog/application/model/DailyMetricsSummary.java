@@ -55,6 +55,10 @@ public class DailyMetricsSummary {
     @Column(name = "stddev_cpu")
     private Double stddevCpu;
 
+    /** 1 only with at least 72 normalized CPU samples/720 running minutes and no legacy CPU values. */
+    @Column(name = "cpu_metrics_version")
+    private Integer cpuMetricsVersion;
+
     // Memory aggregates
     @Column(name = "avg_memory_pct")
     private Double avgMemoryPct;
