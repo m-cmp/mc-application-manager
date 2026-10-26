@@ -71,6 +71,7 @@ public class DailyAggregationScheduler {
                         .maxCpuPct(proj.getMaxCpuPct())
                         .p95CpuPct(proj.getP95CpuPct())
                         .stddevCpu(proj.getStddevCpu())
+                        .cpuMetricsVersion(proj.getCpuMetricsVersion())
                         .avgMemoryPct(proj.getAvgMemoryPct())
                         .maxMemoryPct(proj.getMaxMemoryPct())
                         .p95MemoryPct(proj.getP95MemoryPct())

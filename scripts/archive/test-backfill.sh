@@ -47,6 +47,9 @@ INSERT INTO resource_metrics_history
 INSERT INTO abnormal_event VALUES
   (1, '2000-01-01', 'OOM_KILLED'), (1, '2000-01-01', 'RESTART'),
   (1, '2000-01-01', 'CRASH_LOOP'), (1, '2000-01-02', 'RESTART');
+ALTER TABLE resource_metrics_history ADD COLUMN deployment_type text DEFAULT 'K8S';
+ALTER TABLE resource_metrics_history ADD COLUMN cpu_metrics_version integer;
+ALTER TABLE daily_metrics_summary ADD COLUMN cpu_metrics_version integer;
 SQL
 backfill
 test "$(sql -Atc 'SELECT count(*) FROM daily_metrics_summary')" = 0
@@ -73,4 +76,59 @@ if backfill -v start_date=2000-01-02 -v apply=true; then echo 'Reversed dates ac
 if backfill -v end_date=2999-01-01 -v apply=true; then echo 'Incomplete future day accepted' >&2; exit 1; fi
 if backfill -v deployment_ids= -v apply=true; then echo 'Empty IDs accepted' >&2; exit 1; fi
 test "$(sql -Atc 'SELECT count(*) FROM daily_metrics_summary')" = 2
-echo 'PASS: dry-run, aggregation, null metrics, thresholds, scoping, repeatability, source preservation and invalid input guards'
+sql <<'SQL'
+INSERT INTO deployment_history VALUES (5), (6), (7), (8), (9);
+INSERT INTO resource_metrics_history
+ (deployment_id, recorded_at, cpu_usage_pct, memory_usage_pct, status, resource_type,
+  deployment_type, cpu_metrics_version)
+ SELECT 5, timestamp '2000-01-01' + i * interval '10 minutes', 40, 40, 'RUNNING',
+        'GENERAL', 'DOCKER', 1 FROM generate_series(0,71) i;
+INSERT INTO resource_metrics_history
+ (deployment_id, recorded_at, cpu_usage_pct, memory_usage_pct, status, resource_type,
+  deployment_type, cpu_metrics_version)
+ SELECT 6, timestamp '2000-01-01' + i * interval '10 minutes', 180, 40, 'RUNNING',
+        'GENERAL', 'VM', NULL FROM generate_series(0,143) i;
+INSERT INTO resource_metrics_history
+ (deployment_id, recorded_at, cpu_usage_pct, memory_usage_pct, status, resource_type,
+  deployment_type, cpu_metrics_version)
+ SELECT 7, timestamp '2000-01-01' + i * interval '10 minutes', CASE WHEN i=0 THEN 40 END,
+        40, 'RUNNING', 'GENERAL', 'DOCKER', CASE WHEN i=0 THEN 1 END FROM generate_series(0,143) i;
+INSERT INTO resource_metrics_history
+ (deployment_id, recorded_at, cpu_usage_pct, memory_usage_pct, status, resource_type,
+  deployment_type, cpu_metrics_version)
+ SELECT 8, timestamp '2000-01-01' + i * interval '10 minutes', CASE WHEN i<72 THEN 40 ELSE 180 END,
+        40, 'RUNNING', 'GENERAL', 'DOCKER', CASE WHEN i<72 THEN 1 END FROM generate_series(0,143) i;
+INSERT INTO resource_metrics_history
+ (deployment_id, recorded_at, cpu_usage_pct, memory_usage_pct, status, resource_type,
+  deployment_type, cpu_metrics_version)
+ SELECT 9, timestamp '2000-01-01' + i * interval '10 minutes', 40, 40,
+        CASE WHEN i<71 THEN 'RUNNING' ELSE 'STOPPED' END, 'GENERAL', 'VM', 1 FROM generate_series(0,71) i;
+SQL
+backfill -v deployment_ids=5,6,7,8,9 -v apply=true
+sql <<'SQL'
+-- A later rebuild must also clear a stale normalized marker if CPU coverage is not valid.
+UPDATE daily_metrics_summary SET cpu_metrics_version=1 WHERE deployment_id=6;
+SQL
+backfill -v deployment_ids=5,6,7,8,9 -v apply=true
+sql <<'SQL'
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM daily_metrics_summary WHERE deployment_id=5
+      AND p95_cpu_pct=40 AND cpu_metrics_version=1 AND sample_count=72 AND running_minutes=720)
+      THEN RAISE EXCEPTION 'Normalized CPU boundary mismatch'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM daily_metrics_summary WHERE deployment_id=6
+      AND p95_cpu_pct IS NULL AND cpu_metrics_version IS NULL AND p95_memory_pct=40
+      AND sample_count=144 AND running_minutes=1440)
+      THEN RAISE EXCEPTION 'Legacy CPU leaked into normalized aggregates'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM daily_metrics_summary WHERE deployment_id=7
+      AND p95_cpu_pct=40 AND cpu_metrics_version IS NULL AND sample_count=144)
+      THEN RAISE EXCEPTION 'One CPU sample cannot qualify as a complete CPU day'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM daily_metrics_summary WHERE deployment_id=8
+      AND p95_cpu_pct=40 AND cpu_metrics_version IS NULL AND sample_count=144)
+      THEN RAISE EXCEPTION 'Mixed legacy and normalized day cannot qualify'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM daily_metrics_summary WHERE deployment_id=9
+      AND cpu_metrics_version IS NULL AND running_minutes=710)
+      THEN RAISE EXCEPTION 'CPU running-minute threshold mismatch'; END IF;
+  IF (SELECT count(*) FROM resource_metrics_history) <> 652 THEN RAISE EXCEPTION 'VM raw metrics changed'; END IF;
+END $$;
+SQL
+echo 'PASS: dry-run, aggregation, null metrics, CPU version/coverage parity, scoping, repeatability, source preservation and invalid input guards'

@@ -82,6 +82,7 @@ class ResourceMetricsHistoryRepositoryTest {
         assertThat(result.getRunningMinutes()).isEqualTo(10);
         assertThat(result.getTotalMinutes()).isEqualTo(20);
         assertThat(result.getResourceType()).isEqualTo("GENERAL");
+        assertThat(result.getCpuMetricsVersion()).isNull(); // K8S keeps its existing CPU basis.
     }
 
     @ParameterizedTest
@@ -112,6 +113,139 @@ class ResourceMetricsHistoryRepositoryTest {
         assertThat(result.getMaxNetworkInBytes()).isNull();
         assertThat(result.getOomCount()).isZero();
         assertThat(result.getRunningMinutes()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"VM", "DOCKER", "vm", "docker"})
+    void excludesLegacyVmCpuWithoutChangingOtherMetrics(String deploymentType) {
+        ResourceMetricsHistory legacy = sample(7L, start, 180.0, 60.0, 100L, 300L, true, "RUNNING");
+        legacy.setDeploymentType(deploymentType);
+        repository.saveAndFlush(legacy);
+
+        var result = repository.aggregateByDeploymentAndDate(7L, start, start.plusDays(1));
+
+        assertThat(result.getAvgCpuPct()).isNull();
+        assertThat(result.getMaxCpuPct()).isNull();
+        assertThat(result.getP95CpuPct()).isNull();
+        assertThat(result.getStddevCpu()).isNull();
+        assertThat(result.getCpuMetricsVersion()).isNull();
+        assertThat(result.getAvgMemoryPct()).isEqualTo(60.0);
+        assertThat(result.getMaxNetworkInBytes()).isEqualTo(100L);
+        assertThat(result.getMaxNetworkOutBytes()).isEqualTo(300L);
+        assertThat(result.getOomCount()).isEqualTo(1);
+        assertThat(result.getSampleCount()).isEqualTo(1);
+        assertThat(result.getRunningMinutes()).isEqualTo(10);
+        assertThat(result.getTotalMinutes()).isEqualTo(10);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"VM", "DOCKER"})
+    void aggregatesNormalizedVmCpuWithoutClaimingEnoughCpuCoverage(String deploymentType) {
+        repository.saveAndFlush(normalizedVm(7L, start, 40.0, 80.0, 2.0, deploymentType));
+        repository.saveAndFlush(normalizedVm(7L, start.plusMinutes(10), 60.0, 120.0, 2.0, deploymentType));
+
+        var result = repository.aggregateByDeploymentAndDate(7L, start, start.plusDays(1));
+
+        assertThat(result.getAvgCpuPct()).isEqualTo(50.0);
+        assertThat(result.getMaxCpuPct()).isEqualTo(60.0);
+        assertThat(result.getP95CpuPct()).isCloseTo(59.0, within(0.001));
+        assertThat(result.getStddevCpu()).isCloseTo(Math.sqrt(200), within(0.001));
+        assertThat(result.getCpuMetricsVersion()).isNull();
+        ResourceMetricsHistory stored = repository.findAll().get(0);
+        assertThat(stored.getCpuRawPct()).isEqualTo(80.0);
+        assertThat(stored.getCpuCapacityCores()).isEqualTo(2.0);
+        assertThat(stored.getCpuMetricsVersion()).isEqualTo(1);
+    }
+
+    @Test void mixedLegacyAndNormalizedVmDayDoesNotClaimCompleteCpuCoverage() {
+        ResourceMetricsHistory legacy = sample(7L, start, 180.0, 20.0, 100L, 300L, false, "RUNNING");
+        legacy.setDeploymentType("DOCKER");
+        repository.saveAndFlush(legacy);
+        repository.saveAndFlush(normalizedVm(7L, start.plusMinutes(10), 40.0, 80.0, 2.0, "DOCKER"));
+
+        var result = repository.aggregateByDeploymentAndDate(7L, start, start.plusDays(1));
+
+        assertThat(result.getAvgCpuPct()).isEqualTo(40.0);
+        assertThat(result.getP95CpuPct()).isEqualTo(40.0);
+        assertThat(result.getMaxCpuPct()).isEqualTo(40.0);
+        assertThat(result.getStddevCpu()).isNull();
+        assertThat(result.getCpuMetricsVersion()).isNull();
+        assertThat(result.getSampleCount()).isEqualTo(2);
+        assertThat(result.getRunningMinutes()).isEqualTo(20);
+        assertThat(result.getAvgMemoryPct()).isEqualTo(30.0);
+    }
+
+    @Test void missingVmCpuDoesNotBecomeZeroOrContributeToNormalizedCpuCoverage() {
+        ResourceMetricsHistory missing = sample(7L, start, null, 20.0, 100L, 300L, false, "RUNNING");
+        missing.setDeploymentType("DOCKER");
+        repository.saveAndFlush(missing);
+        repository.saveAndFlush(normalizedVm(7L, start.plusMinutes(10), 40.0, 80.0, 2.0, "DOCKER"));
+
+        var result = repository.aggregateByDeploymentAndDate(7L, start, start.plusDays(1));
+
+        assertThat(result.getAvgCpuPct()).isEqualTo(40.0);
+        assertThat(result.getCpuMetricsVersion()).isNull();
+        assertThat(result.getSampleCount()).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 71, 72, 144})
+    void requiresEnoughRealNormalizedCpuSamplesEvenWithFullMemoryCoverage(int knownCpuSamples) {
+        for (int i = 0; i < 144; i++) {
+            ResourceMetricsHistory metrics = normalizedVm(7L, start.plusMinutes(i * 10L),
+                    i < knownCpuSamples ? 40.0 : null, i < knownCpuSamples ? 80.0 : null, 2.0, "DOCKER");
+            if (i >= knownCpuSamples) metrics.setCpuMetricsVersion(null);
+            repository.save(metrics);
+        }
+        repository.flush();
+
+        var result = repository.aggregateByDeploymentAndDate(7L, start, start.plusDays(1).minusNanos(1000));
+
+        assertThat(result.getCpuMetricsVersion()).isEqualTo(knownCpuSamples >= 72 ? 1 : null);
+        assertThat(result.getAvgCpuPct()).isEqualTo(40.0);
+        assertThat(result.getSampleCount()).isEqualTo(144);
+        assertThat(result.getRunningMinutes()).isEqualTo(1440);
+        assertThat(result.getP95MemoryPct()).isEqualTo(40.0);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 71, 72, 144})
+    void normalizedCpuMustAlsoCoverAtLeast720RunningMinutes(int runningCpuSamples) {
+        for (int i = 0; i < 144; i++) {
+            ResourceMetricsHistory metrics = normalizedVm(7L, start.plusMinutes(i * 10L), 40.0, 80.0, 2.0, "VM");
+            metrics.setStatus(i < runningCpuSamples ? "RUNNING" : "STOPPED");
+            repository.save(metrics);
+        }
+        repository.flush();
+
+        var result = repository.aggregateByDeploymentAndDate(7L, start, start.plusDays(1).minusNanos(1000));
+
+        assertThat(result.getCpuMetricsVersion()).isEqualTo(runningCpuSamples >= 72 ? 1 : null);
+        assertThat(result.getSampleCount()).isEqualTo(144);
+        assertThat(result.getRunningMinutes()).isEqualTo(runningCpuSamples * 10);
+        assertThat(result.getAvgCpuPct()).isEqualTo(40.0);
+    }
+
+    @Test void rejectsUnrecognizedVmCpuVersionsRatherThanAssumingCompatibleUnits() {
+        ResourceMetricsHistory unknown = normalizedVm(7L, start, 90.0, 180.0, 2.0, "VM");
+        unknown.setCpuMetricsVersion(2);
+        repository.saveAndFlush(unknown);
+
+        var result = repository.aggregateByDeploymentAndDate(7L, start, start.plusDays(1));
+
+        assertThat(result.getAvgCpuPct()).isNull();
+        assertThat(result.getP95CpuPct()).isNull();
+        assertThat(result.getCpuMetricsVersion()).isNull();
+    }
+
+    private ResourceMetricsHistory normalizedVm(Long id, LocalDateTime time, Double cpu,
+            Double rawCpu, Double capacity, String deploymentType) {
+        ResourceMetricsHistory metrics = sample(id, time, cpu, 40.0, 200L, 500L, false, "RUNNING");
+        metrics.setDeploymentType(deploymentType);
+        metrics.setCpuRawPct(rawCpu);
+        metrics.setCpuCapacityCores(capacity);
+        metrics.setCpuMetricsVersion(1);
+        return metrics;
     }
 
     private ResourceMetricsHistory sample(Long id, LocalDateTime time, Double cpu, Double memory,

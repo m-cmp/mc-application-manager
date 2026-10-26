@@ -41,6 +41,18 @@ public class ResourceMetricsHistory {
     @Column(name = "cpu_usage_pct")
     private Double cpuUsagePct;
 
+    /** Docker's original core-based percentage, retained for auditable reaggregation. */
+    @Column(name = "cpu_raw_pct")
+    private Double cpuRawPct;
+
+    /** Effective CPU capacity, taking host capacity and container limits into account. */
+    @Column(name = "cpu_capacity_cores")
+    private Double cpuCapacityCores;
+
+    /** 1 = percentage of effective CPU capacity; null = legacy/unknown CPU basis. */
+    @Column(name = "cpu_metrics_version")
+    private Integer cpuMetricsVersion;
+
     @Column(name = "memory_usage_pct")
     private Double memoryUsagePct;
 
