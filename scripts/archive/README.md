@@ -121,3 +121,10 @@ Run the offline CLI/SQL safety tests with:
 ```sh
 python3 scripts/archive/test-normalize-legacy-vm-cpu.py
 ```
+
+`bash scripts/archive/test-normalize-legacy-vm-cpu.sh` additionally runs the real
+migration against disposable PostgreSQL 16. It covers rollback, repeat runs,
+original backups, complete versus purged/partial/sparse CPU days, running-minute
+coverage, range/version rejection, and hashes all non-CPU fields before/after.
+Like the backfill integration test, it uses no published ports, external network
+or persistent volume and removes its temporary container on exit.
