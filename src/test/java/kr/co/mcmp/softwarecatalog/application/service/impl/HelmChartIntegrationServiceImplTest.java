@@ -25,6 +25,42 @@ import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;
 @ExtendWith(MockitoExtension.class)
 class HelmChartIntegrationServiceImplTest {
 
+    @Test
+    void failedChartCopyDoesNotSaveAHelmPackageOrReportRegistrationSuccess() {
+        var request = request("5.8.56", "5.8.56", "https://charts.jenkins.io");
+        request.setCategory("WEB_SERVERS");
+        var detail = org.mockito.Mockito.mock(kr.co.mcmp.externalrepo.model.ArtifactHubPackage.Package.class);
+        when(artifactHubIntegrationService.getPackageDetailInfo("helm", "jenkins", "jenkins", "5.8.56"))
+                .thenReturn(detail);
+        var importing = org.mockito.Mockito.spy(service);
+        org.mockito.Mockito.doReturn(java.util.Map.of("success", false, "message", "Registry unavailable"))
+                .when(importing).pushHelmChartToNexus(request);
+        var result = importing.registerHelmChart(request, "test");
+        assertThat(result.get("success")).isEqualTo(false);
+        assertThat(result.get("message").toString()).contains("Registry unavailable");
+        org.mockito.Mockito.verifyNoInteractions(helmChartRepository);
+    }
+
+    @Test
+    void importingAChartDoesNotReuseAnExistingSeededOrAlreadyLinkedChart() {
+        var seeded = kr.co.mcmp.softwarecatalog.application.model.HelmChart.builder()
+                .chartName("jenkins").chartVersion("5.8.56").chartRepositoryUrl("https://charts.jenkins.io").build();
+        when(helmChartRepository.findByChartNameAndChartVersion("jenkins", "5.8.56"))
+                .thenReturn(java.util.List.of(seeded));
+        java.util.Optional<?> existing = ReflectionTestUtils.invokeMethod(service, "findExistingHelmChart",
+                request("5.8.56", "5.8.56", "https://charts.jenkins.io"));
+        assertThat(existing).isEmpty();
+        assertThat(seeded.getChartRepositoryUrl()).isEqualTo("https://charts.jenkins.io");
+    }
+
+    @Test
+    void anImportedChartMustBeVerifiedInNexusInsteadOfUsingAnExternalFallback() {
+        when(nexusIntegrationService.getRepositoryNameByFormat("helm")).thenReturn("helm-hosted");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service,
+                "requireImportedChartRepositoryUrl", request("5.8.56", "5.8.56", "https://charts.jenkins.io")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("verified in Nexus");
+    }
+
     @Mock
     private ArtifactHubIntegrationService artifactHubIntegrationService;
 

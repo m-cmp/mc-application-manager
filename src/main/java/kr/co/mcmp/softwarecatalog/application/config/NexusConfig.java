@@ -30,6 +30,8 @@ public class NexusConfig {
 
     /** Optional image-transfer endpoint; separate from the legacy computed Registry URL. */
     private String registryEndpoint;
+    /** Optional Registry endpoint reachable from deployment VMs, independent of AM's push endpoint. */
+    private String deploymentRegistryEndpoint;
     
     /**
      * 넥서스 사용자명

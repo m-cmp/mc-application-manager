@@ -1,6 +1,8 @@
 package kr.co.mcmp.softwarecatalog.docker.service;
 
 import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +19,7 @@ import kr.co.mcmp.softwarecatalog.docker.model.ContainerDeployResult;
 import kr.co.mcmp.softwarecatalog.docker.model.DockerCommandResult;
 import kr.co.mcmp.softwarecatalog.docker.model.DockerHostResourceInfo;
 import kr.co.mcmp.softwarecatalog.docker.model.DockerTarget;
+import kr.co.mcmp.softwarecatalog.application.service.impl.NexusImageAccess;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,6 +45,7 @@ public class DockerOperationService {
 
     private final DockerSshCommandExecutor commandExecutor;
     private final ObjectMapper objectMapper;
+    private final NexusImageAccess nexusImageAccess;
 
     @Value("${app.vm-deployment.image-pull-timeout-seconds:1800}")
     private int imagePullTimeoutSeconds = 1800;
@@ -106,7 +110,7 @@ public class DockerOperationService {
             // the same remote script. If AM loses the pull response, that script
             // may only cache an image, never start an untracked application.
             phase = "image preparation";
-            prepareImage(target, imageName);
+            prepareImage(target, imageName, "NEXUS".equals(deployParams.get("artifactSource")));
             phase = "container startup";
             String script = "mcmp_container_id=$(" + createCommand + ") || exit $?\n"
                     + "docker start \"$mcmp_container_id\" >/dev/null || exit $?\n"
@@ -143,15 +147,28 @@ public class DockerOperationService {
         }
     }
 
-    private void prepareImage(DockerTarget target, String imageName) {
+    private void prepareImage(DockerTarget target, String imageName, boolean nexusImage) {
         if (imagePullTimeoutSeconds < 60 || imagePullTimeoutSeconds > 7200) {
             throw new IllegalArgumentException("VM image pull timeout must be between 60 and 7200 seconds");
         }
         String image = DockerSshCommandExecutor.shellQuote(imageName);
+        String authentication = "";
+        String pull = "docker pull --quiet " + image;
+        if (nexusImage) {
+            String config = Base64.getEncoder().encodeToString(nexusImageAccess.dockerAuthConfig(imageName)
+                    .getBytes(StandardCharsets.UTF_8));
+            authentication = "umask 077\n"
+                    + "mcmp_registry_auth=$(mktemp -d) || exit 1\n"
+                    + "trap 'rm -f -- \"$mcmp_registry_auth/config.json\"; rmdir -- \"$mcmp_registry_auth\"' EXIT HUP INT TERM\n"
+                    + "printf '%s' " + DockerSshCommandExecutor.shellQuote(config)
+                    + " | base64 -d > \"$mcmp_registry_auth/config.json\" || exit 1\n";
+            pull = "docker --config \"$mcmp_registry_auth\" pull --quiet " + image;
+        }
         String script = "if docker image inspect " + image + " >/dev/null 2>&1; then exit 0; fi\n"
                 + "docker info >/dev/null 2>&1 || { echo 'Docker daemon is unavailable' >&2; exit 1; }\n"
                 + "command -v timeout >/dev/null 2>&1 || { echo 'Image pull requires the timeout command' >&2; exit 127; }\n"
-                + "timeout --kill-after=10s " + imagePullTimeoutSeconds + "s docker pull --quiet " + image + "\n"
+                + authentication
+                + "timeout --kill-after=10s " + imagePullTimeoutSeconds + "s " + pull + "\n"
                 + "mcmp_pull_status=$?\n"
                 + "if [ \"$mcmp_pull_status\" -eq 124 ] || [ \"$mcmp_pull_status\" -eq 137 ]; then\n"
                 + "  echo 'Image download timed out or was killed (configured limit: " + imagePullTimeoutSeconds

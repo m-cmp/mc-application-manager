@@ -105,6 +105,15 @@
                   class="accordion-collapse collapse"
                   :style="[catalog.isShow ? {display: 'block'} : {display:'none'}]">
                   <div class="accordion-body pt-0">
+                    <div class="mt-3 mb-3">
+                      <strong>Package Source</strong>
+                      <div v-for="member in catalog.catalogMembers" :key="member.id" class="mt-2">
+                        <span class="badge bg-blue-lt me-2">{{ member.helmChart ? 'K8s' : 'VM' }}</span>
+                        <span>{{ packageSourceLabel(member) }}</span>
+                        <div class="text-muted text-break small mt-1">{{ packageReference(member) }}</div>
+                        <div v-if="member.helmChart" class="text-muted small">Container images use the locations configured by the chart.</div>
+                      </div>
+                    </div>
                     <div 
                       class="mt-3 mb-5" 
                       v-html="formattedText(catalog.description)" />
@@ -441,6 +450,18 @@ const showSoftwareCatalogDetail = async (idx:any) => {
   if (catalog.isShow && !catalog.deploymentStatusLoaded) {
     await loadDeploymentStatus(catalog)
   }
+}
+
+const packageSourceLabel = (catalog: any) => {
+  if ((catalog.packageInfo || catalog.helmChart)?.artifactSource === 'NEXUS') return 'Nexus Repository'
+  return catalog.helmChart?.repositoryName === 'mcmp-builtin' ? 'Bundled chart' : 'Original registry'
+}
+
+const packageReference = (catalog: any) => {
+  const image = catalog.packageInfo
+  if (image) return image.artifactSource === 'NEXUS' ? image.repositoryUrl : `${image.packageName}:${image.packageVersion}`
+  const chart = catalog.helmChart
+  return chart ? `${chart.chartRepositoryUrl} · ${chart.chartName}:${chart.chartVersion}` : ''
 }
 
 const loadDeploymentStatus = async (catalog: any) => {

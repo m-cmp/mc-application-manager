@@ -212,7 +212,7 @@ public class K8sJupyterService {
                 "resources", Map.of("requests", Map.of("storage", JupyterStorageValidation.size(r.getAdditionalConfig())))));
         if (!storageClass.isBlank()) pvcSpec.put("storageClassName", storageClass);
         result.add(mapper.convertValue(Map.of("apiVersion", "v1", "kind", "PersistentVolumeClaim", "metadata", metadata, "spec", pvcSpec), PersistentVolumeClaim.class));
-        String image = catalog.getPackageInfo().getPackageName() + ":" + catalog.getPackageInfo().getPackageVersion();
+        String image = kr.co.mcmp.softwarecatalog.application.model.PackageImageReference.resolve(catalog.getPackageInfo());
         Map<String,Object> container = new LinkedHashMap<>();
         container.put("name", "jupyter"); container.put("image", image);
         container.put("command", List.of("python", "/opt/mcmp/startup.py"));

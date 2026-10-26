@@ -1,11 +1,12 @@
 import { fileURLToPath, URL } from 'node:url'
 
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
-export default defineConfig({
-  
+export default defineConfig(({ mode }) => ({
+  // Allows an embedded document to use the host UI's origin while loading AM assets directly.
+  base: loadEnv(mode, process.cwd(), '').VITE_ASSET_BASE_URL || '/',
   plugins: [
     vue(),
     vueDevTools(),
@@ -23,4 +24,4 @@ export default defineConfig({
   //     },
   //   },
   // }
-})
+}))

@@ -59,6 +59,7 @@ public class HelmChartService {
     private final CatalogRepository catalogRepository;
     private final KubernetesStorageClassService kubernetesStorageClassService;
     private final KubernetesMetricsApiService kubernetesMetricsApiService;
+    private final NexusHelmChartAccess nexusHelmChartAccess;
 
     public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog, String clusterName) {
         return deployHelmChart(client, namespace, catalog, catalog.getHelmChart(), clusterName);
@@ -72,7 +73,8 @@ public class HelmChartService {
     
     public Release deployHelmChart(KubernetesClient client, String namespace, SoftwareCatalog catalog, 
                                  kr.co.mcmp.softwarecatalog.application.model.HelmChart helmChart, String clusterName) {
-        if (BuiltInHelmCharts.app(helmChart).isPresent()) {
+        if (BuiltInHelmCharts.app(helmChart).isPresent()
+                || helmChart.getArtifactSource() == kr.co.mcmp.softwarecatalog.application.constants.ArtifactSource.NEXUS) {
             return deployHelmChartWithRequest(client, namespace, catalog, helmChart, clusterName, new DeploymentRequest());
         }
         DeploymentConfigDTO config = DeploymentConfigDTO.from(new DeploymentRequest(), catalog);
@@ -315,6 +317,8 @@ public class HelmChartService {
             // 3. Helm repository 추가
             var bundled = BuiltInHelmCharts.app(helmChart);
             if (bundled.isPresent()) tempChartPath = BuiltInHelmCharts.packageChart(bundled.get());
+            else if (helmChart.getArtifactSource() == kr.co.mcmp.softwarecatalog.application.constants.ArtifactSource.NEXUS)
+                tempChartPath = nexusHelmChartAccess.download(helmChart);
             else addHelmRepository(helmChart);
 
             // 4. 릴리스 이름 생성
@@ -1408,6 +1412,7 @@ public class HelmChartService {
         String helmPath = getHelmPath();
         cmd.add(helmPath); cmd.add("repo"); cmd.add("add");
         cmd.add(repositoryName); cmd.add(repositoryUrl);
+        cmd.add("--force-update");
         ProcessBuilder pb = new ProcessBuilder(cmd);
         Process p = pb.start();
         int ec = p.waitFor();
@@ -1517,6 +1522,8 @@ public class HelmChartService {
             runHelmRepoUpdateCli();
             log.info("Helm repository added and updated successfully");
         } catch (Exception e) {
+            if (helmChart.getArtifactSource() == kr.co.mcmp.softwarecatalog.application.constants.ArtifactSource.NEXUS)
+                throw e;
             log.warn("Helm repository 추가/업데이트 중 오류 발생: {}", e.getMessage());
         }
     }

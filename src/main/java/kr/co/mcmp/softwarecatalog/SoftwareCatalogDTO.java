@@ -25,6 +25,8 @@ public class SoftwareCatalogDTO {
     private Long id;
     // Regist / Update
     private String packageName;
+    private Long packageInfoId;
+    private Long helmChartId;
 
     // 1. Package
     // sourceType은 SOFTWARE_SOURCE_MAPPING에서 관리

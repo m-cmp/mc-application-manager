@@ -1,0 +1,13 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(__dirname+'/extdirect-transport.js','utf8');
+const context={NX:{direct:{api:{PROVIDER_BASE_URL:'http://example.test/service/extdirect',REMOTING_API:{url:'http://example.test/service/extdirect',type:'remoting',namespace:{},actions:{test:[]}}}}},window:{location:{href:'http://example.test/'}},URL,Date};
+const api=context.NX.direct.api.REMOTING_API,actions=api.actions,namespace=api.namespace;
+vm.runInNewContext(source,context);
+assert.match(api.url,/^http:\/\/example.test\/service\/extdirect\?_mcmpTransport=\d+$/);
+assert.equal(context.NX.direct.api.PROVIDER_BASE_URL,'http://example.test/service/extdirect');
+assert.equal(api.actions,actions);assert.equal(api.namespace,namespace);assert.equal(api.type,'remoting');
+vm.runInNewContext(source,context);
+assert.equal(new URL(api.url).searchParams.getAll('_mcmpTransport').length,1);
+api.url='/service/extdirect?existing=1';vm.runInNewContext(source,context);
+assert.equal(new URL(api.url).searchParams.get('existing'),'1');
+console.log('PASS: request URL, original polling base/provider configuration, idempotence, existing query');

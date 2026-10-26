@@ -1451,15 +1451,23 @@ public class NexusIntegrationServiceImpl implements NexusIntegrationService {
             JsonNode rootNode = objectMapper.readTree(responseStr);
             
             if (rootNode.isArray()) {
+                java.util.List<String> hosted = new java.util.ArrayList<>();
                 for (JsonNode repository : rootNode) {
                     JsonNode formatNode = repository.get("format");
-                    if (formatNode != null && format.equals(formatNode.asText())) {
+                    if (formatNode != null && format.equals(formatNode.asText())
+                            && "hosted".equals(repository.path("type").asText())) {
                         JsonNode nameNode = repository.get("name");
                         if (nameNode != null) {
-                            return nameNode.asText();
+                            hosted.add(nameNode.asText());
                         }
                     }
                 }
+                String configured = "docker".equals(format) ? nexusConfig.getDockerRepository()
+                        : "helm".equals(format) ? nexusConfig.getHelmRepository() : null;
+                if (configured != null && hosted.contains(configured)) return configured;
+                if (hosted.size() == 1) return hosted.get(0);
+                if (hosted.size() > 1) throw new IllegalArgumentException(
+                        "Configure the " + format + " repository explicitly when several hosted repositories exist");
             }
             
             return null;

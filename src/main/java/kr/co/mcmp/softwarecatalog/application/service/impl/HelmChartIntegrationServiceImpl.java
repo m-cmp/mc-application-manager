@@ -21,6 +21,7 @@ import kr.co.mcmp.softwarecatalog.application.service.ArtifactHubIntegrationServ
 import kr.co.mcmp.softwarecatalog.application.service.HelmChartIntegrationService;
 import kr.co.mcmp.softwarecatalog.application.service.NexusIntegrationService;
 import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
+import kr.co.mcmp.softwarecatalog.application.constants.ArtifactSource;
 import kr.co.mcmp.softwarecatalog.users.Entity.User;
 import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;
 import kr.co.mcmp.oss.dto.OssDto;
@@ -86,7 +87,10 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
                 // 3. Helm Chart를 Nexus로 push
                 Map<String, Object> pushResult = pushHelmChartToNexus(request);
                 if (!(Boolean) pushResult.get("success")) {
-                    log.warn("Failed to push Helm Chart to Nexus, but saved to database: {}", pushResult.get("message"));
+                    result.put("success", false);
+                    result.put("message", "Failed to import Helm chart to Nexus: " + pushResult.get("message"));
+                    result.put("nexusPush", pushResult);
+                    return result;
                 }
 
                 // 4. Repository URL 설정 (ArtifactHub에서 가져온 정보 사용)
@@ -143,16 +147,19 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
 
         Map<String, Object> result = new HashMap<>();
 
+        java.nio.file.Path transferDirectory = null;
         try {
             // 1. Helm Chart 다운로드
-            if (!downloadHelmChart(request)) {
+            transferDirectory = java.nio.file.Files.createTempDirectory("am-helm-import-");
+            java.nio.file.Path chartFile = downloadHelmChart(request, transferDirectory);
+            if (chartFile == null) {
                 result.put("success", false);
                 result.put("message", "Failed to download Helm Chart");
                 return result;
             }
 
             // 2. Nexus에 Helm Chart 업로드
-            if (!uploadHelmChartToNexus(request)) {
+            if (!uploadHelmChartToNexus(request, chartFile)) {
                 result.put("success", false);
                 result.put("message", "Failed to upload Helm Chart to Nexus");
                 return result;
@@ -172,6 +179,15 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             log.error("Error pushing Helm Chart to Nexus: {}:{}", request.getName(), request.getVersion(), e);
             result.put("success", false);
             result.put("message", "Error pushing Helm Chart to Nexus: " + e.getMessage());
+        } finally {
+            if (transferDirectory != null) {
+                try (var files = java.nio.file.Files.list(transferDirectory)) {
+                    for (var file : files.toList()) java.nio.file.Files.deleteIfExists(file);
+                    java.nio.file.Files.deleteIfExists(transferDirectory);
+                } catch (java.io.IOException e) {
+                    log.warn("Could not remove temporary Helm import files", e);
+                }
+            }
         }
 
         return result;
@@ -433,12 +449,12 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
                 imageRepository = nexusImageRepository;
                 log.info("Using Nexus image repository: {}", imageRepository);
             } else {
-                // Nexus 이미지가 없으면 요청 데이터에서 외부 경로를 내부 Nexus 경로로 변환
+                // A chart's image is separate from its package. Never invent an internal image location.
                 String originalImageRepository = request.getImageRepository();
                 if (originalImageRepository != null && !originalImageRepository.trim().isEmpty()) {
-                    // 외부 이미지 경로를 내부 Nexus 경로로 변환
-                    imageRepository = convertToNexusImagePath(originalImageRepository);
-                    log.info("Converted external image path to Nexus path: {} -> {}", originalImageRepository, imageRepository);
+                    // No verified image copy: preserve the original chart image metadata.
+                    imageRepository = originalImageRepository;
+                    log.info("Preserving original chart image metadata: {}", imageRepository);
                 } else {
                     // Chart 이름을 기반으로 기본 이미지 저장소 설정
                     imageRepository = request.getName().toLowerCase().replaceAll("\\s+", "-");
@@ -460,9 +476,11 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
                 helmChart.setRepositoryOfficial(false);
             }
             
-            // 정확한 Chart가 Nexus에 있으면 Nexus, 없으면 요청의 외부 Repository URL 사용
-            String chartRepositoryUrl = resolveChartRepositoryUrl(request);
+            // An imported chart must use the exact artifact verified in Nexus.
+            String chartRepositoryUrl = requireImportedChartRepositoryUrl(request);
             helmChart.setChartRepositoryUrl(chartRepositoryUrl);
+            helmChart.setArtifactSource(ArtifactSource.NEXUS);
+            helmChart.setRepositoryName(nexusIntegrationService.getRepositoryNameByFormat("helm"));
             log.info("Set Helm chart repository URL: {}", chartRepositoryUrl);
             helmChart.setValuesFile(request.getDocumentationUrl());
             // helmChart.setLicense(request.getLicense());
@@ -491,12 +509,9 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         String repositoryUrl = resolveChartRepositoryUrl(request);
         log.info("Resolved Helm Chart repository URL: {}", repositoryUrl);
 
-        // imageRepository 설정 - 외부 경로를 내부 Nexus 경로로 변환
+        // Image metadata is separate from the imported chart package.
         String imageRepository = request.getImageRepository();
-        if (imageRepository != null && !imageRepository.trim().isEmpty()) {
-            // 외부 이미지 경로를 내부 Nexus 경로로 변환
-            imageRepository = convertToNexusImagePath(imageRepository);
-        } else {
+        if (imageRepository == null || imageRepository.trim().isEmpty()) {
             // Chart 이름을 기반으로 기본 이미지 저장소 설정
             imageRepository = request.getName().toLowerCase().replaceAll("\\s+", "-");
         }
@@ -529,6 +544,10 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         if (candidates == null || candidates.isEmpty()) {
             return Optional.empty();
         }
+        // Importing a version must never rewrite the seeded catalog or an already linked package.
+        candidates = candidates.stream().filter(chart -> chart.getArtifactSource() == ArtifactSource.NEXUS
+                && chart.getCatalog() == null).toList();
+        if (candidates.isEmpty()) return Optional.empty();
 
         if (!isBlank(request.getPackageId())) {
             Optional<HelmChart> packageMatched = candidates.stream()
@@ -663,6 +682,15 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
         }
 
         return "";
+    }
+
+    private String requireImportedChartRepositoryUrl(HelmChartRegistrationRequest request) {
+        String repository = nexusIntegrationService.getRepositoryNameByFormat("helm");
+        if (!nexusIntegrationService.checkHelmChartExistsInNexus(repository, request.getName(),
+                firstNonBlank(request.getVersion(), request.getTag()))) {
+            throw new IllegalArgumentException("The imported Helm chart could not be verified in Nexus");
+        }
+        return getNexusRepositoryUrl();
     }
 
     private String firstNonBlank(String... values) {
@@ -818,39 +846,48 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
     /**
      * Helm Chart를 HTTP 요청으로 다운로드합니다.
      */
-    private boolean downloadHelmChart(HelmChartRegistrationRequest request) {
+    private java.nio.file.Path downloadHelmChart(HelmChartRegistrationRequest request, java.nio.file.Path directory) {
         log.info("Downloading Helm Chart: {}:{} from {}", request.getName(), request.getVersion(), request.getRepository().getUrl());
 
         try {
             // Repository URL이 null인 경우 처리
             if (request.getRepository().getUrl() == null || request.getRepository().getUrl().isEmpty()) {
                 log.error("Repository URL is null or empty for Helm Chart: {}:{}", request.getName(), request.getVersion());
-                return false;
+                return null;
             }
 
-            // Helm Chart 다운로드 URL 구성
-            String chartUrl = buildHelmChartDownloadUrl(request);
-            log.info("Downloading Helm Chart from URL: {}", chartUrl);
-
-            // HTTP 요청으로 Helm Chart 다운로드 (.tgz 확장자 사용)
-            ProcessBuilder curlProcess = new ProcessBuilder("curl", "-L", "-o",request.getName() + "-" + request.getTag() + ".tgz", chartUrl);
-            Process curlResult = curlProcess.start();
-            int curlExitCode = curlResult.waitFor();
-
-            if (curlExitCode != 0) {
-                // 오류 출력 읽기
-                String errorOutput = new String(curlResult.getErrorStream().readAllBytes());
-                log.error("Failed to download Helm Chart: {}:{} (exit code: {})", request.getName(), request.getVersion(), curlExitCode);
-                log.error("Error output: {}", errorOutput);
-                return false;
+            String repository = request.getRepository().getUrl();
+            String version = firstNonBlank(request.getVersion(), request.getTag());
+            var command = new java.util.ArrayList<String>(List.of("helm", "pull"));
+            if (repository.startsWith("oci://")) {
+                command.add(repository.replaceAll("/+$", "") + "/" + request.getName());
+            } else {
+                command.add(request.getName());
+                command.addAll(List.of("--repo", repository));
             }
-
-            log.info("Successfully downloaded Helm Chart: {}:{}", request.getName(), request.getVersion());
-            return true;
-
+            command.addAll(List.of("--version", version, "--destination", directory.toString()));
+            java.nio.file.Path output = directory.resolve("download.log");
+            Process process = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(output.toFile()).start();
+            if (!process.waitFor(90, java.util.concurrent.TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                log.error("Helm chart download timed out: {}:{}", request.getName(), version);
+                return null;
+            }
+            if (process.exitValue() != 0) {
+                log.error("Helm chart download failed: {}", java.nio.file.Files.readString(output));
+                return null;
+            }
+            try (var files = java.nio.file.Files.list(directory)) {
+                var archives = files.filter(path -> path.getFileName().toString().endsWith(".tgz")).toList();
+                if (archives.size() != 1) throw new IllegalStateException("Helm did not download exactly one chart archive");
+                return archives.get(0);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
         } catch (Exception e) {
             log.error("Error downloading Helm Chart: {}:{}", request.getName(), request.getVersion(), e);
-            return false;
+            return null;
         }
     }
 
@@ -922,7 +959,7 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
     /**
      * Helm Chart를 Nexus에 업로드합니다.
      */
-    private boolean uploadHelmChartToNexus(HelmChartRegistrationRequest request) {
+    private boolean uploadHelmChartToNexus(HelmChartRegistrationRequest request, java.nio.file.Path archive) {
         log.info("Uploading Helm Chart to Nexus: {}:{}", request.getName(), request.getTag());
 
         try {
@@ -934,7 +971,7 @@ public class HelmChartIntegrationServiceImpl implements HelmChartIntegrationServ
             }
 
             // 다운로드된 Helm Chart 파일명 (.tgz 확장자 사용)
-            String chartFileName = request.getName() + "-" + request.getTag() + ".tgz";
+            String chartFileName = archive.toAbsolutePath().toString();
 
             // Helm Chart 파일이 존재하는지 확인
             java.io.File chartFile = new java.io.File(chartFileName);

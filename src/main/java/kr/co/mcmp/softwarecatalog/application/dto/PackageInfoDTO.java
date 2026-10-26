@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
+import kr.co.mcmp.softwarecatalog.application.constants.ArtifactSource;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,6 +24,8 @@ public class PackageInfoDTO {
     private String packageName;
     private String packageVersion;
     private String repositoryUrl;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private ArtifactSource artifactSource;
     private String dockerImageId;
     private String dockerPublisher;
     private LocalDateTime dockerCreatedAt;
@@ -44,6 +48,7 @@ public class PackageInfoDTO {
                 .packageName(this.packageName)
                 .packageVersion(this.packageVersion)
                 .repositoryUrl(this.repositoryUrl)
+                .artifactSource(this.artifactSource)
                 .dockerImageId(this.dockerImageId)
                 .dockerPublisher(this.dockerPublisher)
                 .dockerCreatedAt(this.dockerCreatedAt)
@@ -70,6 +75,7 @@ public class PackageInfoDTO {
                 .packageName(packageInfo.getPackageName())
                 .packageVersion(packageInfo.getPackageVersion())
                 .repositoryUrl(packageInfo.getRepositoryUrl())
+                .artifactSource(packageInfo.getArtifactSource())
                 .dockerImageId(packageInfo.getDockerImageId())
                 .dockerPublisher(packageInfo.getDockerPublisher())
                 .dockerCreatedAt(packageInfo.getDockerCreatedAt())

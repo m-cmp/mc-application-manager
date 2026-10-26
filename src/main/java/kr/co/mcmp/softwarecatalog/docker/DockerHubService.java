@@ -10,6 +10,9 @@ import kr.co.mcmp.externalrepo.ExternalRepoService;
 import kr.co.mcmp.externalrepo.model.DockerHubCatalog;
 import kr.co.mcmp.softwarecatalog.SoftwareCatalog;
 import kr.co.mcmp.softwarecatalog.application.constants.PackageType;
+import kr.co.mcmp.softwarecatalog.application.constants.ArtifactSource;
+import kr.co.mcmp.softwarecatalog.application.model.PackageImageReference;
+import kr.co.mcmp.softwarecatalog.application.service.impl.NexusImageAccess;
 import kr.co.mcmp.softwarecatalog.application.model.PackageInfo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +36,7 @@ public class DockerHubService {
     private final PackageInfoRepository packageInfoRepository;
     private final NexusIntegrationService nexusIntegrationService;
     private final DockerHubIntegrationService dockerHubIntegrationService;
+    private final NexusImageAccess nexusImageAccess;
 
     @Transactional
     public Map<String, Object> registerDockerHubImage(DockerHubImageRegistrationRequest request, String username) {
@@ -81,30 +85,37 @@ public class DockerHubService {
                 log.info("Nexus image URL generated: {}", nexusImageUrl);
             }
 
+            nexusImageUrl = PackageImageReference.requireNexusReference(nexusImageUrl);
+            nexusImageUrl = nexusImageAccess.deploymentReference(nexusImageUrl);
+
+            // Optional Docker Hub search metadata must not invalidate an already copied image.
+            DockerHubImageRegistrationRequest.RatePlan plan = request.getRatePlans() == null
+                    || request.getRatePlans().isEmpty() ? null : request.getRatePlans().get(0);
             // 4. Docker Hub 에서 조회된 Application 정보 Entity set
             PackageInfo entity = PackageInfo.builder()
                     .architectures(
-                            request.getRatePlans().get(0) != null ?
-                                    request.getRatePlans().get(0).getArchitectures()
+                            plan != null && plan.getArchitectures() != null ?
+                                    plan.getArchitectures()
                                             .stream()
                                             .map(arch -> arch.getName())
                                             .collect(Collectors.joining(",")) // ✅ join으로 문자열 변환
                                     : null
                     )
-                    .categories(request.getCategories().get(0) != null ? request.getCategories().get(0).getName() : "")
-                    .dockerCreatedAt(request.getCreatedAt().toLocalDateTime())
+                    .categories(request.getCategories() == null || request.getCategories().isEmpty()
+                            ? "" : request.getCategories().get(0).getName())
+                    .dockerCreatedAt(request.getCreatedAt() == null ? null : request.getCreatedAt().toLocalDateTime())
                     .dockerImageId(null)
-                    .dockerPublisher(request.getPublisher().getName())
+                    .dockerPublisher(request.getPublisher() == null ? null : request.getPublisher().getName())
                     .dockerShortDescription(request.getShortDescription())
-                    .dockerUpdatedAt(request.getUpdatedAt().toLocalDateTime())
+                    .dockerUpdatedAt(request.getUpdatedAt() == null ? null : request.getUpdatedAt().toLocalDateTime())
                     .dockerSource(request.getSource())
                     .isArchived(request.getArchived())
                     .isAutomated(false)
                     .isOfficial(false)
                     .lastPulledAt((LocalDateTime) imageTagInfo.get("tag_last_pulled"))
                     .operatingSystems(
-                            request.getRatePlans().get(0) != null ?
-                                    request.getRatePlans().get(0).getOperating_systems()
+                            plan != null && plan.getOperating_systems() != null ?
+                                    plan.getOperating_systems()
                                             .stream()
                                             .map(os -> os.getName())
                                             .collect(Collectors.joining(",")) // ✅ join으로 문자열 변환
@@ -114,15 +125,16 @@ public class DockerHubService {
                     .packageType(PackageType.valueOf("DOCKER"))
                     .packageVersion(request.getTag())
                     .pullCount(
-                            request.getRatePlans().get(0) != null ?
-                                    request.getRatePlans().get(0).getRepositories().get(0) != null ? request.getRatePlans().get(0).getRepositories().get(0).getPull_count() : null
-                                    : null)
-                    .repositoryUrl(nexusImageUrl != null ? nexusImageUrl : "https://hub.docker.com/_/" + request.getName() + "/tags")
+                            plan == null || plan.getRepositories() == null || plan.getRepositories().isEmpty()
+                                    ? null : plan.getRepositories().get(0).getPull_count())
+                    .repositoryUrl(nexusImageUrl)
+                    .artifactSource(ArtifactSource.NEXUS)
                     .starCount(request.getStarCount())
                     .build();
 
             // DB insert
-            packageInfoRepository.save(entity);
+            entity = packageInfoRepository.save(entity);
+            result.put("packageInfoId", entity.getId());
 
             result.put("success", true);
             result.put("message", "Docker Hub image registered successfully");

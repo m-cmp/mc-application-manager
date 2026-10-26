@@ -129,7 +129,8 @@ nexus:
   port: ${NEXUS_PORT:8081}
   docker-port: ${NEXUS_DOCKER_PORT:5000}
   # Optional AM-reachable image Registry endpoint, separate from the Nexus REST URL.
-  registry-endpoint: ${NEXUS_DOCKER_REGISTRY_URL:}
+  registry-endpoint: ${NEXUS_REGISTRY_ENDPOINT:}
+  deployment-registry-endpoint: ${NEXUS_DEPLOYMENT_REGISTRY_ENDPOINT:}
   username: ${NEXUS_USERNAME:admin}
   password: ${NEXUS_PASSWORD:123456}
   docker-repository: ${NEXUS_DOCKER_REPOSITORY:docker-hosted}
