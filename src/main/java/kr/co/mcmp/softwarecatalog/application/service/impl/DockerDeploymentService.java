@@ -200,6 +200,7 @@ public class DockerDeploymentService implements DeploymentService {
             // Each remote request/pull is bounded. Do not mark active workers
             // failed while queued VMs or large downloads are still running.
             allFutures.join();
+            Map<String, String> clusterErrors = verifyElasticsearchCluster(request, catalog, deploymentFutures);
             
             // 배포 결과 처리
             List<String> successfulVms = new ArrayList<>();
@@ -216,7 +217,7 @@ public class DockerDeploymentService implements DeploymentService {
                     VmAccessInfo vmAccessInfo = cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), vmId);
                     Integer servicePort = request.getServicePort();
                     
-                    if (result.isSuccess()) {
+                    if (result.isSuccess() && !clusterErrors.containsKey(vmId)) {
                         successfulVms.add(vmId);
                         vmHistory.setStatus("SUCCESS");
                         vmHistory.setContainerId(result.getContainerId());
@@ -233,17 +234,19 @@ public class DockerDeploymentService implements DeploymentService {
                             vmHistory, vmId, vmAccessInfo.getPublicIP(), servicePort, "SUCCESS", user,
                             result.getContainerId());
                     } else {
-                        failedVms.add(vmId + " (" + result.getErrorMessage() + ")");
+                        String failure = clusterErrors.getOrDefault(vmId, result.getErrorMessage());
+                        failedVms.add(vmId + " (" + failure + ")");
                         vmHistory.setStatus("FAILED");
                         vmHistory.setUpdatedAt(LocalDateTime.now());
                         deploymentHistoryRepository.save(vmHistory);
                         
-                        String errorMessage = createMessage(request, MessageType.ERROR, vmId, result.getErrorMessage());
+                        String errorMessage = createMessage(request, MessageType.ERROR, vmId, failure);
                         applicationHistoryService.addDeploymentLog(vmHistory, LogType.ERROR, errorMessage);
                         
                         // 실패한 VM의 ApplicationStatus 생성
                         applicationHistoryService.createApplicationStatusForVm(
-                            vmHistory, vmId, vmAccessInfo.getPublicIP(), servicePort, "FAILED", user);
+                            vmHistory, vmId, vmAccessInfo.getPublicIP(), servicePort, "FAILED", user,
+                            result.getContainerId());
                     }
                 } catch (Exception e) {
                     log.error("Failed to get deployment result", e);
@@ -332,6 +335,7 @@ public class DockerDeploymentService implements DeploymentService {
         try {
             // Use the same completion policy for single- and multi-VM installs.
             allDeployments.join();
+            Map<String, String> clusterErrors = verifyElasticsearchCluster(request, catalog, deploymentFutures);
             
             // 결과 수집 및 VM별 ApplicationStatus 생성
             List<String> successfulVms = new ArrayList<>();
@@ -347,7 +351,7 @@ public class DockerDeploymentService implements DeploymentService {
                     VmAccessInfo vmAccessInfo = cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), vmId);
                     Integer servicePort = request.getServicePort(); // 원래 포트 사용 (각 VM은 독립적인 서버)
                     
-                    if (result.isSuccess()) {
+                    if (result.isSuccess() && !clusterErrors.containsKey(vmId)) {
                         successfulVms.add(vmId);
                         String logMessage = createMessage(request, MessageType.SUCCESS, vmId, "deployment completed");
                         applicationHistoryService.addDeploymentLog(history, LogType.INFO, logMessage);
@@ -357,13 +361,15 @@ public class DockerDeploymentService implements DeploymentService {
                             history, vmId, vmAccessInfo.getPublicIP(), servicePort, "SUCCESS", user,
                             result.getContainerId());
                     } else {
-                        failedVms.add(vmId + " (" + result.getErrorMessage() + ")");
-                        String errorMessage = createMessage(request, MessageType.ERROR, vmId, result.getErrorMessage());
+                        String failure = clusterErrors.getOrDefault(vmId, result.getErrorMessage());
+                        failedVms.add(vmId + " (" + failure + ")");
+                        String errorMessage = createMessage(request, MessageType.ERROR, vmId, failure);
                         applicationHistoryService.addDeploymentLog(history, LogType.ERROR, errorMessage);
                         
                         // 실패한 VM의 ApplicationStatus 생성
                         applicationHistoryService.createApplicationStatusForVm(
-                            history, vmId, vmAccessInfo.getPublicIP(), servicePort, "FAILED", user);
+                            history, vmId, vmAccessInfo.getPublicIP(), servicePort, "FAILED", user,
+                            result.getContainerId());
                     }
                 } catch (Exception e) {
                     log.error("Failed to get deployment result", e);
@@ -449,9 +455,16 @@ public class DockerDeploymentService implements DeploymentService {
                 vmPublicIps,
                 clusterNodeIndex
             );
+            applicationHistoryService.addDeploymentLog(history,
+                    deployResult.isSuccess() ? LogType.INFO : LogType.ERROR, deployResult.getDeploymentResult());
             
             String containerId = deployResult.getContainerId();
             if (containerId != null && !containerId.isEmpty()) {
+                // Keep the exact failed container available to the existing detail/log/uninstall flow.
+                history.setContainerId(containerId);
+                deploymentHistoryRepository.save(history);
+            }
+            if (deployResult.isSuccess() && containerId != null && !containerId.isEmpty()) {
                 boolean isRunning = dockerOperationService.isContainerRunning(dockerTarget, containerId);
                 if (isRunning) {
                     history.setContainerId(containerId);
@@ -495,7 +508,7 @@ public class DockerDeploymentService implements DeploymentService {
                     String errorMsg = "Container is not running";
                     log.error("Async deployment failed for VM: {} - {}", vmId, errorMsg);
                     objectStorageAccessGrantService.revoke(history.getId(), vmId);
-                    return new DeploymentResult(vmId, false, null, errorMsg);
+                    return new DeploymentResult(vmId, false, containerId, errorMsg);
                 }
             } else {
                 String errorMsg = deployResult.getDeploymentResult();
@@ -504,7 +517,7 @@ public class DockerDeploymentService implements DeploymentService {
                 }
                 log.error("Async deployment failed for VM: {} - {}", vmId, errorMsg);
                 objectStorageAccessGrantService.revoke(history.getId(), vmId);
-                return new DeploymentResult(vmId, false, null, errorMsg);
+                return new DeploymentResult(vmId, false, containerId, errorMsg);
             }
             
         } catch (Exception e) {
@@ -526,6 +539,27 @@ public class DockerDeploymentService implements DeploymentService {
             }
             return new DeploymentResult(vmId, false, null, errorMessage);
         }
+    }
+
+    private Map<String, String> verifyElasticsearchCluster(DeploymentRequest request, SoftwareCatalogDTO catalog,
+            List<CompletableFuture<DeploymentResult>> futures) {
+        if (request.getVmDeploymentMode() != VmDeploymentMode.CLUSTERING
+                || determineApplicationType(catalog) != ApplicationType.ELASTICSEARCH) return Map.of();
+        Map<String, String> failures = new HashMap<>();
+        List<DeploymentResult> results = futures.stream().map(CompletableFuture::join).toList();
+        boolean incomplete = results.stream().anyMatch(result -> !result.isSuccess());
+        for (DeploymentResult result : results) {
+            if (!result.isSuccess()) continue;
+            try {
+                if (incomplete) throw new IllegalStateException("Elasticsearch cluster is incomplete: a target VM failed to start");
+                dockerOperationService.awaitElasticsearchReady(
+                        new DockerTarget(request.getNamespace(), request.getMciId(), result.getVmId()),
+                        result.getContainerId(), request.getVmIds().size());
+            } catch (RuntimeException failure) {
+                failures.put(result.getVmId(), failure.getMessage());
+            }
+        }
+        return failures;
     }
     
     /**

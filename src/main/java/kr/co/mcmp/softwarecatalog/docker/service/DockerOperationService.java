@@ -50,6 +50,9 @@ public class DockerOperationService {
     @Value("${app.vm-deployment.image-pull-timeout-seconds:1800}")
     private int imagePullTimeoutSeconds = 1800;
 
+    @Value("${app.vm-deployment.readiness-timeout-seconds:300}")
+    private int readinessTimeoutSeconds = 300;
+
     public DockerHostResourceInfo getHostResourceInfo(DockerTarget target) {
         try {
             DockerCommandResult result = commandExecutor.execute(
@@ -85,6 +88,8 @@ public class DockerOperationService {
             List<String> vmPublicIps,
             int vmIndex) {
         String phase = "validation";
+        String containerId = null;
+        String prerequisiteDetails = "";
         try {
             if (deployParams == null) {
                 throw new IllegalArgumentException("Deployment parameters are required");
@@ -96,6 +101,9 @@ public class DockerOperationService {
                     getEnvironmentVariables(imageName, vmPublicIps, vmIndex, target.vmId());
             environmentVariables.putAll(validateEnvironmentVariables(requestedEnvironmentVariables));
             List<VolumeMount> parsedVolumeMounts = parseVolumeMounts(volumeMounts);
+            if (readinessTimeoutSeconds < 5 || readinessTimeoutSeconds > 1800) {
+                throw new IllegalArgumentException("VM readiness timeout must be between 5 and 1800 seconds");
+            }
 
             String createCommand = buildCreateCommand(
                     target,
@@ -111,40 +119,88 @@ public class DockerOperationService {
             // may only cache an image, never start an untracked application.
             phase = "image preparation";
             prepareImage(target, imageName, "NEXUS".equals(deployParams.get("artifactSource")));
+            if (VmDeploymentChecks.isElasticsearch(imageName)
+                    && !"false".equalsIgnoreCase(environmentVariables.get("node.store.allow_mmap"))) {
+                phase = "Elasticsearch prerequisites";
+                DockerCommandResult prerequisites = commandExecutor.execute(
+                        target, VmDeploymentChecks.elasticsearchPrerequisites());
+                prerequisiteDetails = "; " + prerequisites.stdout().strip();
+                log.info("VM {} Elasticsearch prerequisites: {}", target.vmId(), prerequisites.stdout());
+            }
             phase = "container startup";
-            String script = "mcmp_container_id=$(" + createCommand + ") || exit $?\n"
-                    + "docker start \"$mcmp_container_id\" >/dev/null || exit $?\n"
-                    + "mcmp_attempt=0\n"
-                    + "while [ \"$mcmp_attempt\" -lt 60 ]; do\n"
-                    + "  mcmp_state=$(docker inspect --format '{{.State.Status}}' "
-                    + "\"$mcmp_container_id\" 2>/dev/null) || exit $?\n"
-                    + "  if [ \"$mcmp_state\" = running ]; then\n"
-                    + "    printf '__MCMP_CONTAINER_ID__=%s\\n' \"$mcmp_container_id\"\n"
-                    + "    exit 0\n"
-                    + "  fi\n"
-                    + "  if [ \"$mcmp_state\" = exited ] || [ \"$mcmp_state\" = dead ]; then\n"
-                    + "    echo 'Container exited during startup; inspect its logs on the VM' >&2\n"
-                    + "    exit 1\n"
-                    + "  fi\n"
-                    + "  mcmp_attempt=$((mcmp_attempt + 1))\n"
-                    + "  sleep 1\n"
-                    + "done\n"
-                    + "echo 'Container did not reach running state within 60 seconds' >&2\n"
-                    + "exit 124";
-
-            DockerCommandResult result = commandExecutor.execute(target, script);
-            String containerId = extractContainerId(result.stdout());
+            String probe = null;
+            String lowerImage = imageName.toLowerCase(java.util.Locale.ROOT);
+            if (lowerImage.contains("nginx") || lowerImage.contains("httpd")) {
+                for (PortMapping mapping : portMappings) {
+                    if (mapping.containerPort() == 80 || mapping.containerPort() == 8080) {
+                        // Authentication/route errors still prove the HTTP server is ready; do not require a public '/'.
+                        probe = "curl -sS --max-time 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:"
+                                + mapping.hostPort() + "/ 2>/dev/null | grep -Eq '^[234][0-9][0-9]$'";
+                        break;
+                    }
+                }
+            }
+            DockerCommandResult result = commandExecutor.executeAllowFailure(target,
+                    VmDeploymentChecks.containerStartup(createCommand, probe, readinessTimeoutSeconds,
+                            VmDeploymentChecks.isElasticsearch(imageName) && vmPublicIps != null && !vmPublicIps.isEmpty()));
+            containerId = extractContainerId(result.stdout());
+            if (!result.successful()) {
+                throw new IllegalStateException("Container readiness failed (exit=" + result.exitCode()
+                        + "): " + result.stderr());
+            }
+            if (VmDeploymentChecks.isElasticsearch(imageName) && (vmPublicIps == null || vmPublicIps.isEmpty())) {
+                phase = "Elasticsearch readiness";
+                awaitElasticsearchReady(target, containerId, 1);
+            }
 
             if (imageName.toLowerCase().contains("redis")
                     && vmPublicIps != null && !vmPublicIps.isEmpty() && vmIndex == 0) {
                 configureRedisCluster(target, containerId, vmPublicIps);
             }
-            return new ContainerDeployResult(containerId, "Container started", true);
+            return new ContainerDeployResult(containerId, "Container startup verified" + prerequisiteDetails, true);
         } catch (Exception e) {
             log.error("Error running Docker container through SSH on VM {}", target.vmId(), e);
             String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-            return new ContainerDeployResult(null, "VM " + phase + " failed: " + message, false);
+            return new ContainerDeployResult(containerId, "VM " + phase + " failed: " + message, false);
         }
+    }
+
+    /** Called after all cluster containers have started, never while queued peers are waiting for a worker. */
+    public void awaitElasticsearchReady(DockerTarget target, String containerId, int expectedNodes) {
+        String id = validateContainerId(containerId);
+        if (expectedNodes < 1) throw new IllegalArgumentException("Expected Elasticsearch node count must be positive");
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(readinessTimeoutSeconds);
+        String detail = "Elasticsearch has not answered its cluster health check";
+        while (System.nanoTime() < deadline) {
+            DockerCommandResult result = commandExecutor.executeAllowFailure(target,
+                    "docker exec " + DockerSshCommandExecutor.shellQuote(id)
+                            + " curl -fsS --max-time 5 " + DockerSshCommandExecutor.shellQuote(
+                                    "http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&wait_for_nodes=%3E%3D"
+                                            + expectedNodes + "&timeout=3s"));
+            try {
+                JsonNode health = objectMapper.readTree(result.stdout());
+                String status = health == null ? "" : health.path("status").asText();
+                if (result.successful() && health != null && !health.path("timed_out").asBoolean(true)
+                        && ("green".equals(status) || "yellow".equals(status))
+                        && health.path("number_of_nodes").asInt() >= expectedNodes) return;
+                detail = "Expected " + expectedNodes + " Elasticsearch node(s); status=" + status
+                        + "; joined=" + (health == null ? 0 : health.path("number_of_nodes").asInt());
+            } catch (Exception invalidResponse) {
+                detail = "Elasticsearch health endpoint is not ready (exit=" + result.exitCode() + ")";
+            }
+            String state = getDockerContainerStatus(target, id);
+            if (!"running".equalsIgnoreCase(state)) {
+                throw new IllegalStateException("Elasticsearch exited before readiness: state=" + state
+                        + "; " + String.join("\n", getContainerLogs(target, id, 30)));
+            }
+            try { Thread.sleep(2000); }
+            catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Elasticsearch readiness check interrupted", interrupted);
+            }
+        }
+        throw new IllegalStateException("Elasticsearch readiness timed out after " + readinessTimeoutSeconds
+                + " seconds. " + detail + "; " + String.join("\n", getContainerLogs(target, id, 30)));
     }
 
     private void prepareImage(DockerTarget target, String imageName, boolean nexusImage) {
