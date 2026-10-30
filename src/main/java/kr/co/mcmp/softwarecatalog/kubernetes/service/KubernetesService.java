@@ -24,6 +24,7 @@ import kr.co.mcmp.softwarecatalog.application.repository.DeploymentHistoryReposi
 import kr.co.mcmp.softwarecatalog.application.repository.DeploymentLogRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.InfraSpecSnapshotRepository;
 import kr.co.mcmp.softwarecatalog.users.repository.UserRepository;
+import kr.co.mcmp.util.DeploymentErrorMessages;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -90,7 +91,7 @@ public class KubernetesService {
             try {
                 DeploymentHistory savedHistory = historyRepository.save(history);
                 failedDeploymentId = savedHistory.getId();
-                addDeploymentLog(savedHistory, LogType.ERROR, "Deployment failed: " + e.getMessage());
+                addDeploymentLog(savedHistory, LogType.ERROR, "Deployment failed: " + DeploymentErrorMessages.describe(e));
             } catch (Exception failureSaveException) {
                 log.warn("Failed to persist deployment failure history. originalReason={}",
                         e.getMessage(), failureSaveException);

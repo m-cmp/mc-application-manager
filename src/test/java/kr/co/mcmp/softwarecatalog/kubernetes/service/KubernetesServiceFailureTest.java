@@ -59,4 +59,23 @@ class KubernetesServiceFailureTest {
                 e -> assertThat(e.getDeploymentId()).isNull());
         assertThat(existing.getDeploymentHistoryId()).isNull();
     }
+
+    @Test void recordsNestedProviderReasonWithoutExposingCredentialsOrChangingPublicReceipt() {
+        reset(deploy);
+        doThrow(new RuntimeException("애플리케이션 배포 실패",
+                        new RuntimeException("Helm Chart 배포 실패",
+                                new RuntimeException("GET https://user:secret@cluster.test:6443?token=secret-token: connection refused"))))
+                .when(deploy).deployApplication(any(), any(), any(), any(), any());
+        when(histories.save(any())).thenAnswer(i -> { DeploymentHistory h=i.getArgument(0); h.setId(44L); return h; });
+        assertThatThrownBy(() -> service.deployApplication(request)).isInstanceOfSatisfying(DeploymentFailureException.class,
+                e -> {
+                    assertThat(e.getDeploymentId()).isEqualTo(44L);
+                    assertThat(e.getMessage()).isEqualTo("Installation failed. Open deployment logs for details.");
+                });
+        verify(logs).save(argThat(l -> l.getLogMessage().contains("connection refused")
+                && l.getLogMessage().contains("cluster.test:6443")
+                && !l.getLogMessage().contains("user:secret")
+                && !l.getLogMessage().contains("secret-token")));
+        verify(statuses).save(argThat(s -> "FAILED".equals(s.getStatus()) && Long.valueOf(44).equals(s.getDeploymentHistoryId())));
+    }
 }

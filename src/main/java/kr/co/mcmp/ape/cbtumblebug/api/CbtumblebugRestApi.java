@@ -42,6 +42,7 @@ import kr.co.mcmp.ape.cbtumblebug.dto.SshKeyResponse;
 import kr.co.mcmp.ape.cbtumblebug.dto.VmAccessInfo;
 import kr.co.mcmp.ape.cbtumblebug.dto.VmSpecDto;
 import kr.co.mcmp.ape.cbtumblebug.exception.CbtumblebugException;
+import kr.co.mcmp.util.DeploymentErrorMessages;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -197,6 +198,16 @@ public class CbtumblebugRestApi {
                         JsonNode firstResult = resultsNode.get(0);
                         String stdout = extractCommandOutput(firstResult.path("stdout"));
                         String stderr = extractCommandOutput(firstResult.path("stderr"));
+                        // Preserve transport errors without changing stdout/exit-marker
+                        // handling: error can also describe an ordinary nonzero exit.
+                        String remoteError = extractCommandOutput(firstResult.path("error"));
+                        if (!remoteError.isBlank()) {
+                            if (!stderr.contains(remoteError)) {
+                                stderr += (stderr.isBlank() ? "" : "\n")
+                                        + "Remote command error on VM " + vmId + ": " + remoteError;
+                            }
+                            stderr = DeploymentErrorMessages.sanitize(stderr);
+                        }
                         
                         log.debug("Parsed stdout: '{}', stderr: '{}'", stdout, stderr);
                         
