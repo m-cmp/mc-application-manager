@@ -15,6 +15,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class HelmChartServiceImageDefaultsTest {
 
+    @Test
+    void applicationInstallWaitsForReadinessAndJobsWithABoundedTimeout() {
+        List<String> arguments = new java.util.ArrayList<>();
+        HelmChartService.addApplicationReadinessArguments(arguments);
+        assertThat(arguments).containsExactly("--wait", "--wait-for-jobs", "--timeout", "10m");
+    }
+
     @ParameterizedTest
     @MethodSource("legacyImageOverrides")
     void excludesLegacyImageOverridesFromHelmInstallArguments(String key, String value) {

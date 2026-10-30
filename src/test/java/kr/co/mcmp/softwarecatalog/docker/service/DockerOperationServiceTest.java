@@ -42,6 +42,61 @@ class DockerOperationServiceTest {
     private kr.co.mcmp.softwarecatalog.application.service.impl.NexusImageAccess nexusImageAccess;
 
     @Test
+    void checksElasticsearchBeforeCreatingAContainerAndVerifiesClusterHealth() {
+        when(commandExecutor.execute(eq(TARGET), anyString()))
+                .thenReturn(new DockerCommandResult(0, "vm.max_map_count=262144; unchanged", ""));
+        when(commandExecutor.executeAllowFailure(eq(TARGET), anyString()))
+                .thenReturn(new DockerCommandResult(0, "__MCMP_CONTAINER_ID__=" + CONTAINER_ID, ""))
+                .thenReturn(new DockerCommandResult(0, "{\"timed_out\":false,\"status\":\"yellow\",\"number_of_nodes\":1}", ""));
+        var result = service.runDockerContainer(TARGET, Map.of("name", "es-test",
+                "image", "elasticsearch:8.11.0", "portBindings", "9200:9200"), List.of(), -1);
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getDeploymentResult()).contains("vm.max_map_count=262144", "unchanged");
+        var ordered = org.mockito.Mockito.inOrder(commandExecutor);
+        ordered.verify(commandExecutor).execute(eq(TARGET), org.mockito.ArgumentMatchers.contains("docker pull"));
+        ordered.verify(commandExecutor).execute(eq(TARGET), org.mockito.ArgumentMatchers.contains("Passwordless sudo"));
+        ordered.verify(commandExecutor).executeAllowFailure(eq(TARGET), org.mockito.ArgumentMatchers.contains("docker start"));
+        ordered.verify(commandExecutor).executeAllowFailure(eq(TARGET), org.mockito.ArgumentMatchers.contains("/_cluster/health"));
+    }
+
+    @Test
+    void prerequisiteDenialPreventsContainerCreationAndPreservesTheReason() {
+        when(commandExecutor.execute(eq(TARGET), anyString())).thenAnswer(invocation -> {
+            if (((String) invocation.getArgument(1)).contains("mcmp_current"))
+                throw new DockerCommandException(TARGET, 77,
+                        "vm.max_map_count=65530; minimum=262144; Passwordless sudo is required");
+            return new DockerCommandResult(0, "", "");
+        });
+        var result = service.runDockerContainer(TARGET, Map.of("name", "es-denied",
+                "image", "elasticsearch:8.11.0", "portBindings", "9200:9200"), List.of(), -1);
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getDeploymentResult()).contains("Elasticsearch prerequisites", "65530", "262144", "sudo");
+        verify(commandExecutor, never()).executeAllowFailure(eq(TARGET), anyString());
+    }
+
+    @Test
+    void readinessFailureKeepsTheExactContainerForFailureDetails() {
+        when(commandExecutor.execute(eq(TARGET), anyString())).thenReturn(new DockerCommandResult(0, "", ""));
+        when(commandExecutor.executeAllowFailure(eq(TARGET), anyString())).thenReturn(
+                new DockerCommandResult(124, "__MCMP_CONTAINER_ID__=" + CONTAINER_ID, "Container readiness timed out"));
+        var result = service.runDockerContainer(TARGET, Map.of("name", "unhealthy",
+                "image", "nginx:1.27", "portBindings", "8080:80"), List.of(), -1);
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getContainerId()).isEqualTo(CONTAINER_ID);
+        assertThat(result.getDeploymentResult()).contains("readiness timed out");
+    }
+
+    @Test
+    void clusteringDoesNotWaitForPeersInsideAnIndividualStartupWorker() {
+        when(commandExecutor.execute(eq(TARGET), anyString())).thenReturn(new DockerCommandResult(0, "", ""));
+        var result = service.runDockerContainer(TARGET, Map.of("name", "es-cluster",
+                "image", "elasticsearch:8.11.0", "portBindings", "9200:9200,9300:9300"),
+                List.of("10.0.0.1", "10.0.0.2"), 0);
+        assertThat(result.isSuccess()).isTrue();
+        verify(commandExecutor, never()).executeAllowFailure(eq(TARGET), org.mockito.ArgumentMatchers.contains("/_cluster/health"));
+    }
+
+    @Test
     void pullsAnImportedImageWithShortLivedAuthenticationWithoutSavingALogin() {
         when(nexusImageAccess.dockerAuthConfig("registry.test:5500/nginx:v1"))
                 .thenReturn("{\"auths\":{\"registry.test:5500\":{\"auth\":\"test-token\"}}}");
@@ -51,7 +106,7 @@ class DockerOperationServiceTest {
                 "image", "registry.test:5500/nginx:v1", "portBindings", "8080:80", "artifactSource", "NEXUS"), List.of(), 0);
         assertThat(result.isSuccess()).isTrue();
         var script = ArgumentCaptor.forClass(String.class);
-        verify(commandExecutor, times(2)).execute(eq(TARGET), script.capture());
+        verify(commandExecutor).execute(eq(TARGET), script.capture());
         assertThat(script.getAllValues().get(0)).contains("umask 077", "mktemp -d", "trap", "rmdir", "docker --config")
                 .doesNotContain("docker login", "test-token");
     }
@@ -59,6 +114,8 @@ class DockerOperationServiceTest {
     @BeforeEach
     void setUp() {
         service = new DockerOperationService(commandExecutor, new ObjectMapper(), nexusImageAccess);
+        org.mockito.Mockito.lenient().when(commandExecutor.executeAllowFailure(eq(TARGET), anyString()))
+                .thenReturn(new DockerCommandResult(0, "__MCMP_CONTAINER_ID__=" + CONTAINER_ID, ""));
     }
 
     @Test
@@ -80,7 +137,8 @@ class DockerOperationServiceTest {
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getContainerId()).isEqualTo(CONTAINER_ID);
         ArgumentCaptor<String> script = ArgumentCaptor.forClass(String.class);
-        verify(commandExecutor, times(2)).execute(eq(TARGET), script.capture());
+        verify(commandExecutor).execute(eq(TARGET), script.capture());
+        verify(commandExecutor).executeAllowFailure(eq(TARGET), script.capture());
         assertThat(script.getAllValues().get(0))
                 .contains("docker image inspect")
                 .contains("timeout --kill-after=10s 1800s docker pull")
@@ -158,7 +216,8 @@ class DockerOperationServiceTest {
 
         assertThat(result.isSuccess()).isTrue();
         ArgumentCaptor<String> script = ArgumentCaptor.forClass(String.class);
-        verify(commandExecutor, times(2)).execute(eq(TARGET), script.capture());
+        verify(commandExecutor).execute(eq(TARGET), script.capture());
+        verify(commandExecutor).executeAllowFailure(eq(TARGET), script.capture());
         assertThat(script.getAllValues().get(1))
                 .contains("'S3_BUCKET=sample-bucket'")
                 .contains("'mcmp-jupyter-work:/home/jovyan/work'")

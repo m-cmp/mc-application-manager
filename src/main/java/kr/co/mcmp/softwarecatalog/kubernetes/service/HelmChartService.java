@@ -1283,6 +1283,7 @@ public class HelmChartService {
         cmd.add("--namespace"); cmd.add(requireHelmNamespace(namespace));
         cmd.add("--version"); cmd.add(version);
         cmd.add("--kubeconfig"); cmd.add(kubeconfig.toString());
+        addApplicationReadinessArguments(cmd);
         if (valuesFile != null) {
             cmd.add("--values");
             cmd.add(valuesFile.toString());
@@ -1298,6 +1299,10 @@ public class HelmChartService {
             throw new RuntimeException("helm install failed (" + ec + "): " + err + "\n" + out);
         }
         log.info("helm install output: {}", out);
+    }
+
+    static void addApplicationReadinessArguments(java.util.List<String> command) {
+        command.addAll(java.util.List.of("--wait", "--wait-for-jobs", "--timeout", HELM_WAIT_TIMEOUT));
     }
 
     private void verifyIngressBeforeInstall(java.util.List<String> installCommand, String cidr, String ingressHost, String ingressClass) throws Exception {
