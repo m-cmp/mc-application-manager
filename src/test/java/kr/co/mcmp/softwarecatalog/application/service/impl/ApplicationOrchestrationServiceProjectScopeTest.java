@@ -45,6 +45,8 @@ class ApplicationOrchestrationServiceProjectScopeTest {
     private VmSecurityGroupExposureService vmSecurityGroupExposureService;
     @Mock
     private VmNodeGroupTargetResolver vmNodeGroupTargetResolver;
+    @Mock
+    private VmInfraStateService vmInfraStateService;
 
     private ApplicationOrchestrationServiceImpl service;
 
@@ -63,7 +65,7 @@ class ApplicationOrchestrationServiceProjectScopeTest {
                 org.mockito.Mockito.mock(kr.co.mcmp.softwarecatalog.application.service.tunnel.ObjectStorageTunnelService.class),
                 org.mockito.Mockito.mock(kr.co.mcmp.softwarecatalog.application.service.ObjectStorageAccessGrantService.class),
                 org.mockito.Mockito.mock(kr.co.mcmp.softwarecatalog.docker.service.DockerOperationService.class),
-                vmNodeGroupTargetResolver);
+                vmNodeGroupTargetResolver, vmInfraStateService);
     }
 
     @Test
@@ -93,6 +95,21 @@ class ApplicationOrchestrationServiceProjectScopeTest {
         assertThatThrownBy(() -> service.getApplicationGroups(" "))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Namespace");
+    }
+
+    @Test
+    void hidesOnlyConfirmedDeletedInfraAndKeepsUninstalledAndK8sRecordsWithoutDeletingData() {
+        var removed = ApplicationStatus.builder().id(1L).namespace("project-a").mciId("removed")
+                .deploymentType(kr.co.mcmp.softwarecatalog.application.constants.DeploymentType.VM).status("UNINSTALLED").build();
+        var existing = ApplicationStatus.builder().id(2L).namespace("project-a").mciId("existing")
+                .deploymentType(kr.co.mcmp.softwarecatalog.application.constants.DeploymentType.VM).status("UNINSTALLED").build();
+        var k8s = ApplicationStatus.builder().id(3L).namespace("project-a").clusterName("k1")
+                .deploymentType(kr.co.mcmp.softwarecatalog.application.constants.DeploymentType.K8S).status("UNINSTALLED").build();
+        when(applicationStatusRepository.findByNamespace("project-a")).thenReturn(List.of(removed, existing, k8s));
+        when(vmInfraStateService.isDeleted("project-a", "removed")).thenReturn(true);
+        assertThat(service.getApplicationGroups("project-a")).extracting(ApplicationStatusDto::getId).containsExactly(2L, 3L);
+        org.mockito.Mockito.verify(applicationStatusRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(applicationStatusRepository, org.mockito.Mockito.never()).delete(org.mockito.ArgumentMatchers.any());
     }
     @Test
     void legacyK8sFailureResolvesItsHistoryOnlyWithinExactTargetWithoutChangingEntity() {

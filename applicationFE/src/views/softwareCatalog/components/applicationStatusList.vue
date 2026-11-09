@@ -220,7 +220,8 @@ const setColumns = () => {
         const status = cell.getRow().getData().status
         const disabled = btnFlag === 'uninstall-btn'
           ? isApplicationUninstallDisabledStatus(status)
-          : isActionDisabledStatus(status)
+          : btnFlag === 'rating-btn' && String(status || '').trim().toUpperCase() === 'SUSPENDED'
+            ? false : isActionDisabledStatus(status)
         if (disabled) {
           return
         }
@@ -342,6 +343,7 @@ const actionButtonFormatter = (cell: any) => {
   const disabledAttr = isActionDisabledStatus(status) ? 'disabled' : ''
   const uninstallDisabledAttr = isApplicationUninstallDisabledStatus(status) ? 'disabled' : ''
   const normalizedStatus = String(status || '').trim().toUpperCase()
+  const ratingDisabledAttr = normalizedStatus === 'SUSPENDED' ? '' : disabledAttr
   const isStopped = normalizedStatus === 'STOP' || normalizedStatus === 'STOPPED'
   const lifecycleButtons = isStopped ? `
     <button
@@ -387,7 +389,7 @@ const actionButtonFormatter = (cell: any) => {
       id='rating-btn'
       data-bs-toggle='modal'
       data-bs-target='#rating-modal'
-      ${disabledAttr}>
+      ${ratingDisabledAttr}>
       Rating
     </button>
   </div>`;

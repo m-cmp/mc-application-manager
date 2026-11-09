@@ -16,6 +16,7 @@ const STATUS_LABELS: Record<string, string> = {
   COMPLETED: 'Completed',
   STOP: 'Stopped',
   STOPPED: 'Stopped',
+  SUSPENDED: 'Suspended',
   UNINSTALL: 'Uninstalling',
   UNINSTALLED: 'Uninstalled',
   NOT_FOUND: 'Not Found',
@@ -39,7 +40,7 @@ const PROGRESS_STATUSES = new Set([
 ])
 const SUCCESS_STATUSES = new Set(['RUN', 'RUNNING', 'SUCCESS', 'COMPLETED'])
 const WARNING_STATUSES = new Set(['NOT_FOUND', 'PENDING', 'UNKNOWN'])
-const TERMINAL_STATUSES = new Set(['STOP', 'STOPPED', 'UNINSTALL', 'UNINSTALLED'])
+const TERMINAL_STATUSES = new Set(['STOP', 'STOPPED', 'SUSPENDED', 'UNINSTALL', 'UNINSTALLED'])
 const DANGER_STATUSES = new Set(['FAILED', 'ERROR', 'IMAGE_PULL_ERROR'])
 const ACTION_DISABLED_STATUSES = new Set([
   'PREPARING_RUNTIME',
@@ -54,6 +55,7 @@ const ACTION_DISABLED_STATUSES = new Set([
   'RESTARTING',
   'UNINSTALL',
   'UNINSTALLED',
+  'SUSPENDED',
   'FAILED'
 ])
 

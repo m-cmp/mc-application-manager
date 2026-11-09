@@ -19,7 +19,7 @@ class DockerMonitoringSnapshotTest {
 
     private final ResourceMetricsHistoryRepository repository = mock(ResourceMetricsHistoryRepository.class);
     private final DockerMonitoringService service = new DockerMonitoringService(
-            null, null, repository, null, null, null, null, null);
+            null, null, repository, null, null, null, null, null, null);
 
     @Test void archivesNormalizedPercentageAndItsOriginalCpuBasisTogether() {
         ContainerHealthInfo health = ContainerHealthInfo.builder()
