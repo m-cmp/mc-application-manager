@@ -30,6 +30,7 @@ import kr.co.mcmp.softwarecatalog.application.repository.OperationHistoryReposit
 import kr.co.mcmp.softwarecatalog.application.repository.ResourceMetricsHistoryRepository;
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerHealthInfo;
 import kr.co.mcmp.softwarecatalog.docker.model.DockerTarget;
+import kr.co.mcmp.softwarecatalog.application.service.impl.VmInfraStateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,6 +47,7 @@ public class DockerMonitoringService {
     private final DockerOperationService dockerOperationService;
     private final ContainerStatsCollector containerStatsCollector;
     private final DockerLogCollector dockerLogCollector;
+    private final VmInfraStateService vmInfraStateService;
 
     @Value("${docker.monitoring.interval:60000}")
     private long monitoringInterval;
@@ -60,6 +62,7 @@ public class DockerMonitoringService {
     @Transactional
     public void monitorContainerHealth() {
         log.info("Starting container health monitoring");
+        vmInfraStateService.refresh(applicationStatusRepository.findAll());
         List<DeploymentHistory> activeDeployments = getActiveDeployments();
 
         for (DeploymentHistory deployment : activeDeployments) {
@@ -117,6 +120,22 @@ public class DockerMonitoringService {
         }
 
         try {
+            if (vmInfraStateService.isDeleted(deployment.getNamespace(), deployment.getMciId())) {
+                return;
+            }
+            if (VmInfraStateService.isSuspended(vmInfraStateService.findVm(
+                    deployment.getNamespace(), deployment.getMciId(), deployment.getVmId()))) {
+                status.setStatus("SUSPENDED");
+                status.setCheckedAt(LocalDateTime.now());
+                status.setIsHealthCheck(null);
+                status.setIsPortAccessible(null);
+                status.setCpuUsage(null);
+                status.setMemoryUsage(null);
+                status.setNetworkIn(null);
+                status.setNetworkOut(null);
+                applicationStatusRepository.save(status);
+                return;
+            }
             DockerTarget target = new DockerTarget(
                     deployment.getNamespace(), deployment.getMciId(), deployment.getVmId());
             String catalogName = deployment.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");

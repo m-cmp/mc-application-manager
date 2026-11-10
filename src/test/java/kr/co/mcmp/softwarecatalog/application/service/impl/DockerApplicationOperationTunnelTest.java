@@ -26,6 +26,7 @@ class DockerApplicationOperationTunnelTest {
     @Mock ObjectStorageAccessGrantService grants;
     @Mock ObjectStorageTunnelService tunnels;
     @Mock VmSecurityGroupExposureService exposure;
+    @Mock VmInfraStateService infraStates;
     @InjectMocks DockerApplicationOperationService service;
     ApplicationStatus status;
     DockerTarget target=new DockerTarget("default","infra","vm");
@@ -72,5 +73,13 @@ class DockerApplicationOperationTunnelTest {
         doThrow(new IllegalStateException("cleanup pending")).when(tunnels).remove(target,cid);
         assertThat(service.performOperation(ActionType.UNINSTALL,2L,"test","user")).containsEntry("success",false);
         verify(docker,never()).removeDockerContainer(target,cid);
+    }
+    @Test void suspendedVmRejectsOperationsBeforeTunnelDockerOrHistoryChanges(){
+        for (ActionType action : java.util.List.of(ActionType.RESTART,ActionType.STOP,ActionType.UNINSTALL)) {
+            doThrow(new IllegalStateException("VM is Suspended")).when(infraStates).assertActionAllowed(status,action);
+            assertThat(service.performOperation(action,2L,"test","user"))
+                .containsEntry("success",false).containsEntry("error","VM is Suspended");
+        }
+        verifyNoInteractions(docker,tunnels,grants,exposure,historyService);
     }
 }

@@ -1,7 +1,6 @@
 package kr.co.mcmp.softwarecatalog.application.service.impl;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +65,7 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
     private final ObjectStorageAccessGrantService objectStorageAccessGrantService;
     private final DockerOperationService dockerOperationService;
     private final VmNodeGroupTargetResolver vmNodeGroupTargetResolver;
+    private final VmInfraStateService vmInfraStateService;
     
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -131,13 +131,10 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
                 List<ApplicationStatus> applications = applicationStatusRepository.findByNamespaceAndMciIdAndVmId(
                     namespace, mciId, vmId);
                 
-                return applications.stream()
+                return applications.stream().filter(this::hasVisibleInfra)
                     .map(this::toStatusDto);
             })
-            .sorted(Comparator
-                .comparing(ApplicationStatusDto::getCheckedAt, Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(ApplicationStatusDto::getDeploymentHistoryId, Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(ApplicationStatusDto::getId, Comparator.nullsLast(Comparator.reverseOrder())))
+            .sorted(ApplicationStatusOrdering.ORDER)
             .collect(Collectors.toList());
     }
 
@@ -152,16 +149,25 @@ public class ApplicationOrchestrationServiceImpl implements ApplicationOrchestra
 
     private List<ApplicationStatusDto> sortApplicationStatuses(List<ApplicationStatus> applications) {
         return applications.stream()
+                .filter(this::hasVisibleInfra)
                 .map(this::toStatusDto)
-                .sorted(Comparator
-                        .comparing(ApplicationStatusDto::getCheckedAt, Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(ApplicationStatusDto::getDeploymentHistoryId, Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(ApplicationStatusDto::getId, Comparator.nullsLast(Comparator.reverseOrder())))
+                .sorted(ApplicationStatusOrdering.ORDER)
                 .collect(Collectors.toList());
+    }
+
+    private boolean hasVisibleInfra(ApplicationStatus status) {
+        return status.getDeploymentType() != DeploymentType.VM
+                || !vmInfraStateService.isDeleted(status.getNamespace(), status.getMciId());
     }
 
     private ApplicationStatusDto toStatusDto(ApplicationStatus status) {
         ApplicationStatusDto dto = ApplicationStatusDto.fromEntity(status);
+        if (status.getDeploymentType() == DeploymentType.VM) {
+            var vm = vmInfraStateService.findVm(status.getNamespace(), status.getMciId(), status.getVmId());
+            if (vm != null && StringUtils.isNotBlank(vm.getSubGroupId())) {
+                dto.setNodeGroupName(vm.getSubGroupId());
+            }
+        }
         // Older AM versions persisted K8s failures without linking their history.
         // Resolve for display only; never rewrite archived records or cross target/project boundaries.
         if ("FAILED".equals(status.getStatus()) && status.getDeploymentType() == DeploymentType.K8S

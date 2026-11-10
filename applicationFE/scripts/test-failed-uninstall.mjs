@@ -5,13 +5,19 @@ import { parse, compileScript, compileTemplate } from '@vue/compiler-sfc'
 
 const source = await readFile(new URL('../src/views/softwareCatalog/applicationStatusDisplay.ts', import.meta.url), 'utf8')
 const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText
-const { isApplicationActionDisabledStatus: lifecycleDisabled, isApplicationUninstallDisabledStatus: uninstallDisabled } = await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'))
+const { isApplicationActionDisabledStatus: lifecycleDisabled, isApplicationUninstallDisabledStatus: uninstallDisabled,
+  getApplicationStatusLabel, getApplicationStatusBadgeClass } = await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'))
+
+for (const status of ['SUSPENDED', 'suspended', ' Suspended ']) {
+  assert.equal(getApplicationStatusLabel(status), 'Suspended')
+  assert.equal(getApplicationStatusBadgeClass(status), 'badge bg-secondary')
+}
 
 for (const status of ['FAILED', 'failed', ' Failed ']) {
   assert.equal(lifecycleDisabled(status), true, status)
   assert.equal(uninstallDisabled(status), false, status)
 }
-for (const status of ['PREPARING_RUNTIME', 'PREPARING_METRICS_SERVER', 'PREPARING_INGRESS_NGINX', 'DEPLOYING', 'IN_PROGRESS', 'INSTALL', 'START', 'STARTING', 'RESTART', 'RESTARTING', 'UNINSTALL', 'UNINSTALLED']) {
+for (const status of ['PREPARING_RUNTIME', 'PREPARING_METRICS_SERVER', 'PREPARING_INGRESS_NGINX', 'DEPLOYING', 'IN_PROGRESS', 'INSTALL', 'START', 'STARTING', 'RESTART', 'RESTARTING', 'UNINSTALL', 'UNINSTALLED', 'SUSPENDED', 'suspended', ' Suspended ']) {
   assert.equal(lifecycleDisabled(status), true, status)
   assert.equal(uninstallDisabled(status), true, status)
 }
@@ -21,10 +27,11 @@ for (const status of ['RUNNING', 'SUCCESS', 'STOPPED', 'ERROR', 'IMAGE_PULL_ERRO
 const component = await readFile(new URL('../src/views/softwareCatalog/components/applicationStatusList.vue', import.meta.url), 'utf8')
 assert.match(component, /btnFlag === 'uninstall-btn'\s*\? isApplicationUninstallDisabledStatus\(status\)/)
 assert.match(component, /id='uninstall-btn'[\s\S]*?\$\{uninstallDisabledAttr\}/)
-assert.match(component, /id='rating-btn'[\s\S]*?\$\{disabledAttr\}/)
+assert.match(component, /id='rating-btn'[\s\S]*?\$\{ratingDisabledAttr\}/)
+assert.match(component, /ratingDisabledAttr = normalizedStatus === 'SUSPENDED' \? '' : disabledAttr/)
 const { descriptor, errors } = parse(component)
 assert.deepEqual(errors, [])
 compileScript(descriptor, { id: 'failed-uninstall-regression' })
 const template = compileTemplate({ source: descriptor.template.content, filename: 'applicationStatusList.vue', id: 'failed-uninstall-regression' })
 assert.deepEqual(template.errors, [])
-console.log('PASS: failed cleanup enabled; lifecycle/rating and in-progress/uninstalled guards preserved across 26 varied inputs')
+console.log('PASS: Suspended label/action guards; failed cleanup enabled; existing lifecycle/rating guards preserved across 29 varied inputs')

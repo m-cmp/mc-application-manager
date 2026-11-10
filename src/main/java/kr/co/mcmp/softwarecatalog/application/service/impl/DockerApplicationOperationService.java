@@ -42,6 +42,7 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
     private final ObjectStorageAccessGrantService objectStorageAccessGrantService;
     private final ObjectStorageTunnelService objectStorageTunnelService;
     private final VmSecurityGroupExposureService vmSecurityGroupExposureService;
+    private final VmInfraStateService vmInfraStateService;
     
     @Override
     public Map<String, Object> performOperation(ActionType operation, Long applicationStatusId, String reason, String username) {
@@ -54,6 +55,7 @@ public class DockerApplicationOperationService implements ApplicationOperationSe
         result.put("success", false);
     
         try {
+            vmInfraStateService.assertActionAllowed(applicationStatus, operation);
             DockerTarget target = new DockerTarget(
                     applicationStatus.getNamespace(),
                     applicationStatus.getMciId(),

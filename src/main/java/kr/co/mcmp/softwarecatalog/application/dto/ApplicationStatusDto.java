@@ -25,6 +25,7 @@ public class ApplicationStatusDto {
     private DeploymentType deploymentType;
     private String namespace;
     private String mciId;
+    private String nodeGroupName;
     private String vmId;
     private String clusterName;
     private String status;
@@ -50,6 +51,7 @@ public class ApplicationStatusDto {
                 .deploymentType(entity.getDeploymentType())
                 .namespace(entity.getNamespace())
                 .mciId(entity.getMciId())
+                .nodeGroupName(entity.getNodeGroupName())
                 .vmId(entity.getVmId())
                 .clusterName(entity.getClusterName())
                 .isPortAccessible(entity.getIsPortAccessible())
