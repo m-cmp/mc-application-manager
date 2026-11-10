@@ -39,7 +39,8 @@ class VmSecurityGroupExposureServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new VmSecurityGroupExposureService(cbtumblebugRestApi, repository);
+        service = new VmSecurityGroupExposureService(cbtumblebugRestApi, repository,
+                org.mockito.Mockito.mock(ElasticsearchClusterNetworkService.class));
         lenient().when(repository.saveAndFlush(any(VmSecurityGroupExposure.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
     }

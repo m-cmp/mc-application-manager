@@ -26,6 +26,7 @@ public class VmSecurityGroupExposureService {
 
     private final CbtumblebugRestApi cbtumblebugRestApi;
     private final VmSecurityGroupExposureRepository repository;
+    private final ElasticsearchClusterNetworkService clusterNetworkService;
 
     /**
      * Adds and records one restricted inbound rule for a deployment. A rule
@@ -113,6 +114,7 @@ public class VmSecurityGroupExposureService {
         if (deploymentId == null) {
             return;
         }
+        clusterNetworkService.release(deploymentId);
 
         VmSecurityGroupExposure exposure = repository
                 .findByDeploymentIdAndReleasedAtIsNull(deploymentId)
@@ -147,7 +149,9 @@ public class VmSecurityGroupExposureService {
             return;
         }
 
-        if (Boolean.TRUE.equals(exposure.getManagedByApplicationManager())) {
+        if (Boolean.TRUE.equals(exposure.getManagedByApplicationManager())
+                && !clusterNetworkService.retainIfRequired(exposure.getNamespace(), exposure.getSecurityGroupId(),
+                        exposure.getServicePort(), exposure.getAllowedCidr())) {
             cbtumblebugRestApi.deleteInboundTcpFirewallRule(
                     exposure.getNamespace(),
                     exposure.getSecurityGroupId(),
