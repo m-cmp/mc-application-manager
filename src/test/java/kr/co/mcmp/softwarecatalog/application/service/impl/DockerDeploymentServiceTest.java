@@ -27,14 +27,19 @@ import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.VmAccessInfo;
 import kr.co.mcmp.softwarecatalog.application.dto.PackageInfoDTO;
 import kr.co.mcmp.softwarecatalog.application.service.ObjectStorageAccessGrantService;
+import kr.co.mcmp.softwarecatalog.application.service.ElasticsearchClusterNetworkService;
 
 class DockerDeploymentServiceTest {
 
-    @Test
-    void failedReadinessKeepsTheContainerIdAndCannotBePromotedToSuccessJustBecauseItExists() {
+    @ParameterizedTest
+    @CsvSource({"Nginx,STANDALONE,false", "Elasticsearch,CLUSTERING,true"})
+    void failedReadinessKeepsTheContainerIdAndCannotBePromotedToSuccessJustBecauseItExists(
+            String app, VmDeploymentMode mode, boolean cluster) {
         DockerDeploymentService service = mock(DockerDeploymentService.class, CALLS_REAL_METHODS);
         DockerOperationService operations = mock(DockerOperationService.class);
         CbtumblebugRestApi tumblebug = mock(CbtumblebugRestApi.class);
+        ElasticsearchClusterNetworkService network = mock(ElasticsearchClusterNetworkService.class);
+        ReflectionTestUtils.setField(service, "clusterNetworkService", network);
         ReflectionTestUtils.setField(service, "dockerOperationService", operations);
         ReflectionTestUtils.setField(service, "dockerSetupService", mock(DockerSetupService.class));
         ReflectionTestUtils.setField(service, "cbtumblebugRestApi", tumblebug);
@@ -44,22 +49,30 @@ class DockerDeploymentServiceTest {
         VmAccessInfo vm = new VmAccessInfo();
         vm.setPublicIP("192.0.2.10");
         when(tumblebug.getVmInfo("ns", "infra", "vm1")).thenReturn(vm);
+        if (cluster) when(tumblebug.getVmInfo("ns", "infra", "vm2")).thenReturn(vm);
         when(operations.runDockerContainer(any(), anyMap(), any(), any(), any(), anyList(), anyInt()))
                 .thenReturn(new ContainerDeployResult("failed-container", "Container readiness timed out", false));
-        SoftwareCatalogDTO catalog = SoftwareCatalogDTO.builder().id(1L).name("Nginx").defaultPort(80)
-                .packageInfo(PackageInfoDTO.builder().packageName("nginx").packageVersion("1.27").build()).build();
+        SoftwareCatalogDTO catalog = SoftwareCatalogDTO.builder().id(1L).name(app).defaultPort(cluster ? 9200 : 80)
+                .packageInfo(PackageInfoDTO.builder().packageName(app.toLowerCase()).packageVersion(cluster ? "8.11.0" : "1.27").build()).build();
         DeploymentHistory history = new DeploymentHistory();
         history.setId(2L);
+        List<String> targets = cluster ? List.of("vm1", "vm2") : List.of("vm1");
         DeploymentRequest request = DeploymentRequest.builder().namespace("ns").mciId("infra")
-                .vmIds(List.of("vm1")).servicePort(8080).vmDeploymentMode(VmDeploymentMode.STANDALONE).build();
+                .vmIds(targets).servicePort(cluster ? 9200 : 8080).vmDeploymentMode(mode).build();
 
         Object result = ReflectionTestUtils.invokeMethod(service, "deployToSingleVmAsync",
-                request, catalog, history, null, "vm1", 0, List.of("vm1"), null);
+                request, catalog, history, null, "vm1", 0, targets,
+                cluster ? Map.of("clusterName", "es-test", "appType", "elasticsearch") : null);
 
         assertThat(ReflectionTestUtils.getField(result, "success")).isEqualTo(false);
         assertThat(ReflectionTestUtils.getField(result, "containerId")).isEqualTo("failed-container");
         assertThat(history.getContainerId()).isEqualTo("failed-container");
         verify(operations, never()).isContainerRunning(any(), anyString());
+        if (cluster) {
+            var order = inOrder(network, operations);
+            order.verify(network).prepare(request, history);
+            order.verify(operations).runDockerContainer(any(), anyMap(), any(), any(), any(), anyList(), anyInt());
+        } else verifyNoInteractions(network);
     }
 
     @Test

@@ -42,6 +42,7 @@ import kr.co.mcmp.softwarecatalog.application.service.ObjectStorageAccessGrantSe
 import kr.co.mcmp.softwarecatalog.application.service.tunnel.ObjectStorageTunnelService;
 import kr.co.mcmp.softwarecatalog.application.service.ObjectStorageAccessGrantService.IssuedAccess;
 import kr.co.mcmp.softwarecatalog.application.service.VmSecurityGroupExposureService;
+import kr.co.mcmp.softwarecatalog.application.service.ElasticsearchClusterNetworkService;
 import kr.co.mcmp.softwarecatalog.application.config.NexusConfig;
 import kr.co.mcmp.softwarecatalog.docker.model.ContainerDeployResult;
 import kr.co.mcmp.softwarecatalog.docker.model.DockerHostResourceInfo;
@@ -66,6 +67,7 @@ public class DockerDeploymentService implements DeploymentService {
     private final DockerOperationService dockerOperationService;
     private final CbtumblebugRestApi cbtumblebugRestApi;
     private final VmSecurityGroupExposureService vmSecurityGroupExposureService;
+    private final ElasticsearchClusterNetworkService clusterNetworkService;
     private final ApplicationHistoryService applicationHistoryService;
     private final DeploymentHistoryRepository deploymentHistoryRepository;
     private final InfraSpecSnapshotRepository infraSpecSnapshotRepository;
@@ -235,6 +237,7 @@ public class DockerDeploymentService implements DeploymentService {
                             result.getContainerId());
                     } else {
                         String failure = clusterErrors.getOrDefault(vmId, result.getErrorMessage());
+                        releaseClusterNetwork(request, catalog, vmHistory);
                         failedVms.add(vmId + " (" + failure + ")");
                         vmHistory.setStatus("FAILED");
                         vmHistory.setUpdatedAt(LocalDateTime.now());
@@ -261,6 +264,7 @@ public class DockerDeploymentService implements DeploymentService {
             log.error("Deployment timeout or error", e);
             // 모든 VM History를 FAILED로 설정
             for (DeploymentHistory vmHistory : vmHistories.values()) {
+                releaseClusterNetwork(request, catalog, vmHistory);
                 vmHistory.setStatus("FAILED");
                 vmHistory.setUpdatedAt(LocalDateTime.now());
                 deploymentHistoryRepository.save(vmHistory);
@@ -362,6 +366,7 @@ public class DockerDeploymentService implements DeploymentService {
                             result.getContainerId());
                     } else {
                         String failure = clusterErrors.getOrDefault(vmId, result.getErrorMessage());
+                        releaseClusterNetwork(request, catalog, history);
                         failedVms.add(vmId + " (" + failure + ")");
                         String errorMessage = createMessage(request, MessageType.ERROR, vmId, failure);
                         applicationHistoryService.addDeploymentLog(history, LogType.ERROR, errorMessage);
@@ -383,6 +388,7 @@ public class DockerDeploymentService implements DeploymentService {
             
         } catch (Exception e) {
             log.error("Deployment timeout or error", e);
+            releaseClusterNetwork(request, catalog, history);
             history.setStatus("FAILED");
             history.setUpdatedAt(LocalDateTime.now());
             deploymentHistoryRepository.save(history);
@@ -414,6 +420,9 @@ public class DockerDeploymentService implements DeploymentService {
             DeploymentParameters deployParams = createDeployParameters(
                     request, catalog, history, vmId, vmIndex, vmIds, clusterConfig);
             VmAccessInfo vmAccessInfo = cbtumblebugRestApi.getVmInfo(request.getNamespace(), request.getMciId(), vmId);
+            if (isElasticsearchCluster(request, catalog)) {
+                clusterNetworkService.prepare(request, history);
+            }
             applicationHistoryService.createApplicationStatusForVm(
                     history,
                     vmId,
@@ -538,6 +547,21 @@ public class DockerDeploymentService implements DeploymentService {
                         history.getId(), cleanupError);
             }
             return new DeploymentResult(vmId, false, null, errorMessage);
+        }
+    }
+
+    private boolean isElasticsearchCluster(DeploymentRequest request, SoftwareCatalogDTO catalog) {
+        return request.getVmDeploymentMode() == VmDeploymentMode.CLUSTERING
+                && determineApplicationType(catalog) == ApplicationType.ELASTICSEARCH;
+    }
+
+    private void releaseClusterNetwork(DeploymentRequest request, SoftwareCatalogDTO catalog, DeploymentHistory history) {
+        if (!isElasticsearchCluster(request, catalog)) return;
+        try { clusterNetworkService.release(history.getId()); }
+        catch (RuntimeException cleanup) {
+            applicationHistoryService.addDeploymentLog(history, LogType.WARNING,
+                    "Cluster firewall cleanup requires retry through Uninstall: "
+                            + kr.co.mcmp.util.DeploymentErrorMessages.describe(cleanup));
         }
     }
 
