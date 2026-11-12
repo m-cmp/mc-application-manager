@@ -55,6 +55,7 @@ import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesNamespaces;
+import kr.co.mcmp.softwarecatalog.common.service.CostAlarmSlackService;
 import kr.co.mcmp.softwarecatalog.common.service.RabbitMqAlertService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -79,6 +80,7 @@ public class KubernetesMonitoringService {
     private final K8sAutoscaleService k8sAutoscaleService;
     private final CbtumblebugRestApi cbtumblebugRestApi;
     private final RabbitMqAlertService rabbitMqAlertService;
+    private final CostAlarmSlackService costAlarmSlackService;
     private final KubernetesMetricsApiService kubernetesMetricsApiService;
 
     /** Last snapshot timestamp per deployment ID — controls the 10-minute interval */
@@ -1607,9 +1609,15 @@ public class KubernetesMonitoringService {
                     appName, newNodeCount, clusterName, namespace
             );
 
-            // Slack 채널로 알람 전송 (환경변수에서 채널 ID 가져오기)
             String recipients = defaultSlackChannelId;
-            if (StringUtils.isNotBlank(recipients)) {
+            if (costAlarmSlackService.isConfiguredFor(clusterName)) {
+                if (costAlarmSlackService.send(title, message)) {
+                    log.info("Scale out alert (slack) posted via Cost Alarm: cluster={}, application={}, nodes={}",
+                            clusterName, appName, newNodeCount);
+                } else {
+                    log.warn("Cost Alarm Slack alert failed: cluster={}, application={}", clusterName, appName);
+                }
+            } else if (StringUtils.isNotBlank(recipients)) {
                 boolean sent = rabbitMqAlertService.sendScaleOutAlert(title, message, "slack", recipients);
                 if (sent) {
                     log.info("Scale out alert (slack) sent successfully for {} to {} nodes", appName, newNodeCount);

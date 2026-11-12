@@ -56,6 +56,16 @@ You can customize the following environment variables in the docker-compose.yaml
 - OBJECT_STORAGE_GATEWAY_PUBLIC_BASE_URL : Application Manager URL reachable from deployed VMs (for example, `http://<Public_IP>:18084`). Required for Jupyter Object Storage access.
 - Edit these environment variables according to your needs.
 
+#### Optional: send Kubernetes scale-out alerts through Cost Alarm
+
+AM starts and monitors deployments without this integration. To enable it, set these variables in the deployment environment or in the Docker Compose `.env` file:
+
+- `COST_ALARM_SLACK_URL`: the full Cost Alarm endpoint reachable from AM, ending in `/api/costopti/alert/sendSlackAC`.
+- `COST_ALARM_SLACK_USER_ID`: a Cost Alarm user with a Slack channel already configured.
+- `COST_ALARM_SLACK_CLUSTER`: optional cluster name. If omitted, the route applies to all clusters that AM monitors.
+
+AM calls Cost Alarm after the replacement Pods on the new node are Ready. Cost Alarm owns the Slack credentials, channel configuration, and delivery. If the URL or user ID is blank, AM keeps its existing RabbitMQ Slack route when that route is configured.
+
 ### Step 3: Install and Run Docker Compose
 To bring up the mc-application-manager service along with its dependencies, run the following command:
 ```bash

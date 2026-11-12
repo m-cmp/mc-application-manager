@@ -156,6 +156,12 @@ k8s:
     test-cpu-threshold: ${K8S_TEST_CPU_THRESHOLD:0.0001}  # 테스트 모드 CPU 임계값 (%) - 매우 낮게 설정
     test-memory-threshold: ${K8S_TEST_MEMORY_THRESHOLD:0.0001}  # 테스트 모드 Memory 임계값 (%) - 매우 낮게 설정
 
+cost-alarm:
+  slack:
+    url: ${COST_ALARM_SLACK_URL:}
+    user-id: ${COST_ALARM_SLACK_USER_ID:}
+    cluster-name: ${COST_ALARM_SLACK_CLUSTER:}
+
 rabbitmq:
   alert:
     url: ${RABBITMQ_URL:210.207.104.130}
