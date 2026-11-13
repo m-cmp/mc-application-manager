@@ -152,9 +152,13 @@ k8s:
     scaling-timeout-seconds: ${K8S_SCALING_TIMEOUT_SECONDS:300}
     default-node-count: ${K8S_DEFAULT_NODE_COUNT:1}
     # 테스트 모드 설정
-    test-mode: ${K8S_TEST_MODE:true}  # true: 낮은 임계값으로 스케일 아웃 테스트, false: 운영 모드
+    test-mode: ${K8S_TEST_MODE:false}  # false: 앱에 설정한 임계값 사용, true: 낮은 임계값으로 시험
     test-cpu-threshold: ${K8S_TEST_CPU_THRESHOLD:0.0001}  # 테스트 모드 CPU 임계값 (%) - 매우 낮게 설정
     test-memory-threshold: ${K8S_TEST_MEMORY_THRESHOLD:0.0001}  # 테스트 모드 Memory 임계값 (%) - 매우 낮게 설정
+
+observability:
+  alert:
+    base-url: http://mc-observability-manager:18080
 
 rabbitmq:
   alert:
@@ -163,7 +167,8 @@ rabbitmq:
     vhost: ${RABBITMQ_VHOST:test}
     username: ${RABBITMQ_USERNAME:mc-agent}
     password: ${RABBITMQ_PASSWORD:mc-agent}
-    slack-channel-id: ${ALERT_SLACK_CHANNEL_ID:}
+    # Optional override for Slack recipients resolved from the Monitoring policy.
+    slack-channel-id: "${ALERT_SLACK_CHANNEL_ID:}"
     email: ${ALERT_EMAIL:}
     sms-phonenumber: ${ALERT_SMS_PHONE_NUMBER:}
     kakao-phonenumber: ${ALERT_KAKAO_PHONE_NUMBER:}

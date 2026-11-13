@@ -56,6 +56,16 @@ You can customize the following environment variables in the docker-compose.yaml
 - OBJECT_STORAGE_GATEWAY_PUBLIC_BASE_URL : Application Manager URL reachable from deployed VMs (for example, `http://<Public_IP>:18084`). Required for Jupyter Object Storage access.
 - Edit these environment variables according to your needs.
 
+#### Kubernetes scale-out alerts through Observability
+
+In **Monitorings → Alert → Policies**, create a policy titled `AM K8s 증설 알림`. Under **Notification channels**, enable Slack and enter the destination channel IDs, separated by commas. Leave **Alarm targets** empty when using the policy only for AM scale-out notifications.
+
+After the replacement Pods on the new node are Ready, AM reads the policy and publishes the alert with its active Slack recipients to the Observability RabbitMQ broker. Observability sends the message using its `SLACK_OAUTH_TOKEN`. Add the Slack bot to the destination channels.
+
+An integrated installation with `mc-admin-cli` uses the internal Observability service address. Install a release that selects an AM image with this feature. The existing `ALERT_SLACK_CHANNEL_ID` is optional and takes precedence over the policy when set.
+
+K8S_TEST_MODE defaults to false, so AM uses the CPU and memory thresholds configured for each application.
+
 ### Step 3: Install and Run Docker Compose
 To bring up the mc-application-manager service along with its dependencies, run the following command:
 ```bash

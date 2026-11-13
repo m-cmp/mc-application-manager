@@ -69,9 +69,9 @@ public class K8sAutoscaleServiceImpl implements K8sAutoscaleService {
         int newMaxNodeSize = newSize + 2;
         
         K8sNodeGroupAutoscaleRequest request = new K8sNodeGroupAutoscaleRequest(
-            String.valueOf(newSize),
-            String.valueOf(newMaxNodeSize), // maxNodeSize = desired + 2
-            String.valueOf(minNodeSize)    // minNodeSize = current
+            newSize,
+            newMaxNodeSize,
+            minNodeSize
         );
         
         log.info("Scaling out K8S node group: {} -> {} (min={}, max={})", currentSize, newSize, minNodeSize, newMaxNodeSize);
