@@ -31,21 +31,10 @@ public class K8sAutoscaleServiceImpl implements K8sAutoscaleService {
             
         } catch (RestClientException e) {
             String errorMsg = e.getMessage();
-            // Manual 모드 에러는 무시 (노드가 이미 생성되어 있을 가능성)
-            if (errorMsg != null && (errorMsg.contains("autoScaleMode") || errorMsg.contains("minNodeSize") || errorMsg.contains("maxNodeSize"))) {
-                log.warn("AutoScale API failed (manual mode), but treating as success to continue: {}", errorMsg);
-                return true;
-            }
             log.error("Failed to change K8S node group autoscale size: nsId={}, clusterId={}, nodeGroup={}", 
                     nsId, k8sClusterId, k8sNodeGroupName, e);
             return false;
         } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            // Manual 모드 에러는 무시 (노드가 이미 생성되어 있을 가능성)
-            if (errorMsg != null && (errorMsg.contains("autoScaleMode") || errorMsg.contains("minNodeSize") || errorMsg.contains("maxNodeSize"))) {
-                log.warn("AutoScale API failed (manual mode), but treating as success to continue: {}", errorMsg);
-                return true;
-            }
             log.error("Unexpected error while changing K8S node group autoscale size", e);
             return false;
         }

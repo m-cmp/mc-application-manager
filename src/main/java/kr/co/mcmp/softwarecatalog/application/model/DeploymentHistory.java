@@ -119,6 +119,25 @@ public class DeploymentHistory {
     @Column(name = "workload_rebalancing_enabled")
     private Boolean workloadRebalancingEnabled;
 
+    @Column(name = "rebalancing_cpu_threshold")
+    private Double rebalancingCpuThreshold;
+
+    @Column(name = "rebalancing_memory_threshold")
+    private Double rebalancingMemoryThreshold;
+
+    // Older deployments stored a shared threshold. Keep their existing behavior.
+    public Double resolveRebalancingCpuThreshold() {
+        if (rebalancingCpuThreshold != null) return rebalancingCpuThreshold;
+        if (cpuThreshold != null) return cpuThreshold;
+        return catalog != null ? catalog.getCpuThreshold() : null;
+    }
+
+    public Double resolveRebalancingMemoryThreshold() {
+        if (rebalancingMemoryThreshold != null) return rebalancingMemoryThreshold;
+        if (memoryThreshold != null) return memoryThreshold;
+        return catalog != null ? catalog.getMemoryThreshold() : null;
+    }
+
     @Column(name = "ingress_enabled")
     private Boolean ingressEnabled;
 

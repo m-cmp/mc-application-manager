@@ -57,6 +57,8 @@ public class IntegratedApplicationInfoDTO {
     private Double cpuThreshold;
     private Double memoryThreshold;
     private Boolean workloadRebalancingEnabled;
+    private Double rebalancingCpuThreshold;
+    private Double rebalancingMemoryThreshold;
 
     private String applicationStatus;
     private Double cpuUsage;

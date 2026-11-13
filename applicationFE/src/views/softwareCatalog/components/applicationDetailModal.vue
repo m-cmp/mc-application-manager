@@ -411,8 +411,8 @@
                         <th>Rebalancing</th>
                         <th>Min Replicas</th>
                         <th>Max Replicas</th>
-                        <th>CPU Threshold</th>
-                        <th>Memory Threshold</th>
+                        <th>HPA CPU / Memory</th>
+                        <th>Rebalancing CPU / Memory</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -430,8 +430,8 @@
                         </td>
                         <td>{{ applicationDetail.minReplicas || 'N/A' }}</td>
                         <td>{{ applicationDetail.maxReplicas || 'N/A' }}</td>
-                        <td>{{ applicationDetail.cpuThreshold ? `${applicationDetail.cpuThreshold}%` : 'N/A' }}</td>
-                        <td>{{ applicationDetail.memoryThreshold ? `${applicationDetail.memoryThreshold}%` : 'N/A' }}</td>
+                        <td>{{ applicationDetail.hpaEnabled ? `${formatThreshold(applicationDetail.cpuThreshold)} / ${formatThreshold(applicationDetail.memoryThreshold)}` : 'N/A' }}</td>
+                        <td>{{ applicationDetail.workloadRebalancingEnabled ? `${formatThreshold(applicationDetail.rebalancingCpuThreshold)} / ${formatThreshold(applicationDetail.rebalancingMemoryThreshold)}` : 'N/A' }}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -552,6 +552,7 @@ const toast = useToast()
 const loading = ref(false)
 const policyLoading = ref(false)
 const applicationDetail = ref(null as any)
+const formatThreshold = (value: number | null | undefined) => value == null ? 'N/A' : `${value}%`
 const isFailedDeployment = computed(() => ['FAILED', 'PARTIAL_SUCCESS', 'DELETE_PENDING'].includes(applicationDetail.value?.status))
 const failureLogs = computed(() => (applicationDetail.value?.deploymentLogs || []).filter((log: any) => log.logType === 'ERROR'))
 const operationProfile = ref(null as any)

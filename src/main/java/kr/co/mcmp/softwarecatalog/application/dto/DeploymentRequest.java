@@ -93,6 +93,20 @@ public class DeploymentRequest {
     private Double cpuThreshold;
     private Double memoryThreshold;
     private Boolean workloadRebalancingEnabled;
+    private Double rebalancingCpuThreshold;
+    private Double rebalancingMemoryThreshold;
+
+    public void validateRebalancingThresholds() {
+        if (!Boolean.TRUE.equals(workloadRebalancingEnabled)) return;
+        validatePercentage("CPU", rebalancingCpuThreshold);
+        validatePercentage("memory", rebalancingMemoryThreshold);
+    }
+
+    private static void validatePercentage(String resource, Double value) {
+        if (value != null && (!Double.isFinite(value) || value <= 0 || value > 100)) {
+            throw new IllegalArgumentException("Workload Rebalancing " + resource + " threshold must be greater than 0 and at most 100%.");
+        }
+    }
 
     /**
      * Resource type selected by the user: CPU_INTENSIVE, MEMORY_INTENSIVE, GENERAL_PURPOSE

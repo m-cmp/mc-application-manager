@@ -36,6 +36,8 @@ import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DaemonSet;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.base.PatchContext;
+import io.fabric8.kubernetes.client.dsl.base.PatchType;
 import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 import io.fabric8.kubernetes.client.impl.BaseClient;
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
@@ -55,6 +57,7 @@ import kr.co.mcmp.softwarecatalog.application.model.ScalingEvent;
 import kr.co.mcmp.softwarecatalog.application.service.K8sAutoscaleService;
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
+import kr.co.mcmp.ape.cbtumblebug.dto.K8sNodeGroupAutoscaleRequest;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesNamespaces;
 import kr.co.mcmp.softwarecatalog.common.service.RabbitMqAlertService;
@@ -98,9 +101,6 @@ public class KubernetesMonitoringService {
     
     @Value("${k8s.autoscaling.scaling-timeout-seconds:300}")
     private int scalingTimeoutSeconds;
-    
-    @Value("${k8s.autoscaling.default-node-count:1}")
-    private int defaultNodeCount;
     
     @Value("${k8s.autoscaling.test-mode:false}")
     private boolean testMode;
@@ -385,32 +385,17 @@ public class KubernetesMonitoringService {
     }
 
     private Double getAutoscaleCpuThreshold(DeploymentHistory deployment) {
-        if (testMode) {
+        if (testMode && deployment.getRebalancingCpuThreshold() == null) {
             return testCpuThreshold;
         }
-        if (deployment.getCpuThreshold() != null) {
-            return deployment.getCpuThreshold();
-        }
-        return deployment.getCatalog() != null ? deployment.getCatalog().getCpuThreshold() : null;
+        return deployment.resolveRebalancingCpuThreshold();
     }
 
     private Double getAutoscaleMemoryThreshold(DeploymentHistory deployment) {
-        if (testMode) {
+        if (testMode && deployment.getRebalancingMemoryThreshold() == null) {
             return testMemoryThreshold;
         }
-        if (deployment.getMemoryThreshold() != null) {
-            return deployment.getMemoryThreshold();
-        }
-        return deployment.getCatalog() != null ? deployment.getCatalog().getMemoryThreshold() : null;
-    }
-
-    private int getAutoscaleMaxNodes(DeploymentHistory deployment) {
-        if (deployment.getMaxReplicas() != null) {
-            return deployment.getMaxReplicas();
-        }
-        return deployment.getCatalog() != null && deployment.getCatalog().getMaxReplicas() != null
-                ? deployment.getCatalog().getMaxReplicas()
-                : defaultMaxNodes;
+        return deployment.resolveRebalancingMemoryThreshold();
     }
 
     private boolean isThresholdExceeded(Double usage, Double threshold) {
@@ -578,8 +563,6 @@ public class KubernetesMonitoringService {
             log.debug("Calling handleK8sAutoscaling for deployment: {}, CatalogId: {}", deployment.getId(), catalogId);
             handleK8sAutoscaling(deployment, status, client);
 
-        // 스케일 아웃 완료 감지 및 재배포 처리
-            checkAndHandleScalingCompletion(deployment, client);
         } else {
             log.debug("Skipping workload rebalancing for deployment: {}, CatalogId: {}", deployment.getId(), catalogId);
         }
@@ -1330,13 +1313,6 @@ public class KubernetesMonitoringService {
                 return;
             }
             
-            // 리소스 사용률이 null이면 스킵
-            if (status.getCpuUsage() == null || status.getMemoryUsage() == null) {
-                log.warn("Skipping autoscaling: CPU or Memory usage is null - CPU: {}, Memory: {}", 
-                        status.getCpuUsage(), status.getMemoryUsage());
-                return;
-            }
-            
             log.debug("Resource usage - CPU: {}%, Memory: {}%", status.getCpuUsage(), status.getMemoryUsage());
             
             String namespace = deployment.getNamespace();
@@ -1346,17 +1322,9 @@ public class KubernetesMonitoringService {
             String nodeGroupName = getNodeGroupName(deployment);
             
             // 노드 그룹 이름이 없으면 오토스케일링 불가
-            if (nodeGroupName == null || nodeGroupName.isEmpty()) {
+            if (StringUtils.isBlank(nodeGroupName)) {
                 log.warn("Cannot perform autoscaling: node group name is null or empty for deployment: {}", deployment.getId());
-                
-                // 테스트 모드에서는 기본 노드 그룹 이름 사용
-                if (testMode) {
-                    log.info("TEST MODE: Using default node group name for testing");
-                    // 실제 node group 이름: k8sng01 (JSON에서 확인한 이름)
-                    nodeGroupName = "k8sng01"; // TODO: 실제 node group 이름으로 수정 필요
-                } else {
-                    return;
-                }
+                return;
             }
             
             // 이미 진행 중인 스케일링 이벤트가 있는지 확인
@@ -1365,168 +1333,77 @@ public class KubernetesMonitoringService {
                 // 진행 중인 스케일링 이벤트가 있으면, 노드가 생성되었는지 확인하고 재배포
                 ScalingEvent latestPendingEvent = pendingEvents.get(0);
                 int targetNodeCount = latestPendingEvent.getNewNodeCount();
-                int actualNodeCount = getCurrentNodeCount(deployment, client);
-                int readyNodeCount = client.nodes().list().getItems().size();
+                var group = findRebalancingNodeGroup(deployment, nodeGroupName);
+                int actualNodeCount = group == null ? 0 : group.getEffectiveNodes().size();
+                List<Node> readyWorkers = group == null ? List.of() : client.nodes().list().getItems().stream()
+                        .filter(this::isReadyWorker)
+                        .filter(node -> belongsToNodeGroup(node, group))
+                        .toList();
+                int readyNodeCount = readyWorkers.size();
                 
                 log.info("Scaling event in progress: target={}, actual={}, ready={}", targetNodeCount, actualNodeCount, readyNodeCount);
                 
                 // 노드가 목표 노드 수에 도달했으면 재배포
-                if ((actualNodeCount == readyNodeCount) && (actualNodeCount >= targetNodeCount)) {
+                if (actualNodeCount >= targetNodeCount && readyNodeCount >= targetNodeCount) {
                     log.info("Target nodes created ({}/{}). Proceeding with redeployment.", actualNodeCount, targetNodeCount);
                     
-                    // nodeSelector가 이미 설정되어 있는지 확인 (재배포 중복 방지)
-                    if (isAlreadyScaledOut(deployment, client)) {
-                        log.info("Already redeployed. Marking event as completed.");
-                        latestPendingEvent.setStatus(ScalingEvent.ScalingStatus.COMPLETED);
-                        latestPendingEvent.setCompletedAt(LocalDateTime.now());
-                        scalingEventRepository.save(latestPendingEvent);
-                        return;
-                    }
-                    
                     try {
-                        redeployToNewNodes(deployment, targetNodeCount, client);
+                        if (!reconcileRebalancingRollout(deployment, latestPendingEvent, client, readyWorkers)) {
+                            if (rebalancingTimedOut(latestPendingEvent)) {
+                                clearTimedOutPlacement(deployment, latestPendingEvent, client);
+                            }
+                            failRebalancingIfTimedOut(latestPendingEvent, "Timed out waiting for the rebalanced Pods to become Ready.");
+                            return;
+                        }
                         latestPendingEvent.setStatus(ScalingEvent.ScalingStatus.COMPLETED);
                         latestPendingEvent.setCompletedAt(LocalDateTime.now());
                         scalingEventRepository.save(latestPendingEvent);
-                        log.info("Redeployment completed for event: {}", latestPendingEvent.getId());
-                        
-                        // 스케일 아웃 완료 알람 전송
-                        log.info("===>>>> send alert message for scale out is completed ==");
                         sendScaleOutCompletedAlert(deployment, targetNodeCount);
                     } catch (Exception e) {
                         log.error("Error redeploying to new nodes: {}", e.getMessage(), e);
+                        failRebalancingIfTimedOut(latestPendingEvent, "Could not apply workload rebalancing to the expanded node group.");
                     }
                 } else {
                     log.info("Waiting for nodes to be created ({}/{})...", actualNodeCount, targetNodeCount);
+                    failRebalancingIfTimedOut(latestPendingEvent, "Timed out waiting for the expanded node group and Ready workers.");
                 }
                 return; // 진행 중인 이벤트가 있으면 새 스케일링 요청하지 않음
             }
-            
-            // 현재 실제 노드 수 확인
-            int readyNodeCount = client.nodes().list().getItems().size();
-            int actualNodeCount = getCurrentNodeCount(deployment, client);
-            log.info("Actual node count in cluster: actual: {}, ready: {}", actualNodeCount, readyNodeCount);
-            if (actualNodeCount > readyNodeCount) {
-                log.info("Actual node replace ready node count. {}", readyNodeCount);
-                actualNodeCount = readyNodeCount;
-            }
-            
-            // 현재 노드 수를 실제 노드 수로 설정
-            int currentSize = actualNodeCount;
-            log.info("Current node count: {}", currentSize);
-            
-            // 목표 노드 수는 currentSize + 1
-            int targetSize = currentSize + 1;
-            log.info("Target node count: {}", targetSize);
-            
-            int maxSize = getAutoscaleMaxNodes(deployment);
-            
-            // 이미 스케일 아웃이 완료되었고 nodeSelector가 설정되어 있는지 확인
-            if (isAlreadyScaledOut(deployment, client)) {
-                // 실제 노드 수가 목표 노드 수보다 적으면 nodeSelector 제거하고 계속 진행
-                if (actualNodeCount < targetSize) {
-                    log.info("Actual node count ({}) < target ({}). Removing nodeSelector to allow new scaling.", 
-                            actualNodeCount, targetSize);
-                    removeNodeSelectorFromDeployment(deployment, client);
-                    // nodeSelector 제거 후 계속 진행하여 스케일 아웃 수행
-                } else {
-                    log.info("Already scaled out with nodeSelector. Skipping redeployment for deployment: {}", deployment.getId());
-                    return;
-                }
-            }
-            
-            // CPU 또는 메모리 임계값 초과 시 스케일 아웃 (단, 실제 노드 수가 목표 노드 수보다 적을 때만)
-            boolean cpuExceeded = false;
-            boolean memoryExceeded = false;
-            
-            if (testMode) {
-                // 테스트 모드: 낮은 임계값 사용
-                cpuExceeded = status.getCpuUsage() > testCpuThreshold;
-                memoryExceeded = status.getMemoryUsage() > testMemoryThreshold;
-                log.debug("TEST MODE - Checking scaling trigger - CPU: {}% (threshold: {}%), Memory: {}% (threshold: {}%)", 
-                        status.getCpuUsage(), testCpuThreshold, status.getMemoryUsage(), testMemoryThreshold);
-            } else {
-                // 운영 모드: 실제 임계값 사용
-                Double cpuThreshold = getAutoscaleCpuThreshold(deployment);
-                Double memoryThreshold = getAutoscaleMemoryThreshold(deployment);
-                cpuExceeded = isThresholdExceeded(status.getCpuUsage(), cpuThreshold);
-                memoryExceeded = isThresholdExceeded(status.getMemoryUsage(), memoryThreshold);
-                log.debug("Production mode - CPU: {}% (threshold: {}), Memory: {}% (threshold: {})", 
-                        status.getCpuUsage(), cpuThreshold,
-                        status.getMemoryUsage(), memoryThreshold);
-            }
+            if (status.getCpuUsage() == null || status.getMemoryUsage() == null) return;
+            // Use the same thresholds for the current check and the stored samples.
+            boolean exceeded = isThresholdExceeded(status.getCpuUsage(), getAutoscaleCpuThreshold(deployment))
+                    || isThresholdExceeded(status.getMemoryUsage(), getAutoscaleMemoryThreshold(deployment));
+            if (!hasSustainedAutoscalePressure(deployment.getId(), exceeded)
+                    || findRebalancingDeployment(deployment, client) == null) return;
 
-            // 스케일 아웃 조건: 부하 초과 AND 목표 노드 수 < 최대 노드 수
-            boolean thresholdExceeded = cpuExceeded || memoryExceeded;
-            boolean sustainedThresholdExceeded = hasSustainedAutoscalePressure(deployment.getId(), thresholdExceeded);
-
-            if (thresholdExceeded && sustainedThresholdExceeded) {
-                log.info("Sustained resource pressure confirmed for K8S deployment: CPU={}%, Memory={}%, scaling out from {} to {}",
-                        status.getCpuUsage(), status.getMemoryUsage(), currentSize, targetSize);
-                
-                // 스케일링 이벤트 생성
-                ScalingEvent scalingEvent = createScalingEvent(deployment, nodeGroupName, currentSize, targetSize);
-                if (scalingEvent != null) {
-                    scalingEventRepository.save(scalingEvent);
-                } else {
-                    log.error("Failed to create scaling event: node group name is null");
-                    return;
-                }
-                
-                try {
-                    // 현재 노드 그룹의 desiredNodeSize 확인
-                    int currentDesiredNodeSize = getCurrentDesiredNodeSize(deployment, client);
-                    
-                    log.debug("Current desired node size: {}, target: {}", currentDesiredNodeSize, targetSize);
-                    
-                    // 로직 1: desiredNodeSize < maxNodeSize인 경우, 현재 max 안에서 1개 증설 요청
-                    if (currentDesiredNodeSize < maxSize) {
-                        log.debug("desiredNodeSize ({}) < maxNodeSize ({}). Scaling out within current max.",
-                                currentDesiredNodeSize, maxSize);
-                        scalingEvent.setStatus(ScalingEvent.ScalingStatus.IN_PROGRESS);
-                        scalingEventRepository.save(scalingEvent);
-                        log.info("Requesting node creation within current maxNodeSize.");
-                    }
-                    
-                    // 로직 2: 현재 desired 기준으로 1개 증설 요청
-                    {
-                        log.debug("Scaling out node group by one node. desiredNodeSize={}, maxNodeSize={}",
-                                currentDesiredNodeSize, maxSize);
-                        
-                        int requestedNodeSize = currentDesiredNodeSize + 1;
-                        targetSize = requestedNodeSize;
-                        scalingEvent.setNewNodeCount(targetSize);
-                        
-                        // API 호출
-                        boolean scaleResult = k8sAutoscaleService.scaleOutNodeGroup(namespace, clusterName, nodeGroupName, currentDesiredNodeSize, requestedNodeSize);
-                        
-                        if (scaleResult) {
-                            log.debug("Scale out API returned true: {} -> {}", currentDesiredNodeSize, targetSize);
-                            scalingEvent.setStatus(ScalingEvent.ScalingStatus.IN_PROGRESS);
-                            scalingEventRepository.save(scalingEvent);
-                            
-                            log.debug("Scale out request completed. Will check for new nodes in next monitoring cycle.");
-                        } else {
-                            log.error("Failed to scale out K8S node group via API");
-                            scalingEvent.setStatus(ScalingEvent.ScalingStatus.FAILED);
-                            scalingEvent.setErrorMessage("Failed to initiate scale out via API");
-                            scalingEventRepository.save(scalingEvent);
-                        }
-                    }
-                } catch (Exception e) {
-                    log.error("Error during scale out: {}", e.getMessage(), e);
-                    scalingEvent.setStatus(ScalingEvent.ScalingStatus.FAILED);
-                    scalingEvent.setErrorMessage("Error: " + e.getMessage());
-                    scalingEventRepository.save(scalingEvent);
-                }
-                
-            } else if (thresholdExceeded) {
-                log.info("Resource threshold currently exceeded for K8S deployment, but sustained pressure has not been confirmed yet (CPU={}%, Memory={}%)",
-                        status.getCpuUsage(), status.getMemoryUsage());
-            } else {
-                log.debug("No scaling needed: CPU={}%, Memory={}%, currentSize={}, targetSize={}, maxSize={}", 
-                        status.getCpuUsage(), status.getMemoryUsage(), currentSize, targetSize, maxSize);
+            var group = findRebalancingNodeGroup(deployment, nodeGroupName);
+            if (group == null) return;
+            int current = group.getEffectiveNodes().size();
+            int desired = group.getDesiredNodeSize();
+            int maxNodes = group.getMaxNodeSize() > 0 ? Math.min(defaultMaxNodes, group.getMaxNodeSize()) : defaultMaxNodes;
+            // The HPA replica cap is not a worker-node cap. Also wait for a preceding
+            // node request to settle before asking the provider to expand again.
+            if (desired < 1 || current != desired || desired >= maxNodes
+                    || !scalingEventRepository.findPendingScalingEventsByCluster(namespace, clusterName).isEmpty()) return;
+            var lastEvent = scalingEventRepository.findTopByDeploymentIdOrderByTriggeredAtDesc(deployment.getId());
+            if (lastEvent.filter(last -> last.getStatus() == ScalingEvent.ScalingStatus.FAILED
+                    && !rebalancingTimedOut(last)).isPresent()) return;
+            ScalingEvent event = createScalingEvent(deployment, nodeGroupName, current, desired + 1);
+            if (event == null) return;
+            scalingEventRepository.save(event);
+            try {
+                var sizes = new K8sNodeGroupAutoscaleRequest(String.valueOf(desired + 1),
+                        group.isOnAutoScaling() ? String.valueOf(group.getMaxNodeSize() > 0 ? group.getMaxNodeSize() : maxNodes) : null,
+                        group.isOnAutoScaling() ? String.valueOf(group.getMinNodeSize()) : null);
+                boolean accepted = k8sAutoscaleService.changeNodeGroupAutoscaleSize(namespace, clusterName, nodeGroupName, sizes);
+                event.setStatus(accepted ? ScalingEvent.ScalingStatus.IN_PROGRESS : ScalingEvent.ScalingStatus.FAILED);
+                if (!accepted) event.setErrorMessage("Failed to initiate scale out via API.");
+            } catch (Exception e) {
+                log.error("Failed to request a new worker for deployment {}", deployment.getId(), e);
+                event.setStatus(ScalingEvent.ScalingStatus.FAILED);
+                event.setErrorMessage("Failed to initiate scale out via API.");
             }
+            scalingEventRepository.save(event);
             
         } catch (Exception e) {
             log.error("Error handling K8S autoscaling for deployment: {}", deployment.getId(), e);
@@ -1616,37 +1493,22 @@ public class KubernetesMonitoringService {
         log.debug("Cleaned up old autoscale samples: cutoff={}, deleted={}", cutoff, deletedCount);
     }
 
-    /**
-     * 현재 노드 그룹의 desiredNodeSize 가져오기
-     */
-    private int getCurrentDesiredNodeSize(DeploymentHistory deployment, KubernetesClient client) {
-        try {
-            // Tumblebug API를 통해 노드 그룹 정보 가져오기
-            K8sClusterDto clusterInfo = cbtumblebugRestApi.getK8sClusterByName(
-                    deployment.getNamespace(), deployment.getClusterName());
-            
-            if (clusterInfo != null) {
-                List<K8sClusterDto.NodeGroup> nodeGroupList = clusterInfo.getEffectiveNodeGroups();
-
-                if (!nodeGroupList.isEmpty() && deployment.getNodeGroupName() != null) {
-                    for (K8sClusterDto.NodeGroup nodeGroup : nodeGroupList) {
-                        if (deployment.getNodeGroupName().equals(nodeGroup.getEffectiveName())) {
-                            log.info("Current desired node size from cluster info: {}", nodeGroup.getDesiredNodeSize());
-                            return nodeGroup.getDesiredNodeSize();
-                        }
-                    }
-                }
-            }
-            
-            // 기본값: 현재 노드 수
-            return getCurrentNodeCount(deployment, client);
-            
-        } catch (Exception e) {
-            log.error("Error getting current desired node size: {}", e.getMessage(), e);
-            return getCurrentNodeCount(deployment, client);
-        }
+    private K8sClusterDto.NodeGroup findRebalancingNodeGroup(DeploymentHistory deployment, String name) {
+        K8sClusterDto cluster = cbtumblebugRestApi.getK8sClusterByName(deployment.getNamespace(), deployment.getClusterName());
+        if (cluster == null) return null;
+        return cluster.getEffectiveNodeGroups().stream()
+                .filter(group -> name.equals(group.getEffectiveName()))
+                .findFirst().orElse(null);
     }
 
+    private boolean belongsToNodeGroup(Node node, K8sClusterDto.NodeGroup group) {
+        String name = node.getMetadata().getName();
+        String providerId = node.getSpec().getProviderID();
+        return group.getEffectiveNodes().stream().anyMatch(id -> name.equals(id.getNameId())
+                || name.equals(id.getSystemId())
+                || (StringUtils.isNotBlank(providerId) && StringUtils.isNotBlank(id.getSystemId())
+                    && (providerId.equals(id.getSystemId()) || providerId.endsWith("/" + id.getSystemId()))));
+    }
     /**
      * 스케일 아웃 완료 알람 전송
      */
@@ -1715,174 +1577,70 @@ public class KubernetesMonitoringService {
         }
     }
 
-    /**
-     * Deployment에서 nodeSelector 제거
-     */
-    private void removeNodeSelectorFromDeployment(DeploymentHistory deployment, KubernetesClient client) {
-        try {
-            String namespace = DEFAULT_WORKLOAD_NAMESPACE;
-            String appName = deployment.getCatalog().getName().toLowerCase();
-            
-            log.info("Looking for Deployment in namespace: {}, appName: {}", namespace, appName);
-            
-            // Deployment 찾기
-            io.fabric8.kubernetes.api.model.apps.Deployment k8sDeployment = client.apps().deployments()
-                    .inNamespace(namespace)
-                    .withName(appName)
-                    .get();
-            
-            if (k8sDeployment == null) {
-                log.warn("Deployment '{}' not found, searching for matching deployment", appName);
-                List<io.fabric8.kubernetes.api.model.apps.Deployment> deployments = client.apps().deployments()
-                        .inNamespace(namespace)
-                        .list()
-                        .getItems();
-                
-                for (io.fabric8.kubernetes.api.model.apps.Deployment dep : deployments) {
-                    if (dep.getMetadata().getName().contains(appName)) {
-                        k8sDeployment = dep;
-                        log.info("Found deployment in namespace {}: {}", namespace, dep.getMetadata().getName());
-                        break;
-                    }
-                }
-            }
-            
-            if (k8sDeployment == null) {
-                log.error("Deployment not found for app: {} in namespace: {}", appName, namespace);
-                return;
-            }
-            
-            log.info("Using deployment: {}", k8sDeployment.getMetadata().getName());
-            
-            // nodeSelector 제거
-            PodSpec podSpec = k8sDeployment.getSpec().getTemplate().getSpec();
-            if (podSpec.getNodeSelector() != null) {
-                podSpec.getNodeSelector().remove("autoscale-group");
-                log.info("Removed autoscale-group nodeSelector from deployment");
-            }
-            
-            // Rolling Update 트리거를 위한 annotation 추가
-            String timestamp = String.valueOf(System.currentTimeMillis());
-            Map<String, String> annotations = k8sDeployment.getSpec().getTemplate().getMetadata().getAnnotations();
-            if (annotations == null) {
-                annotations = new HashMap<>();
-                k8sDeployment.getSpec().getTemplate().getMetadata().setAnnotations(annotations);
-            }
-            annotations.put("rollout.trigger.timestamp", timestamp);
-            
-            // Deployment 업데이트
-            client.apps().deployments()
-                    .inNamespace(namespace)
-                    .createOrReplace(k8sDeployment);
-            
-            log.info("Successfully removed nodeSelector from deployment - Rolling Update triggered at timestamp: {}", timestamp);
-            log.info("Pods will be rescheduled without nodeSelector constraints");
-            
-        } catch (Exception e) {
-            log.error("Failed to remove nodeSelector from deployment: {}", deployment.getId(), e);
+    private Deployment findRebalancingDeployment(DeploymentHistory deployment, KubernetesClient client) {
+        String release = deployment.getReleaseName();
+        if (StringUtils.isBlank(release)) return null;
+        var workloads = client.apps().deployments().inNamespace(DEFAULT_WORKLOAD_NAMESPACE);
+        List<Deployment> matches = workloads.withLabel(HELM_INSTANCE_LABEL, release).list().getItems();
+        if (matches.size() == 1) return matches.get(0);
+        return matches.isEmpty() ? workloads.withName(release).get() : null;
+    }
+
+    private boolean rebalancingTimedOut(ScalingEvent event) {
+        return Duration.between(event.getTriggeredAt(), LocalDateTime.now()).getSeconds() > scalingTimeoutSeconds;
+    }
+
+    private void failRebalancingIfTimedOut(ScalingEvent event, String message) {
+        if (rebalancingTimedOut(event)) {
+            event.setStatus(ScalingEvent.ScalingStatus.FAILED);
+            event.setErrorMessage(message);
+            scalingEventRepository.save(event);
         }
     }
-    
-    /**
-     * 이미 스케일 아웃되어 nodeSelector가 설정되어 있는지 확인
-     */
-    private boolean isAlreadyScaledOut(DeploymentHistory deployment, KubernetesClient client) {
-        try {
-            String namespace = DEFAULT_WORKLOAD_NAMESPACE;
-            String appName = deployment.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");
-            
-            // Deployment 찾기
-            Deployment k8sDeployment = client.apps().deployments()
-                    .inNamespace(namespace)
-                    .withName(appName)
-                    .get();
-            
-            if (k8sDeployment == null) {
-                // 전체 검색
-                List<Deployment> allDeployments = 
-                        client.apps().deployments().inNamespace(namespace).list().getItems();
-                for (Deployment d : allDeployments) {
-                    if (d.getMetadata().getName().startsWith(appName) || 
-                        d.getMetadata().getName().contains(appName)) {
-                        k8sDeployment = d;
-                        break;
-                    }
-                }
-            }
-            
-            if (k8sDeployment != null && k8sDeployment.getSpec().getTemplate().getSpec() != null) {
-                PodSpec podSpec = k8sDeployment.getSpec().getTemplate().getSpec();
-                if (podSpec.getNodeSelector() != null && 
-                    podSpec.getNodeSelector().containsKey("autoscale-group")) {
-                    log.info("Deployment already has nodeSelector: {}", podSpec.getNodeSelector());
-                    return true;
-                } else {
-                    log.info("Deployment does not have autoscale-group nodeSelector. NodeSelector: {}", podSpec.getNodeSelector());
-                }
-            } else {
-                log.info("Could not get deployment spec or pod spec");
-            }
-            return false;
-        } catch (Exception e) {
-            log.error("Error checking if already scaled out: {}", e.getMessage(), e);
-            return false;
+
+    private String rebalancingLabelKey(DeploymentHistory deployment) {
+        return "mcmp.io/rebalance-" + deployment.getId();
+    }
+
+    private void clearTimedOutPlacement(DeploymentHistory deployment, ScalingEvent event, KubernetesClient client) {
+        Deployment workload = findRebalancingDeployment(deployment, client);
+        if (workload == null) return;
+        String labelKey = rebalancingLabelKey(deployment);
+        Map<String, String> selector = workload.getSpec().getTemplate().getSpec().getNodeSelector();
+        if (selector != null && ("event-" + event.getId()).equals(selector.get(labelKey))) {
+            patchRebalancingPlacement(client, workload, labelKey, null);
         }
     }
-    
-    /**
-     * 스케일 아웃 완료 감지 및 재배포 처리
-     */
-    private void checkAndHandleScalingCompletion(DeploymentHistory deployment, KubernetesClient client) {
-        try {
-            List<ScalingEvent> pendingEvents = scalingEventRepository.findPendingScalingEvents(deployment.getId());
-            
-            for (ScalingEvent event : pendingEvents) {
-                if (isScalingCompleted(event, client)) {
-                    log.info("Scaling completed for deployment: {}, event: {}", deployment.getId(), event.getId());
-                    
-                    // 스케일링 이벤트 상태를 완료로 업데이트
-                    event.setStatus(ScalingEvent.ScalingStatus.COMPLETED);
-                    event.setCompletedAt(LocalDateTime.now());
-                    scalingEventRepository.save(event);
-                    
-                    // 새로운 노드에 애플리케이션 재배포
-                    redeployToNewNodes(deployment, event.getNewNodeCount(), client);
-                }
-            }
-            
-        } catch (Exception e) {
-            log.error("Error checking scaling completion for deployment: {}", deployment.getId(), e);
+
+    private void patchRebalancingPlacement(KubernetesClient client, Deployment workload, String labelKey, String group) {
+        // Patch only the Pod template. Do not replace replicas managed concurrently by HPA.
+        var resource = client.apps().deployments().inNamespace(DEFAULT_WORKLOAD_NAMESPACE)
+                .withName(workload.getMetadata().getName());
+        if (group == null) {
+            String path = "/spec/template/spec/nodeSelector/" + labelKey.replace("~", "~0").replace("/", "~1");
+            var operations = OBJECT_MAPPER.createArrayNode();
+            operations.addObject().put("op", "test").put("path", path)
+                    .put("value", workload.getSpec().getTemplate().getSpec().getNodeSelector().get(labelKey));
+            operations.addObject().put("op", "remove").put("path", path);
+            resource.patch(PatchContext.of(PatchType.JSON), operations.toString());
+            return;
         }
+        var patch = OBJECT_MAPPER.createObjectNode();
+        var template = patch.putObject("spec").putObject("template");
+        var selector = template.putObject("spec").putObject("nodeSelector");
+        selector.put(labelKey, group);
+        var existing = workload.getSpec().getTemplate().getSpec().getNodeSelector();
+        if (existing != null && existing.containsKey("autoscale-group")) selector.putNull("autoscale-group");
+        resource.patch(PatchContext.of(PatchType.JSON_MERGE), patch.toString());
     }
     
-    /**
-     * 스케일링 완료 여부 확인
-     * Rate limit 방지를 위해 타임아웃 기반만 사용
-     */
-    private boolean isScalingCompleted(ScalingEvent event, KubernetesClient client) {
-        try {
-            // 타임아웃 체크 (5분) - API 호출 없이 타임아웃으로만 판단
-            long secondsSinceTriggered = java.time.Duration.between(event.getTriggeredAt(), LocalDateTime.now()).getSeconds();
-            
-            if (secondsSinceTriggered > scalingTimeoutSeconds) { 
-                log.info("Scaling completed by timeout after {} seconds: target={}", 
-                        scalingTimeoutSeconds, event.getNewNodeCount());
-                return true; // 타임아웃 시 완료로 간주
-            }
-            
-            log.debug("Scaling in progress: target={}, elapsed={}s", 
-                    event.getNewNodeCount(), secondsSinceTriggered);
-            return false;
-            
-        } catch (Exception e) {
-            // Rate limit 에러는 무시하고 다음에 재시도
-            if (e.getMessage() != null && e.getMessage().contains("rate limit")) {
-                log.debug("Rate limit error during scaling check, will retry later: {}", event.getId());
-                return false;
-            }
-            log.error("Error checking scaling completion for event: {}", event.getId(), e);
-            return false;
-        }
+    private boolean isReadyWorker(Node node) {
+        return node.getSpec() != null && !Boolean.TRUE.equals(node.getSpec().getUnschedulable())
+                && !Objects.requireNonNullElse(node.getMetadata().getLabels(), Map.of()).containsKey("node-role.kubernetes.io/control-plane")
+                && !Objects.requireNonNullElse(node.getMetadata().getLabels(), Map.of()).containsKey("node-role.kubernetes.io/master")
+                && node.getStatus() != null && node.getStatus().getConditions() != null
+                && node.getStatus().getConditions().stream()
+                    .anyMatch(condition -> "Ready".equals(condition.getType()) && "True".equals(condition.getStatus()));
     }
     
     /**
@@ -1907,246 +1665,43 @@ public class KubernetesMonitoringService {
                 .build();
     }
     
-    /**
-     * 새로운 노드에 애플리케이션 재배포
-     * 의도한 방식:
-     * 1. 새 노드에 라벨 추가
-     * 2. Deployment에 nodeSelector 추가
-     * 3. 새 노드에만 Pod 배포
-     */
-    private void redeployToNewNodes(DeploymentHistory deployment, int newNodeCount, KubernetesClient client) {
-        try {
-            log.info("Redeploying application to new nodes: deploymentId={}, newNodeCount={}", 
-                    deployment.getId(), newNodeCount);
-            
-            // K8s 워크로드는 요청의 Tumblebug namespace와 별개인 전용 namespace에 배포됨
-            String namespace = DEFAULT_WORKLOAD_NAMESPACE;
-            String appName = deployment.getCatalog().getName().toLowerCase().replaceAll("\\s+", "-");
-            String nodeGroupName = deployment.getNodeGroupName();
-            
-            // 1. 기존 노드에서 라벨 제거하고 새 노드에만 라벨 추가
-            String labelKey = "autoscale-group";
-            String labelValue = nodeGroupName != null ? nodeGroupName : "scaled";
-            
-            log.info("Step 1: Removing label from existing nodes and adding label to new nodes: {}={}", labelKey, labelValue);
-            
-            // 기존 노드에서 라벨 제거
-            removeLabelFromOldNodes(client, labelKey);
-            
-            // 새 노드에 라벨 추가 (항상 1개의 최근 생성된 노드에만)
-            labelNewNodes(client, labelKey, labelValue, 1);
-            
-            // 2. 기존 Deployment 가져오기
-            log.info("Looking for Deployment in namespace: {}, appName: {}", namespace, appName);
-            
-            // 먼저 정확한 이름으로 찾기
-            Deployment k8sDeployment = client.apps().deployments()
-                    .inNamespace(namespace)
-                    .withName(appName)
-                    .get();
-            
-            // 없으면 모든 Deployment를 나열해서 매칭
-            if (k8sDeployment == null) {
-                log.warn("Deployment '{}' not found, searching for matching deployment", appName);
-                List<Deployment> allDeployments = 
-                        client.apps().deployments().inNamespace(namespace).list().getItems();
-                
-                for (Deployment d : allDeployments) {
-                    log.info("Found deployment in namespace {}: {}", namespace, d.getMetadata().getName());
-                    // appName으로 시작하거나 포함하는 Deployment 찾기
-                    if (d.getMetadata().getName().startsWith(appName) || 
-                        d.getMetadata().getName().contains(appName)) {
-                        k8sDeployment = d;
-                        log.info("Using deployment: {}", d.getMetadata().getName());
-                        break;
-                    }
-                }
-            }
-            
-            if (k8sDeployment != null) {
-                // 2. nodeSelector 추가 - 새 노드에만 Pod 배포
-                log.info("Step 2: Adding nodeSelector to Deployment: {}={}", labelKey, labelValue);
-                
-                // Pod template spec 가져오기
-                if (k8sDeployment.getSpec().getTemplate().getSpec() == null) {
-                    log.error("Pod spec is null in deployment: {}", appName);
-                    return;
-                }
-                
-                PodSpec podSpec = k8sDeployment.getSpec().getTemplate().getSpec();
-                
-                // nodeSelector 생성 또는 업데이트
-                if (podSpec.getNodeSelector() == null) {
-                    podSpec.setNodeSelector(new HashMap<>());
-                }
-                podSpec.getNodeSelector().put(labelKey, labelValue);
-                
-                // 3. Rolling Update 트리거를 위한 annotation 추가
-                String timestamp = String.valueOf(System.currentTimeMillis());
-                Map<String, String> annotations = k8sDeployment.getSpec().getTemplate().getMetadata().getAnnotations();
-                if (annotations == null) {
-                    annotations = new HashMap<>();
-                    k8sDeployment.getSpec().getTemplate().getMetadata().setAnnotations(annotations);
-                }
-                annotations.put("rollout.trigger.timestamp", timestamp);
-                
-                // Deployment 업데이트 (replicas는 변경하지 않음)
-                client.apps().deployments()
-                        .inNamespace(namespace)
-                        .createOrReplace(k8sDeployment);
-                
-                log.info("Successfully updated deployment - nodeSelector: {}={}", labelKey, labelValue);
-                log.info("Rolling Update triggered at timestamp: {}", timestamp);
-                
-                // 4. 기존 Pod 삭제하여 즉시 새 노드로 이동
-                log.info("Step 4: Deleting existing pods to force migration to new nodes");
-                client.pods()
-                        .inNamespace(namespace)
-                        .withLabel("app.kubernetes.io/instance", k8sDeployment.getMetadata().getName())
-                        .delete();
-                log.info("Deleted existing pods. New pods will be created on nodes with label {}={}", labelKey, labelValue);
-                
-                // 새로 생성된 노드에 대한 추가 정보 로깅
-                logNewlyCreatedNodesInfo(deployment, newNodeCount);
-                
-            } else {
-                log.warn("Deployment not found for app: {} in namespace: {}", appName, namespace);
-            }
-            
-        } catch (Exception e) {
-            log.error("Error redeploying application to new nodes", e);
+    private boolean reconcileRebalancingRollout(DeploymentHistory deployment, ScalingEvent event,
+            KubernetesClient client, List<Node> readyWorkers) {
+        Deployment workload = findRebalancingDeployment(deployment, client);
+        if (workload == null) throw new IllegalStateException("Could not identify the workload for rebalancing.");
+        String labelKey = rebalancingLabelKey(deployment);
+        String labelValue = "event-" + event.getId();
+        Map<String, String> selector = workload.getSpec().getTemplate().getSpec().getNodeSelector();
+        if (selector != null && labelValue.equals(selector.get(labelKey))) {
+            return isRebalancingRolloutReady(workload);
         }
+        Node worker = readyWorkers.stream()
+                .filter(node -> node.getMetadata().getCreationTimestamp() != null)
+                .filter(node -> !Instant.parse(node.getMetadata().getCreationTimestamp())
+                        .isBefore(event.getTriggeredAt().atZone(java.time.ZoneId.systemDefault()).toInstant().minusSeconds(1)))
+                .max(Comparator.comparing(node -> node.getMetadata().getCreationTimestamp()))
+                .orElseThrow(() -> new IllegalStateException("No Ready worker is available for rebalancing."));
+        // A deployment-specific label avoids changing the placement of other applications.
+        var nodePatch = OBJECT_MAPPER.createObjectNode();
+        nodePatch.putObject("metadata").putObject("labels").put(labelKey, labelValue);
+        client.nodes().withName(worker.getMetadata().getName())
+                .patch(PatchContext.of(PatchType.JSON_MERGE), nodePatch.toString());
+        // Deployment rollout handles replacement. Never delete all existing Pods at once.
+        patchRebalancingPlacement(client, workload, labelKey, labelValue);
+        return false;
+    }
+
+    static boolean isRebalancingRolloutReady(Deployment workload) {
+        var status = workload.getStatus();
+        int replicas = Objects.requireNonNullElse(workload.getSpec().getReplicas(), 1);
+        return status != null && replicas > 0
+                && status.getObservedGeneration() != null && workload.getMetadata().getGeneration() != null
+                && status.getObservedGeneration() >= workload.getMetadata().getGeneration()
+                && Objects.requireNonNullElse(status.getUpdatedReplicas(), 0) == replicas
+                && Objects.requireNonNullElse(status.getReadyReplicas(), 0) == replicas
+                && Objects.requireNonNullElse(status.getReplicas(), 0) == replicas;
     }
     
-    /**
-     * 기존 노드에서 라벨 제거
-     */
-    private void removeLabelFromOldNodes(KubernetesClient client, String labelKey) {
-        try {
-            List<Node> allNodes = client.nodes().list().getItems();
-            
-            for (Node node : allNodes) {
-                Map<String, String> labels = node.getMetadata().getLabels();
-                if (labels != null && labels.containsKey(labelKey)) {
-                    String nodeName = node.getMetadata().getName();
-                    labels.remove(labelKey);
-                    client.nodes().createOrReplace(node);
-                    log.info("Removed label {} from old node: {}", labelKey, nodeName);
-                }
-            }
-        } catch (Exception e) {
-            log.error("Error removing label from old nodes: {}", e.getMessage(), e);
-        }
-    }
-    
-    /**
-     * 새로 생성된 노드에 라벨 추가
-     * 생성 시간을 기준으로 최근 생성된 노드에만 라벨 추가
-     * targetNodeCount는 현재 단계에서 추가할 노드 수 (항상 1개)
-     */
-    private void labelNewNodes(KubernetesClient client, String labelKey, String labelValue, int targetNodeCount) {
-        try {
-            // 모든 노드 목록 가져오기
-            List<Node> allNodes = client.nodes().list().getItems();
-            
-            if (allNodes.isEmpty()) {
-                log.warn("No nodes found in cluster");
-                return;
-            }
-            
-            log.info("Total nodes in cluster: {}", allNodes.size());
-            
-            // 노드를 생성 시간으로 정렬 (최근 것부터)
-            List<Node> sortedNodes = new ArrayList<>(allNodes);
-            sortedNodes.sort((a, b) -> {
-                try {
-                    String timestampA = a.getMetadata().getCreationTimestamp();
-                    String timestampB = b.getMetadata().getCreationTimestamp();
-                    if (timestampA == null && timestampB == null) return 0;
-                    if (timestampA == null) return 1;
-                    if (timestampB == null) return -1;
-                    return timestampB.compareTo(timestampA); // 최근 것부터
-                } catch (Exception e) {
-                    return 0;
-                }
-            });
-            
-            int labeledCount = 0;
-            for (Node node : sortedNodes) {
-                String nodeName = node.getMetadata().getName();
-                Map<String, String> labels = node.getMetadata().getLabels();
-                String creationTime = node.getMetadata().getCreationTimestamp();
-                
-                log.info("Checking node: {} (created: {}), current labels: {}", nodeName, creationTime, labels);
-                
-                // 이미 원하는 라벨이 있는 노드는 스킵
-                if (labels != null && labelValue.equals(labels.get(labelKey))) {
-                    log.info("Node {} already has label {}={}, skipping", nodeName, labelKey, labelValue);
-                    continue;
-                }
-                
-                // 라벨 추가
-                if (labels == null) {
-                    labels = new HashMap<>();
-                    node.getMetadata().setLabels(labels);
-                }
-                
-                labels.put(labelKey, labelValue);
-                
-                // 노드 업데이트
-                client.nodes().createOrReplace(node);
-                log.info("Added label {}={} on node: {} (created: {})", labelKey, labelValue, nodeName, creationTime);
-                labeledCount++;
-                
-                // 항상 1개의 노드에만 라벨 추가 (가장 최근에 생성된 노드)
-                if (labeledCount >= 1) {
-                    log.info("Reached target label count: 1 (most recently created node)");
-                    break;
-                }
-            }
-            
-            if (labeledCount == 0) {
-                log.info("No nodes needed labeling. All {} nodes already have the label {}={}", allNodes.size(), labelKey, labelValue);
-            } else {
-                log.info("Successfully labeled {} nodes with {}={}", labeledCount, labelKey, labelValue);
-            }
-            
-        } catch (Exception e) {
-            log.error("Error labeling new nodes: {}", e.getMessage(), e);
-        }
-    }
-    
-    /**
-     * 새로 생성된 노드 정보 로깅
-     */
-    private void logNewlyCreatedNodesInfo(DeploymentHistory deployment, int newNodeCount) {
-        try {
-            // 스케일링 이벤트 조회
-            List<ScalingEvent> recentEvents = scalingEventRepository.findPendingScalingEvents(deployment.getId());
-            
-            if (!recentEvents.isEmpty()) {
-                ScalingEvent latestEvent = recentEvents.get(0);
-                
-                // 새로 생성된 노드 목록 조회
-                List<String> newlyCreatedNodes = getNewlyCreatedNodes(latestEvent, null);
-                
-                if (!newlyCreatedNodes.isEmpty()) {
-                    log.info("Newly created nodes for deployment {}: {}", 
-                            deployment.getId(), newlyCreatedNodes);
-                    
-                    // 각 새 노드에 대한 상세 정보 로깅
-                    for (String nodeName : newlyCreatedNodes) {
-                        log.info("New node {} is ready for application deployment", nodeName);
-                    }
-                } else {
-                    log.warn("No newly created nodes identified for deployment {}", deployment.getId());
-                }
-            }
-            
-        } catch (Exception e) {
-            log.error("Error logging newly created nodes info", e);
-        }
-    }
     
     /**
      * 노드 그룹 이름을 동적으로 조회합니다.
@@ -2247,69 +1802,6 @@ public class KubernetesMonitoringService {
         return null;
     }
     
-    /**
-     * 현재 노드 수 조회 (DeploymentHistory 기반)
-     */
-    private int getCurrentNodeCount(DeploymentHistory deployment, KubernetesClient client) {
-        try {
-            return getCurrentNodeCountFromCluster(deployment.getNamespace(), deployment.getClusterName(), 
-                    deployment.getNodeGroupName(), client);
-        } catch (Exception e) {
-            log.error("Error getting current node count for deployment: {}", deployment.getId(), e);
-            return defaultNodeCount; // 설정 가능한 기본값
-        }
-    }
-    
-    /**
-     * 클러스터에서 실제 노드 수 조회
-     */
-    private int getCurrentNodeCountFromCluster(String namespace, String clusterName, String nodeGroupName, KubernetesClient client) {
-        try {
-            // Tumblebug API를 통해 클러스터 정보 조회
-            log.info("Fetching cluster info for namespace: {}, clusterName: {}", namespace, clusterName);
-            K8sClusterDto clusterInfo = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
-            
-            if (clusterInfo == null) {
-                log.error("Cluster info is null for namespace: {}, clusterName: {}", namespace, clusterName);
-                log.warn("Will use default node count: {}", defaultNodeCount);
-                return defaultNodeCount;
-            }
-            
-            log.info("Cluster info retrieved successfully: {}", clusterInfo.getName());
-            
-            List<K8sClusterDto.NodeGroup> nodeGroups = clusterInfo.getEffectiveNodeGroups();
-            
-            log.info("Node groups found: {}", nodeGroups.size());
-            
-            if (!nodeGroups.isEmpty()) {
-                for (K8sClusterDto.NodeGroup nodeGroup : nodeGroups) {
-                    String groupName = nodeGroup.getEffectiveName();
-                    log.debug("Checking node group: {}", groupName);
-                    if (nodeGroupName.equals(groupName)) {
-                        // 노드 리스트에서 실제 노드 수 확인
-                        List<K8sClusterDto.IID> nodes = nodeGroup.getEffectiveNodes();
-                        if (!nodes.isEmpty()) {
-                            int nodeCount = nodes.size();
-                            log.debug("Current node count for group {}: {}", nodeGroupName, nodeCount);
-                            return nodeCount;
-                        }
-                    }
-                }
-            }
-            
-            log.warn("Could not determine current node count for group: {}, using default value", nodeGroupName);
-            return defaultNodeCount; // 설정 가능한 기본값
-            
-        } catch (Exception e) {
-            // Rate limit 에러는 자동으로 재시도되므로 조용히 처리
-            if (e.getMessage() != null && e.getMessage().contains("rate limit")) {
-                log.debug("Rate limit during node count check, using default: {}", defaultNodeCount);
-                return defaultNodeCount;
-            }
-            log.error("Error getting current node count from cluster", e);
-            return defaultNodeCount; // 설정 가능한 기본값
-        }
-    }
     
     /**
      * 테스트용: 클러스터 정보 상세 조회 (디버깅용)

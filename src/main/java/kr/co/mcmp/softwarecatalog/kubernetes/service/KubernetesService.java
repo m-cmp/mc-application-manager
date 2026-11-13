@@ -47,6 +47,7 @@ public class KubernetesService {
      * DTO 기반 애플리케이션 배포 (새로운 방식)
      */
     public DeploymentHistory deployApplication(DeploymentRequest request) {
+        request.validateRebalancingThresholds();
         DeploymentHistory history = null;
         SoftwareCatalog catalog = null;
         try {
@@ -224,7 +225,10 @@ public class KubernetesService {
         history.setMaxReplicas(config.getMaxReplicas());
         history.setCpuThreshold(config.getCpuThreshold());
         history.setMemoryThreshold(config.getMemoryThreshold());
-        history.setWorkloadRebalancingEnabled(Boolean.TRUE.equals(request.getWorkloadRebalancingEnabled()));
+        boolean rebalancingEnabled = Boolean.TRUE.equals(request.getWorkloadRebalancingEnabled());
+        history.setWorkloadRebalancingEnabled(rebalancingEnabled);
+        history.setRebalancingCpuThreshold(rebalancingEnabled ? request.getRebalancingCpuThreshold() : null);
+        history.setRebalancingMemoryThreshold(rebalancingEnabled ? request.getRebalancingMemoryThreshold() : null);
         history.setIngressEnabled(config.getIngressEnabled());
         history.setIngressHost(config.getIngressHost());
         history.setIngressPath(config.getIngressPath());
