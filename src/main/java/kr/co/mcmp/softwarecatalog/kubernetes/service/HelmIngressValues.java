@@ -139,6 +139,10 @@ final class HelmIngressValues {
         }
     }
 
+    static boolean isCloudPiratesNginx(HelmChart chart) {
+        return Profile.find(chart) == Profile.CLOUDPIRATES_NGINX;
+    }
+
     private enum Profile {
         GRAFANA("grafana", "https://grafana.github.io/helm-charts"),
         PROMETHEUS("prometheus", "https://prometheus-community.github.io/helm-charts"),

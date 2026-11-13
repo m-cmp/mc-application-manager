@@ -649,6 +649,7 @@
                     v-model="hpaData.hpaMemoryUtilization" /> %
                 </div>
               </div>
+              <p v-if="hpaData.hpaEnabled" class="text-muted small mt-2 mb-0">Targets are relative to Pod resource requests.</p>
             </div>
 
             <div class="mb-3" v-if="modalTitle == 'Application Installation'">
@@ -660,12 +661,27 @@
                     class="form-check-input"
                     type="checkbox"
                     id="workloadRebalancingEnabled"
-                    :disabled="isBuiltInPersistentCatalog"
+                    :disabled="isBuiltInPersistentCatalog || isJupyterObjectStorageCatalog"
                     v-model="workloadRebalancingEnabled">
                   <label class="form-check-label" for="workloadRebalancingEnabled">
                     Enable Workload Rebalancing
                   </label>
                 </div>
+              </div>
+              <div v-if="workloadRebalancingEnabled">
+                <div class="d-flex gap-3">
+                  <div>
+                    <label class="form-label" for="rebalancingCpuThreshold">CPU threshold (%)</label>
+                    <input id="rebalancingCpuThreshold" class="form-control" type="number" min="0" max="100" step="any"
+                      required v-model="rebalancingThresholds.cpu" />
+                  </div>
+                  <div>
+                    <label class="form-label" for="rebalancingMemoryThreshold">Memory threshold (%)</label>
+                    <input id="rebalancingMemoryThreshold" class="form-control" type="number" min="0" max="100" step="any"
+                      required v-model="rebalancingThresholds.memory" />
+                  </div>
+                </div>
+                <p class="text-muted small mt-2 mb-0">Uses this application's usage as a percentage of total cluster capacity. Worker scale-out requires sustained pressure.</p>
               </div>
             </div>
 
@@ -1081,6 +1097,14 @@ const selectVmNodeGroupId = ref('')
 const selectDeploymentType = ref("Standalone" as string)
 const hpaData = ref({} as any)
 const workloadRebalancingEnabled = ref(false)
+const rebalancingThresholds = ref<{cpu: number | string, memory: number | string}>({cpu: 60, memory: 80})
+const validRebalancingThresholds = () => {
+  if (selectInfra.value !== 'K8S' || modalTitle.value !== 'Application Installation' || !workloadRebalancingEnabled.value) return true
+  const valid = [rebalancingThresholds.value.cpu, rebalancingThresholds.value.memory]
+    .every(value => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 100)
+  if (!valid) toast.error('Enter Workload Rebalancing CPU and memory thresholds greater than 0 and at most 100%.')
+  return valid
+}
 const ingressData = ref({} as any)
 const objectStorageData = ref({} as any)
 const objectStorageCheckResult = ref(null as any)
@@ -1390,6 +1414,7 @@ const setInit = async () => {
     hpaMemoryUtilization: 80
   }
   workloadRebalancingEnabled.value = false
+  rebalancingThresholds.value = {cpu: 60, memory: 80}
   ingressData.value = {
     ingressEnabled: false,
     ingressHost: '',
@@ -1934,6 +1959,7 @@ const getDeploymentId = (responseData: any) => {
 
 const runInstall = async () => {
   if (deploying.value || deploymentCompleted.value) return
+  if (!validRebalancingThresholds()) return
   if (jupyterInstallationUnsupported.value) {
     toast.error('Jupyter installation is unavailable for KT because AM does not support KT Object Storage integration.')
     return
@@ -2062,6 +2088,10 @@ const runInstall = async () => {
         cpuThreshold: hpaData.value.hpaCpuUtilization,
         memoryThreshold: hpaData.value.hpaMemoryUtilization,
         workloadRebalancingEnabled: workloadRebalancingEnabled.value,
+        ...(workloadRebalancingEnabled.value ? {
+          rebalancingCpuThreshold: Number(rebalancingThresholds.value.cpu),
+          rebalancingMemoryThreshold: Number(rebalancingThresholds.value.memory)
+        } : {}),
         resourceType: selectedResourceType.value,
         ...buildIngressPayload(),
         additionalConfig
@@ -2129,6 +2159,7 @@ const buildIngressPayload = () => ({
 
 const specCheck = async () => {
   if (specChecking.value) return
+  if (!validRebalancingThresholds()) return
   if (projectScopeError.value) {
     toast.error(projectScopeError.value)
     return
@@ -2577,6 +2608,10 @@ const onChangeCatalog = async () => {
       hpaCpuUtilization: catalogInfo.cpuThreshold || 60,
       hpaMemoryUtilization: catalogInfo.memoryThreshold || 80
     }
+    rebalancingThresholds.value = {
+      cpu: catalogInfo.cpuThreshold || 60,
+      memory: catalogInfo.memoryThreshold || 80
+    }
     ingressData.value = {
       ingressEnabled: Boolean(catalogInfo.ingressEnabled),
       ingressHost: catalogInfo.ingressHost || '',
@@ -2590,6 +2625,7 @@ const onChangeCatalog = async () => {
       ingressData.value.ingressEnabled = true
       hpaData.value.hpaEnabled = false
       hpaData.value.hpaMinReplicas = 1
+      workloadRebalancingEnabled.value = false
     }
     objectStorageData.value = getDefaultObjectStorageData()
     objectStorageCheckResult.value = null

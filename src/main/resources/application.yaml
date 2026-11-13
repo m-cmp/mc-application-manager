@@ -152,7 +152,7 @@ k8s:
     scaling-timeout-seconds: ${K8S_SCALING_TIMEOUT_SECONDS:300}
     default-node-count: ${K8S_DEFAULT_NODE_COUNT:1}
     # 테스트 모드 설정
-    test-mode: ${K8S_TEST_MODE:false}  # false: 앱에 설정한 임계값 사용, true: 낮은 임계값으로 시험
+    test-mode: ${K8S_TEST_MODE:false}  # Test thresholds are a fallback for deployments without explicit values
     test-cpu-threshold: ${K8S_TEST_CPU_THRESHOLD:0.0001}  # 테스트 모드 CPU 임계값 (%) - 매우 낮게 설정
     test-memory-threshold: ${K8S_TEST_MEMORY_THRESHOLD:0.0001}  # 테스트 모드 Memory 임계값 (%) - 매우 낮게 설정
 

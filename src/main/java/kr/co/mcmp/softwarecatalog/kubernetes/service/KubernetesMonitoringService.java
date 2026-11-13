@@ -53,6 +53,7 @@ import kr.co.mcmp.softwarecatalog.application.model.ScalingEvent;
 import kr.co.mcmp.softwarecatalog.application.service.K8sAutoscaleService;
 import kr.co.mcmp.ape.cbtumblebug.api.CbtumblebugRestApi;
 import kr.co.mcmp.ape.cbtumblebug.dto.K8sClusterDto;
+import kr.co.mcmp.ape.cbtumblebug.dto.K8sNodeGroupAutoscaleRequest;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesClientFactory;
 import kr.co.mcmp.softwarecatalog.kubernetes.config.KubernetesNamespaces;
 import kr.co.mcmp.softwarecatalog.common.service.RabbitMqAlertService;
@@ -97,9 +98,6 @@ public class KubernetesMonitoringService {
     
     @Value("${k8s.autoscaling.scaling-timeout-seconds:300}")
     private int scalingTimeoutSeconds;
-    
-    @Value("${k8s.autoscaling.default-node-count:1}")
-    private int defaultNodeCount;
     
     @Value("${k8s.autoscaling.test-mode:false}")
     private boolean testMode;
@@ -384,32 +382,17 @@ public class KubernetesMonitoringService {
     }
 
     private Double getAutoscaleCpuThreshold(DeploymentHistory deployment) {
-        if (testMode) {
+        if (testMode && deployment.getRebalancingCpuThreshold() == null) {
             return testCpuThreshold;
         }
-        if (deployment.getCpuThreshold() != null) {
-            return deployment.getCpuThreshold();
-        }
-        return deployment.getCatalog() != null ? deployment.getCatalog().getCpuThreshold() : null;
+        return deployment.resolveRebalancingCpuThreshold();
     }
 
     private Double getAutoscaleMemoryThreshold(DeploymentHistory deployment) {
-        if (testMode) {
+        if (testMode && deployment.getRebalancingMemoryThreshold() == null) {
             return testMemoryThreshold;
         }
-        if (deployment.getMemoryThreshold() != null) {
-            return deployment.getMemoryThreshold();
-        }
-        return deployment.getCatalog() != null ? deployment.getCatalog().getMemoryThreshold() : null;
-    }
-
-    private int getAutoscaleMaxNodes(DeploymentHistory deployment) {
-        if (deployment.getMaxReplicas() != null) {
-            return deployment.getMaxReplicas();
-        }
-        return deployment.getCatalog() != null && deployment.getCatalog().getMaxReplicas() != null
-                ? deployment.getCatalog().getMaxReplicas()
-                : defaultMaxNodes;
+        return deployment.resolveRebalancingMemoryThreshold();
     }
 
     private boolean isThresholdExceeded(Double usage, Double threshold) {
@@ -1335,11 +1318,11 @@ public class KubernetesMonitoringService {
 
             // 리소스 사용률이 null이면 스킵
             if (status.getCpuUsage() == null || status.getMemoryUsage() == null) {
-                log.warn("Skipping autoscaling: CPU or Memory usage is null - CPU: {}, Memory: {}", 
+                log.warn("Skipping autoscaling: CPU or Memory usage is null - CPU: {}, Memory: {}",
                         status.getCpuUsage(), status.getMemoryUsage());
                 return;
             }
-            
+
             log.debug("Resource usage - CPU: {}%, Memory: {}%", status.getCpuUsage(), status.getMemoryUsage());
             
             String namespace = deployment.getNamespace();
@@ -1349,130 +1332,47 @@ public class KubernetesMonitoringService {
             String nodeGroupName = getNodeGroupName(deployment);
             
             // 노드 그룹 이름이 없으면 오토스케일링 불가
-            if (nodeGroupName == null || nodeGroupName.isEmpty()) {
+            if (StringUtils.isBlank(nodeGroupName)) {
                 log.warn("Cannot perform autoscaling: node group name is null or empty for deployment: {}", deployment.getId());
-                
-                // 테스트 모드에서는 기본 노드 그룹 이름 사용
-                if (testMode) {
-                    log.info("TEST MODE: Using default node group name for testing");
-                    // 실제 node group 이름: k8sng01 (JSON에서 확인한 이름)
-                    nodeGroupName = "k8sng01"; // TODO: 실제 node group 이름으로 수정 필요
-                } else {
-                    return;
-                }
+                return;
             }
             
-            // 현재 실제 노드 수 확인
-            int readyNodeCount = client.nodes().list().getItems().size();
-            int actualNodeCount = getCurrentNodeCount(deployment, client);
-            log.info("Actual node count in cluster: actual: {}, ready: {}", actualNodeCount, readyNodeCount);
-            if (actualNodeCount > readyNodeCount) {
-                log.info("Actual node replace ready node count. {}", readyNodeCount);
-                actualNodeCount = readyNodeCount;
-            }
-            
-            // 현재 노드 수를 실제 노드 수로 설정
-            int currentSize = actualNodeCount;
-            log.info("Current node count: {}", currentSize);
-            
-            // 목표 노드 수는 currentSize + 1
-            int targetSize = currentSize + 1;
-            log.info("Target node count: {}", targetSize);
-            
-            int maxSize = getAutoscaleMaxNodes(deployment);
-            
-            // CPU 또는 메모리 임계값 초과 시 스케일 아웃 (단, 실제 노드 수가 목표 노드 수보다 적을 때만)
-            boolean cpuExceeded = false;
-            boolean memoryExceeded = false;
-            
-            if (testMode) {
-                // 테스트 모드: 낮은 임계값 사용
-                cpuExceeded = status.getCpuUsage() > testCpuThreshold;
-                memoryExceeded = status.getMemoryUsage() > testMemoryThreshold;
-                log.debug("TEST MODE - Checking scaling trigger - CPU: {}% (threshold: {}%), Memory: {}% (threshold: {}%)", 
-                        status.getCpuUsage(), testCpuThreshold, status.getMemoryUsage(), testMemoryThreshold);
-            } else {
-                // 운영 모드: 실제 임계값 사용
-                Double cpuThreshold = getAutoscaleCpuThreshold(deployment);
-                Double memoryThreshold = getAutoscaleMemoryThreshold(deployment);
-                cpuExceeded = isThresholdExceeded(status.getCpuUsage(), cpuThreshold);
-                memoryExceeded = isThresholdExceeded(status.getMemoryUsage(), memoryThreshold);
-                log.debug("Production mode - CPU: {}% (threshold: {}), Memory: {}% (threshold: {})", 
-                        status.getCpuUsage(), cpuThreshold,
-                        status.getMemoryUsage(), memoryThreshold);
-            }
+            // Use the same thresholds for the current check and the stored samples.
+            boolean exceeded = isThresholdExceeded(status.getCpuUsage(), getAutoscaleCpuThreshold(deployment))
+                    || isThresholdExceeded(status.getMemoryUsage(), getAutoscaleMemoryThreshold(deployment));
+            if (!hasSustainedAutoscalePressure(deployment.getId(), exceeded)
+                    || KubernetesScaleOutRollout.findDeployment(client, workloadNamespace,
+                            deployment.getReleaseName(), deployment.getCatalog().getName()) == null) return;
 
-            // 스케일 아웃 조건: 부하 초과 AND 목표 노드 수 < 최대 노드 수
-            boolean thresholdExceeded = cpuExceeded || memoryExceeded;
-            boolean sustainedThresholdExceeded = hasSustainedAutoscalePressure(deployment.getId(), thresholdExceeded);
-
-            if (thresholdExceeded && sustainedThresholdExceeded) {
-                log.info("Sustained resource pressure confirmed for K8S deployment: CPU={}%, Memory={}%, scaling out from {} to {}",
-                        status.getCpuUsage(), status.getMemoryUsage(), currentSize, targetSize);
-                
-                // 스케일링 이벤트 생성
-                ScalingEvent scalingEvent = createScalingEvent(deployment, nodeGroupName, currentSize, targetSize);
-                if (scalingEvent != null) {
-                    scalingEventRepository.save(scalingEvent);
-                } else {
-                    log.error("Failed to create scaling event: node group name is null");
-                    return;
-                }
-                
-                try {
-                    // 현재 노드 그룹의 desiredNodeSize 확인
-                    int currentDesiredNodeSize = getCurrentDesiredNodeSize(deployment, client);
-                    
-                    log.debug("Current desired node size: {}, target: {}", currentDesiredNodeSize, targetSize);
-                    
-                    // 로직 1: desiredNodeSize < maxNodeSize인 경우, 현재 max 안에서 1개 증설 요청
-                    if (currentDesiredNodeSize < maxSize) {
-                        log.debug("desiredNodeSize ({}) < maxNodeSize ({}). Scaling out within current max.",
-                                currentDesiredNodeSize, maxSize);
-                        scalingEvent.setStatus(ScalingEvent.ScalingStatus.IN_PROGRESS);
-                        scalingEventRepository.save(scalingEvent);
-                        log.info("Requesting node creation within current maxNodeSize.");
-                    }
-                    
-                    // 로직 2: 현재 desired 기준으로 1개 증설 요청
-                    {
-                        log.debug("Scaling out node group by one node. desiredNodeSize={}, maxNodeSize={}",
-                                currentDesiredNodeSize, maxSize);
-                        
-                        int requestedNodeSize = currentDesiredNodeSize + 1;
-                        targetSize = requestedNodeSize;
-                        scalingEvent.setNewNodeCount(targetSize);
-                        
-                        // API 호출
-                        boolean scaleResult = k8sAutoscaleService.scaleOutNodeGroup(namespace, clusterName, nodeGroupName, currentDesiredNodeSize, requestedNodeSize);
-                        
-                        if (scaleResult) {
-                            log.debug("Scale out API returned true: {} -> {}", currentDesiredNodeSize, targetSize);
-                            scalingEvent.setStatus(ScalingEvent.ScalingStatus.IN_PROGRESS);
-                            scalingEventRepository.save(scalingEvent);
-                            
-                            log.debug("Scale out request completed. Will check for new nodes in next monitoring cycle.");
-                        } else {
-                            log.error("Failed to scale out K8S node group via API");
-                            scalingEvent.setStatus(ScalingEvent.ScalingStatus.FAILED);
-                            scalingEvent.setErrorMessage("Failed to initiate scale out via API");
-                            scalingEventRepository.save(scalingEvent);
-                        }
-                    }
-                } catch (Exception e) {
-                    log.error("Error during scale out: {}", e.getMessage(), e);
-                    scalingEvent.setStatus(ScalingEvent.ScalingStatus.FAILED);
-                    scalingEvent.setErrorMessage("Error: " + e.getMessage());
-                    scalingEventRepository.save(scalingEvent);
-                }
-                
-            } else if (thresholdExceeded) {
-                log.info("Resource threshold currently exceeded for K8S deployment, but sustained pressure has not been confirmed yet (CPU={}%, Memory={}%)",
-                        status.getCpuUsage(), status.getMemoryUsage());
-            } else {
-                log.debug("No scaling needed: CPU={}%, Memory={}%, currentSize={}, targetSize={}, maxSize={}", 
-                        status.getCpuUsage(), status.getMemoryUsage(), currentSize, targetSize, maxSize);
+            var group = findRebalancingNodeGroup(deployment, nodeGroupName);
+            if (group == null) return;
+            int current = group.getEffectiveNodes().size();
+            int desired = group.getDesiredNodeSize();
+            int maxNodes = group.getMaxNodeSize() > 0 ? Math.min(defaultMaxNodes, group.getMaxNodeSize()) : defaultMaxNodes;
+            // The HPA replica cap is not a worker-node cap. Also wait for a preceding
+            // node request to settle before asking the provider to expand again.
+            if (desired < 1 || current != desired || desired >= maxNodes
+                    || !scalingEventRepository.findPendingScalingEventsByCluster(namespace, clusterName).isEmpty()) return;
+            var lastEvent = scalingEventRepository.findTopByDeploymentIdOrderByTriggeredAtDesc(deployment.getId());
+            if (lastEvent.filter(last -> last.getStatus() == ScalingEvent.ScalingStatus.FAILED
+                    && Duration.between(last.getTriggeredAt(), LocalDateTime.now()).getSeconds() < scalingTimeoutSeconds)
+                    .isPresent()) return;
+            ScalingEvent event = createScalingEvent(deployment, nodeGroupName, current, desired + 1);
+            if (event == null) return;
+            scalingEventRepository.save(event);
+            try {
+                var sizes = new K8sNodeGroupAutoscaleRequest(desired + 1,
+                        group.isOnAutoScaling() ? (group.getMaxNodeSize() > 0 ? group.getMaxNodeSize() : maxNodes) : null,
+                        group.isOnAutoScaling() ? group.getMinNodeSize() : null);
+                boolean accepted = k8sAutoscaleService.changeNodeGroupAutoscaleSize(namespace, clusterName, nodeGroupName, sizes);
+                event.setStatus(accepted ? ScalingEvent.ScalingStatus.IN_PROGRESS : ScalingEvent.ScalingStatus.FAILED);
+                if (!accepted) event.setErrorMessage("Failed to initiate scale out via API.");
+            } catch (Exception e) {
+                log.error("Failed to request a new worker for deployment {}", deployment.getId(), e);
+                event.setStatus(ScalingEvent.ScalingStatus.FAILED);
+                event.setErrorMessage("Failed to initiate scale out via API.");
             }
+            scalingEventRepository.save(event);
             
         } catch (Exception e) {
             log.error("Error handling K8S autoscaling for deployment: {}", deployment.getId(), e);
@@ -1562,35 +1462,12 @@ public class KubernetesMonitoringService {
         log.debug("Cleaned up old autoscale samples: cutoff={}, deleted={}", cutoff, deletedCount);
     }
 
-    /**
-     * 현재 노드 그룹의 desiredNodeSize 가져오기
-     */
-    private int getCurrentDesiredNodeSize(DeploymentHistory deployment, KubernetesClient client) {
-        try {
-            // Tumblebug API를 통해 노드 그룹 정보 가져오기
-            K8sClusterDto clusterInfo = cbtumblebugRestApi.getK8sClusterByName(
-                    deployment.getNamespace(), deployment.getClusterName());
-            
-            if (clusterInfo != null) {
-                List<K8sClusterDto.NodeGroup> nodeGroupList = clusterInfo.getEffectiveNodeGroups();
-
-                if (!nodeGroupList.isEmpty() && deployment.getNodeGroupName() != null) {
-                    for (K8sClusterDto.NodeGroup nodeGroup : nodeGroupList) {
-                        if (deployment.getNodeGroupName().equals(nodeGroup.getEffectiveName())) {
-                            log.info("Current desired node size from cluster info: {}", nodeGroup.getDesiredNodeSize());
-                            return nodeGroup.getDesiredNodeSize();
-                        }
-                    }
-                }
-            }
-            
-            // 기본값: 현재 노드 수
-            return getCurrentNodeCount(deployment, client);
-            
-        } catch (Exception e) {
-            log.error("Error getting current desired node size: {}", e.getMessage(), e);
-            return getCurrentNodeCount(deployment, client);
-        }
+    private K8sClusterDto.NodeGroup findRebalancingNodeGroup(DeploymentHistory deployment, String name) {
+        K8sClusterDto cluster = cbtumblebugRestApi.getK8sClusterByName(deployment.getNamespace(), deployment.getClusterName());
+        if (cluster == null) return null;
+        return cluster.getEffectiveNodeGroups().stream()
+                .filter(group -> name.equals(group.getEffectiveName()))
+                .findFirst().orElse(null);
     }
 
     /**
@@ -1812,69 +1689,6 @@ public class KubernetesMonitoringService {
         return null;
     }
     
-    /**
-     * 현재 노드 수 조회 (DeploymentHistory 기반)
-     */
-    private int getCurrentNodeCount(DeploymentHistory deployment, KubernetesClient client) {
-        try {
-            return getCurrentNodeCountFromCluster(deployment.getNamespace(), deployment.getClusterName(), 
-                    deployment.getNodeGroupName(), client);
-        } catch (Exception e) {
-            log.error("Error getting current node count for deployment: {}", deployment.getId(), e);
-            return defaultNodeCount; // 설정 가능한 기본값
-        }
-    }
-    
-    /**
-     * 클러스터에서 실제 노드 수 조회
-     */
-    private int getCurrentNodeCountFromCluster(String namespace, String clusterName, String nodeGroupName, KubernetesClient client) {
-        try {
-            // Tumblebug API를 통해 클러스터 정보 조회
-            log.info("Fetching cluster info for namespace: {}, clusterName: {}", namespace, clusterName);
-            K8sClusterDto clusterInfo = cbtumblebugRestApi.getK8sClusterByName(namespace, clusterName);
-            
-            if (clusterInfo == null) {
-                log.error("Cluster info is null for namespace: {}, clusterName: {}", namespace, clusterName);
-                log.warn("Will use default node count: {}", defaultNodeCount);
-                return defaultNodeCount;
-            }
-            
-            log.info("Cluster info retrieved successfully: {}", clusterInfo.getName());
-            
-            List<K8sClusterDto.NodeGroup> nodeGroups = clusterInfo.getEffectiveNodeGroups();
-            
-            log.info("Node groups found: {}", nodeGroups.size());
-            
-            if (!nodeGroups.isEmpty()) {
-                for (K8sClusterDto.NodeGroup nodeGroup : nodeGroups) {
-                    String groupName = nodeGroup.getEffectiveName();
-                    log.debug("Checking node group: {}", groupName);
-                    if (nodeGroupName.equals(groupName)) {
-                        // 노드 리스트에서 실제 노드 수 확인
-                        List<K8sClusterDto.IID> nodes = nodeGroup.getEffectiveNodes();
-                        if (!nodes.isEmpty()) {
-                            int nodeCount = nodes.size();
-                            log.debug("Current node count for group {}: {}", nodeGroupName, nodeCount);
-                            return nodeCount;
-                        }
-                    }
-                }
-            }
-            
-            log.warn("Could not determine current node count for group: {}, using default value", nodeGroupName);
-            return defaultNodeCount; // 설정 가능한 기본값
-            
-        } catch (Exception e) {
-            // Rate limit 에러는 자동으로 재시도되므로 조용히 처리
-            if (e.getMessage() != null && e.getMessage().contains("rate limit")) {
-                log.debug("Rate limit during node count check, using default: {}", defaultNodeCount);
-                return defaultNodeCount;
-            }
-            log.error("Error getting current node count from cluster", e);
-            return defaultNodeCount; // 설정 가능한 기본값
-        }
-    }
     
     /**
      * 테스트용: 클러스터 정보 상세 조회 (디버깅용)

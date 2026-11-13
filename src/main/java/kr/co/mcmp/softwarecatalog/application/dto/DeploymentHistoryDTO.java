@@ -41,6 +41,8 @@ public class DeploymentHistoryDTO {
     private Double cpuThreshold;
     private Double memoryThreshold;
     private Boolean workloadRebalancingEnabled;
+    private Double rebalancingCpuThreshold;
+    private Double rebalancingMemoryThreshold;
     private Boolean ingressEnabled;
     private String ingressHost;
     private String ingressPath;
@@ -77,6 +79,10 @@ public class DeploymentHistoryDTO {
         this.cpuThreshold = entity.getCpuThreshold();
         this.memoryThreshold = entity.getMemoryThreshold();
         this.workloadRebalancingEnabled = entity.getWorkloadRebalancingEnabled();
+        if (Boolean.TRUE.equals(this.workloadRebalancingEnabled)) {
+            this.rebalancingCpuThreshold = entity.resolveRebalancingCpuThreshold();
+            this.rebalancingMemoryThreshold = entity.resolveRebalancingMemoryThreshold();
+        }
         this.ingressEnabled = entity.getIngressEnabled();
         this.ingressHost = entity.getIngressHost();
         this.ingressPath = entity.getIngressPath();

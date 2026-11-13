@@ -20,6 +20,8 @@ public class DeploymentFailureException extends RuntimeException {
             String message = String.valueOf(cause.getMessage());
             if (Set.of("Enable Ingress to configure external CIDR access.",
                     "Enter an Ingress hostname for external access.",
+                    "Workload Rebalancing CPU threshold must be greater than 0 and at most 100%.",
+                    "Workload Rebalancing memory threshold must be greater than 0 and at most 100%.",
                     "Ingress hostname is already in use.").contains(message)) return message;
             String lower = message.toLowerCase(Locale.ROOT);
             if (lower.contains("imagepullbackoff") || lower.contains("errimagepull"))

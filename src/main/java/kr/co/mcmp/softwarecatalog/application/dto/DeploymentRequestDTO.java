@@ -2,6 +2,8 @@ package kr.co.mcmp.softwarecatalog.application.dto;
 
 import kr.co.mcmp.softwarecatalog.application.constants.DeploymentType;
 import kr.co.mcmp.softwarecatalog.application.constants.VmDeploymentMode;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -40,6 +42,12 @@ public class DeploymentRequestDTO {
     private Double cpuThreshold;
     private Double memoryThreshold;
     private Boolean workloadRebalancingEnabled;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "Workload Rebalancing CPU threshold in percent of cluster capacity. Omit for legacy behavior.", minimum = "0", exclusiveMinimum = true, maximum = "100")
+    private Double rebalancingCpuThreshold;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "Workload Rebalancing memory threshold in percent of cluster capacity. Omit for legacy behavior.", minimum = "0", exclusiveMinimum = true, maximum = "100")
+    private Double rebalancingMemoryThreshold;
 
     // 자원 유형 선택값
     private String resourceType;
@@ -78,6 +86,8 @@ public class DeploymentRequestDTO {
                 .cpuThreshold(this.cpuThreshold)
                 .memoryThreshold(this.memoryThreshold)
                 .workloadRebalancingEnabled(this.workloadRebalancingEnabled)
+                .rebalancingCpuThreshold(this.rebalancingCpuThreshold)
+                .rebalancingMemoryThreshold(this.rebalancingMemoryThreshold)
                 .resourceType(this.resourceType)
                 .additionalConfig(this.additionalConfig)
                 .debugKeepAlive(this.debugKeepAlive)

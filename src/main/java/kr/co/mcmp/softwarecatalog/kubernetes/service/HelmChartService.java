@@ -170,10 +170,7 @@ public class HelmChartService {
                 if (catalog.getHpaEnabled()) {
                     log.info("HPA 활성화 설정 적용 중...");
                     values.put("autoscaling.enabled", "true");
-                    values.put("autoscaling.minReplicas", String.valueOf(catalog.getMinReplicas()));
-                    values.put("autoscaling.maxReplicas", String.valueOf(catalog.getMaxReplicas()));
-                    values.put("autoscaling.targetCPUUtilizationPercentage", String.valueOf(catalog.getCpuThreshold().intValue()));
-                    values.put("autoscaling.targetMemoryUtilizationPercentage", String.valueOf(catalog.getMemoryThreshold().intValue()));
+                    applyHpaTargets(helmChart, config, values, ingressValues);
                 }
 
                 // CSP별 설정 적용
@@ -357,10 +354,7 @@ public class HelmChartService {
             if (config.isHpaEnabled()) {
                 log.info("HPA 설정 적용 중...");
                 values.put("autoscaling.enabled", "true");
-                values.put("autoscaling.minReplicas", String.valueOf(config.getMinReplicas()));
-                values.put("autoscaling.maxReplicas", String.valueOf(config.getMaxReplicas()));
-                values.put("autoscaling.targetCPUUtilizationPercentage", String.valueOf(config.getCpuThreshold().intValue()));
-                values.put("autoscaling.targetMemoryUtilizationPercentage", String.valueOf(config.getMemoryThreshold().intValue()));
+                applyHpaTargets(helmChart, config, values, chartValues);
                 log.info("HPA 설정 완료 - {}", config.getHpaConfigSummary());
             } else {
                 values.put("autoscaling.enabled", "false");
@@ -577,6 +571,21 @@ public class HelmChartService {
             arguments.add(entry.getKey() + "=" + entry.getValue());
         }
         return arguments;
+    }
+
+    static void applyHpaTargets(HelmChart chart,
+            DeploymentConfigDTO config, Map<String, String> values, Map<String, Object> chartValues) {
+        Map<String, String> targets = Map.of(
+                "minReplicas", String.valueOf(config.getMinReplicas()),
+                "maxReplicas", String.valueOf(config.getMaxReplicas()),
+                "targetCPUUtilizationPercentage", String.valueOf(config.getCpuThreshold().intValue()),
+                "targetMemoryUtilizationPercentage", String.valueOf(config.getMemoryThreshold().intValue()));
+        if (HelmIngressValues.isCloudPiratesNginx(chart) && "0.16.8".equals(chart.getChartVersion())) {
+            // This chart's values schema requires strings and its template converts them to integers.
+            chartValues.put("autoscaling", targets);
+        } else {
+            targets.forEach((key, value) -> values.put("autoscaling." + key, value));
+        }
     }
 
     private String getReleaseNameFromHistory(Long catalogId, String clusterName, String namespace) {
