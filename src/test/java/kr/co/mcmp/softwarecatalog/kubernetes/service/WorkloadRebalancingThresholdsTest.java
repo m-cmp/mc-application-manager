@@ -3,13 +3,9 @@ package kr.co.mcmp.softwarecatalog.kubernetes.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.Node;
 import io.fabric8.kubernetes.api.model.NodeBuilder;
+import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
-import io.fabric8.kubernetes.api.model.apps.Deployment;
-import io.fabric8.kubernetes.api.model.apps.DeploymentList;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
-import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
-import io.fabric8.kubernetes.client.dsl.base.PatchContext;
 import io.fabric8.kubernetes.client.server.mock.KubernetesServer;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -33,6 +29,7 @@ import kr.co.mcmp.softwarecatalog.application.model.ScalingEvent;
 import kr.co.mcmp.softwarecatalog.application.repository.AutoscaleCheckSampleRepository;
 import kr.co.mcmp.softwarecatalog.application.repository.ScalingEventRepository;
 import kr.co.mcmp.softwarecatalog.application.service.K8sAutoscaleService;
+import kr.co.mcmp.softwarecatalog.common.service.RabbitMqAlertService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -43,15 +40,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class WorkloadRebalancingThresholdsTest {
     private final KubernetesMonitoringService monitor = new KubernetesMonitoringService(
-            null, null, null, null, null, null, null, null, null, null, null, null);
+            null, null, null, null, null, null, null, null, null, null, null, null, null);
     private final KubernetesService deploy = new KubernetesService(null, null, null, null, null, null, null, null, null);
 
     @ParameterizedTest
@@ -150,15 +147,23 @@ class WorkloadRebalancingThresholdsTest {
     }
 
     @Test
-    void patchesOnlyTheTargetReleaseAndWaitsForTheHpaReplicaCountToBecomeReady() {
+    void alertsOnceOnlyAfterAllHpaReplicasAreReadyOnTheNewWorker() {
         KubernetesServer server = new KubernetesServer(false, true);
         server.before();
         try {
             var client = server.getClient();
+            var events = mock(ScalingEventRepository.class);
+            var tumblebug = mock(CbtumblebugRestApi.class);
+            var rabbit = mock(RabbitMqAlertService.class);
+            var service = new KubernetesMonitoringService(null, null, null, events, null, null, null,
+                    null, null, tumblebug, rabbit, null, null);
+            ReflectionTestUtils.setField(service, "scalingTimeoutSeconds", 300);
+            ReflectionTestUtils.setField(service, "defaultSlackChannelId", "C0123456789");
             LocalDateTime triggered = LocalDateTime.now().minusMinutes(1);
             String created = triggered.plusSeconds(15).atZone(ZoneId.systemDefault()).toInstant().toString();
             Node worker = new NodeBuilder().withNewMetadata().withName("worker-2").withCreationTimestamp(created)
-                    .addToLabels("zone", "a").endMetadata().withNewSpec().withProviderID("aws:///zone/i-2").endSpec().build();
+                    .addToLabels("zone", "a").endMetadata().withNewSpec().withProviderID("aws:///zone/i-2").endSpec()
+                    .withNewStatus().addNewCondition().withType("Ready").withStatus("True").endCondition().endStatus().build();
             client.nodes().resource(worker).create();
             var workloads = client.apps().deployments().inNamespace("default");
             var target = workloads.resource(new DeploymentBuilder().withNewMetadata().withName("nginx-test").withGeneration(1L)
@@ -167,53 +172,86 @@ class WorkloadRebalancingThresholdsTest {
                     .endSpec().endTemplate().endSpec().build()).create();
             workloads.resource(new DeploymentBuilder(target).editMetadata().withName("nginx-other").withResourceVersion(null)
                     .addToLabels("app.kubernetes.io/instance", "nginx-other").endMetadata().build()).create();
-            DeploymentHistory deployment = DeploymentHistory.builder().id(42L).releaseName("nginx-test").hpaEnabled(true).build();
-            ScalingEvent event = ScalingEvent.builder().id(7L).triggeredAt(triggered).build();
+            var catalog = new SoftwareCatalog();
+            catalog.setName("Nginx");
+            DeploymentHistory deployment = DeploymentHistory.builder().id(42L).releaseName("nginx-test").hpaEnabled(true)
+                    .deploymentType(DeploymentType.K8S).namespace("project").clusterName("test").catalog(catalog).build();
+            ScalingEvent event = ScalingEvent.builder().id(7L).deploymentId(42L).triggeredAt(triggered)
+                    .namespace("project").clusterName("test").nodeGroupName("workers").newNodeCount(2).build();
             var group = new K8sClusterDto.NodeGroup();
-            group.setNodes(List.of(new K8sClusterDto.IID("private-name", "i-2")));
-            assertThat((Boolean) ReflectionTestUtils.invokeMethod(monitor, "belongsToNodeGroup", worker, group)).isTrue();
-            assertThat((Boolean) ReflectionTestUtils.invokeMethod(monitor, "reconcileRebalancingRollout", deployment, event, client, List.of(worker))).isFalse();
+            group.setName("workers");
+            group.setNodes(List.of(new K8sClusterDto.IID("worker-1", "i-1"), new K8sClusterDto.IID("private-name", "i-2")));
+            var cluster = new K8sClusterDto();
+            cluster.setNodeGroups(List.of(group));
+            when(tumblebug.getK8sClusterByName("project", "test")).thenReturn(cluster);
+            when(events.findPendingScalingEvents(42L)).thenReturn(List.of(event));
+            when(events.finishPendingEvent(eq(7L), eq(ScalingEvent.ScalingStatus.COMPLETED), any(), eq(null)))
+                    .thenReturn(1, 0);
+            String label = "mcmp.io/scale-out-42";
+
+            checkPendingScaleOut(service, deployment, client);
             var patched = workloads.withName("nginx-test").get();
             assertThat(patched.getSpec().getReplicas()).isEqualTo(3);
-            assertThat(patched.getSpec().getTemplate().getSpec().getNodeSelector()).containsAllEntriesOf(Map.of("zone", "a", "mcmp.io/rebalance-42", "event-7"));
+            assertThat(patched.getSpec().getTemplate().getSpec().getNodeSelector()).containsAllEntriesOf(Map.of("zone", "a", label, "7"));
             assertThat(workloads.withName("nginx-other").get().getSpec().getTemplate().getSpec().getNodeSelector()).containsOnlyKeys("zone");
-            assertThat(client.nodes().withName("worker-2").get().getMetadata().getLabels()).containsEntry("zone", "a");
+            assertThat(client.nodes().withName("worker-2").get().getMetadata().getLabels()).containsEntry("zone", "a").containsEntry(label, "7");
+            verifyNoInteractions(rabbit);
 
-            assertThat((Boolean) ReflectionTestUtils.invokeMethod(monitor, "reconcileRebalancingRollout", deployment, event, client, List.of(worker))).isFalse();
             long generation = java.util.Objects.requireNonNullElse(patched.getMetadata().getGeneration(), 1L);
-            var ready = new DeploymentBuilder(patched)
+            workloads.resource(new DeploymentBuilder(patched)
                     .editMetadata().withGeneration(generation).endMetadata()
                     .withNewStatus().withObservedGeneration(generation).withReplicas(3).withUpdatedReplicas(3).withReadyReplicas(3)
-                    .endStatus().build();
-            assertThat(KubernetesMonitoringService.isRebalancingRolloutReady(ready)).isTrue();
-            assertThat(KubernetesMonitoringService.isRebalancingRolloutReady(new DeploymentBuilder(ready)
-                    .editSpec().withReplicas(4).endSpec().build())).isFalse();
-            assertThat(KubernetesMonitoringService.isRebalancingRolloutReady(new DeploymentBuilder(ready)
-                    .editMetadata().withGeneration(generation + 1).endMetadata().build())).isFalse();
+                    .endStatus().build()).update();
+            var pods = client.pods().inNamespace("default");
+            for (int i = 0; i < 3; i++) {
+                pods.resource(new PodBuilder().withNewMetadata().withName("nginx-test-" + i).addToLabels(label, "7")
+                        .endMetadata().withNewSpec().withNodeName(i == 0 ? "worker-1" : "worker-2").endSpec()
+                        .withNewStatus().withPhase("Running").addNewCondition().withType("Ready").withStatus("True")
+                        .endCondition().endStatus().build()).create();
+            }
+            checkPendingScaleOut(service, deployment, client);
+            verifyNoInteractions(rabbit);
+
+            pods.withName("nginx-test-0").delete();
+            pods.resource(new PodBuilder(pods.withName("nginx-test-1").get()).editMetadata()
+                    .withName("nginx-test-replacement").withResourceVersion(null).endMetadata().build()).create();
+            checkPendingScaleOut(service, deployment, client);
+            checkPendingScaleOut(service, deployment, client);
+            verify(rabbit, times(1)).sendScaleOutAlert(eq("[K8s AutoScaling] Scale Out Completed: Nginx"),
+                    any(), eq("slack"), eq(List.of("C0123456789")));
         } finally {
             server.after();
         }
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void timeoutPatchRemovesOnlyTheSelectorOwnedByTheEvent() {
-        var workload = new DeploymentBuilder().withNewMetadata().withName("nginx-test").endMetadata()
-                .withNewSpec().withNewTemplate().withNewSpec().addToNodeSelector("zone", "a")
-                .addToNodeSelector("mcmp.io/rebalance-42", "event-7").endSpec().endTemplate().endSpec().build();
-        var client = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
-        NonNamespaceOperation<Deployment, DeploymentList, RollableScalableResource<Deployment>> deployments = mock(NonNamespaceOperation.class, RETURNS_DEEP_STUBS);
-        var list = new DeploymentList();
-        list.setItems(List.of(workload));
-        when(client.apps().deployments().inNamespace("default")).thenReturn(deployments);
-        when(deployments.withLabel("app.kubernetes.io/instance", "nginx-test").list()).thenReturn(list);
-        RollableScalableResource<Deployment> resource = mock(RollableScalableResource.class);
-        when(deployments.withName("nginx-test")).thenReturn(resource);
-        var history = DeploymentHistory.builder().id(42L).releaseName("nginx-test").build();
-        ReflectionTestUtils.invokeMethod(monitor, "clearTimedOutPlacement", history, ScalingEvent.builder().id(6L).build(), client);
-        ReflectionTestUtils.invokeMethod(monitor, "clearTimedOutPlacement", history, ScalingEvent.builder().id(7L).build(), client);
-        verify(resource).patch(any(PatchContext.class),
-                eq("[{\"op\":\"test\",\"path\":\"/spec/template/spec/nodeSelector/mcmp.io~1rebalance-42\",\"value\":\"event-7\"},{\"op\":\"remove\",\"path\":\"/spec/template/spec/nodeSelector/mcmp.io~1rebalance-42\"}]"));
+        var server = new KubernetesServer(false, true);
+        server.before();
+        try {
+            var client = server.getClient();
+            var workloads = client.apps().deployments().inNamespace("default");
+            String label = "mcmp.io/scale-out-42";
+            var workload = workloads.resource(new DeploymentBuilder().withNewMetadata().withName("nginx-test").endMetadata()
+                    .withNewSpec().withNewTemplate().withNewMetadata().addToLabels(label, "7").endMetadata()
+                    .withNewSpec().addToNodeSelector("zone", "a").addToNodeSelector(label, "7")
+                    .endSpec().endTemplate().endSpec().build()).create();
+            KubernetesScaleOutRollout.releasePlacement(client, "default", workload, ScalingEvent.builder().deploymentId(42L).id(6L).build());
+            assertThat(workloads.withName("nginx-test").get().getSpec().getTemplate().getSpec().getNodeSelector())
+                    .containsEntry(label, "7");
+            KubernetesScaleOutRollout.releasePlacement(client, "default", workload, ScalingEvent.builder().deploymentId(42L).id(7L).build());
+            var template = workloads.withName("nginx-test").get().getSpec().getTemplate();
+            assertThat(template.getSpec().getNodeSelector()).containsOnlyKeys("zone");
+            assertThat(template.getMetadata().getLabels()).doesNotContainKey(label);
+        } finally {
+            server.after();
+        }
+    }
+
+    private static void checkPendingScaleOut(KubernetesMonitoringService service, DeploymentHistory history,
+            KubernetesClient client) {
+        ReflectionTestUtils.invokeMethod(service, "handleK8sAutoscaling", history, ApplicationStatus.builder().build(),
+                client, "default");
     }
 
     @ParameterizedTest
@@ -224,7 +262,7 @@ class WorkloadRebalancingThresholdsTest {
         var events = mock(ScalingEventRepository.class);
         var autoscale = mock(K8sAutoscaleService.class);
         var tumblebug = mock(CbtumblebugRestApi.class);
-        var service = new KubernetesMonitoringService(null, null, null, events, null, samples, null, null, autoscale, tumblebug, null, null);
+        var service = new KubernetesMonitoringService(null, null, null, events, null, samples, null, null, autoscale, tumblebug, null, null, null);
         ReflectionTestUtils.setField(service, "defaultMaxNodes", workerCap);
         ReflectionTestUtils.setField(service, "autoscaleSampleIntervalSeconds", 10);
         ReflectionTestUtils.setField(service, "autoscaleEvaluationWindowSeconds", 20);
@@ -246,7 +284,8 @@ class WorkloadRebalancingThresholdsTest {
         when(tumblebug.getK8sClusterByName("project", "test")).thenReturn(cluster);
         var history = DeploymentHistory.builder().id(42L).namespace("project").clusterName("test").nodeGroupName("worker-group")
                 .releaseName("nginx-test").deploymentType(DeploymentType.K8S).hpaEnabled(true).maxReplicas(1)
-                .workloadRebalancingEnabled(true).cpuThreshold(60.0).rebalancingCpuThreshold(90.0).rebalancingMemoryThreshold(80.0).build();
+                .workloadRebalancingEnabled(true).cpuThreshold(60.0).rebalancingCpuThreshold(90.0).rebalancingMemoryThreshold(80.0)
+                .catalog(new SoftwareCatalog()).build();
         KubernetesServer server = new KubernetesServer(false, true);
         server.before();
         try {
@@ -254,10 +293,10 @@ class WorkloadRebalancingThresholdsTest {
             client.apps().deployments().inNamespace("default").resource(new DeploymentBuilder().withNewMetadata()
                     .withName("nginx-test").addToLabels("app.kubernetes.io/instance", "nginx-test").endMetadata().build()).create();
             ReflectionTestUtils.invokeMethod(service, "handleK8sAutoscaling", history,
-                    ApplicationStatus.builder().cpuUsage(cpu).memoryUsage(70.0).build(), client);
+                    ApplicationStatus.builder().cpuUsage(cpu).memoryUsage(70.0).build(), client, "default");
             if (expected) {
                 verify(autoscale).changeNodeGroupAutoscaleSize("project", "test", "worker-group",
-                        new K8sNodeGroupAutoscaleRequest("2", "4", "1"));
+                        new K8sNodeGroupAutoscaleRequest(2, 4, 1));
             } else {
                 verifyNoInteractions(autoscale);
             }

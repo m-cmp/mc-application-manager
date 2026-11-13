@@ -34,7 +34,7 @@ import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 class KubernetesMonitoringMemoryUsageTest {
 
     private final KubernetesMonitoringService service = new KubernetesMonitoringService(
-            null, null, null, null, null, null, null, null, null, null, null, null);
+            null, null, null, null, null, null, null, null, null, null, null, null, null);
 
     @ParameterizedTest
     @CsvSource({

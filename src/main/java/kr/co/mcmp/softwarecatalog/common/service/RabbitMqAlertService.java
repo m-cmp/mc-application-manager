@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +60,10 @@ public class RabbitMqAlertService {
      * @return 전송 성공 여부
      */
     public boolean sendScaleOutAlert(String title, String message, String channelName, String recipients) {
+        return recipients != null && sendScaleOutAlert(title, message, channelName, List.of(recipients));
+    }
+
+    public boolean sendScaleOutAlert(String title, String message, String channelName, List<String> recipients) {
         try {
             // RabbitMQ HTTP API URL 생성 (담당자 예시에 맞춤)
             String url = String.format("http://%s:%s/api/exchanges/%%2f%s/alert-manual.exchange/publish",
@@ -75,7 +80,7 @@ public class RabbitMqAlertService {
             alertMessage.setTitle(title);
             alertMessage.setMessage(message);
             alertMessage.setChannelName(channelName);
-            alertMessage.setRecipients(List.of(recipients));
+            alertMessage.setRecipients(recipients);
             
             // JSON 문자열로 변환
             String payload = objectMapper.writeValueAsString(alertMessage);
@@ -96,20 +101,15 @@ public class RabbitMqAlertService {
             HttpEntity<RabbitMqRequest> entity = new HttpEntity<>(request, headers);
             
             // RabbitMQ에 POST 요청
-            org.springframework.http.ResponseEntity<String> response = restTemplate.exchange(
-                    uri,
-                    HttpMethod.POST, 
-                    entity, 
-                    String.class
-            );
-            
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("Successfully sent alert to RabbitMQ: {}", response.getBody());
+            var response = restTemplate.exchange(uri, HttpMethod.POST, entity, JsonNode.class);
+            JsonNode body = response.getBody();
+            if (response.getStatusCode().is2xxSuccessful() && body != null
+                    && body.path("routed").booleanValue()) {
+                log.info("Successfully sent alert to RabbitMQ: {}", body);
                 return true;
-            } else {
-                log.error("Failed to send alert to RabbitMQ: {}", response.getStatusCode());
-                return false;
             }
+            log.warn("RabbitMQ did not route the alert: status={}, body={}", response.getStatusCode(), body);
+            return false;
             
         } catch (Exception e) {
             log.error("Error sending alert to RabbitMQ: {}", e.getMessage(), e);

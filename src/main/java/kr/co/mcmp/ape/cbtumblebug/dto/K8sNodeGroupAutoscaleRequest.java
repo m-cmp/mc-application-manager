@@ -11,13 +11,13 @@ import lombok.NoArgsConstructor;
 public class K8sNodeGroupAutoscaleRequest {
     
     @JsonProperty("desiredNodeSize")
-    private String desiredNodeSize;
+    private Integer desiredNodeSize;
     
     @JsonProperty("maxNodeSize")
-    private String maxNodeSize;
+    private Integer maxNodeSize;
     
     @JsonProperty("minNodeSize")
-    private String minNodeSize;
+    private Integer minNodeSize;
     
     // Manual 모드 지원: minNodeSize와 maxNodeSize를 null로 설정 가능
     public boolean includeAutoScalingParams() {
