@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -96,20 +97,15 @@ public class RabbitMqAlertService {
             HttpEntity<RabbitMqRequest> entity = new HttpEntity<>(request, headers);
             
             // RabbitMQ에 POST 요청
-            org.springframework.http.ResponseEntity<String> response = restTemplate.exchange(
-                    uri,
-                    HttpMethod.POST, 
-                    entity, 
-                    String.class
-            );
-            
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("Successfully sent alert to RabbitMQ: {}", response.getBody());
+            var response = restTemplate.exchange(uri, HttpMethod.POST, entity, JsonNode.class);
+            JsonNode body = response.getBody();
+            if (response.getStatusCode().is2xxSuccessful() && body != null
+                    && body.path("routed").booleanValue()) {
+                log.info("Successfully sent alert to RabbitMQ: {}", body);
                 return true;
-            } else {
-                log.error("Failed to send alert to RabbitMQ: {}", response.getStatusCode());
-                return false;
             }
+            log.warn("RabbitMQ did not route the alert: status={}, body={}", response.getStatusCode(), body);
+            return false;
             
         } catch (Exception e) {
             log.error("Error sending alert to RabbitMQ: {}", e.getMessage(), e);

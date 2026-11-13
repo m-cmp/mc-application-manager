@@ -156,12 +156,6 @@ k8s:
     test-cpu-threshold: ${K8S_TEST_CPU_THRESHOLD:0.0001}  # 테스트 모드 CPU 임계값 (%) - 매우 낮게 설정
     test-memory-threshold: ${K8S_TEST_MEMORY_THRESHOLD:0.0001}  # 테스트 모드 Memory 임계값 (%) - 매우 낮게 설정
 
-cost-alarm:
-  slack:
-    url: "${COST_ALARM_SLACK_URL:http://mc-cost-optimizer-alarm-service:9000/api/costopti/alert/sendSlackAC}"
-    user-id: "${COST_ALARM_SLACK_USER_ID:mcmp-user}"
-    cluster-name: ${COST_ALARM_SLACK_CLUSTER:}
-
 rabbitmq:
   alert:
     url: ${RABBITMQ_URL:210.207.104.130}
@@ -169,7 +163,8 @@ rabbitmq:
     vhost: ${RABBITMQ_VHOST:test}
     username: ${RABBITMQ_USERNAME:mc-agent}
     password: ${RABBITMQ_PASSWORD:mc-agent}
-    slack-channel-id: ${ALERT_SLACK_CHANNEL_ID:}
+    # Shared by all AM scale-out Slack notifications. Set a channel ID here or via ALERT_SLACK_CHANNEL_ID.
+    slack-channel-id: "${ALERT_SLACK_CHANNEL_ID:}"
     email: ${ALERT_EMAIL:}
     sms-phonenumber: ${ALERT_SMS_PHONE_NUMBER:}
     kakao-phonenumber: ${ALERT_KAKAO_PHONE_NUMBER:}

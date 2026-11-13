@@ -109,10 +109,7 @@ services:
       - RABBITMQ_VHOST=test
       - RABBITMQ_USERNAME=mc-agent
       - RABBITMQ_PASSWORD=mc-agent
-      - ALERT_SLACK_CHANNEL_ID=#kubernetes-alerts
-      - COST_ALARM_SLACK_URL
-      - COST_ALARM_SLACK_USER_ID
-      - COST_ALARM_SLACK_CLUSTER
+      - ALERT_SLACK_CHANNEL_ID
     healthcheck: # for cb-application-manager
       test: ["CMD", "nc", "-vz", "localhost", "1324"]
       interval: 1m

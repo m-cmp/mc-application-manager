@@ -56,16 +56,19 @@ You can customize the following environment variables in the docker-compose.yaml
 - OBJECT_STORAGE_GATEWAY_PUBLIC_BASE_URL : Application Manager URL reachable from deployed VMs (for example, `http://<Public_IP>:18084`). Required for Jupyter Object Storage access.
 - Edit these environment variables according to your needs.
 
-#### Kubernetes scale-out alerts through Cost Alarm
+#### Kubernetes scale-out alerts through Observability
 
-The AM image includes defaults for an integrated M-CMP deployment. Register the Slack channel for `mcmp-user` in Cost Alarm before testing automatic delivery.
+After the replacement Pods on the new node are Ready, AM publishes the scale-out completion alert to the Observability RabbitMQ broker. The Slack destination is shared by all AM scale-out notifications. Configure it once in AM's application.yaml using the Slack channel ID.
 
-- `COST_ALARM_SLACK_URL` defaults to `http://mc-cost-optimizer-alarm-service:9000/api/costopti/alert/sendSlackAC`.
-- `COST_ALARM_SLACK_USER_ID` defaults to `mcmp-user`.
-- `COST_ALARM_SLACK_CLUSTER` is empty by default, so the route applies to all Kubernetes clusters that AM monitors. Set the MCMP cluster name to limit the route to a specific cluster.
-- `K8S_TEST_MODE` defaults to `false`, so AM uses the CPU and memory thresholds configured for each application.
+```yaml
+rabbitmq:
+  alert:
+    slack-channel-id: "C0123456789"
+```
 
-AM calls Cost Alarm after the replacement Pods on the new node are Ready. Cost Alarm owns the Slack credentials, channel configuration, and delivery. To use the existing RabbitMQ Slack route, pass an explicitly empty `COST_ALARM_SLACK_URL` or `COST_ALARM_SLACK_USER_ID` to the AM container and configure the RabbitMQ Slack channel.
+Replace the example ID with the destination channel ID. You can also use the existing ALERT_SLACK_CHANNEL_ID environment variable. With an AM image built from the configured application.yaml, mc-admin-cli already supplies the Observability RabbitMQ hostname. Observability uses its configured SLACK_OAUTH_TOKEN to post to the specified channel. Add the Slack bot to that channel and verify the scale-out completion message in Slack.
+
+K8S_TEST_MODE defaults to false, so AM uses the CPU and memory thresholds configured for each application.
 
 ### Step 3: Install and Run Docker Compose
 To bring up the mc-application-manager service along with its dependencies, run the following command:

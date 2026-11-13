@@ -624,30 +624,6 @@
                     placeholder="10"
                     v-model="hpaData.hpaMaxReplicas" />
                 </div>
-
-                <!-- CPU -->
-                <div>
-                  <label class="form-check-label mb-2">
-                    CPU (%)
-                  </label>
-                  <input
-                    type="number"
-                    class="form-control w-80-per d-inline"
-                    placeholder="60"
-                    v-model="hpaData.hpaCpuUtilization" /> %
-                </div>
-
-                <!-- Memory -->
-                <div>
-                  <label class="form-check-label mb-2">
-                    MEMORY (%)
-                  </label>
-                  <input
-                    type="number"
-                    class="form-control w-80-per d-inline"
-                    placeholder="80"
-                    v-model="hpaData.hpaMemoryUtilization" /> %
-                </div>
               </div>
             </div>
 
@@ -665,6 +641,35 @@
                   <label class="form-check-label" for="workloadRebalancingEnabled">
                     Enable Workload Rebalancing
                   </label>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="mb-3"
+              v-if="modalTitle == 'Application Installation' && (hpaData.hpaEnabled || workloadRebalancingEnabled)">
+              <label class="form-label">Resource Thresholds</label>
+              <p v-if="hpaData.hpaEnabled && workloadRebalancingEnabled" class="text-muted mb-2">
+                HPA and Workload Rebalancing use the same thresholds.
+              </p>
+              <div class="d-flex gap-3">
+                <div class="flex-fill">
+                  <label class="form-label" for="k8sCpuThreshold">CPU (%)</label>
+                  <input
+                    id="k8sCpuThreshold"
+                    type="number"
+                    class="form-control"
+                    placeholder="60"
+                    v-model="hpaData.cpuThreshold" />
+                </div>
+                <div class="flex-fill">
+                  <label class="form-label" for="k8sMemoryThreshold">Memory (%)</label>
+                  <input
+                    id="k8sMemoryThreshold"
+                    type="number"
+                    class="form-control"
+                    placeholder="80"
+                    v-model="hpaData.memoryThreshold" />
                 </div>
               </div>
             </div>
@@ -1386,8 +1391,8 @@ const setInit = async () => {
     hpaEnabled: false,
     hpaMinReplicas: 1,
     hpaMaxReplicas: 10,
-    hpaCpuUtilization: 60,
-    hpaMemoryUtilization: 80
+    cpuThreshold: 60,
+    memoryThreshold: 80
   }
   workloadRebalancingEnabled.value = false
   ingressData.value = {
@@ -2059,8 +2064,8 @@ const runInstall = async () => {
         hpaEnabled: hpaData.value.hpaEnabled,
         minReplicas: hpaData.value.hpaMinReplicas,
         maxReplicas: hpaData.value.hpaMaxReplicas,
-        cpuThreshold: hpaData.value.hpaCpuUtilization,
-        memoryThreshold: hpaData.value.hpaMemoryUtilization,
+        cpuThreshold: hpaData.value.cpuThreshold,
+        memoryThreshold: hpaData.value.memoryThreshold,
         workloadRebalancingEnabled: workloadRebalancingEnabled.value,
         resourceType: selectedResourceType.value,
         ...buildIngressPayload(),
@@ -2574,8 +2579,8 @@ const onChangeCatalog = async () => {
       hpaEnabled: Boolean(catalogInfo.hpaEnabled),
       hpaMinReplicas: catalogInfo.minReplicas || 1,
       hpaMaxReplicas: catalogInfo.maxReplicas || 10,
-      hpaCpuUtilization: catalogInfo.cpuThreshold || 60,
-      hpaMemoryUtilization: catalogInfo.memoryThreshold || 80
+      cpuThreshold: catalogInfo.cpuThreshold || 60,
+      memoryThreshold: catalogInfo.memoryThreshold || 80
     }
     ingressData.value = {
       ingressEnabled: Boolean(catalogInfo.ingressEnabled),
