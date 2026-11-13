@@ -60,6 +60,10 @@ public class RabbitMqAlertService {
      * @return 전송 성공 여부
      */
     public boolean sendScaleOutAlert(String title, String message, String channelName, String recipients) {
+        return recipients != null && sendScaleOutAlert(title, message, channelName, List.of(recipients));
+    }
+
+    public boolean sendScaleOutAlert(String title, String message, String channelName, List<String> recipients) {
         try {
             // RabbitMQ HTTP API URL 생성 (담당자 예시에 맞춤)
             String url = String.format("http://%s:%s/api/exchanges/%%2f%s/alert-manual.exchange/publish",
@@ -76,7 +80,7 @@ public class RabbitMqAlertService {
             alertMessage.setTitle(title);
             alertMessage.setMessage(message);
             alertMessage.setChannelName(channelName);
-            alertMessage.setRecipients(List.of(recipients));
+            alertMessage.setRecipients(recipients);
             
             // JSON 문자열로 변환
             String payload = objectMapper.writeValueAsString(alertMessage);

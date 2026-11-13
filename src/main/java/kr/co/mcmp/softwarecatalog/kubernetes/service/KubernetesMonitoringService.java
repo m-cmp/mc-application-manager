@@ -80,6 +80,7 @@ public class KubernetesMonitoringService {
     private final CbtumblebugRestApi cbtumblebugRestApi;
     private final RabbitMqAlertService rabbitMqAlertService;
     private final KubernetesMetricsApiService kubernetesMetricsApiService;
+    private final ObservabilitySlackRecipients observabilitySlackRecipients;
 
     /** Last snapshot timestamp per deployment ID — controls the 10-minute interval */
     private final java.util.concurrent.ConcurrentHashMap<Long, LocalDateTime> lastSnapshotTime =
@@ -1607,18 +1608,20 @@ public class KubernetesMonitoringService {
                     appName, newNodeCount, clusterName, namespace
             );
 
-            String recipients = defaultSlackChannelId;
-            if (StringUtils.isNotBlank(recipients)) {
-                boolean sent = rabbitMqAlertService.sendScaleOutAlert(title, message, "slack", recipients);
-                if (sent) {
-                    log.info("Scale out alert (slack) sent successfully for {} to {} nodes", appName, newNodeCount);
+            List<String> slackRecipients = StringUtils.isNotBlank(defaultSlackChannelId)
+                    ? List.of(defaultSlackChannelId)
+                    : observabilitySlackRecipients.findScaleOutRecipients();
+            if (!slackRecipients.isEmpty()) {
+                boolean published = rabbitMqAlertService.sendScaleOutAlert(title, message, "slack", slackRecipients);
+                if (published) {
+                    log.info("Scale out alert (slack) published to RabbitMQ for {} to {} nodes", appName, newNodeCount);
                 } else {
-                    log.warn("Failed to send scale out alert (slack) for {}", appName);
+                    log.warn("Failed to publish scale out alert (slack) for {}", appName);
                 }
             }
 
             // Email
-            recipients = defaultEmail;
+            String recipients = defaultEmail;
             if (StringUtils.isNotBlank(recipients)) {
                 boolean sent = rabbitMqAlertService.sendScaleOutAlert(title, message, "email", recipients);
                 if (sent) {

@@ -58,15 +58,11 @@ You can customize the following environment variables in the docker-compose.yaml
 
 #### Kubernetes scale-out alerts through Observability
 
-After the replacement Pods on the new node are Ready, AM publishes the scale-out completion alert to the Observability RabbitMQ broker. The Slack destination is shared by all AM scale-out notifications. Configure it once in AM's application.yaml using the Slack channel ID.
+In **Monitorings → Alert → Policies**, create a policy titled `AM K8s 증설 알림`. Under **Notification channels**, enable Slack and enter the destination channel IDs, separated by commas. Leave **Alarm targets** empty when using the policy only for AM scale-out notifications.
 
-```yaml
-rabbitmq:
-  alert:
-    slack-channel-id: "C0123456789"
-```
+After the replacement Pods on the new node are Ready, AM reads the policy and publishes the alert with its active Slack recipients to the Observability RabbitMQ broker. Observability sends the message using its `SLACK_OAUTH_TOKEN`. Add the Slack bot to the destination channels.
 
-Replace the example ID with the destination channel ID. You can also use the existing ALERT_SLACK_CHANNEL_ID environment variable. With an AM image built from the configured application.yaml, mc-admin-cli already supplies the Observability RabbitMQ hostname. Observability uses its configured SLACK_OAUTH_TOKEN to post to the specified channel. Add the Slack bot to that channel and verify the scale-out completion message in Slack.
+An integrated installation with `mc-admin-cli` uses the internal Observability service address. Install a release that selects an AM image with this feature. The existing `ALERT_SLACK_CHANNEL_ID` is optional and takes precedence over the policy when set.
 
 K8S_TEST_MODE defaults to false, so AM uses the CPU and memory thresholds configured for each application.
 

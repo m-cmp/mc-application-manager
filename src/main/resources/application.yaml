@@ -156,6 +156,10 @@ k8s:
     test-cpu-threshold: ${K8S_TEST_CPU_THRESHOLD:0.0001}  # 테스트 모드 CPU 임계값 (%) - 매우 낮게 설정
     test-memory-threshold: ${K8S_TEST_MEMORY_THRESHOLD:0.0001}  # 테스트 모드 Memory 임계값 (%) - 매우 낮게 설정
 
+observability:
+  alert:
+    base-url: http://mc-observability-manager:18080
+
 rabbitmq:
   alert:
     url: ${RABBITMQ_URL:210.207.104.130}
@@ -163,7 +167,7 @@ rabbitmq:
     vhost: ${RABBITMQ_VHOST:test}
     username: ${RABBITMQ_USERNAME:mc-agent}
     password: ${RABBITMQ_PASSWORD:mc-agent}
-    # Shared by all AM scale-out Slack notifications. Set a channel ID here or via ALERT_SLACK_CHANNEL_ID.
+    # Optional override for Slack recipients resolved from the Monitoring policy.
     slack-channel-id: "${ALERT_SLACK_CHANNEL_ID:}"
     email: ${ALERT_EMAIL:}
     sms-phonenumber: ${ALERT_SMS_PHONE_NUMBER:}
